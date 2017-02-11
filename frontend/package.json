@@ -1,0 +1,41 @@
+{
+  "name": "tsc-react-example",
+  "version": "1.0.0",
+  "dependencies": {
+    "@types/jquery": "^2.0.40",
+    "@types/material-ui": "^0.16.50",
+    "@types/react-redux": "^4.4.36",
+    "@types/react-tap-event-plugin": "0.0.30",
+    "@types/redux-devtools": "^3.0.37",
+    "@types/xterm": "^2.0.2",
+    "hterm": "^2.0.2",
+    "hterm-umd": "^1.0.1",
+    "material-ui": "^0.16.7",
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "react-redux": "^5.0.2",
+    "react-tap-event-plugin": "^2.0.1",
+    "redux": "^3.6.0",
+    "redux-devtools": "^3.3.2",
+    "redux-thunk": "^2.2.0",
+    "terminal-js": "^1.0.2",
+    "typescript": "^2.2.0",
+    "xterm": "^2.2.3"
+  },
+  "devDependencies": {
+    "@types/jquery": "^2.0.34",
+    "@types/react": "^15.0.6",
+    "@types/react-dom": "^0.14.22",
+    "awesome-typescript-loader": "^3.0.3",
+    "browserify": "^11.0.0",
+    "del": "^1.2.0",
+    "gulp": "^3.9.0",
+    "gulp-typescript": "^2.8.0",
+    "jquery": "^3.1.1",
+    "path": "^0.12.7",
+    "source-map-loader": "^0.1.6",
+    "typescript": "^2.2.0-dev.20170206",
+    "vinyl-source-stream": "^1.1.0",
+    "webpack": "^2.2.1"
+  }
+}

@@ -1,0 +1,7 @@
+/frontend/node_modules
+/frontend/public/js
+/server/build
+/server/node_modules
+.vscode
+*~
+.#*
