@@ -2,7 +2,7 @@
 
 import asyncio, json, sys, base64, tempfile, os
 from concurrent.futures import ThreadPoolExecutor
-import logging, traceback
+import logging, traceback, ssl
 
 io_pool_exc = ThreadPoolExecutor()
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
@@ -48,7 +48,7 @@ def job(func):
             logging.error(traceback.format_exc())
             await output_queue.put({'type': 'failure', 'id':id, 'failure_type': type(e).__name__, 'message': str(e)})
         finally:
-            logging.debug("%d: finished"%id)
+            logging.info("%d: finished"%id)
             if id in running_jobs:
                 del running_jobs[id]
     return inner
@@ -87,8 +87,9 @@ async def script_input_handler(stdin, input_queue):
         obj = await input_queue.get()
         if obj == None:
             stdin.close()
+            break
         if 'data' in obj:
-            stdin.write(base64.b64decode(item['data']))
+            stdin.write(base64.b64decode(obj['data']))
             await stdin.drain()
         if obj['type'] == 'close':
             stdin.close()
@@ -96,7 +97,7 @@ async def script_input_handler(stdin, input_queue):
 
 async def script_output_handler(id, reader, src, output_queue, type):
     """Read data from stdout or std err"""
-    part = b'';
+    part = b''
     while True:
         if type == 'blocked_json':
             try:
@@ -152,13 +153,12 @@ async def run_script(obj, output_queue, input_queue):
         await asyncio.wait(lst)
         logging.info("Waiting for process")
         code = await proc.wait()
+        logging.info("Script done %d %d"%(obj[id], code))
         return {'type': 'success', 'code': code} 
 
 ############################################################################################################################
 # Jobs for pty access
 ############################################################################################################################
-
-#Todo
     
 ############################################################################################################################
 # Jobs for reading and writing files
@@ -249,8 +249,10 @@ async def package_sender(writer, output_queue):
         item = await output_queue.get()
         if item == None: break
         writer.write(json.dumps(item).encode("utf-8", "strict"))
-        writer.write(b'\0')
+        writer.write(b'\36')
         await writer.drain()
+    writer.write(b'\4')
+    await writer.drain()
 
 async def client():
     jobtypes = {
@@ -281,15 +283,26 @@ async def client():
     }
 
     try:
+        sc = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        sc.check_hostname = False
+        sc.load_verify_locations('cert.pem')
+
         output_queue = asyncio.Queue(100)
-        reader, writer = await asyncio.open_connection('127.0.0.1', 8888)    
+        reader, writer = await asyncio.open_connection('127.0.0.1', 8888, ssl=sc)
+
+
+        writer.write(json.dumps({'type': 'auth', 'hostname': 'navi', 'password': 'IeghaeNgaKaht7ai'}).encode("utf-8", "strict"))
+        writer.write(b'\36')
+        await writer.drain()
+
+
         logging.info("Connected to server")                          
         sender = asyncio.ensure_future(package_sender(writer, output_queue))
   
         running_jobs = {} #Map from id to job descriptor
         while True:
             try:
-                package = await reader.readuntil(b'\0')
+                package = await reader.readuntil(b'\36')
             except asyncio.streams.IncompleteReadError:
                 break
             if not package: break
@@ -310,17 +323,20 @@ async def client():
                         input_queue = None
                         task = asyncio.ensure_future(jt['func'](running_jobs, obj, output_queue))
                     running_jobs[id] = {'task': task, 'input_queue': input_queue, 'type': t}
-                elif not id not in running_jobs:
-                    raise JobError(id, "No job with the given id is running")
+                elif id not in running_jobs:
+                    raise JobError(id, "No job with the given id %d is running"%id)
                 elif t == 'cancel':
-                    logging.info("%s: cancle")
-                    running_jobs['id'].task.cancel()
-                elif running_jobs['id'].input_queue == None:
+                    logging.info("%s: cancle", id)
+                    running_jobs[id]['task'].cancel()
+                elif t == 'kill':
+                    logging.info("%s: kill", id)
+                    running_jobs[id]['task'].cancel()
+                elif running_jobs[id]['input_queue'] == None:
                     raise JobError(id, "Does not accept input")
                 elif t not in ('done', 'data'):
                     raise JobError(id, "Unknown command type")
                 else:
-                    await running_jobs['id'].input_queue.put(obj)
+                    await running_jobs[id]['input_queue'].put(obj)
             except Exception as e:
                 logging.error("%s: %s: %s"%(id, type(e).__name__, str(e)))
                 await output_queue.put({'type': 'failure', 'id':id, 'failure_type': type(e).__name__, 'message': str(e)})
