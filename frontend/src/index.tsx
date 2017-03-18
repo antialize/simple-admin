@@ -36,11 +36,30 @@ function MainPageImpl(props: Props) {
     case State.PAGE_TYPE.ObjectList:
         return <div><h1>List of {p.class}</h1><ObjectList class={p.class} /></div>
     case State.PAGE_TYPE.Object:
-        return <div><h1>Object</h1><Object class={p.class} id={p.id} version={p.version} /> </div>
+        return <div><Object class={p.class} id={p.id} version={p.version} /> </div>
     }
 }
 
 export let MainPage = connect(mapStateToProps)(MainPageImpl);
+
+export interface ActionTarget {
+    handle: (action:IAction) => boolean;
+}
+
+const actionTargets: {[action:number]: ActionTarget[]} = {};
+
+export function addActionTarget(action:ACTION, target:ActionTarget) {
+    if (!(action in actionTargets)) actionTargets[action] = [];
+    actionTargets[action].push(target);
+}
+ 
+export function removeActionTarget(action:ACTION, target:ActionTarget) {
+    actionTargets[action] =  actionTargets[action].filter((t)=>t !== target);
+}
+
+export function sendMessage(action:IAction) {
+    socket.send(JSON.stringify(action));
+}
 
 const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (action:IAction) => { 
     switch(action.type) {
@@ -53,7 +72,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
                     type: ACTION.FetchObject,
                     id: action.page.id
                 };
-                socket.send(JSON.stringify(a));
+                sendMessage(a);
             }
             break;
         }
@@ -63,23 +82,20 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
 }
     
 
-
-//import { persistState, D } from 'redux-devtools';
-//import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
-//let t = new XTerm();
-//t.open(document.getElementById("main"));
-//t.write('Hello from \033[1;3;31mxterm.js\033[0m $ ');
-
 let store = createStore(mainReducer, applyMiddleware(handleRemote)) as Store<IMainState>;
 
 let socket = new WebSocket('wss://127.0.0.1:8001/sysadmin');
 
 socket.onmessage = (data=>{
     let d = JSON.parse(data.data) as IAction;
+    if (d.type in actionTargets) {
+        for (const t of actionTargets[d.type])
+            if (t.handle(d)) 
+                return;
+    }
     store.dispatch(d);
     switch (d.type) {
     case ACTION.SetInitialState:
-        console.log("SetInitialState");
         store.dispatch({
             type: ACTION.SetPage,
             page: page.get()})
@@ -127,24 +143,3 @@ ReactDOM.render(
             </Provider>
         </MuiThemeProvider>
     </div>,document.getElementById("main") );
-/*
-let terminalContainer = document.getElementById('terminal');
-let term = new Terminal({cursorBlink: true, scrollback: 10000});
-term.open(terminalContainer);
-term.on('resize', function (size:any) {console.log(size.cols, size.rows);})
-
-let s = new WebSocket('ws://127.0.0.1:8000/terminal?server=cookie&cols=80&rows=50');
-s.onopen = ()=>{
-    term.attach(s);
-    term._initialized = true;
-}*/
-
-
-
-
-//term.fit();
- // var initialGeometry = term.proposeGeometry(),
-  //    cols = initialGeometry.cols,
-  //    rows = initialGeometry.rows;
-
-

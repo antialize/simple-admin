@@ -7,6 +7,7 @@ import { connect, Dispatch } from 'react-redux';
 import {Box} from './box'
 import {Services} from './services'
 import {HostTerminals} from './terminal'
+import {Log} from './log'
 
 interface ExternProps {
     id: number;
@@ -33,6 +34,12 @@ export function HostExtra(props:ExternProps) {
             </Box>
             <Box title="Terminal" collapsable={true}>
                 <HostTerminals id={props.id} />
+            </Box>
+            <Box title="Journal" collapsable={true}>
+                <Log type="journal" host={props.id} />
+            </Box>
+            <Box title="Dmesg" collapsable={true}>
+                <Log type="dmesg" host={props.id} />
             </Box>
         </div>)
 }

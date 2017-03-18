@@ -1,13 +1,14 @@
 import * as http from 'http';
 import * as https from 'https';
-import {IAction, ACTION, ISetInitialState, IObjectChanged} from '../../shared/actions'
+import {IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines} from '../../shared/actions'
 import * as express from 'express';
 import {IObject} from '../../shared/state'
+import * as message from './messages'
 
 //import * as expressWS from 'express-ws';
 import * as WebSocket from 'ws';
 import * as url from 'url';
-import {ShellJob, hostClients, JobOwner, HostClient} from './hostclient';
+import {ShellJob, Job, hostClients, JobOwner, HostClient} from './hostclient';
 import * as fs from 'fs';
 import * as db from './db'
 
@@ -24,11 +25,64 @@ const server = http.createServer(app);
 const server2 = https.createServer(credentials, app);
 
 const wss = new WebSocket.Server({ server: server2 });
-
 export let webclients = new Set<WebClient>();
+
+class LogJob extends Job {  
+    part: string = "";
+
+    constructor(hostClient: HostClient, public webclient: WebClient, public wcid: number, public logType: string, public unit?: string) {
+        super(hostClient, null, webclient);
+        this.webclient.logJobs[this.wcid] = this;
+        let args = [logType];
+        if (unit) args.push(unit);
+        console.log("HERE");
+        let msg: message.RunScript = {
+            'type': 'run_script', 
+            'id': this.id, 
+            'name': 'log.py', 
+            'interperter': '/usr/bin/python3', 
+            'content': fs.readFileSync('log.py', 'utf-8'),
+            'args': args,
+            'stdin_type': 'none',
+            'stdout_type': 'text'
+        };
+        this.client.sendMessage(msg);
+        this.running = true;
+    }
+
+    handleMessage(obj: message.Incomming) {
+        switch(obj.type) {
+        case 'data':
+            if (obj.source == 'stdout') {
+                const lines = (this.part + obj.data).split('\n');
+                this.part = lines.pop();
+                if (lines.length != 0) {
+                    const msg:IAddLogLines = {
+                        type: ACTION.AddLogLines,
+                        id: this.wcid,
+                        lines: lines
+                    }
+                    this.webclient.sendMessage(msg);
+                }             
+            }
+            break;
+        default:
+            super.handleMessage(obj);
+        }
+    }
+
+    kill() {
+        if (this.wcid in this.webclient.logJobs)
+            delete this.webclient.logJobs[this.wcid];
+        super.kill();
+    }
+}
+
 
 export class WebClient extends JobOwner {
     connection: WebSocket;
+
+    logJobs: {[id: number]: Job} = {};
 
     constructor(socket: WebSocket) {
         super()
@@ -60,6 +114,18 @@ export class WebClient extends JobOwner {
             }
             this.sendMessage(res);
             break;
+
+        case ACTION.StartLog:
+            console.log("START LOG", act.host);
+            if (act.host in hostClients) {
+                
+                new LogJob(hostClients[act.host], this, act.id, act.logtype, act.unit);
+            }
+            break;
+        case ACTION.EndLog:
+            console.log("END LOG", act.host);
+            if (act.id in this.logJobs)
+                this.logJobs[act.id].kill();
         default:
             console.log(act);
         }
@@ -87,10 +153,10 @@ async function sendInitialState(c: WebClient) {
         action.objectNamesAndIds[row.type].push({id: row.id, name:row.name});
     }
 
-    hostClients.forEach( (c) => {
-        if (c.auth === true && c.id !== null)
-            action.statuses[c.id] = c.status;
-    });
+    for (const id in hostClients) {
+        const c = hostClients[id];
+        action.statuses[c.id] = c.status;
+    }
 
     c.sendMessage(action);
 }
@@ -106,9 +172,8 @@ wss.on('connection', (ws)=>{
         const server = u.query.server as number;
         const cols = u.query.cols as number;
         const rows = u.query.rows as number;
-        let some=null;
-        hostClients.forEach((c)=>{some=c;});
-        new ShellJob(some, ws, cols, rows);
+        if (server in hostClients)
+            new ShellJob(hostClients[server], ws, cols, rows);
     } else {
         console.log("Bad socket", u);
         ws.close();

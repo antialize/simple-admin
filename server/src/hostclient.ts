@@ -9,8 +9,9 @@ import * as tls from 'tls';
 import * as crypto from 'crypto';
 import * as db from './db'
 
-export let hostClients = new Set<HostClient>();
+export const hostClients:{[id:number]:HostClient} = {};
 let hostServer: net.Server;
+
 
 export class JobOwner {
     jobs: {[id:number]: Job} = {};
@@ -182,7 +183,8 @@ export class HostClient extends JobOwner {
     onClose() {
         if (!this.auth) return;
         console.log("Client", this.hostname, "disconnected");
-        hostClients.delete(this);
+        if (this.id in hostClients)
+            delete hostClients[this.id];
         this.kill();
     }
 
@@ -216,7 +218,7 @@ export class HostClient extends JobOwner {
                 this.auth = true;
                 this.id = id;
                 new StatusJob(this);
-                hostClients.add(this);
+                hostClients[this.id] = this;
             } else {
                 console.log("Client from", this.socket.remoteAddress, this.socket.remotePort, "invalid auth", obj);
                 this.auth = false;
@@ -271,7 +273,7 @@ export function startServer() {
 
     hostServer = tls.createServer(options, socket=>{
         console.log("Client connected from", socket.remoteAddress, socket.remotePort);
-        hostClients.add(new HostClient(socket));
+        new HostClient(socket);
     });
     hostServer.listen(8888, '127.0.0.1');
 }

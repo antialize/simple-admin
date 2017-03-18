@@ -6,8 +6,8 @@ export interface RunScript {
     content: string;
     args: string[];
     stdin_type?: 'none' | 'binary' | 'string' | 'blocked_json';
-    stdout_type?: 'none' | 'binary' | 'string' | 'blocked_json';
-    stderr_type?: 'none' | 'binary' | 'string' | 'blocked_json';
+    stdout_type?: 'none' | 'binary' | 'text' | 'blocked_json';
+    stderr_type?: 'none' | 'binary' | 'text' | 'blocked_json';
 }
 
 export interface Kill {

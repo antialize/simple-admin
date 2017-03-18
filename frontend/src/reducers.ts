@@ -76,10 +76,8 @@ function status(state: IStatuses = {} , action: IAction) {
         if (action.host in state)
             old = state[action.host];
         x[action.host] = applyStatusUpdate(old, action.update);
-        console.log("Update status", action.update);
         return Object.assign({}, state, x);
     case ACTION.SetInitialState:
-        console.log(action.statuses);
         return action.statuses;
     default:
         return state;

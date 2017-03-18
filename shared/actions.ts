@@ -1,7 +1,7 @@
 import {IStatus, IStatusUpdate} from './status';
 import {IPage, INameIdPair, IObject} from './state';
 
-export enum ACTION {UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged, SetServiceListFilter, PokeService}
+export enum ACTION {UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged, SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog}
 
 
 export interface IUpdateStatusAction {
@@ -53,4 +53,24 @@ export interface IPokeService {
     service: string;
 }
 
-export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService;
+export interface IStartLog {
+    type: ACTION.StartLog;
+    host: number;
+    logtype: 'file' | 'dmesg' | 'journal'
+    id: number;
+    unit?: string;
+}
+
+export interface IEndLog {
+    type: ACTION.EndLog;
+    host: number;
+    id: number;
+}
+
+export interface IAddLogLines {
+    type: ACTION.AddLogLines;
+    id: number;
+    lines: string[];
+}
+
+export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog | IAddLogLines;
