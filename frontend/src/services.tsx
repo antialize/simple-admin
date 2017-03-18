@@ -23,15 +23,12 @@ interface DispatchProps {
 }
 
 function mapStateToProps(state:IMainState, props:ExternProps): StateProps {
-    let name = null;
-    for (var p of state.objectNamesAndIds['host']) {
-        if (p.id === props.id)
-            name = p.name;
-    }
     const filter = state.serviceListFilter[props.id];
-    const lst = state.status[name].services.filter((x)=>(!filter|| x.name.indexOf(filter) != -1));
-    lst.sort((a,b)=>(a.name < b.name ?-1: 1));
-    return {id: props.id, name: name, services: lst, filter: filter}
+    const services = state.status[props.id].services;
+    console.log(services);
+    const lst = Object.keys(services).filter((x)=>(!filter|| x.indexOf(filter) != -1));
+    lst.sort();
+    return {id: props.id, name: name, services: lst.map((name:string)=>services[name]), filter: filter}
 }
 
 function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:ExternProps): DispatchProps {

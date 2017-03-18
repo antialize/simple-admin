@@ -1,5 +1,5 @@
-import {ISetStatusAction, IAction, ACTION} from '../../shared/actions'
-import {IStatus, IStatuses} from '../../shared/status'
+import {IUpdateStatusAction, IAction, ACTION} from '../../shared/actions'
+import {IStatus, IStatuses, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
 import {Reducer, combineReducers} from 'redux';
 import {IPage, PAGE_TYPE, IObject, INameIdPair} from '../../shared/state'
 
@@ -70,11 +70,16 @@ function objectListFilter(state: {[cls:string]:string} = {}, action:IAction) {
 
 function status(state: IStatuses = {} , action: IAction) {
     switch (action.type) {
-    case ACTION.SetStatus:
+    case ACTION.UpdateStatus:
         let x:IStatuses = {};
-        x[action.name] = action.status;
+        let old = null;
+        if (action.host in state)
+            old = state[action.host];
+        x[action.host] = applyStatusUpdate(old, action.update);
+        console.log("Update status", action.update);
         return Object.assign({}, state, x);
     case ACTION.SetInitialState:
+        console.log(action.statuses);
         return action.statuses;
     default:
         return state;

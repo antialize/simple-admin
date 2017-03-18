@@ -12,12 +12,7 @@ interface ExternProps {
     id: number;
 }
 function mapStateToProps(state:IMainState, props:ExternProps): IStatus {
-    let name = null;
-    for (var p of state.objectNamesAndIds['host']) {
-        if (p.id === props.id)
-            name = p.name;
-    }
-    return state.status[name]
+    return state.status[props.id]
 }
 
 export function SpecificStatusImpl(props:IStatus) {

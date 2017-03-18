@@ -41,12 +41,12 @@ export function getObjectByID(id:number) {
 }
 
 export function getHostContentByName(hostname:string) {
-    return new Promise<any>(cb => {
-        db.get("SELECT `content` FROM `objects` WHERE `type` = 'host' AND `name`=? AND `newest`=1", [hostname], 
+    return new Promise<{id: number, content: any}>(cb => {
+        db.get("SELECT `id`, `content` FROM `objects` WHERE `type` = 'host' AND `name`=? AND `newest`=1", [hostname], 
             (err, row) => {
                 if (row === undefined)
                     cb(null);
                 else
-                    cb(JSON.parse(row['content']))
+                    cb({id: row['id'], content: JSON.parse(row['content'])})
             })});
 }
