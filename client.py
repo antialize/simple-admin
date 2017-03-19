@@ -43,6 +43,8 @@ def job(func):
             else:
                 log.error("%d: Unknown error"%id)
                 await output_queue.put({'type': 'failure', 'id':id, 'failure_type': 'unknown'})
+        except asyncio.CancelledError as e:
+            await output_queue.put({'type': 'failure', 'id':id, 'failure_type': type(e).__name__, 'message': str(e)})
         except Exception as e:
             logging.error("%d: %s : %s"%(id,  type(e).__name__, str(e)))
             logging.error(traceback.format_exc())
@@ -63,23 +65,25 @@ async def run_instant(obj, output_queue):
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=obj['name']) as f:
         f.write(obj['content'])
         f.flush()
-        proc = await asyncio.create_subprocess_exec(
-            obj['interperter'], f.name, *obj['args'], stdin=None, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
-        stdout, stderr = await proc.communicate()
-        code = await proc.wait()
-        if code != 0:
-            return {'type': 'failure', 'failure_type': 'script', 'code': code, 'stdout': stdout.decode('utf-8', 'replace'), 'stderr': stderr.decode('utf-8', 'replace')}
-        if obj['output_type'] == 'base64':
-            data = base64.b64encode(stdout).decode()
-        elif obj['output_type'] == 'json':
-            data = json.loads(stdout.decode("utf-8", "strict"))
-        elif obj['output_type'] == 'utf-8':
-            data = stdout.decode("utf-8", "strict")
-        else:
-            data = stdout.decode("utf-8", "replace")
-        print(type(data), data)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                obj['interperter'], f.name, *obj['args'], stdin=None, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+            stdout, stderr = await proc.communicate()
+            code = await proc.wait()
+            if code != 0:
+                return {'type': 'failure', 'failure_type': 'script', 'code': code, 'stdout': stdout.decode('utf-8', 'replace'), 'stderr': stderr.decode('utf-8', 'replace')}
+            if obj['output_type'] == 'base64':
+                data = base64.b64encode(stdout).decode()
+            elif obj['output_type'] == 'json':
+                data = json.loads(stdout.decode("utf-8", "strict"))
+            elif obj['output_type'] == 'utf-8':
+                data = stdout.decode("utf-8", "strict")
+            else:
+                data = stdout.decode("utf-8", "replace")
+            proc = None
+        finally:
+            if proc != None: proc.kill();
         return {'type': 'success', 'data': data}
-
 
 async def script_input_handler(stdin, input_queue):
     """Send data to stdin"""
@@ -110,7 +114,6 @@ async def script_output_handler(id, reader, src, output_queue, type):
             data = part + data
             part = ""
             i = len(data)
-            print(len(data), i)
             while i > 0 and data[i-1] > 127:
                 i -= 1
             part = data[i:]
@@ -129,31 +132,35 @@ async def run_script(obj, output_queue, input_queue):
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=obj['name']) as f:
         f.write(obj['content'])
         f.flush()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                obj['interperter'], f.name, *obj['args'], stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+ 
+            stdin_type = obj.get('stdin_type', 'binary')
+            stdout_type = obj.get('stdout_type', 'binary')
+            stderr_type = obj.get('stderr_type', 'text')
+            lst = []
+            if stdin_type != "none":
+                lst.append(script_input_handler(proc.stdin, input_queue))
+            else:
+                proc.stdin.close()
 
-        proc = await asyncio.create_subprocess_exec(
-            obj['interperter'], f.name, *obj['args'], stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
-        
-        stdin_type = obj.get('stdin_type', 'binary')
-        stdout_type = obj.get('stdout_type', 'binary')
-        stderr_type = obj.get('stderr_type', 'text')
-        lst = []
-        if stdin_type != "none":
-            lst.append(script_input_handler(proc.stdin, input_queue))
-        else:
-            proc.stdin.close()
+            if stdout_type != "none":
+                lst.append(script_output_handler(
+                    obj['id'], proc.stdout, 'stdout', output_queue, stdout_type))
 
-        if stdout_type != "none":
-            lst.append(script_output_handler(
-                obj['id'], proc.stdout, 'stdout', output_queue, stdout_type))
-
-        if stderr_type != "none":
-            lst.append(script_output_handler(
-                obj['id'], proc.stderr, 'stderr', output_queue, stderr_type))
-        logging.info("Wating for list %d", len(lst))
-        await asyncio.wait(lst)
-        logging.info("Waiting for process")
-        code = await proc.wait()
-        logging.info("Script done %d %d"%(obj[id], code))
+            if stderr_type != "none":
+                lst.append(script_output_handler(
+                    obj['id'], proc.stderr, 'stderr', output_queue, stderr_type))
+            logging.info("Wating for list %d", len(lst))
+            await asyncio.wait(lst)
+            logging.info("Waiting for process")
+            code = await proc.wait()
+            proc = None
+            logging.info("Script done %d %d"%(obj[id], code))
+        finally:
+            if proc != None:
+                proc.kill()
         return {'type': 'success', 'code': code} 
 
 ############################################################################################################################
