@@ -11,6 +11,19 @@ export interface IMainState {
     objectNamesAndIds: {[cls:string]:INameIdPair[]};
     objects: {[id:number]:{[version:number]:IObject}};
     loaded: boolean;
+    serviceLogVisibility: {[host:number]: {[name:string]: boolean}}
+};
+
+function serviceLogVisibility(state: {[host:number]: {[name:string]: boolean}} = {}, action: IAction) {
+    switch (action.type) {
+    case ACTION.SetServiceLogVisibility: 
+        const s2 = Object.assign({}, state);
+        s2[action.host] = Object.assign({}, s2[action.host] || {});
+        s2[action.host][action.service] = action.visibility;
+        return s2;
+    default:
+        return state;
+    }
 }
 
 function serviceListFilter(state:{[host:number]:string} = {}, action: IAction) {
@@ -100,5 +113,6 @@ export const mainReducer = combineReducers(
     objectNamesAndIds,
     objects,
     loaded,
-    serviceListFilter
+    serviceListFilter,
+    serviceLogVisibility
     });

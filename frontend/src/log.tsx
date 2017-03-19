@@ -1,5 +1,4 @@
 import * as React from "react";
-import * as $ from 'jquery'
 import {addActionTarget, removeActionTarget, sendMessage, ActionTarget} from './index'
 import {IAction, ACTION, IAddLogLines, IStartLog, IEndLog} from '../../shared/actions'
 
@@ -9,6 +8,12 @@ interface Props {
     host: number;   
 }
 
+/**
+ * Display a log for a given host.
+ * 
+ * The log is maintaied by the component outside of redux, and even outside of react. For performance, 
+ * new lines are simply added to the end of an ul.
+ */
 export class Log extends React.Component<Props, {}> implements ActionTarget {
     ul: HTMLUListElement;
     static nextId = 0;
@@ -25,8 +30,6 @@ export class Log extends React.Component<Props, {}> implements ActionTarget {
 
         const bottom = this.ul.scrollTop == this.ul.scrollHeight;
         this.ul.offsetTop
-
-
         for (const line of action.lines) {
             const li = document.createElement("li");
             li.textContent = line;
@@ -34,9 +37,6 @@ export class Log extends React.Component<Props, {}> implements ActionTarget {
         }
 
         this.ul.scrollTop = this.ul.scrollHeight;
-
-        //window.setTimeout(()=>{this.ul.scrollTo(0, 9999999999);}, 0);
-
         return true;
     }
 
