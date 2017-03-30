@@ -318,7 +318,9 @@ async def client():
                 obj = json.loads(package[:-1].decode("utf-8", "strict"))
                 id = obj['id']
                 t = obj['type']
-                if t in jobtypes:
+                if t == 'ping':
+                    await output_queue.put({'type': 'pong', 'id':obj['id']})
+                elif t in jobtypes:
                     if id in running_jobs:
                         raise JobError(id, "id is allready running")
                     logging.info("%d: start %s"%(id, t))

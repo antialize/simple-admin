@@ -110,14 +110,14 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
             netwrite: [],
             cpu: [],
             time: [],
-            smart: {}
+            smart: {},
         };
     }
 
     const s = Math.max(status.cpu.length - 1000, 0)
     const res: IStatus = {
-        uptime: update.uptime,
-        meminfo: update.meminfo,
+        uptime: update.uptime || status.uptime,
+        meminfo: update.meminfo || status.meminfo,
         lsb_release: update.lsb_release || status.lsb_release,
         uname: update.uname || status.uname,
         loadavg: update.loadavg,

@@ -31,17 +31,45 @@ export class HostClient extends JobOwner implements IHostClient {
     auth: boolean = null;
     hostname:string = null;
     id: number = null;
-
+    pingId: number = 10;
     status: IStatus = null;
-
+    pingTimer: NodeJS.Timer = null;
+    pingStart: number = null;
     constructor(socket: tls.ClearTextStream) {
         super();
         this.socket = socket;
         this.socket.on('close', ()=>this.onClose());
         this.socket.on('data', (data)=>this.onData(data as Buffer));
+        this.pingTimer = setTimeout(()=>{this.sendPing()}, 10000);;
     }
 
+    sendPing() {
+        this.pingTimer = null;
+        const time = process.hrtime();
+        this.pingStart = time[0] + time[1] * 1e-9;
+        this.sendMessage({type: 'ping', id: this.pingId++});
+        this.pingTimer = setTimeout(()=>{this.onPingTimeout()}, 20000);
+    }
+
+    onPingTimeout() {
+        this.pingTimer = null;
+        console.log("Ping timeout", this.hostname);
+        this.socket.end();
+    }
+
+    onPingResponce(id:number) {
+        clearTimeout(this.pingTimer);
+        const time = process.hrtime();
+        const pingEnd = time[0] + time[1] * 1e-9;
+        console.log("Ping ", pingEnd - this.pingStart);
+        this.pingTimer = setTimeout(()=>{this.sendPing()}, 9000);
+    }
+
+
     onClose() {
+        if (this.pingTimer != null)
+            clearTimeout(this.pingTimer);
+
         if (!this.auth) return;
         console.log("Client", this.hostname, "disconnected");
         if (this.id in hostClients)
@@ -86,9 +114,18 @@ export class HostClient extends JobOwner implements IHostClient {
             }
             return;
         }
-        const id = obj['id'];
-        if (id in this.jobs)
-            this.jobs[id].handleMessage(obj);
+        switch (obj.type) {
+        case "auth":
+            this.socket.end();
+            break;
+        case "pong":
+            this.onPingResponce(obj.id);
+            break;
+        default:
+            const id = obj.id;
+            if (id in this.jobs)
+                this.jobs[id].handleMessage(obj);
+        }
     }
 
     onData(data:Buffer) {

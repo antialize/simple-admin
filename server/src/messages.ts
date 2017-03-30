@@ -38,5 +38,15 @@ export interface Auth {
     password: string;
 }
 
-export type Outgoing = RunScript | Data | Kill;
-export type Incomming = Data | Success | Failure | Auth;
+export interface Ping {
+    type: 'ping';
+    id: number;
+}
+
+export interface Pong {
+    type: 'pong';
+    id: number;
+}
+
+export type Outgoing = RunScript | Data | Kill | Ping;
+export type Incomming = Data | Success | Failure | Auth | Pong;
