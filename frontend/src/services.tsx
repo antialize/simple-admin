@@ -107,7 +107,7 @@ function ServicesImpl(p:StateProps & DispatchProps) {
         return (
         <div>
             <TextField floatingLabelText="Filter" onChange={(a, v)=>{p.setFilter(v);}} value={p.filter}/>
-            <table style={{width:"100%"}}>
+            <table className="services_table">
                 <thead>
                     <tr>
                         <th>Name</th><th>Status</th><th>Message</th><th>Actions</th>

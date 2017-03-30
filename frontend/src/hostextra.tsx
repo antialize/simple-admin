@@ -8,6 +8,7 @@ import {Box} from './box'
 import {Services} from './services'
 import {HostTerminals} from './terminal'
 import {Log} from './log'
+import {Smart} from './smart'
 
 interface ExternProps {
     id: number;
@@ -28,6 +29,9 @@ export function HostExtra(props:ExternProps) {
         <div>
             <Box title="Status" collapsable={true} expanded={true}>
                 <SpecificStatus id={props.id} />
+            </Box>
+            <Box title="Smart" collapsable={true}>
+                <Smart host={props.id}/>
             </Box>
             <Box title="Services" collapsable={true}>
                 <Services id={props.id}/>

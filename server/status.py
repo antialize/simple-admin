@@ -11,13 +11,15 @@ from dbus import Interface
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 import time
+from subprocess import check_output
 
 DBusGMainLoop(set_as_default=True)
 bus = dbus.SystemBus()
 
 class Service:
-    def __init__(self, path):
+    def __init__(self, path, monitor):
         self.path = path
+        self.monitor = monitor
         self.obj = bus.get_object(
             'org.freedesktop.systemd1',
             path,)
@@ -50,7 +52,8 @@ class Service:
         
     def on_properties_changed(self, *arg, **kargs):
         self.readProperties()
- 
+        self.monitor.changed = True
+        
 class SystemdMonitor:
     def __init__(self):
         self.services = []
@@ -62,12 +65,13 @@ class SystemdMonitor:
         self.load()
         
     def load(self, *arg, **kargs):
+        self.changed = True
         for ser in self.services:
             del ser
 
         for unit in self.manager.ListUnits():
             if not unit[0].endswith(".service"): continue
-            self.services.append(Service(unit[6]))
+            self.services.append(Service(unit[6], self))
             
     def dump(self):
         ans = {}
@@ -97,9 +101,11 @@ def deltaEncode(old, new, delta):
 
 systemdmon = SystemdMonitor()
 lastState = {'mounts': {}, 'services': {}, 'first': True}
+count = 0
 
 def emitstatus():
-    global lastState
+    global lastState, count
+    
     uptime = open("/proc/uptime", "r", encoding='ascii').read().strip().split(' ')
     loadavg = open("/proc/loadavg", "r", encoding='ascii').read().strip().split(' ')
     processes = loadavg[3].split('/')
@@ -171,17 +177,21 @@ def emitstatus():
         elif p[0] == "SwapTotal:": status['meminfo']['swap_total'] = 1024 * int(p[1])
         elif p[0] == "SwapFree:": status['meminfo']['swap_free'] = 1024 * int(p[1])
 
-    skipfs = frozenset(['cgroup', 'debugfs', 'fusectl', 'tmpfs', 'ecryptfs', 'fuse.gvfsd-fuse',
-                        'hugetlbfs', 'sysfs', 'proc', 'devtmpfs', 'devpts', 'securityfs', 'autofs', 'pstore', 'mqueue'])
 
-    for line in open("/proc/self/mountinfo", encoding='ascii').read().split('\n'):
-        line = line.split(' ')
-        if len(line) < 10: continue
-        target, fstype, src = line[4], line[8], line[9]
-        if fstype in skipfs: continue
-        stat = os.statvfs(target)
 
-        state['mounts'][target] = {
+    if count % 6 == 0:
+        #Write filesystem information every 30 seconds
+        skipfs = frozenset(['cgroup', 'debugfs', 'fusectl', 'tmpfs', 'ecryptfs', 'fuse.gvfsd-fuse',
+                            'hugetlbfs', 'sysfs', 'proc', 'devtmpfs', 'devpts', 'securityfs', 'autofs', 'pstore', 'mqueue'])
+            
+        for line in open("/proc/self/mountinfo", encoding='ascii').read().split('\n'):
+            line = line.split(' ')
+            if len(line) < 10: continue
+            target, fstype, src = line[4], line[8], line[9]
+            if fstype in skipfs: continue
+            stat = os.statvfs(target)
+
+            state['mounts'][target] = {
                 'target': target,
                 'src': src,
                 'fstype': fstype,
@@ -193,15 +203,39 @@ def emitstatus():
                 'free_files': stat.f_ffree,
                 'avail_files': stat.f_favail,
             }
-    deltaEncode(lastState['mounts'], state['mounts'], status['mounts'])
+        deltaEncode(lastState['mounts'], state['mounts'], status['mounts'])
+    else:
+        state['mounts'] = lastState['mounts']
+      
+    if systemdmon.changed:
+         systemdmon.changed = False
+         state['services'] = systemdmon.dump()
+         deltaEncode(lastState['services'], state['services'], status['services'])
 
-    state['services'] = systemdmon.dump()
-    deltaEncode(lastState['services'], state['services'], status['services'])
+    if count % 180 == 0:
+        # Write out smart information every 15 minutes
+        scanOut = check_output(["smartctl", "--scan"]).decode('ascii')
+        status['smart'] = {}
+        for line in scanOut.split("\n"):
+            if not line: continue
+            dev = line.split()[0]
 
+            status['smart'][dev] = []
+            out = check_output(["smartctl", "-A", dev]).decode('ascii')
+            start = True
+            for line in out.split("\n"):
+                if start:
+                    if line.startswith("ID# "): start = False
+                    continue
+                if not line: break
+                line = line.split()
+                status['smart'][dev].append({'id':int(line[0]), 'name': line[1], 'raw_value': int(line[-1])})
+                
     sys.stdout.write(json.dumps(status, indent=4))
     sys.stdout.write('\00')
     sys.stdout.flush()
     lastState = state
+    count += 1
     return True
 
 #fd = sys.stdin.fileno()

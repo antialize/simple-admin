@@ -1,0 +1,49 @@
+th {
+    text-align: left;
+}
+
+.services_table {
+    min-width: 1000px;
+}
+
+.serviceservices_table tr:nth-child(even)  {
+    background-color: #EEEEEE;    
+}
+
+.services_table tr:nth-child(odd) {
+    background-color: #DDDDDD;
+}
+
+.smart_table {
+    min-width: 1000px;
+}
+
+.smart_device {
+    font-size: 122%;
+    font-weight: bold;
+    background-color: #CCCCCC;    
+}
+
+tr:nth-child(even).smart_normal  {
+    background-color: #EEEEEE;    
+}
+
+tr:nth-child(odd).smart_normal {
+    background-color: #DDDDDD;
+}
+
+tr:nth-child(even).smart_good  {
+    background-color: #44FF44;    
+}
+
+tr:nth-child(odd).smart_good  {
+    background-color: #33EE33;    
+}
+
+tr:nth-child(even).smart_bad {
+    background-color: #FF4444;
+}
+
+tr:nth-child(odd).smart_bad {
+    background-color: #EE3333;
+}

@@ -54,6 +54,12 @@ export interface IService {
     StatusText: string;
 }
 
+export interface ISmartStatus {
+    id: number;
+    name: string;
+    raw_value: number;
+}
+
 export interface IStatusUpdate {
     uptime: IStatusUptime;
     meminfo: IStatusMeminfo;
@@ -68,6 +74,7 @@ export interface IStatusUpdate {
     netwrite: number;
     cpu: number;
     time: number;
+    smart?: {[dev:string]:ISmartStatus[]}
 }
 
 export interface IStatus {
@@ -84,6 +91,7 @@ export interface IStatus {
     netwrite: number[];
     cpu: number[];
     time: number[];
+    smart: {[dev:string]:ISmartStatus[]}
 }
 
 export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
@@ -101,7 +109,8 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
             netread: [],
             netwrite: [],
             cpu: [],
-            time: []
+            time: [],
+            smart: {}
         };
     }
 
@@ -119,8 +128,12 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
         netread: status.netread.slice(s),
         netwrite: status.netwrite.slice(s),
         cpu: status.cpu.slice(s),
-        time: status.time.slice(s)
+        time: status.time.slice(s),
+        smart: status.smart,
     }
+
+    if (update.smart)
+        res.smart = update.smart;
 
     for (const key in update.mounts) {
         const mount = update.mounts[key];

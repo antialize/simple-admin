@@ -8,151 +8,12 @@ import * as WebSocket from 'ws';
 import * as tls from 'tls';
 import * as crypto from 'crypto';
 import * as db from './db'
+import {JobOwner} from './job'
+import {StatusJob} from './jobs/statusJob'
+import {IHostClient} from './interfaces';
 
 export const hostClients:{[id:number]:HostClient} = {};
 let hostServer: net.Server;
-
-
-export class JobOwner {
-    jobs: {[id:number]: Job} = {};
-
-    addJob(job:Job) {
-        this.jobs[job.id] = job;
-    }
-
-    removeJob(job:Job, msg: message.Failure|message.Success|null) {
-        delete this.jobs[job.id];
-    }
-
-    kill() {
-        for (const id in this.jobs) {
-            const job = this.jobs[+id] 
-            if (this instanceof HostClient && job.client === this) job.client = null;
-            if (job.owner == this) job.owner = null;
-            job.kill();
-        }
-    }
-}
-
-export abstract class Job {
-    id: number;
-    running: boolean = false;
-
-    constructor(public client: HostClient, id:number = null, public owner:JobOwner = null) {
-        if (id === null)
-            this.id = client.nextJobId++;
-        else
-            this.id = id;
-        this.client.jobs[this.id] = this;
-        if (this.owner !== null) this.owner.jobs[this.id] = this;
-    }
-    
-   handleMessage(obj: message.Incomming) {
-        switch(obj.type) {
-        case 'success':
-            this.running = false;
-            this.kill(obj);
-            break;    
-        case 'failure':
-            this.running = false;
-            this.kill(obj);
-            break;
-        }
-    }
-
-    kill(msg: message.Failure|message.Success|null = null) {
-        if (this.client !== null) {
-            if (this.running) {
-                let msg: message.Kill = {'type': 'kill', 'id': this.id}
-                this.client.sendMessage(msg);
-            }
-            this.client.removeJob(this, msg);
-            this.client = null;
-        }
-        if (this.owner !== null) {
-            this.owner.removeJob(this, msg);
-            this.owner = null;
-        }
-    }
-}
-
-class StatusJob extends Job {
-    constructor(client: HostClient) {
-        super(client, 0, null);
-        let msg: message.RunScript = {
-            'type': 'run_script', 
-            'id': 0, 
-            'name': 'status.py', 
-            'interperter': '/usr/bin/python3', 
-            'content': fs.readFileSync('status.py', 'utf-8'),
-            'args': [],
-            'stdin_type': 'none',
-            'stdout_type': 'blocked_json'
-        };
-        this.client.sendMessage(msg);
-        this.running = true;
-    }
-
-    handleMessage(obj: message.Incomming) {
-        switch(obj.type) {
-        case 'data':
-            if (obj.source == 'stdout') this.client.updateStatus(obj.data as IStatusUpdate);
-            break;
-        default:
-            super.handleMessage(obj);
-        }
-    }
-};
-
-export class ShellJob extends Job {
-    constructor(client: HostClient, public sock:WebSocket, cols:number, rows:number) {
-        super(client, null, null);
-
-        let msg: message.RunScript = {
-            'type': 'run_script',
-            'id': this.id,
-            'name': 'shell.py',
-            'interperter': '/usr/bin/python3',
-            'content': fs.readFileSync('shell.py', 'utf-8'),
-            'args': [""+cols, ""+rows],
-            'stdin_type': 'binary',
-            'stdout_type': 'binary',
-            'stderr_type': 'binary'
-        }
-        this.client.sendMessage(msg);
-        this.running = true;
-        sock.on('message',(data:any)=>{
-            let msg: message.Data = {
-                'type': 'data',
-                'id': this.id,
-                'data': Buffer.from(data).toString('base64'),         
-            }
-            this.client.sendMessage(msg);
-        });
-        sock.on('close', (code:number, message:string) => {this.sock = null; this.kill();});
-    }
-
-    kill() {
-        if (this.sock !== null) {
-            this.sock.close();
-            this.sock = null;
-        }
-        super.kill();
-    }
-
-    handleMessage(obj: message.Incomming) {
-        switch(obj.type) {
-        case 'data':
-            if (obj.source == 'stdout') {
-                this.sock.send(
-                    Buffer.from(obj.data, 'base64').toString('binary')
-                );
-            };
-        default:
-            super.handleMessage(obj);
-        }
-    }
-};
 
 function delay(time:number) {
   return new Promise<void>(resolve => {
@@ -161,13 +22,13 @@ function delay(time:number) {
   });
 }
 
-export class HostClient extends JobOwner {
+export class HostClient extends JobOwner implements IHostClient {
     private socket: tls.ClearTextStream; 
     private buff = Buffer.alloc(4*1024*1024);
     private used = 0;
     nextJobId = 100;
 
-    auth = null;
+    auth: boolean = null;
     hostname:string = null;
     id: number = null;
 
