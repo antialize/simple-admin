@@ -2,7 +2,7 @@ import {IStatus, IStatusUpdate} from './status';
 import {IPage, INameIdPair, IObject} from './state';
 
 export enum ACTION {UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged, SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog,
-                    SetServiceLogVisibility}
+                    SetServiceLogVisibility, AddMessage, SetMessageDismissed}
 
 export interface IUpdateStatusAction {
     type: ACTION.UpdateStatus;
@@ -32,10 +32,22 @@ export interface ISetObjectListFilter {
     filter: string;
 }
 
+export interface IMessage {
+    id: number;
+    host: number | null;
+    type: string;
+    subtype: string | null;
+    message: string;
+    time: number;
+    url: string;
+    dismissed: boolean;
+}
+
 export interface ISetInitialState {
     type: ACTION.SetInitialState;
     objectNamesAndIds: {[cls:string]:INameIdPair[]};
     statuses: {[id:number]: IStatus};
+    messages: IMessage[];
 }
 
 export interface ISetServiceListFilter {
@@ -80,4 +92,18 @@ export interface ISetServiceLogVisibilty {
     visibility: boolean;
 }
 
-export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog | IAddLogLines | ISetServiceLogVisibilty;
+export interface IAddMessage {
+    type: ACTION.AddMessage;
+    message: IMessage;
+}
+
+export interface ISetMessageDismissed {
+    type: ACTION.SetMessageDismissed,
+    id: number,
+    dismissed: boolean
+    source: "server" | "webclient";
+}
+
+export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState 
+    | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog 
+    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed;

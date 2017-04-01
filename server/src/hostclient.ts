@@ -11,6 +11,7 @@ import * as db from './db'
 import {JobOwner} from './job'
 import {StatusJob} from './jobs/statusJob'
 import {IHostClient} from './interfaces';
+import * as msg from './msg';
 
 export const hostClients:{[id:number]:HostClient} = {};
 let hostServer: net.Server;

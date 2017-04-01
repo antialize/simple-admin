@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import * as db from './db'
 import * as basicAuth from 'basic-auth'
 import {config} from './config'
+import * as msg from './msg'
 
 interface EWS extends express.Express {
     ws(s:string, f:(ws:WebSocket, req: express.Request) => void):void;
@@ -77,6 +78,10 @@ export class WebClient extends JobOwner {
         case ACTION.EndLog:
             if (act.id in this.logJobs)
                 this.logJobs[act.id].kill();
+            break;
+        case ACTION.SetMessageDismissed:
+            msg.setDismissed(act.id, act.dismissed);
+            break;
         default:
             console.log(act);
         }
@@ -117,14 +122,16 @@ function authHttp(req: express.Request, res: express.Response, next: ()=>void ) 
 app.use(authHttp, express.static("../frontend/public"));
 
 async function sendInitialState(c: WebClient) {
-    const rows = await db.getAllObjects();
+    const rows = db.getAllObjects();
+    const msgs = msg.getAll();
+
     let action:ISetInitialState = {
         type: ACTION.SetInitialState,
         objectNamesAndIds: {},
-        statuses: {}
+        statuses: {},
+        messages: await msgs,
     };
-
-    for(const row of rows) {
+    for(const row of await rows) {
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
         action.objectNamesAndIds[row.type].push({id: row.id, name:row.name});
     }

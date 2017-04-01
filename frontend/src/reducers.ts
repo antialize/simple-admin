@@ -1,4 +1,4 @@
-import {IUpdateStatusAction, IAction, ACTION} from '../../shared/actions'
+import {IUpdateStatusAction, IAction, ACTION, IMessage} from '../../shared/actions'
 import {IStatus, IStatuses, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
 import {Reducer, combineReducers} from 'redux';
 import {IPage, PAGE_TYPE, IObject, INameIdPair} from '../../shared/state'
@@ -12,7 +12,30 @@ export interface IMainState {
     objects: {[id:number]:{[version:number]:IObject}};
     loaded: boolean;
     serviceLogVisibility: {[host:number]: {[name:string]: boolean}}
+    messages: {[id:number]:IMessage};
 };
+
+function messages(state: {[id:number]:IMessage} = {}, action: IAction) {
+    switch (action.type) {
+    case ACTION.SetInitialState: {
+        const messages: {[id:number]:IMessage}={};
+        for (const msg of action.messages)
+            messages[msg.id] = msg;
+        return messages;
+    }
+    case ACTION.SetMessageDismissed: {
+        const messages = Object.assign({}, state);
+        messages[action.id] = Object.assign({}, messages[action.id]);
+        messages[action.id].dismissed = action.dismissed;
+        return messages;
+    }
+    case ACTION.AddMessage: {
+        const messages = Object.assign({}, state);
+        messages[action.message.id] = action.message;
+        return messages;
+     }}
+    return state;
+}
 
 function serviceLogVisibility(state: {[host:number]: {[name:string]: boolean}} = {}, action: IAction) {
     switch (action.type) {
@@ -114,5 +137,6 @@ export const mainReducer = combineReducers(
     objects,
     loaded,
     serviceListFilter,
-    serviceLogVisibility
+    serviceLogVisibility,
+    messages
     });
