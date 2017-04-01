@@ -17,7 +17,7 @@ export class LogJob extends Job {
             'id': this.id, 
             'name': 'log.py', 
             'interperter': '/usr/bin/python3', 
-            'content': fs.readFileSync('log.py', 'utf-8'),
+            'content': fs.readFileSync('scripts/log.py', 'utf-8'),
             'args': args,
             'stdin_type': 'none',
             'stdout_type': 'text'

@@ -157,7 +157,7 @@ async def run_script(obj, output_queue, input_queue):
             logging.info("Waiting for process")
             code = await proc.wait()
             proc = None
-            logging.info("Script done %d %d"%(obj[id], code))
+            logging.info("Script done %d %d"%(obj['id'], code))
         finally:
             if proc != None:
                 proc.kill()

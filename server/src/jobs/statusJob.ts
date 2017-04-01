@@ -12,7 +12,7 @@ export class StatusJob extends Job {
             'id': 0, 
             'name': 'status.py', 
             'interperter': '/usr/bin/python3', 
-            'content': fs.readFileSync('status.py', 'utf-8'),
+            'content': fs.readFileSync('scripts/status.py', 'utf-8'),
             'args': [],
             'stdin_type': 'none',
             'stdout_type': 'blocked_json'

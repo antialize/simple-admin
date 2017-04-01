@@ -87,6 +87,10 @@ export class WebClient extends JobOwner {
     }
 }
 
+export function broadcast(act:IAction) {
+    webclients.forEach(client => client.sendMessage(act));
+}
+
 function auth(req: http.IncomingMessage) {
     var user = basicAuth(req);
 

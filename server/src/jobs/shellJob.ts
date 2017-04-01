@@ -14,7 +14,7 @@ export class ShellJob extends Job {
             'id': this.id,
             'name': 'shell.py',
             'interperter': '/usr/bin/python3',
-            'content': fs.readFileSync('shell.py', 'utf-8'),
+            'content': fs.readFileSync('scripts/shell.py', 'utf-8'),
             'args': [""+cols, ""+rows],
             'stdin_type': 'binary',
             'stdout_type': 'binary',

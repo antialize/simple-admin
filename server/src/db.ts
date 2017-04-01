@@ -2,20 +2,33 @@ import * as sqlite from 'sqlite3'
 
 export let db:sqlite.Database = null;
 
-export function init() {
+export async function init() {
     db = new sqlite.Database("sysadmin.db");
-    db.run("CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)", [], (err)=>{});
-    db.run("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)", [], (err)=>{});
-    db.run("CREATE TABLE IF NOT EXISTS depends (`id` INTEGER, `version` INTEGER, `on` INTEGER)", [], (err)=>{});
-    db.run("UPDATE `objects` SET `newest`=0 WHERE `id`<10000")
-    db.run("REPLACE INTO objects (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`) VALUES "+
+
+    const r = (stmt:string) => {
+        return new Promise<void>(cb =>
+            db.run(stmt, [], (err) => {
+                if (err) {
+                    console.log(stmt, err);
+                    process.exit(1);
+                } else
+                    cb();
+            }));
+    };
+
+    await r("CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)");
+    await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
+    await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
+    await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
+    await r("CREATE TABLE IF NOT EXISTS depends (`id` INTEGER, `version` INTEGER, `on` INTEGER)");
+    await r("UPDATE `objects` SET `newest`=0 WHERE `id`<10000");
+    await r("REPLACE INTO objects (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`) VALUES "+
             "(1, 1, null, 'User', '{}', 'Users', datetime('now'), 1), "+
             "(2, 1, null, 'Group', '{}', 'Group', datetime('now'), 1), "+
             "(3, 1, null, 'Collection', '{}', 'Collection', datetime('now'), 1), "+
             "(4, 1, null, 'File', '{}', 'File', datetime('now'), 1), "+
             "(5, 1, null, 'Package', '{}', 'Package', datetime('now'), 1), "+
-            "(6, 1, null, 'Host', '{}', 'Hosts', datetime('now'), 1)",
-                        [], (err)=>{});
+            "(6, 1, null, 'Host', '{}', 'Hosts', datetime('now'), 1)");
 }
 
 export function getAllObjects() {

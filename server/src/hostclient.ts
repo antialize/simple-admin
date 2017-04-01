@@ -23,7 +23,7 @@ function delay(time:number) {
 }
 
 export class HostClient extends JobOwner implements IHostClient {
-    private socket: tls.ClearTextStream; 
+    private socket: tls.ClearTextStream;
     private buff = Buffer.alloc(4*1024*1024);
     private used = 0;
     nextJobId = 100;
@@ -35,6 +35,8 @@ export class HostClient extends JobOwner implements IHostClient {
     status: IStatus = null;
     pingTimer: NodeJS.Timer = null;
     pingStart: number = null;
+    closeHandled = false;
+
     constructor(socket: tls.ClearTextStream) {
         super();
         this.socket = socket;
@@ -53,6 +55,8 @@ export class HostClient extends JobOwner implements IHostClient {
 
     onPingTimeout() {
         this.pingTimer = null;
+        msg.emit(this.id, "Host down", "Did not respond to ping within 20 seconds.");
+        this.closeHandled = true;
         console.log("Ping timeout", this.hostname);
         this.socket.end();
     }
