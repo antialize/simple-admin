@@ -33,7 +33,6 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps) {
 }
 
 function ObjectImpl(p:Props) {
-    console.log(p.id, p.class);
     let obj = null;
     if (p.id < 0) {
         obj = {class:p.class, name:"", version:99999, content:{}};

@@ -25,7 +25,6 @@ function mapStateToProps(state:IMainState, props:ExternProps): StateProps {
     let count = 0;
     for (const p of state.objectNamesAndIds['host'])
         hostNames[p.id] = p.name;
-    console.log(hostNames);
     for (const id in state.messages) {
         const message = state.messages[id];
         if (props.host == null || message.host == props.host) {
