@@ -160,7 +160,32 @@ export class HostClient extends JobOwner implements IHostClient {
     }
 
     updateStatus(update: IStatusUpdate) {
-        this.status = applyStatusUpdate(this.status, update);
+        if (this.status && update.smart) {
+            const importantSmart = new Set([5,103,171,172,175,176,181,182,184,187,188,191,197,198,200,221]);
+            for (const dev in update.smart) {
+                const oldSmart = this.status.smart[dev];
+                const newSmart = update.smart[dev];
+                if (newSmart == null)
+                    msg.emit(this.id, "S.M.A.R.T", "Disk "+dev+" dissapeared");
+                else {
+                    const oc: {[id:number]:number} = {};
+                    for (const entry of oldSmart)
+                        oc[entry.id] = entry.raw_value;
+
+                    for (const entry of newSmart) {
+                        if (!importantSmart.has(entry.id)) continue;
+                        const oldVal = oc[entry.id]?oc[entry.id]:0;
+                        if (oldVal >= entry.raw_value) continue;
+                        msg.emit(this.id, "S.M.A.R.T",
+                            "Disk "+dev+": " + entry.name + "("+ entry.id +")"
+                            + " increased to " + entry.raw_value + " from " + oldVal);
+                    }
+                }
+            }
+        }
+
+        this.status = applyStatusUpdate(this.status, update);;
+
         webclient.webclients.forEach(c=>{
             let msg: IUpdateStatusAction = {
                 type: ACTION.UpdateStatus,
