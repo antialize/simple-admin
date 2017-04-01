@@ -76,6 +76,9 @@ export class HostClient extends JobOwner implements IHostClient {
             clearTimeout(this.pingTimer);
 
         if (!this.auth) return;
+        if (!this.closeHandled)
+            msg.emit(this.id, "Host down", "Connection closed.");
+
         console.log("Client", this.hostname, "disconnected");
         if (this.id in hostClients)
             delete hostClients[this.id];
