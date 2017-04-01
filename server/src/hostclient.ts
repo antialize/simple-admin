@@ -184,6 +184,23 @@ export class HostClient extends JobOwner implements IHostClient {
             }
         }
 
+        if (this.status && update.mounts) {
+            for (const target in update.mounts) {
+                if (!(target in this.status.mounts)) continue;
+                const o_mount = this.status.mounts[target];
+                const o_free = o_mount.free_blocks / o_mount.blocks;
+
+                const n_mount = update.mounts[target];
+                const n_free = n_mount.free_blocks / n_mount.blocks;
+
+                if (n_free < 0.1 && o_free >= 0.1) {
+                    msg.emit(this.id, "File system", "Mount " + target + " has less than 10% free disk space");
+                } else if (n_free < 0.01 && o_free >= 0.01) {
+                    msg.emit(this.id, "File system", "Mount " + target + " has less than 1% free disk space");
+                }
+            }
+        }
+
         this.status = applyStatusUpdate(this.status, update);;
 
         webclient.webclients.forEach(c=>{
