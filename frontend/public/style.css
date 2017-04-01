@@ -14,7 +14,7 @@ th {
     background-color: #DDDDDD;
 }
 
-.smart_table {
+.smart_table, .message_table {
     min-width: 1000px;
 }
 
@@ -32,18 +32,18 @@ tr:nth-child(odd).smart_normal {
     background-color: #DDDDDD;
 }
 
-tr:nth-child(even).smart_good  {
+tr:nth-child(even).smart_good, tr:nth-child(even).message_good {
     background-color: #44FF44;    
 }
 
-tr:nth-child(odd).smart_good  {
+tr:nth-child(odd).smart_good, tr:nth-child(odd).message_good {
     background-color: #33EE33;    
 }
 
-tr:nth-child(even).smart_bad {
+tr:nth-child(even).smart_bad, tr:nth-child(even).message_bad {
     background-color: #FF4444;
 }
 
-tr:nth-child(odd).smart_bad {
+tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
     background-color: #EE3333;
 }

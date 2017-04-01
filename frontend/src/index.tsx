@@ -16,6 +16,7 @@ import {Object} from './object'
 import {Menu} from './menu'
 import {ObjectList} from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
+import {Messages} from './messages';
 
 
 injectTapEventPlugin();
@@ -32,7 +33,11 @@ function MainPageImpl(props: Props) {
     const p = props.page;
     switch (p.type) {
     case State.PAGE_TYPE.Dashbord:
-        return <div><h1>Dashboard</h1><Statuses /></div>;
+        return <div>
+            <h1>Dashboard</h1>
+            <Messages />
+            <Statuses />
+        </div>;
     case State.PAGE_TYPE.ObjectList:
         return <div><h1>List of {p.class}</h1><ObjectList class={p.class} /></div>
     case State.PAGE_TYPE.Object:

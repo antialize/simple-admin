@@ -9,6 +9,7 @@ import {Services} from './services'
 import {HostTerminals} from './terminal'
 import {Log} from './log'
 import {Smart} from './smart'
+import {Messages} from './messages'
 
 interface ExternProps {
     id: number;
@@ -27,6 +28,7 @@ export let SpecificStatus = connect(mapStateToProps)(SpecificStatusImpl);
 export function HostExtra(props:ExternProps) {
     return (
         <div>
+            <Messages host={props.id} />
             <Box title="Status" collapsable={true} expanded={true}>
                 <SpecificStatus id={props.id} />
             </Box>
