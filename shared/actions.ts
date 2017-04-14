@@ -2,7 +2,7 @@ import {IStatus, IStatusUpdate} from './status';
 import {IPage, INameIdPair, IObject} from './state';
 
 export enum ACTION {UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged, SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog,
-                    SetServiceLogVisibility, AddMessage, SetMessageDismissed}
+                    SetServiceLogVisibility, AddMessage, SetMessageDismissed, SetObjectName, SetObjectContentParam, DiscardObject, SaveObject}
 
 export interface IUpdateStatusAction {
     type: ACTION.UpdateStatus;
@@ -104,6 +104,31 @@ export interface ISetMessageDismissed {
     source: "server" | "webclient";
 }
 
+// Object actions
+export interface ISetObjectName {
+    type: ACTION.SetObjectName;
+    id: number;
+    name: string;
+}
+
+export interface ISetObjectContentParam {
+    type: ACTION.SetObjectContentParam;
+    id: number;
+    param: string;
+    value: any;
+}
+
+export interface IDiscardObject {
+    type: ACTION.DiscardObject;
+    id: number;
+}
+
+export interface ISaveObject {
+    type: ACTION.SaveObject;
+    id: number;
+    obj?: IObject;
+}
+
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState 
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog 
-    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed;
+    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName | ISetObjectContentParam | IDiscardObject | ISaveObject;

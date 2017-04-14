@@ -72,7 +72,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
         switch (action.page.type) {
         case State.PAGE_TYPE.Object:
             const objects = store.getState().objects;
-            if (! (action.page.id in objects)) {
+            if (! (action.page.id in objects) || !(1 in objects[action.page.id].versions)) {
                 let a: IFetchObject = {
                     type: ACTION.FetchObject,
                     id: action.page.id
@@ -82,6 +82,10 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
             break;
         }
         break;
+    case ACTION.SaveObject:
+        action.obj = store.getState().objects[action.id].current
+        sendMessage(action);
+        return;
     case ACTION.SetMessageDismissed:
         if (action.source == "webclient") {
             sendMessage(action);

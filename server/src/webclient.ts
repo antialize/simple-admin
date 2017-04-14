@@ -1,8 +1,8 @@
 import * as http from 'http';
 import * as https from 'https';
-import {IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines} from '../../shared/actions'
+import {IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction} from '../../shared/actions'
 import * as express from 'express';
-import {IObject} from '../../shared/state'
+import {IObject, IHostContent, PAGE_TYPE} from '../../shared/state'
 import * as message from './messages'
 
 import * as WebSocket from 'ws';
@@ -17,6 +17,8 @@ import * as db from './db'
 import * as basicAuth from 'basic-auth'
 import {config} from './config'
 import * as msg from './msg'
+import * as bcrypt from 'bcrypt'
+
 
 interface EWS extends express.Express {
     ws(s:string, f:(ws:WebSocket, req: express.Request) => void):void;
@@ -69,7 +71,6 @@ export class WebClient extends JobOwner {
             }
             this.sendMessage(res);
             break;
-
         case ACTION.StartLog:
             if (act.host in hostClients) {
                 new LogJob(hostClients[act.host], this, act.id, act.logtype, act.unit);
@@ -81,6 +82,22 @@ export class WebClient extends JobOwner {
             break;
         case ACTION.SetMessageDismissed:
             msg.setDismissed(act.id, act.dismissed);
+            break;
+        case ACTION.SaveObject:
+            {
+                if (act.obj.class == 'host') {
+                    let c = act.obj.content as IHostContent;
+                    // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
+                    if (!c.password.startsWith("$2"))
+                        c.password = bcrypt.hashSync(c.password, 8);
+                }
+                let {id,version} = await db.changeObject(act.id, act.obj);
+                act.obj.version = version;
+                let res2: IObjectChanged = {type:ACTION.ObjectChanged, id: id, object:[act.obj] };
+                broadcast(res2);
+                let res3: ISetPageAction = {type:ACTION.SetPage, page: {type: PAGE_TYPE.Object, class: act.obj.class, id, version}};
+                this.sendMessage(res3);
+            }
             break;
         default:
             console.log(act);
