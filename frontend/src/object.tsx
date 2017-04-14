@@ -1,6 +1,7 @@
 import {User} from './user'
 import {Group} from './group'
 import {File} from './file'
+import {Host} from './host'
 import {IMainState} from './reducers';
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
@@ -33,21 +34,31 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps) {
 }
 
 function ObjectImpl(p:Props) {
-    let obj = null;
+    let obj: IObject = null;
+    let isNew = false;
+    let readOnly = false;
     if (p.id < 0) {
-        obj = {class:p.class, name:"", version:99999, content:{}};
+        obj = {class:p.class, name:"", version:99999, content:null};
+        isNew = true;
     } else if (p.objects === null) {
         return <CircularProgress />
     } else if (p.version === null) {
         // TODO we need to copy the content from the newst item
+        for (let version in p.objects) {
+            let o = p.objects[version];
+            if (obj == null || obj.version < o.version)
+                obj = o;
+        }
+    } else {
+        obj = p.objects[p.version];
     }
 
     let content=null;
     let extra=null;
     switch (p.class) {
     case 'host':
-        content = <h1>HOST NOT IMPLEMENTED</h1>
-        extra = <HostExtra id={p.id} />
+        content = <Host id={p.id} version={p.version} object={obj} />
+        if (!isNew) extra = <HostExtra id={p.id} />
         break;
     case 'user':
         content = <User id={p.id} version={p.version} />

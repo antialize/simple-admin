@@ -59,6 +59,7 @@ export function get(): State.IPage {
     case 'objectlist':
         return {type: State.PAGE_TYPE.ObjectList, class: getUrlParameter('class')};
     case 'object':
-        return {type: State.PAGE_TYPE.Object, class: getUrlParameter('class'), id: +getUrlParameter('id'), version: +getUrlParameter('version')};
+        let v=getUrlParameter('version');
+        return {type: State.PAGE_TYPE.Object, class: getUrlParameter('class'), id: +getUrlParameter('id'), version: (v?+v:null)};
     }
 }
