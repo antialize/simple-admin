@@ -19,6 +19,9 @@ interface Props {
 export class Status extends React.Component<Props, {}> {
     render() {
         const s = this.props.status;
+        if (s == null)
+            return <span>DOWN</span>;
+
         let lst: JSX.Element[] = [];
         for (const target in s.mounts) {
             const mount = s.mounts[target];

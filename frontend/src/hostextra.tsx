@@ -14,39 +14,62 @@ import {Messages} from './messages'
 interface ExternProps {
     id: number;
 }
-function mapStateToProps(state:IMainState, props:ExternProps): IStatus {
-    return state.status[props.id]
+
+interface IProps {
+    status: IStatus;
 }
 
-export function SpecificStatusImpl(props:IStatus) {
-    return <Status status={props}/>
+function mapStateToProps(state:IMainState, props:ExternProps): IProps {
+    return {status: state.status[props.id]}
+}
+
+export function SpecificStatusImpl(props:IProps) {
+    return <Status status={props.status}/>
 }
 
 export let SpecificStatus = connect(mapStateToProps)(SpecificStatusImpl);
 
+interface IProps2 {
+    id: number;
+    down: boolean;
+}
 
-export function HostExtra(props:ExternProps) {
+function mapStateToProps2(state:IMainState, props:ExternProps): IProps2 {
+    return {id: props.id, down: state.status[props.id] == null}
+}
+
+function HostExtraImpl(props:IProps2) {
+    let c: JSX.Element = null;
+    if (!props.down) {
+        c = (<div>
+                <Box title="Smart" collapsable={true}>
+                    <Smart host={props.id}/>
+                </Box>
+                <Box title="Services" collapsable={true}>
+                    <Services id={props.id}/>
+                </Box>
+                <Box title="Terminal" collapsable={true}>
+                    <HostTerminals id={props.id} />
+                </Box>
+                <Box title="Journal" collapsable={true}>
+                    <Log type="journal" host={props.id} />
+                </Box>
+                <Box title="Dmesg" collapsable={true}>
+                    <Log type="dmesg" host={props.id} />
+                </Box>
+            </div>
+        )
+    }
     return (
         <div>
             <Messages host={props.id} />
             <Box title="Status" collapsable={true} expanded={true}>
                 <SpecificStatus id={props.id} />
             </Box>
-            <Box title="Smart" collapsable={true}>
-                <Smart host={props.id}/>
-            </Box>
-            <Box title="Services" collapsable={true}>
-                <Services id={props.id}/>
-            </Box>
-            <Box title="Terminal" collapsable={true}>
-                <HostTerminals id={props.id} />
-            </Box>
-            <Box title="Journal" collapsable={true}>
-                <Log type="journal" host={props.id} />
-            </Box>
-            <Box title="Dmesg" collapsable={true}>
-                <Log type="dmesg" host={props.id} />
-            </Box>
+            {c}
         </div>)
 }
+
+export let HostExtra = connect(mapStateToProps2)(HostExtraImpl);
+
 
