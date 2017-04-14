@@ -1,4 +1,5 @@
 import * as sqlite from 'sqlite3'
+import {IHostContent} from '../../shared/state'
 
 export let db:sqlite.Database = null;
 
@@ -44,7 +45,7 @@ export function getAllObjects() {
 
 export function getObjectByID(id:number) {
     return new Promise<{version:number, type:string, name:string, content:string}[]>(cb => {
-        db.all("SELECT `version`, `type`, `name`, `content` FROM `objects` WHERE `id`", [id], 
+        db.all("SELECT `version`, `type`, `name`, `content` FROM `objects` WHERE `id`=?", [id],
             (err, rows) => {
                 if (rows === undefined)
                     cb([]);
@@ -54,7 +55,7 @@ export function getObjectByID(id:number) {
 }
 
 export function getHostContentByName(hostname:string) {
-    return new Promise<{id: number, content: any}>(cb => {
+    return new Promise<{id: number, content: IHostContent}>(cb => {
         db.get("SELECT `id`, `content` FROM `objects` WHERE `type` = 'host' AND `name`=? AND `newest`=1", [hostname], 
             (err, row) => {
                 if (row === undefined)

@@ -22,9 +22,15 @@ export interface IDashbordPage {
 
 export type IPage = IObjectListPage | IObjectPage | IDashbordPage;
 
+export interface IHostContent {
+    password: string;
+    messageOnDown: boolean;
+    importantServices: string[];
+}
+
 export interface IObject {
     class: string;
     name: string;
     version: number;
-    content: any;
+    content: IHostContent;
 }
