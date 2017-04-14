@@ -11,6 +11,7 @@ import * as db from './db'
 import {JobOwner} from './job'
 import {StatusJob} from './jobs/statusJob'
 import {IHostClient} from './interfaces';
+import * as bcrypt from 'bcrypt'
 import * as msg from './msg';
 
 export const hostClients:{[id:number]:HostClient} = {};
@@ -88,11 +89,8 @@ export class HostClient extends JobOwner implements IHostClient {
     async validateAuth(obj:message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
         if (res === null) return null;
-        const hash1 = crypto.createHash('sha256')
-        hash1.update(obj.password);
-        const hash2 = crypto.createHash('sha256')
-        hash2.update((res && res.content)?res.content.password:"theemptystring");
-        if (crypto.timingSafeEqual(hash1.digest(), hash2.digest()) && res !== null) {
+        if (bcrypt.compareSync(obj.password, (res && res.content)?res.content.password:"theemptystring") 
+            && res !== null) {
             return res.id;
         }
         return null;
