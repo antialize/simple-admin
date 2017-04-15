@@ -1,7 +1,7 @@
 import * as net from 'net';
 import * as fs from 'fs';
 import * as webclient from './webclient'
-import {IUpdateStatusAction, ACTION} from '../../shared/actions'
+import {IUpdateStatusAction, IHostDown, ACTION} from '../../shared/actions'
 import {IStatus, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
 import * as message from './messages'
 import * as WebSocket from 'ws';
@@ -83,6 +83,9 @@ export class HostClient extends JobOwner implements IHostClient {
         console.log("Client", this.hostname, "disconnected");
         if (this.id in hostClients)
             delete hostClients[this.id];
+        
+        let act:IHostDown = {type: ACTION.HostDown, id: this.id};
+        webclient.broadcast(act);
         this.kill();
     }
 

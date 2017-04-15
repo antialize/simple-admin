@@ -35,7 +35,7 @@ interface IProps2 {
 }
 
 function mapStateToProps2(state:IMainState, props:ExternProps): IProps2 {
-    return {id: props.id, down: state.status[props.id] == null}
+    return {id: props.id, down: state.status[props.id] == null || !state.status[props.id].up};
 }
 
 function HostExtraImpl(props:IProps2) {

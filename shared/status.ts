@@ -92,6 +92,7 @@ export interface IStatus {
     cpu: number[];
     time: number[];
     smart: {[dev:string]:ISmartStatus[]}
+    up: boolean;
 }
 
 export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
@@ -111,6 +112,7 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
             cpu: [],
             time: [],
             smart: {},
+            up: true,
         };
     }
 
@@ -130,6 +132,7 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
         cpu: status.cpu.slice(s),
         time: status.time.slice(s),
         smart: status.smart,
+        up: true
     }
 
     if (update.smart)

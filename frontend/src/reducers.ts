@@ -153,7 +153,14 @@ function status(state: IStatuses = {} , action: IAction) {
         if (action.host in state)
             old = state[action.host];
         x[action.host] = applyStatusUpdate(old, action.update);
+        x[action.host].up = true;
         return Object.assign({}, state, x);
+    case ACTION.HostDown:
+        if (!(action.id in state)) return state;
+        let y = Object.assign({}, state);
+        y[action.id] = Object.assign({}, y[action.id]);
+        y[action.id].up = false;
+        break;
     case ACTION.SetInitialState:
         return action.statuses;
     default:

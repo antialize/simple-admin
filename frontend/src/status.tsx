@@ -19,8 +19,8 @@ interface Props {
 export class Status extends React.Component<Props, {}> {
     render() {
         const s = this.props.status;
-        if (s == null)
-            return <span>DOWN</span>;
+        if (s == null || !s.up)
+            return <div>Down</div>;
 
         let lst: JSX.Element[] = [];
         for (const target in s.mounts) {
@@ -194,10 +194,10 @@ function StatusesImpl(p: StatusesProps) {
             {hosts.map( pp=> {
                 let a: State.IPage = {type:State.PAGE_TYPE.Object, class: 'host', id: pp.id, version:null};
                 let elm;
-                if (pp.id in p.statuses)
+                if (pp.id in p.statuses && p.statuses[pp.id].up)
                     elm = <Status status={p.statuses[pp.id]} />
                 else
-                    elm = <span>DOWN</span>
+                    elm = <div>Down</div>
 
                 return (<Box key={pp.name}
                     title={pp.name}
