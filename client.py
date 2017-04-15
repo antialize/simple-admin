@@ -2,20 +2,10 @@
 
 import asyncio, json, sys, base64, tempfile, os
 from concurrent.futures import ThreadPoolExecutor
-import logging, traceback, ssl
+import logging, traceback, ssl, argparse, socket
 
-io_pool_exc = ThreadPoolExecutor()
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
-############################################################################################################################
-# Configuration
-############################################################################################################################
 
-command_server_host = "127.0.0.1"
-command_server_port = 18080
-reconnect_time = 10 #In seconds
-output_queue_size = 100
-input_queue_size = 10
 
 ############################################################################################################################
 # Job stuff
@@ -248,7 +238,6 @@ async def write_file(obj, output_queue, input_queue):
 # Main loop
 ############################################################################################################################
 
-loop = asyncio.get_event_loop()
 
 async def package_sender(writer, output_queue):
     """Send packages to the control server"""
@@ -262,6 +251,7 @@ async def package_sender(writer, output_queue):
     await writer.drain()
 
 async def client():
+    global config
     jobtypes = {
         'write_small_text': {
             'func': write_small_text,
@@ -294,14 +284,13 @@ async def client():
         sc.check_hostname = False
         sc.load_verify_locations('cert.pem')
 
-        output_queue = asyncio.Queue(100)
-        reader, writer = await asyncio.open_connection('127.0.0.1', 8888, ssl=sc)
+        output_queue = asyncio.Queue(config['output_queue_size'])
+        reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc)
 
 
-        writer.write(json.dumps({'type': 'auth', 'hostname': 'navi', 'password': 'IeghaeNgaKaht7ai'}).encode("utf-8", "strict"))
+        writer.write(json.dumps({'type': 'auth', 'hostname': config['hostname'], 'password': config['password']}).encode("utf-8", "strict"))
         writer.write(b'\36')
         await writer.drain()
-
 
         logging.info("Connected to server")                          
         sender = asyncio.ensure_future(package_sender(writer, output_queue))
@@ -326,7 +315,7 @@ async def client():
                     logging.info("%d: start %s"%(id, t))
                     jt = jobtypes[t]
                     if jt['input']:
-                        input_queue = asyncio.Queue(input_queue_size)
+                        input_queue = asyncio.Queue(config['input_queue_size'])
                         task = asyncio.ensure_future(jt['func'](running_jobs, obj, output_queue, input_queue))
                     else:
                         input_queue = None
@@ -359,16 +348,43 @@ async def client():
         writer.close()
         logging.info("Disconnected from server")
     except ConnectionError as e:
-        await asyncio.sleep(1)
+        await asyncio.sleep(config['reconnect_time'])
         print(e, e.args)
     except Exception as e:
-        await asyncio.sleep(1)
+        await asyncio.sleep(config['reconnect_time'])
         print(e, e.args)
-        
-try:
-    while True:
-        loop.run_until_complete(client())
-except KeyboardInterrupt:
-    pass
 
-loop.close()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="path to config file", default="/etc/simpleadmin_client.json")
+    parser.add_argument("--hostname", help="the host name to report (default will be taken `hostname`)")
+    parser.add_argument("--password", help="the password to authorize with")
+
+    parser.add_argument("--server-host", help="the hostname of the server")
+    parser.add_argument("--server-port", help="the port of the server")
+    parser.add_argument("--reconnect-time", help="the port of the server")
+    args = parser.parse_args()
+
+    config = {"server_port": 8888, "reconnect_time": 10, "output_queue_size": 100, "input_queue_size": 100, 'hostname': socket.gethostname()}
+    if os.path.exists(args.config):
+        with open(args.config, "r") as f:
+            config.update(json.loads(f.read()))
+    config.update({k: v for k,v in vars(args).items() if v})
+
+    if not "server_host" in config:
+        parser.error("server-host is required")
+    if not "password" in config:
+        parser.error("password is required")
+
+    io_pool_exc = ThreadPoolExecutor()
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
+
+    loop = asyncio.get_event_loop()
+
+    try:
+        while True:
+            loop.run_until_complete(client())
+    except KeyboardInterrupt:
+        pass
+
+    loop.close()
