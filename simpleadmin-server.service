@@ -1,0 +1,10 @@
+[Unit]
+Description=Simple admin server
+
+[Service]
+WorkingDirectory=/opt/simple-admin/server
+ExecStart=/opt/simple-admin/server/node_modules/.bin/ts-node src/index.ts
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

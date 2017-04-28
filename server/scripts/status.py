@@ -229,7 +229,7 @@ def emitstatus():
                     continue
                 if not line: break
                 line = line.split()
-                status['smart'][dev].append({'id':int(line[0]), 'name': line[1], 'raw_value': int(line[-1])})
+                status['smart'][dev].append({'id':int(line[0]), 'name': line[1], 'raw_value': int(line[9])})
                 
     sys.stdout.write(json.dumps(status, indent=4))
     sys.stdout.write('\00')
