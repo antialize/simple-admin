@@ -282,7 +282,7 @@ async def client():
     try:
         sc = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         sc.check_hostname = False
-        sc.load_verify_locations('cert.pem')
+        # sc.load_verify_locations('cert.pem')
 
         output_queue = asyncio.Queue(config['output_queue_size'])
         reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc)
