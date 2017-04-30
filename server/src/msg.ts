@@ -24,8 +24,8 @@ export function emit(host:number, type:string, message:string, subtype:string = 
             });
 }
 
-export function setDismissed(id: number, dismissed: boolean) {  
-    db.db.run("UPDATE `messages` SET `dismissed`=? WHERE `id`=?", [id, dismissed], (err)=>{
+export function setDismissed(id: number, dismissed: boolean) {
+    db.db.run("UPDATE `messages` SET `dismissed`=? WHERE `id`=?", [dismissed, id], (err)=>{
         if (err == null) return;
         console.log("Failed to set dismiss status", err);
     });

@@ -27,7 +27,7 @@ export async function init() {
                         console.log(err);
                         process.exit(1);
                     } else if (row !== undefined) {
-                        nextObjectId = row['id']+1;
+                        nextObjectId = Math.max(row['id']+1, nextObjectId);
                         cb();
                     }
                 })})
