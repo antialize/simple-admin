@@ -3,6 +3,7 @@ import 'xterm/dist/xterm.css';
 import * as $ from 'jquery'
 import Chip from 'material-ui/Chip';
 import RaisedButton from 'material-ui/RaisedButton';
+import {remoteHost} from './config';
 
 declare global {
     const Terminal:any;
@@ -18,7 +19,7 @@ class Connection {
         this.termDiv = document.createElement('div');
         this.termDiv.style.height = "100%";
         this.term.open(this.termDiv);
-        this.socket = new WebSocket('wss://127.0.0.1:8001/terminal?server='+hostId+'&cols=80&rows=150');
+        this.socket = new WebSocket('wss://'+remoteHost+'/terminal?server='+hostId+'&cols=80&rows=150');
         let buffer: string[] = [];
 
         this.socket.onmessage = (msg) => {

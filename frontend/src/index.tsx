@@ -17,7 +17,7 @@ import {Menu} from './menu'
 import {ObjectList} from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
 import {Messages} from './messages';
-
+import {remoteHost} from './config';
 
 injectTapEventPlugin();
 
@@ -98,7 +98,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
 
 let store = createStore(mainReducer, applyMiddleware(handleRemote)) as Store<IMainState>;
 
-let socket = new WebSocket('wss://127.0.0.1:8001/sysadmin');
+let socket = new WebSocket('wss://'+remoteHost+'/sysadmin');
 
 socket.onmessage = (data=>{
     let d = JSON.parse(data.data) as IAction;
