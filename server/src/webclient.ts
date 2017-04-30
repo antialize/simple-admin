@@ -18,19 +18,19 @@ import * as basicAuth from 'basic-auth'
 import {config} from './config'
 import * as msg from './msg'
 import * as bcrypt from 'bcrypt'
-
+import * as helmet from 'helmet'
 
 interface EWS extends express.Express {
     ws(s:string, f:(ws:WebSocket, req: express.Request) => void):void;
 }
 
-const privateKey  = fs.readFileSync('key.pem', 'utf8');
-const certificate = fs.readFileSync('cert.pem', 'utf8');
+const privateKey  = fs.readFileSync('domain.key', 'utf8');
+const certificate = fs.readFileSync('chained.pem', 'utf8');
 const credentials = {key: privateKey, cert: certificate};
 
 const app = express();
+app.use(helmet())
 //We might need a http server to implement acmee
-//const server = http.createServer(app); 
 const server2 = https.createServer(credentials, app);
 
 const wss = new WebSocket.Server({ server: server2 });
@@ -196,9 +196,20 @@ wss.on('connection', (ws)=>{
     }
 });
 
+const app2 = express();
+const server = http.createServer(app2); 
+app2.use(helmet())
+app2.use('/.well-known/acme-challenge', express.static("/var/www/challenges"));
+app2.get("*", function (req, res, next) {
+    res.redirect("https://" + req.headers.host + "/" + req.path);
+})
+
+
+
 export function startServer() {
-    //server.listen(8000);
-    server2.listen(8001, "127.0.0.1", function(){
+    
+    server.listen(80, "0.0.0.0");
+    server2.listen(443, "0.0.0.0", function(){
         console.log("server running at https://localhost:8001/")
     });
 }

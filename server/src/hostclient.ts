@@ -25,7 +25,7 @@ function delay(time:number) {
 }
 
 export class HostClient extends JobOwner implements IHostClient {
-    private socket: tls.ClearTextStream;
+    private socket: tls.TLSSocket;
     private buff = Buffer.alloc(4*1024*1024);
     private used = 0;
     nextJobId = 100;
@@ -39,11 +39,11 @@ export class HostClient extends JobOwner implements IHostClient {
     pingStart: number = null;
     closeHandled = false;
 
-    constructor(socket: tls.ClearTextStream) {
+    constructor(socket: tls.TLSSocket) {
         super();
         this.socket = socket;
         this.socket.on('close', ()=>this.onClose());
-        this.socket.on('data', (data)=>this.onData(data as Buffer));
+        this.socket.on('data', (data:any)=>this.onData(data as Buffer));
         this.pingTimer = setTimeout(()=>{this.sendPing()}, 10000);;
     }
 
@@ -216,13 +216,13 @@ export class HostClient extends JobOwner implements IHostClient {
 };
 
 export function startServer() {
-    const privateKey  = fs.readFileSync('key.pem', 'utf8');
-    const certificate = fs.readFileSync('cert.pem', 'utf8');
+    const privateKey  = fs.readFileSync('domain.key', 'utf8');
+    const certificate = fs.readFileSync('chained.pem', 'utf8');
     const options = {key: privateKey, cert: certificate};
 
     hostServer = tls.createServer(options, socket=>{
         console.log("Client connected from", socket.remoteAddress, socket.remotePort);
         new HostClient(socket);
     });
-    hostServer.listen(8888, '127.0.0.1');
+    hostServer.listen(8888, '0.0.0.0');
 }
