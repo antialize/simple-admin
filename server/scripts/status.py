@@ -188,7 +188,7 @@ def emitstatus():
             line = line.split(' ')
             if len(line) < 10: continue
             target, fstype, src = line[4], line[8], line[9]
-            if fstype in skipfs: continue
+            if fstype in skipfs or src[0] != '/': continue
             stat = os.statvfs(target)
 
             state['mounts'][target] = {

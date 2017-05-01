@@ -39,6 +39,7 @@ interface IStatusMount {
     free_files: number;
     avail_files: number;
     blocks: number;
+    block_size: number;
     free_blocks: number;
     avail_blocks: number;
     src: string;

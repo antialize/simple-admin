@@ -28,10 +28,10 @@ export class Status extends React.Component<Props, {}> {
             const block_size = 512;
             lst.push(
                 <InformationListRow key={mount.src} name={mount.src + " at "+mount.target}>
-                    <Size size={mount.free_blocks * block_size} />
+                    <Size size={(mount.blocks-mount.free_blocks) * mount.block_size} />
                     <span> of </span>
-                    <Size size={mount.blocks * block_size} /><br/>
-                    <LinearProgress mode="determinate" value={mount.free_blocks} max={mount.blocks} />
+                    <Size size={mount.blocks * mount.block_size} /><br/>
+                    <LinearProgress mode="determinate" value={mount.blocks-mount.free_blocks} max={mount.blocks} />
                 </InformationListRow>);
         }
 
@@ -146,6 +146,7 @@ export class Status extends React.Component<Props, {}> {
         };
         return (
             <div style={{display:'flex', flexDirection: 'row'}}>
+	    	<div width="400px">
                 <InformationList>
                     <InformationListRow name="Hostname">{s.uname.nodename}</InformationListRow>
                     <InformationListRow name="Kernel">{s.uname.release}</InformationListRow>
@@ -162,6 +163,7 @@ export class Status extends React.Component<Props, {}> {
                     </InformationListRow>
                     {lst}
                 </InformationList>
+		</div>
                 <div style={{flex:1, marginLeft: 20}}>
                    <Line data={data} options={options} height={75}/>
                 </div>
