@@ -57,7 +57,7 @@ async def run_instant(obj, output_queue):
         f.flush()
         try:
             proc = await asyncio.create_subprocess_exec(
-                obj['interperter'], f.name, *obj['args'], stdin=None, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+                obj['interperter'], f.name, *obj['args'], stdin=None, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, limit=1024*1024*100)
             stdout, stderr = await proc.communicate()
             code = await proc.wait()
             if code != 0:
@@ -124,7 +124,7 @@ async def run_script(obj, output_queue, input_queue):
         f.flush()
         try:
             proc = await asyncio.create_subprocess_exec(
-                obj['interperter'], f.name, *obj['args'], stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+                obj['interperter'], f.name, *obj['args'], stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, limit=1024*1024*100)
  
             stdin_type = obj.get('stdin_type', 'binary')
             stdout_type = obj.get('stdout_type', 'binary')

@@ -19,8 +19,8 @@ export interface IJobOwner {
 }
 
 export interface IHostClient extends IJobOwner {
-    nextJobId:number;
-
+    nextJobId: number;
+    hostname: string;
     sendMessage(obj:message.Outgoing);
     updateStatus(update: IStatusUpdate);
 }

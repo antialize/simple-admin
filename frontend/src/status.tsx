@@ -196,7 +196,7 @@ function StatusesImpl(p: StatusesProps) {
             {hosts.map( pp=> {
                 let a: State.IPage = {type:State.PAGE_TYPE.Object, class: 'host', id: pp.id, version:null};
                 let elm;
-                if (pp.id in p.statuses && p.statuses[pp.id].up)
+                if (p.statuses[pp.id] && p.statuses[pp.id].up)
                     elm = <Status status={p.statuses[pp.id]} />
                 else
                     elm = <div>Down</div>
