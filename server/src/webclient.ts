@@ -2,7 +2,7 @@ import * as http from 'http';
 import * as https from 'https';
 import {IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction} from '../../shared/actions'
 import * as express from 'express';
-import {IObject, IHostContent, PAGE_TYPE} from '../../shared/state'
+import {IObject, IHostContent, IUserContent, PAGE_TYPE} from '../../shared/state'
 import * as message from './messages'
 
 import * as WebSocket from 'ws';
@@ -87,6 +87,11 @@ export class WebClient extends JobOwner {
             {
                 if (act.obj.class == 'host') {
                     let c = act.obj.content as IHostContent;
+                    // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
+                    if (!c.password.startsWith("$2"))
+                        c.password = bcrypt.hashSync(c.password, 8);
+                } else if (act.obj.class == 'user') {
+                    let c = act.obj.content as IUserContent;
                     // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
                     if (!c.password.startsWith("$2"))
                         c.password = bcrypt.hashSync(c.password, 8);
@@ -204,10 +209,7 @@ app2.get("*", function (req, res, next) {
     res.redirect("https://" + req.headers.host + "/" + req.path);
 })
 
-
-
 export function startServer() {
-    
     server.listen(80, "0.0.0.0");
     server2.listen(443, "0.0.0.0", function(){
         console.log("server running at https://localhost:8001/")

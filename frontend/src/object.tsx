@@ -63,10 +63,10 @@ function ObjectImpl(p:DispactProps & StateProps) {
         content = <Host id={p.id}/>
         if (!isNew) extra = <HostExtra id={p.id} />
         break;
-   /* case 'user':
-        content = <User id={p.id} version={p.version} />
+    case 'user':
+        content = <User id={p.id} />
         break;
-    case 'group':
+    /*case 'group':
         content = <Group id={p.id} version={p.version} />
         break;
     case 'file':

@@ -28,9 +28,21 @@ export interface IHostContent {
     importantServices: string[];
 }
 
+export interface IUserContent {
+    firstName: string;
+    lastName: string;
+    system: boolean;
+    sudo: boolean;
+    password: string;
+    email: string;
+    groups: string;
+}
+
+export type IContent = IHostContent | IUserContent;
+
 export interface IObject {
     class: string;
     name: string;
     version: number;
-    content: IHostContent;
+    content: IContent;
 }

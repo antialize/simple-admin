@@ -1,7 +1,7 @@
 import {IUpdateStatusAction, IAction, ACTION, IMessage} from '../../shared/actions'
 import {IStatus, IStatuses, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
 import {Reducer, combineReducers} from 'redux';
-import {IPage, PAGE_TYPE, IObject, INameIdPair} from '../../shared/state'
+import {IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent} from '../../shared/state'
 
 export interface IObjectState {
     current: IObject | null;
@@ -201,7 +201,14 @@ function changeCurrentObject(state: IMainState) {
                 class: "host",
                 name: "",
                 version: null,
-                content: {password: "", messageOnDown: true, importantServices: []}
+                content: {password: "", messageOnDown: true, importantServices: []} as IHostContent
+            }
+        case "user":
+            current = {
+                class: "user",
+                name: "",
+                version: null,
+                content: {firstName: "", lastName: "", system: false, sudo: false, password: "", email:"", groups: ""} as IUserContent
             }
         }
     }

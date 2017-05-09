@@ -35,7 +35,8 @@ function MenuImpl(props:Props) {
     hostList.push(<ListItem key="add" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class: 'host', id: null, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: 'host', id: null, version:null})}>Add new</ListItem>);
 
 /*
- <ListItem primaryText="Users" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"user"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"user"})} />
+
+ 
             <ListItem primaryText="Groups" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"group"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"group"})}/>
             <ListItem primaryText="Files" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"file"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"file"})}/>
             <ListItem primaryText="Collections" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"collection"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"collection"})}/>
@@ -46,7 +47,7 @@ function MenuImpl(props:Props) {
             <Divider/>
             <ListItem primaryText="Hosts" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"host"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"host"})}
                 nestedItems={hostList} open={true} />
-            <Divider/>
+            <ListItem primaryText="Users" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"user"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"user"})} />
         </List>
     </Drawer>);
 }
