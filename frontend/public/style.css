@@ -24,6 +24,11 @@ th {
     background-color: #CCCCCC;    
 }
 
+.terminal {
+    font-size: 15px !important;
+    font-family: Liberation Mono, courier-new, courier, monospace  !important;
+}
+
 tr:nth-child(even).smart_normal  {
     background-color: #EEEEEE;    
 }

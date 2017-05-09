@@ -107,6 +107,7 @@ export class Status extends React.Component<Props, {}> {
             ] };
 
         const options = {
+	    animation: false,
             scales: {
                 xAxes: [{
                     type: 'time',
