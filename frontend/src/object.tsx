@@ -2,14 +2,15 @@ import {User} from './user'
 import {Group} from './group'
 import {File} from './file'
 import {Host} from './host'
-import {IMainState} from './reducers';
+import {Collection} from './collection'
+import {IMainState} from './reducers'
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
-import * as React from "react";
+import * as React from "react"
 import {IObject} from '../../shared/state'
 import {ACTION, IDiscardObject, ISaveObject} from '../../shared/actions'
-import CircularProgress from 'material-ui/CircularProgress';
-import RaisedButton from 'material-ui/RaisedButton';
+import CircularProgress from 'material-ui/CircularProgress'
+import RaisedButton from 'material-ui/RaisedButton'
 import {HostExtra} from './hostextra'
 import {Box} from './box'
 
@@ -71,6 +72,9 @@ function ObjectImpl(p:DispactProps & StateProps) {
         break;
     case 'file':
         content = <File id={p.id} />
+        break;
+    case 'collection':
+        content = <Collection id={p.id} />
         break;
     default:
         content = <div><h1>NOT IMPLEMENTED</h1></div>

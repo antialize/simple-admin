@@ -85,6 +85,8 @@ export function UserImpl(props: StateProps & DispactProps) {
                     <TextField value={c.groups} onChange={(e:any, value:string) => props.setProp("groups",value)} />
                 </InformationListRow>
             </InformationList>
+            <ObjectSelector filter={(cls, id)=>(cls == 'file' || cls == 'collection')} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}} name="Has"/>
+            <ObjectSelector filter={(cls, id)=>(cls != 'host' && cls != 'group' && cls != 'user')} selected={c.depends?c.depends:[]} setSelected={(sel:number[]) => {props.setProp("depends",sel)}} name="Depends on"/>
         </div>)
 }
 

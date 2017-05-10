@@ -22,13 +22,20 @@ export interface IDashbordPage {
 
 export type IPage = IObjectListPage | IObjectPage | IDashbordPage;
 
-export interface IHostContent {
+export interface ICollectionContent {
+    contains?: number[];
+    //depends?: number[];
+    variables?: {[key:string]: string}
+}
+
+export interface IHostContent extends ICollectionContent {
     password: string;
     messageOnDown: boolean;
     importantServices: string[];
+    contains?: number[];
 }
 
-export interface IUserContent {
+export interface IUserContent extends ICollectionContent{
     firstName: string;
     lastName: string;
     system: boolean;
@@ -36,6 +43,7 @@ export interface IUserContent {
     password: string;
     email: string;
     groups: string;
+    depends?: number[];
 }
 
 export interface IGroupContent {
@@ -51,7 +59,7 @@ export interface IFileContent {
     lang: string;
 }
 
-export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent;
+export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent;
 
 export interface IObject {
     class: string;

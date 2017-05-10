@@ -1,7 +1,7 @@
 import {IUpdateStatusAction, IAction, ACTION, IMessage} from '../../shared/actions'
 import {IStatus, IStatuses, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
 import {Reducer, combineReducers} from 'redux';
-import {IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent, IGroupContent, IFileContent} from '../../shared/state'
+import {IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent, IGroupContent, IFileContent, ICollectionContent} from '../../shared/state'
 
 export interface IObjectState {
     current: IObject | null;
@@ -203,31 +203,39 @@ function changeCurrentObject(state: IMainState) {
                 version: null,
                 content: {password: "", messageOnDown: true, importantServices: []} as IHostContent
             }
-	    break;
+	        break;
         case "user":
             current = {
                 class: "user",
                 name: "",
                 version: null,
-		content: {firstName: "", lastName: "", system: false, sudo: false, password: "", email:"", groups: ""} as IUserContent
+		        content: {firstName: "", lastName: "", system: false, sudo: false, password: "", email:"", groups: ""} as IUserContent
             }
-	    break;
-	case "group":
-	    current = {
-		class: "group",
-		name: "",
-		version: null,
-		content: {system: false} as IGroupContent
-	    }
-	    break;
-	case "file":
-	    current = {
-		class: "file",
-		name: "",
-		version: null,
-		content: {path: "", user:"", group:"", mode:"744", data:"", lang:null} as IFileContent
-	    }
-	    break;
+	        break;
+        case "group":
+            current = {
+                class: "group",
+                name: "",
+                version: null,
+                content: {system: false} as IGroupContent
+            }
+            break;
+        case "file":
+            current = {
+                class: "file",
+                name: "",
+                version: null,
+                content: {path: "", user:"", group:"", mode:"744", data:"", lang:null} as IFileContent
+            }
+            break;
+         case "collection":
+            current = {
+                class: "collection",
+                name: "",
+                version: null,
+                content: {} as ICollectionContent
+            }
+            break;
         }
     }
     state.objects = Object.assign({}, state.objects);

@@ -2,20 +2,21 @@ import * as React from "react";
 import {InformationList, InformationListRow} from './information_list'
 import TextField from 'material-ui/TextField';
 import Toggle from 'material-ui/Toggle';
-import {IObject, IHostContent} from '../../shared/state'
+import {ObjectSelector} from './object_selector'
 import {IMainState} from './reducers';
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
+import {IObject, ICollectionContent} from '../../shared/state'
 import {ACTION, ISetObjectName, ISetObjectContentParam} from '../../shared/actions'
-import {ObjectSelector} from './object_selector'
+
 
 interface IProps {
     id: number;
 }
 
 interface StateProps {
-    current: IObject
-    id: number
+    current: IObject;
+    id: number;
 }
 
 interface DispactProps {
@@ -49,17 +50,17 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactPr
     }
 }
 
-export function HostImpl(props: StateProps & DispactProps) {
-    const c = props.current.content as IHostContent;
+export function CollectionImpl(props: StateProps & DispactProps) {
+    const c = props.current.content as ICollectionContent;
     return (
         <div>
             <InformationList key={props.id + props.current.version}>
-                <InformationListRow name="Hostname"><TextField value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} /></InformationListRow>
-                <InformationListRow name="Password"><TextField type="password" value={c.password} onChange={(e:any, value:string) => props.setProp("password",value)}/></InformationListRow>
-                <InformationListRow name="Message on down"><Toggle alt="Should we generate messages when the server goes down" toggled={c.messageOnDown !== false} onToggle={(e:any, value:boolean) => props.setProp("messageOnDown",value)}/></InformationListRow>
+                <InformationListRow name="Name">
+                    <TextField value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} />
+                </InformationListRow>
             </InformationList>
-            <ObjectSelector filter={(cls,id)=>cls!='host'} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}} name="Has"/>
+            <ObjectSelector filter={(cls:string, id:number)=>id != props.id} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}} name="Has"/>
         </div>)
 }
 
-export const Host = connect(mapStateToProps, mapDispatchToProps)(HostImpl);
+export const Collection = connect(mapStateToProps, mapDispatchToProps)(CollectionImpl);
