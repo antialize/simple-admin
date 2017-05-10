@@ -66,12 +66,12 @@ function ObjectImpl(p:DispactProps & StateProps) {
     case 'user':
         content = <User id={p.id} />
         break;
-    /*case 'group':
-        content = <Group id={p.id} version={p.version} />
+    case 'group':
+        content = <Group id={p.id} />
         break;
     case 'file':
-        content = <File id={p.id} version={p.version} />
-        break;*/
+        content = <File id={p.id} />
+        break;
     default:
         content = <div><h1>NOT IMPLEMENTED</h1></div>
     }

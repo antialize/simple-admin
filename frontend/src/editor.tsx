@@ -339,18 +339,23 @@ const themes = [
     'hopscotch', 'icecoder', 'isotope', 'lesser-dark', 'liquibyte', 'material', 'mbo', 'mdn-like', 'midnight', 'monokai', 'neat', 'neo', 'night', 'panda-syntax', 'paraiso-dark','paraiso-light', 'pastel-on-dark', 'railscasts',
     'rubyblue', 'seti', 'solarized dark', 'solarized light', 'the-matrix', 'tomorrow-night-bright', 'tomorrow-night-eighties', 'ttcn', 'twilight', 'vibrant-ink', 'xq-dark', 'xq-light', 'yeti', 'zenburn'];
 
-interface IState {
-    theme:string;
-    lang:string;
-    text:string;
+interface IProps {
+    setLang(lang:string): void;
+    lang: string;
+    setData(data:string): void;
+    data: string;    
 }
 
-export default class Editor extends React.Component<{}, IState> {
+interface IState {
+    theme:string;
+}
+
+export default class Editor extends React.Component<IProps, IState> {
     state:IState;
 
-    constructor(props:{}) {
+    constructor(props:IProps) {
         super(props);
-        this.state = {lang: "Python", theme: "night", text:"cookiemonster"};
+        this.state = {theme: "night"};
     }
 
     render() {
@@ -358,7 +363,7 @@ export default class Editor extends React.Component<{}, IState> {
         const lang = modeInfo.map(i => <MenuItem key={i.name} value={i.name} primaryText={i.name} />);
         let mode = null;
         for (var i of modeInfo)
-            if (i.name == this.state.lang)
+            if (i.name == this.props.lang)
                 mode = i.mode;
 
         return (
@@ -366,7 +371,7 @@ export default class Editor extends React.Component<{}, IState> {
                 <Toolbar>
                     <ToolbarGroup firstChild={true}>
                         Language:
-                         <DropDownMenu value={this.state.lang} onChange={(e, i, v) => this.setState({lang: v})}>
+                         <DropDownMenu value={this.props.lang} onChange={(e, i, v) => this.props.setLang(v)}>
                             {lang}
                         </DropDownMenu>
                         Theme:
@@ -375,7 +380,7 @@ export default class Editor extends React.Component<{}, IState> {
                         </DropDownMenu>
                     </ToolbarGroup>
                 </Toolbar>
-                <CodeMirror value={this.state.text} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true}} onChange={v => this.setState({text: v})}/>
+                <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true}} onChange={v => this.props.setData(v)} style={{"height": "800px"}}/>
             </div>
         )
     }

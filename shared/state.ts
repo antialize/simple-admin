@@ -38,7 +38,20 @@ export interface IUserContent {
     groups: string;
 }
 
-export type IContent = IHostContent | IUserContent;
+export interface IGroupContent {
+    system: boolean;
+}
+
+export interface IFileContent {
+    path: string;
+    user: string;
+    group: string;
+    mode: string;
+    data: string;
+    lang: string;
+}
+
+export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent;
 
 export interface IObject {
     class: string;

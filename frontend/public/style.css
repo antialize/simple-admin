@@ -29,6 +29,10 @@ th {
     font-family: Liberation Mono, courier-new, courier, monospace  !important;
 }
 
+div.CodeMirror {
+    height: 750px;
+}
+
 tr:nth-child(even).smart_normal  {
     background-color: #EEEEEE;    
 }
