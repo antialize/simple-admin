@@ -1,11 +1,18 @@
 import { IUpdateStatusAction, IAction, ACTION, IMessage } from '../../shared/actions'
 import { IStatus, IStatuses, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import { Reducer, combineReducers } from 'redux';
-import { IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent, IGroupContent, IFileContent, ICollectionContent, IRootContent } from '../../shared/state'
+import { IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent, IGroupContent, IFileContent, ICollectionContent, IRootContent, DEPLOYMENT_STATUS, IDeploymentObject } from '../../shared/state'
 
 export interface IObjectState {
     current: IObject | null;
     versions: { [version: number]: IObject };
+}
+
+export interface IDeploymentState {
+    status: DEPLOYMENT_STATUS;
+    log: string[];
+    objects: {[id:number]: IDeploymentObject};
+    message: string;
 }
 
 export interface IMainState {
@@ -18,6 +25,7 @@ export interface IMainState {
     loaded: boolean;
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
     messages: { [id: number]: IMessage };
+    deployment: IDeploymentState;
 };
 
 function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
@@ -224,6 +232,30 @@ function changeCurrentObject(state: IMainState) {
         state.objects[id] = { current: current, versions: {} }
 }
 
+export function deployment(state: IDeploymentState = {status:DEPLOYMENT_STATUS.Done, log:[], objects:{}, message:""}, action: IAction) {
+    switch (action.type) {
+    case ACTION.SetDeploymentStatus:
+        return Object.assign({}, state, {status: action.status} );
+    case ACTION.SetDeploymentMessage:
+        return Object.assign({}, state, {message: action.message} );
+    case ACTION.SetDeploymentObjects:
+        return Object.assign({}, state, {objects: action.objects} );
+    case ACTION.ClearDeploymentLog:
+        return Object.assign({}, state, {log: []} );
+    case ACTION.AddDeploymentLogLines:
+        return Object.assign({}, state, state.log.concat(action.lines));
+    case ACTION.SetDeploymentObjectStatus:
+        let x = Object.assign({}, state.objects);
+        x[action.id] = Object.assign({}, x[action.id], {status: action.status});
+        return Object.assign({}, state, {objects: x});
+    case ACTION.ToggleDeploymentObject:
+        let y = Object.assign({}, state.objects);
+        y[action.id] = Object.assign({}, y[action.id], {enabled: action.enabled});
+        return Object.assign({}, state, {objects: y});
+    }
+    return state;
+}
+
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
@@ -234,7 +266,8 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         loaded: loaded(state ? state.loaded : undefined, action),
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         messages: messages(state ? state.messages : undefined, action),
-        serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action)
+        serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
+        deployment: deployment(state ? state.deployment : undefined, action),
     };
     changeCurrentObject(ns);
     return ns;

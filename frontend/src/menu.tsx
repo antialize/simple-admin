@@ -56,7 +56,9 @@ function MenuImpl(props:Props) {
             <ListItem primaryText="Files" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"file"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"file"})}/>
             <ListItem primaryText="Collections" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"collection"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"collection"})}/>
             <ListItem primaryText="Packages" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"package"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"package"})}/>
-	    <ListItem primaryText="Root" key={props.rootId} onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class:"root", id: props.rootId, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: "root", id: props.rootId, version:null})}/>
+	        <ListItem primaryText="Root" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class:"root", id: props.rootId, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: "root", id: props.rootId, version:null})}/>
+            <Divider/>
+	        <ListItem primaryText="Deployment" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}/>
         </List>
     </Drawer>);
 }

@@ -7,9 +7,7 @@ import * as $ from 'jquery'
 
 let nextNewObjectId=-2;
 
-export function onClick(e: React.MouseEvent<{}>, page: State.IPage,dispatch:Dispatch<IMainState>) {
-    if (e.metaKey || e.ctrlKey || e.button === 2) return;
-    e.preventDefault();
+export function setPage(page: State.IPage, dispatch:Dispatch<IMainState>) {
     let pg = Object.assign({}, page);
     if (pg.type == State.PAGE_TYPE.Object && pg.id === null) {
         pg.id = nextNewObjectId;
@@ -23,9 +21,18 @@ export function onClick(e: React.MouseEvent<{}>, page: State.IPage,dispatch:Disp
     dispatch(p);
 }
 
+export function onClick(e: React.MouseEvent<{}>, page: State.IPage,dispatch:Dispatch<IMainState>) {
+    if (e.metaKey || e.ctrlKey || e.button === 2) return;
+    e.preventDefault();
+    setPage(page, dispatch);
+}
+
 export function link(page: State.IPage) {
     var o: {[string:string]:string} = {}
     switch(page.type) {
+    case State.PAGE_TYPE.Deployment:
+        o['page'] = 'deployment';
+        break;
     case State.PAGE_TYPE.Dashbord:
         o['page'] = 'dashbord';
         break;
@@ -56,6 +63,8 @@ export function get(): State.IPage {
     switch (p) {
     default:
         return {type: State.PAGE_TYPE.Dashbord};
+    case 'deployment':
+        return {type: State.PAGE_TYPE.Deployment};
     case 'objectlist':
         return {type: State.PAGE_TYPE.ObjectList, class: getUrlParameter('class')};
     case 'object':

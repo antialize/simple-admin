@@ -1,4 +1,4 @@
-export enum PAGE_TYPE { Dashbord, ObjectList, Object }
+export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment }
 
 export interface INameIdPair {
     name: string;
@@ -20,7 +20,10 @@ export interface IDashbordPage {
     type: PAGE_TYPE.Dashbord;
 }
 
-export type IPage = IObjectListPage | IObjectPage | IDashbordPage;
+export interface IDeploymentPage {
+    type: PAGE_TYPE.Deployment;
+}
+export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage;
 
 export interface ICollectionContent {
     contains?: number[];
@@ -72,4 +75,17 @@ export interface IObject {
     name: string;
     version: number;
     content: IContent;
+}
+
+export enum DEPLOYMENT_STATUS {Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying}
+
+export enum DEPLOYMENT_OBJECT_STATUS {Normal, Deplying, Success, Failure}
+
+export interface IDeploymentObject {
+    id: number;
+    host: string;
+    cls: string;
+    name: string;
+    enabled: boolean;
+    status: DEPLOYMENT_STATUS;
 }

@@ -1,11 +1,14 @@
 import {IStatus, IStatusUpdate} from './status';
-import {IPage, INameIdPair, IObject} from './state';
+import {IPage, INameIdPair, IObject, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject} from './state';
 
 export enum ACTION {
     UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged, 
     SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog,  SetServiceLogVisibility, 
     AddMessage, SetMessageDismissed, SetObjectName, SetObjectContentParam, DiscardObject, SaveObject,
-    HostDown}
+    HostDown,
+    DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLogLines, SetDeploymentObjectStatus, ToggleDeploymentObject,
+    StopDeployment, StartDeployment, CancelDeployment
+}
 
 export interface IUpdateStatusAction {
     type: ACTION.UpdateStatus;
@@ -137,7 +140,63 @@ export interface IHostDown {
     id: number;
 }
 
+export interface IDeployObject {
+    type: ACTION.DeployObject;
+    id: number;
+}
+
+export interface ISetDeploymentStatus {
+    type: ACTION.SetDeploymentStatus;
+    status: DEPLOYMENT_STATUS;
+}
+
+export interface ISetDeploymentMessage {
+    type: ACTION.SetDeploymentMessage;
+    message: string;
+}
+
+export interface ISetDeploymentObjects {
+    type: ACTION.SetDeploymentObjects;
+    objects: {[id:number]:IDeploymentObject};
+}
+
+export interface IClearDeploymentLog {
+    type: ACTION.ClearDeploymentLog;
+}
+
+export interface IAddDeploymentLogLines {
+    type: ACTION.AddDeploymentLogLines;
+    lines: string[];
+}
+
+export interface ISetDeploymentObjectStatus {
+    type: ACTION.SetDeploymentObjectStatus;
+    id: number;
+    status: DEPLOYMENT_OBJECT_STATUS;
+}
+
+export interface IToggleDeploymentObject {
+    type: ACTION.ToggleDeploymentObject;
+    id: number;
+    enabled: boolean;
+}
+
+export interface IStopDeployment {
+    type: ACTION.StopDeployment;
+}
+
+export interface IStartDeployment {
+    type: ACTION.StartDeployment;
+}
+
+export interface ICancelDeployment {
+    type: ACTION.CancelDeployment
+}
+
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState 
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog 
     | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName 
-    | ISetObjectContentParam | IDiscardObject | ISaveObject | IHostDown;
+    | ISetObjectContentParam | IDiscardObject | ISaveObject | IHostDown 
+    | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog 
+    | IAddDeploymentLogLines | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
+    | IStartDeployment | IStartDeployment | ICancelDeployment;

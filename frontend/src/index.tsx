@@ -18,7 +18,7 @@ import {ObjectList} from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
 import {Messages} from './messages';
 import {remoteHost} from './config';
-
+import {Deployment} from './deployment';
 injectTapEventPlugin();
 
 interface Props {
@@ -42,6 +42,8 @@ function MainPageImpl(props: Props) {
         return <div><h1>List of {p.class}</h1><ObjectList class={p.class} /></div>
     case State.PAGE_TYPE.Object:
         return <div><Object class={p.class} id={p.id} version={p.version} /> </div>
+    case State.PAGE_TYPE.Deployment:
+        return <div><Deployment /></div>
     }
 }
 
@@ -85,6 +87,8 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
     case ACTION.SaveObject:
         action.obj = store.getState().objects[action.id].current
         sendMessage(action);
+        return;
+    case ACTION.DeployObject:
         return;
     case ACTION.SetMessageDismissed:
         if (action.source == "webclient") {

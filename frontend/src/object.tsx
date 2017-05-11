@@ -9,12 +9,13 @@ import { IMainState } from './reducers'
 import { Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import * as React from "react"
-import { IObject } from '../../shared/state'
-import { ACTION, IDiscardObject, ISaveObject } from '../../shared/actions'
+import { IObject, DEPLOYMENT_STATUS, PAGE_TYPE } from '../../shared/state'
+import { ACTION, IDiscardObject, ISaveObject, IDeployObject, ISetPageAction } from '../../shared/actions'
 import CircularProgress from 'material-ui/CircularProgress'
 import RaisedButton from 'material-ui/RaisedButton'
 import { HostExtra } from './hostextra'
 import { Box } from './box'
+import {setPage} from './page'
 
 interface IProps {
     class: string;
@@ -26,15 +27,17 @@ interface StateProps {
     class: string;
     id: number;
     hasCurrent: boolean;
+    canDeploy: boolean;
 }
 
 interface DispactProps {
     discard: () => void;
     save: () => void;
+    deploy: () => void;
 }
 
 function mapStateToProps(s: IMainState, p: IProps): StateProps {
-    return { class: p.class, id: p.id, hasCurrent: p.id in s.objects && s.objects[p.id].current != null };
+    return { class: p.class, id: p.id, hasCurrent: p.id in s.objects && s.objects[p.id].current != null, canDeploy: s.deployment.status == DEPLOYMENT_STATUS.Done || s.deployment.status == DEPLOYMENT_STATUS.InvilidTree};
 }
 
 function mapDispatchToProps(dispatch: Dispatch<IMainState>, p: IProps): DispactProps {
@@ -53,6 +56,19 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>, p: IProps): DispactP
             };
             dispatch(a);
         },
+        deploy: () => {
+            /*const a1: ISaveObject = {
+                type: ACTION.SaveObject,
+                id: p.id
+            };
+            dispatch(a1);*/
+            const a2: IDeployObject = {
+                type: ACTION.DeployObject,
+                id: p.id
+            };
+            dispatch(a2);
+            setPage({type: PAGE_TYPE.Deployment}, dispatch);
+        }
     }
 }
 
@@ -88,7 +104,7 @@ function ObjectImpl(p: DispactProps & StateProps) {
             content = <div><h1>NOT IMPLEMENTED</h1></div>;
     }
 
-    //<RaisedButton label="Save and deploy" primary={true} style={{margin:10}}/>
+    //
     //<RaisedButton label="Delete" secondary={true} style={{margin:10}}/> ->>
     return (
         <div>
@@ -96,6 +112,7 @@ function ObjectImpl(p: DispactProps & StateProps) {
                 <div>{content}</div>
                 <div>
                     <RaisedButton label="Save" primary={true} style={{ margin: 10 }} onClick={p.save} />
+                    <RaisedButton label="Deploy" primary={true} style={{margin:10}} onClick={p.deploy} disabled={!p.canDeploy}/>
                     <RaisedButton label="Discard" secondary={true} style={{ margin: 10 }} onClick={p.discard} />
                 </div>
             </Box>
