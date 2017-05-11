@@ -1,4 +1,4 @@
-export enum PAGE_TYPE {Dashbord, ObjectList, Object}
+export enum PAGE_TYPE { Dashbord, ObjectList, Object }
 
 export interface INameIdPair {
     name: string;
@@ -13,7 +13,7 @@ export interface IObjectPage {
     type: PAGE_TYPE.Object;
     class: string;
     id?: number;
-    version ?: number;
+    version?: number;
 };
 
 export interface IDashbordPage {
@@ -24,8 +24,13 @@ export type IPage = IObjectListPage | IObjectPage | IDashbordPage;
 
 export interface ICollectionContent {
     contains?: number[];
-    //depends?: number[];
-    variables?: {[key:string]: string}
+    variables?: { key: string, value: string }[];
+}
+
+export interface IPackageContent { }
+
+export interface IRootContent {
+    variables?: { key: string, value: string }[];
 }
 
 export interface IHostContent extends ICollectionContent {
@@ -35,7 +40,7 @@ export interface IHostContent extends ICollectionContent {
     contains?: number[];
 }
 
-export interface IUserContent extends ICollectionContent{
+export interface IUserContent extends ICollectionContent {
     firstName: string;
     lastName: string;
     system: boolean;
@@ -44,6 +49,7 @@ export interface IUserContent extends ICollectionContent{
     email: string;
     groups: string;
     depends?: number[];
+    sudoOn?: number[];
 }
 
 export interface IGroupContent {
@@ -59,7 +65,7 @@ export interface IFileContent {
     lang: string;
 }
 
-export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent;
+export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent | IRootContent | IPackageContent;
 
 export interface IObject {
     class: string;

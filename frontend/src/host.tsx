@@ -8,6 +8,7 @@ import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import {ACTION, ISetObjectName, ISetObjectContentParam} from '../../shared/actions'
 import {ObjectSelector} from './object_selector'
+import {Variables} from './variables'
 
 interface IProps {
     id: number;
@@ -58,7 +59,9 @@ export function HostImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Password"><TextField type="password" value={c.password} onChange={(e:any, value:string) => props.setProp("password",value)}/></InformationListRow>
                 <InformationListRow name="Message on down"><Toggle alt="Should we generate messages when the server goes down" toggled={c.messageOnDown !== false} onToggle={(e:any, value:boolean) => props.setProp("messageOnDown",value)}/></InformationListRow>
             </InformationList>
+    	    <Variables variables={c.variables?c.variables:[]} setVariables={(vars: {key:string, value:string}[])=> props.setProp("variables", vars)} />
             <ObjectSelector filter={(cls,id)=>cls!='host'} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}} name="Has"/>
+
         </div>)
 }
 

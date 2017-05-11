@@ -1,19 +1,21 @@
 import * as React from "react";
 import { connect, Dispatch } from 'react-redux';
 import LinearProgress from 'material-ui/LinearProgress';
-import {Size} from './size';
-import {Time} from './time';
-import {IMainState} from './reducers';
-import {IStatus, IStatuses} from '../../shared/status';
+import { Size } from './size';
+import { Time } from './time';
+import { IMainState } from './reducers';
+import { IStatus, IStatuses } from '../../shared/status';
 import * as State from '../../shared/state';
-import {InformationList, InformationListRow} from './information_list';
+import { InformationList, InformationListRow } from './information_list';
 import * as page from './page'
-import {Line} from 'react-chartjs-2'
-import {Box} from './box'
+import { Line } from 'react-chartjs-2'
+import { Box } from './box'
 import RaisedButton from 'material-ui/RaisedButton';
+import GridList from 'material-ui/GridList/GridList';
+import GridTile from 'material-ui/GridList/GridTile';
 
 interface Props {
-    status:IStatus;
+    status: IStatus;
 }
 
 export class Status extends React.Component<Props, {}> {
@@ -27,17 +29,17 @@ export class Status extends React.Component<Props, {}> {
             const mount = s.mounts[target];
             const block_size = 512;
             lst.push(
-                <InformationListRow key={mount.src} name={mount.src + " at "+mount.target}>
-                    <Size size={(mount.blocks-mount.free_blocks) * mount.block_size} />
+                <InformationListRow key={mount.src} name={mount.src + " at " + mount.target}>
+                    <Size size={(mount.blocks - mount.free_blocks) * mount.block_size} />
                     <span> of </span>
-                    <Size size={mount.blocks * mount.block_size} /><br/>
-                    <LinearProgress mode="determinate" value={mount.blocks-mount.free_blocks} max={mount.blocks} />
+                    <Size size={mount.blocks * mount.block_size} /><br />
+                    <LinearProgress mode="determinate" value={mount.blocks - mount.free_blocks} max={mount.blocks} />
                 </InformationListRow>);
         }
 
-        let x = s.cpu.length-1;
+        let x = s.cpu.length - 1;
 
-        let start = Math.max(0, x- 100);
+        let start = Math.max(0, x - 100);
 
         let labels: Date[] = [];
         let cpu: number[] = [];
@@ -46,19 +48,19 @@ export class Status extends React.Component<Props, {}> {
         let diskread: number[] = [];
         let diskwrite: number[] = [];
 
-        for (let i=start; i < x; ++i) {
-            cpu.push((s.cpu[i+1] - s.cpu[i])*100.0/5.0);
-            netread.push((s.netread[i+1] - s.netread[i])/5.0);
-            netwrite.push((s.netwrite[i+1] - s.netwrite[i])/5.0);
-            diskread.push((s.diskread[i+1] - s.diskread[i])/5.0);
-            diskwrite.push((s.diskwrite[i+1] - s.diskwrite[i])/5.0);
-            labels.push(new Date(s.time[i+1]*1000));
+        for (let i = start; i < x; ++i) {
+            cpu.push((s.cpu[i + 1] - s.cpu[i]) * 100.0 / 5.0);
+            netread.push((s.netread[i + 1] - s.netread[i]) / 5.0);
+            netwrite.push((s.netwrite[i + 1] - s.netwrite[i]) / 5.0);
+            diskread.push((s.diskread[i + 1] - s.diskread[i]) / 5.0);
+            diskwrite.push((s.diskwrite[i + 1] - s.diskwrite[i]) / 5.0);
+            labels.push(new Date(s.time[i + 1] * 1000));
         }
-        
+
         const data = {
             labels: labels,
             datasets: [
-                {  
+                {
                     yAxisID: 'cpu',
                     label: 'CPU Usage',
                     fill: false,
@@ -67,7 +69,7 @@ export class Status extends React.Component<Props, {}> {
                     borderColor: 'rgba(0,0,0,1)',
                     pointRadius: 1,
                     data: cpu
-                }, {  
+                }, {
                     yAxisID: 'io',
                     label: 'Net Read',
                     fill: false,
@@ -76,7 +78,7 @@ export class Status extends React.Component<Props, {}> {
                     borderColor: 'rgba(255,0,0,1)',
                     pointRadius: 1,
                     data: netread,
-                }, {  
+                }, {
                     yAxisID: 'io',
                     label: 'Net Write',
                     fill: false,
@@ -85,7 +87,7 @@ export class Status extends React.Component<Props, {}> {
                     borderColor: 'rgba(0,255,0,1)',
                     pointRadius: 1,
                     data: netwrite,
-                }, {  
+                }, {
                     yAxisID: 'io',
                     label: 'Disk Read',
                     fill: false,
@@ -94,7 +96,7 @@ export class Status extends React.Component<Props, {}> {
                     borderColor: 'rgba(0,0,255,1)',
                     pointRadius: 1,
                     data: diskread,
-                }, {  
+                }, {
                     yAxisID: 'io',
                     label: 'Disk Write',
                     fill: false,
@@ -104,38 +106,39 @@ export class Status extends React.Component<Props, {}> {
                     pointRadius: 1,
                     data: diskwrite,
                 }
-            ] };
+            ]
+        };
 
         const options = {
-	    animation: false,
+            animation: false,
             scales: {
                 xAxes: [{
                     type: 'time',
                 }],
                 yAxes: [
-                    {   
+                    {
                         id: 'cpu',
-                        gridLines: {display: false},
+                        gridLines: { display: false },
                         ticks: {
                             beginAtZero: true,
                             suggestedMax: 100.0,
-                            callback: function(label:number, index:number, labels:any) {
-                                return label+'%';
+                            callback: function(label: number, index: number, labels: any) {
+                                return label + '%';
                             }
                         }
                     },
-                    {   
+                    {
                         id: 'io',
-                        gridLines: {display: false},
+                        gridLines: { display: false },
                         ticks: {
                             beginAtZero: true,
                             suggestedMax: 1024.0,
-                            callback: function(label:number, index:number, labels:any) {
+                            callback: function(label: number, index: number, labels: any) {
                                 if (label < 1024)
                                     return label.toFixed(0) + "B/s";
-                                if (label < 1024*1024)
+                                if (label < 1024 * 1024)
                                     return (label / 1024).toFixed(0) + "kB/s";
-                                if (label < 1024*1024*1024)
+                                if (label < 1024 * 1024 * 1024)
                                     return (label / 1024 / 1024).toFixed(0) + "MB/s";
                                 return (label / 1024 / 1024 / 1024).toFixed(0) + "GB/s";
                             }
@@ -146,27 +149,27 @@ export class Status extends React.Component<Props, {}> {
             }
         };
         return (
-            <div style={{display:'flex', flexDirection: 'row'}}>
-	    	<div width="400px">
-                <InformationList>
-                    <InformationListRow name="Hostname">{s.uname.nodename}</InformationListRow>
-                    <InformationListRow name="Kernel">{s.uname.release}</InformationListRow>
-                    <InformationListRow name="Dist">{s.lsb_release.id} {s.lsb_release.release} {s.lsb_release.codename}</InformationListRow>
-                    <InformationListRow name="Uptime"><Time seconds={s.uptime.total} /></InformationListRow>
-                    <InformationListRow name="Loadavg">{s.loadavg.minute}</InformationListRow>
-                    <InformationListRow name="Memory">
-                        <Size size={s.meminfo.free} /><span> of </span><Size size={s.meminfo.total} /><br />
-                        <LinearProgress mode="determinate" value={s.meminfo.free} max={s.meminfo.total} />
-                    </InformationListRow>
-                    <InformationListRow name="Swap">
-                        <Size size={s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
-                        <LinearProgress mode="determinate" value={s.meminfo.swap_free} max={s.meminfo.swap_total} />
-                    </InformationListRow>
-                    {lst}
-                </InformationList>
-		</div>
-                <div style={{flex:1, marginLeft: 20}}>
-                   <Line data={data} options={options} height={75}/>
+            <div style={{ display: 'flex', flexDirection: 'row' }}>
+                <div width="400px">
+                    <InformationList>
+                        <InformationListRow name="Hostname">{s.uname.nodename}</InformationListRow>
+                        <InformationListRow name="Kernel">{s.uname.release}</InformationListRow>
+                        <InformationListRow name="Dist">{s.lsb_release.id} {s.lsb_release.release} {s.lsb_release.codename}</InformationListRow>
+                        <InformationListRow name="Uptime"><Time seconds={s.uptime.total} /></InformationListRow>
+                        <InformationListRow name="Loadavg">{s.loadavg.minute}</InformationListRow>
+                        <InformationListRow name="Memory">
+                            <Size size={s.meminfo.free} /><span> of </span><Size size={s.meminfo.total} /><br />
+                            <LinearProgress mode="determinate" value={s.meminfo.free} max={s.meminfo.total} />
+                        </InformationListRow>
+                        <InformationListRow name="Swap">
+                            <Size size={s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
+                            <LinearProgress mode="determinate" value={s.meminfo.swap_free} max={s.meminfo.swap_total} />
+                        </InformationListRow>
+                        {lst}
+                    </InformationList>
+                </div>
+                <div style={{ flex: 1, marginLeft: 20 }}>
+                    <Line data={data} options={options} height={75} />
                 </div>
             </div>)
     }
@@ -175,44 +178,65 @@ export class Status extends React.Component<Props, {}> {
 interface StatusesProps {
     hosts: State.INameIdPair[];
     statuses: IStatuses;
-    setPage: (e: React.MouseEvent<{}>, p: State.IPage) => void; 
+    setPage: (e: React.MouseEvent<{}>, p: State.IPage) => void;
 }
 
-function mapStateToProps(state:IMainState) {
-    return {'hosts': state.objectNamesAndIds['host'], 'statuses': state.status};
+function mapStateToProps(state: IMainState) {
+    return { 'hosts': state.objectNamesAndIds['host'], 'statuses': state.status };
 }
 
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
+function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
     return {
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {page.onClick(e, p, dispatch);
+        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
+            page.onClick(e, p, dispatch);
         }
-    }    
+    }
 }
 
 function StatusesImpl(p: StatusesProps) {
-    let hosts = (p.hosts)?p.hosts.map((v)=>v): [];
-    hosts.sort((a,b) => a.name < b.name ? -1 : 1);
+    let hosts = (p.hosts) ? p.hosts.map((v) => v) : [];
+    hosts.sort((a, b) => a.name < b.name ? -1 : 1);
     return (
-        <div>
-            {hosts.map( pp=> {
-                let a: State.IPage = {type:State.PAGE_TYPE.Object, class: 'host', id: pp.id, version:null};
+        <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
+        }}>
+            {hosts.map(pp => {
+                let a: State.IPage = { type: State.PAGE_TYPE.Object, class: 'host', id: pp.id, version: null };
                 let elm;
                 if (p.statuses[pp.id] && p.statuses[pp.id].up)
-                    elm = <Status status={p.statuses[pp.id]} />
+                    elm = <Status status={p.statuses[pp.id]} />;
                 else
-                    elm = <div>Down</div>
+                    elm = <div>Down</div>;
 
-                return (<Box key={pp.name}
-                    title={pp.name}
-                    expanded={true}
-                    collapsable={true}
-                    >
-                    {elm}
-                    <RaisedButton onClick={(e)=>p.setPage(e, a)} label="Details" href={page.link(a)} />
-                    </Box>)
+                return (
+                    <div style={{ border: "1px solid black" }}>
+                        <h1>{name}</h1>
+                        {elm}
+                    </div>);
             })}
-        </div>
-    )
+        </div >);
+
+    /*  return (
+        {/* <div>
+            {hosts.map( pp=> {
+            let a: State.IPage = {type:State.PAGE_TYPE.Object, class: 'host', id: pp.id, version:null};
+            let elm;
+            if (p.statuses[pp.id] && p.statuses[pp.id].up)
+            elm = <Status status={p.statuses[pp.id]} />
+            else
+            elm = <div>Down</div>
+
+            return (<Box key={pp.name}
+            title={pp.name}
+            expanded={true}
+            collapsable={true}
+            >
+            {elm}
+            <RaisedButton onClick={(e)=>p.setPage(e, a)} label="Details" href={page.link(a)} />
+            </Box>)
+            })}
+            </div>   }
+    )*/
 }
 
 export let Statuses = connect(mapStateToProps, mapDispatchToProps)(StatusesImpl);

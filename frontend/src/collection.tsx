@@ -8,7 +8,7 @@ import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import {IObject, ICollectionContent} from '../../shared/state'
 import {ACTION, ISetObjectName, ISetObjectContentParam} from '../../shared/actions'
-
+import {Variables} from './variables'
 
 interface IProps {
     id: number;
@@ -59,6 +59,7 @@ export function CollectionImpl(props: StateProps & DispactProps) {
                     <TextField value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} />
                 </InformationListRow>
             </InformationList>
+	    <Variables variables={c.variables?c.variables:[]} setVariables={(vars: {key:string, value:string}[])=> props.setProp("variables", vars)} />
             <ObjectSelector filter={(cls:string, id:number)=>id != props.id} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}} name="Has"/>
         </div>)
 }
