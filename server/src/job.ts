@@ -1,32 +1,12 @@
 import * as message from './messages'
-import {IJob, IJobOwner, IHostClient} from './interfaces'
+import {HostClient} from './hostclient'
+import {JobOwner} from './jobowner'
 
-export class JobOwner implements IJobOwner {
-    jobs: {[id:number]: IJob} = {};
-
-    addJob(job:IJob) {
-        this.jobs[job.id] = job;
-    }
-
-    removeJob(job:IJob, msg: message.Failure|message.Success|null) {
-        delete this.jobs[job.id];
-    }
-
-    kill() {
-        for (const id in this.jobs) {
-            const job = this.jobs[+id]
-            if (job.client as IJobOwner == this) job.client = null;
-            if (job.owner == this) job.owner = null;
-            job.kill(null);
-        }
-    }
-}
-
-export abstract class Job implements IJob {
+export abstract class Job {
     id: number;
     running: boolean = false;
 
-    constructor(public client: IHostClient, id:number = null, public owner:JobOwner = null) {
+    constructor(public client: HostClient, id:number = null, public owner:JobOwner = null) {
         if (id === null)
             this.id = client.nextJobId++;
         else

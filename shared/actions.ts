@@ -179,6 +179,7 @@ export interface IToggleDeploymentObject {
     type: ACTION.ToggleDeploymentObject;
     id: number;
     enabled: boolean;
+    source: "server" | "webclient";
 }
 
 export interface IStopDeployment {

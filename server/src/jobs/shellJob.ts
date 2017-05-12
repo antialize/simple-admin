@@ -1,12 +1,12 @@
 import {Job} from '../job'
-import {IHostClient} from '../interfaces'
+import {HostClient} from '../hostclient'
 import * as message from '../messages'
 import * as fs from 'fs';
 import * as WebSocket from 'ws';
 
 
 export class ShellJob extends Job {
-    constructor(client: IHostClient, public sock:WebSocket, cols:number, rows:number) {
+    constructor(client: HostClient, public sock:WebSocket, cols:number, rows:number) {
         super(client, null, null);
 
         let msg: message.RunScript = {

@@ -89,7 +89,17 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
         sendMessage(action);
         return;
     case ACTION.DeployObject:
+    case ACTION.StopDeployment:
+    case ACTION.StartDeployment:
+    case ACTION.CancelDeployment:
+        sendMessage(action);
         return;
+    case ACTION.ToggleDeploymentObject:
+        if (action.source == "webclient") {
+            sendMessage(action);
+            return;
+        }
+        break;
     case ACTION.SetMessageDismissed:
         if (action.source == "webclient") {
             sendMessage(action);
@@ -114,6 +124,7 @@ socket.onmessage = (data=>{
     store.dispatch(d);
     switch (d.type) {
     case ACTION.SetInitialState:
+        console.log("Set initial state");
         store.dispatch({
             type: ACTION.SetPage,
             page: page.get()})

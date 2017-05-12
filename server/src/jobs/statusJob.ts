@@ -1,11 +1,11 @@
-import {Job, JobOwner} from '../job'
-import {IHostClient} from '../interfaces'
+import {Job} from '../job'
+import {HostClient} from '../hostclient'
 import * as message from '../messages'
 import * as fs from 'fs';
 import {IStatusUpdate} from '../../../shared/status'
 
 export class StatusJob extends Job {
-    constructor(client: IHostClient) {
+    constructor(client: HostClient) {
         super(client, 0, null);
         let msg: message.RunScript = {
             'type': 'run_script', 

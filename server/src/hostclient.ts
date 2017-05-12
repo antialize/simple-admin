@@ -1,21 +1,15 @@
 import * as net from 'net';
 import * as fs from 'fs';
-import * as webclient from './webclient'
 import {IUpdateStatusAction, IHostDown, ACTION} from '../../shared/actions'
 import {IStatus, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
 import * as message from './messages'
 import * as WebSocket from 'ws';
 import * as tls from 'tls';
 import * as crypto from 'crypto';
-import * as db from './db'
-import {JobOwner} from './job'
+import {JobOwner} from './jobowner'
 import {StatusJob} from './jobs/statusJob'
-import {IHostClient} from './interfaces';
 import * as bcrypt from 'bcrypt'
-import * as msg from './msg';
-
-export const hostClients:{[id:number]:HostClient} = {};
-let hostServer: net.Server;
+import {webClients, msg, hostClients, db} from './instances'
 
 function delay(time:number) {
   return new Promise<void>(resolve => {
@@ -24,7 +18,7 @@ function delay(time:number) {
   });
 }
 
-export class HostClient extends JobOwner implements IHostClient {
+export class HostClient extends JobOwner {
     private socket: tls.TLSSocket;
     private buff = Buffer.alloc(4*1024*1024);
     private used = 0;
@@ -81,11 +75,11 @@ export class HostClient extends JobOwner implements IHostClient {
             msg.emit(this.id, "Host down", "Connection closed.");
 
         console.log("Client", this.hostname, "disconnected");
-        if (this.id in hostClients)
-            delete hostClients[this.id];
+        if (this.id in hostClients.hostClients)
+            delete hostClients.hostClients[this.id];
         
         let act:IHostDown = {type: ACTION.HostDown, id: this.id};
-        webclient.broadcast(act);
+        webClients.broadcast(act);
         this.kill();
     }
 
@@ -116,7 +110,7 @@ export class HostClient extends JobOwner implements IHostClient {
                 this.auth = true;
                 this.id = id;
                 new StatusJob(this);
-                hostClients[this.id] = this;
+                hostClients.hostClients[this.id] = this;
             } else {
                 console.log("Client from", this.socket.remoteAddress, this.socket.remotePort, "invalid auth", obj);
                 this.auth = false;
@@ -204,25 +198,28 @@ export class HostClient extends JobOwner implements IHostClient {
 
         this.status = applyStatusUpdate(this.status, update);;
 
-        webclient.webclients.forEach(c=>{
-            let msg: IUpdateStatusAction = {
+        let m: IUpdateStatusAction = {
                 type: ACTION.UpdateStatus,
                 host: this.id,
                 update: update
             };
-            c.sendMessage(msg);
-        });
+        webClients.broadcast(m);
     }
-};
+}
 
-export function startServer() {
-    const privateKey  = fs.readFileSync('domain.key', 'utf8');
-    const certificate = fs.readFileSync('chained.pem', 'utf8');
-    const options = {key: privateKey, cert: certificate};
+export class HostClients {
+    hostClients:{[id:number]:HostClient} = {};
+    private hostServer: net.Server;
 
-    hostServer = tls.createServer(options, socket=>{
-        console.log("Client connected from", socket.remoteAddress, socket.remotePort);
-        new HostClient(socket);
-    });
-    hostServer.listen(8888, '0.0.0.0');
+    start() {
+        const privateKey  = fs.readFileSync('domain.key', 'utf8');
+        const certificate = fs.readFileSync('chained.pem', 'utf8');
+        const options = {key: privateKey, cert: certificate};
+
+        this.hostServer = tls.createServer(options, socket=>{
+            console.log("Client connected from", socket.remoteAddress, socket.remotePort);
+            new HostClient(socket);
+        });
+        this.hostServer.listen(8888, '0.0.0.0');
+    }
 }

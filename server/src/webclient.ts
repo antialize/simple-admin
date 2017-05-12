@@ -4,37 +4,23 @@ import {IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPag
 import * as express from 'express';
 import {IObject, IHostContent, IUserContent, PAGE_TYPE} from '../../shared/state'
 import * as message from './messages'
-
 import * as WebSocket from 'ws';
 import * as url from 'url';
 import * as net from 'net';
-import {JobOwner, Job} from './job'
+import {JobOwner} from './jobowner'
+import {Job} from './job'
 import {ShellJob} from './jobs/shellJob'
 import {LogJob} from './jobs/logJob'
-import {hostClients, HostClient} from './hostclient';
 import * as fs from 'fs';
-import * as db from './db'
 import * as basicAuth from 'basic-auth'
 import {config} from './config'
-import * as msg from './msg'
 import * as bcrypt from 'bcrypt'
 import * as helmet from 'helmet'
+import {webClients, msg, hostClients, db, deployment} from './instances'
 
 interface EWS extends express.Express {
     ws(s:string, f:(ws:WebSocket, req: express.Request) => void):void;
 }
-
-const privateKey  = fs.readFileSync('domain.key', 'utf8');
-const certificate = fs.readFileSync('chained.pem', 'utf8');
-const credentials = {key: privateKey, cert: certificate};
-
-const app = express();
-app.use(helmet())
-//We might need a http server to implement acmee
-const server2 = https.createServer(credentials, app);
-
-const wss = new WebSocket.Server({ server: server2 });
-export let webclients = new Set<WebClient>();
 
 export class WebClient extends JobOwner {
     connection: WebSocket;
@@ -50,7 +36,7 @@ export class WebClient extends JobOwner {
 
     onClose() {
         this.kill();
-        webclients.delete(this);
+        webClients.webclients.delete(this);
     }
 
     async onMessage(str:string) {
@@ -72,8 +58,8 @@ export class WebClient extends JobOwner {
             this.sendMessage(res);
             break;
         case ACTION.StartLog:
-            if (act.host in hostClients) {
-                new LogJob(hostClients[act.host], this, act.id, act.logtype, act.unit);
+            if (act.host in hostClients.hostClients) {
+                new LogJob(hostClients.hostClients[act.host], this, act.id, act.logtype, act.unit);
             }
             break;
         case ACTION.EndLog:
@@ -99,10 +85,25 @@ export class WebClient extends JobOwner {
                 let {id,version} = await db.changeObject(act.id, act.obj);
                 act.obj.version = version;
                 let res2: IObjectChanged = {type:ACTION.ObjectChanged, id: id, object:[act.obj] };
-                broadcast(res2);
+                webClients.broadcast(res2);
                 let res3: ISetPageAction = {type:ACTION.SetPage, page: {type: PAGE_TYPE.Object, class: act.obj.class, id, version}};
                 this.sendMessage(res3);
             }
+            break;
+        case ACTION.DeployObject:
+            deployment.deployObject(act.id);
+            break;
+        case ACTION.CancelDeployment:
+            deployment.cancel();
+            break;
+        case ACTION.StartDeployment:
+            deployment.start();
+            break;
+        case ACTION.StopDeployment:
+            deployment.stop();
+            break;
+        case ACTION.ToggleDeploymentObject:
+            deployment.toggleObject(act.id, act.enabled);
             break;
         default:
             console.log(act);
@@ -113,35 +114,6 @@ export class WebClient extends JobOwner {
         this.connection.send(JSON.stringify(obj))
     }
 }
-
-export function broadcast(act:IAction) {
-    webclients.forEach(client => client.sendMessage(act));
-}
-
-function auth(req: http.IncomingMessage) {
-    var user = basicAuth(req);
-
-    if (!user || !user.name || !user.pass) {
-        return false;
-    };
-
-    for (var u of config.users)
-        if (u.name == user.name && u.password == user.pass) return true;
-
-    return false;
-}
-
-
-function authHttp(req: express.Request, res: express.Response, next: ()=>void ) {
-    if (auth(req))
-        return next();
-    else {
-        res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
-        return res.send(401);
-    }
-}
-
-app.use(authHttp, express.static("../frontend/public"));
 
 async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjects();
@@ -158,60 +130,101 @@ async function sendInitialState(c: WebClient) {
         action.objectNamesAndIds[row.type].push({id: row.id, name:row.name});
     }
 
-    for (const id in hostClients) {
-        const c = hostClients[id];
+    for (const id in hostClients.hostClients) {
+        const c = hostClients.hostClients[id];
         action.statuses[c.id] = c.status;
     }
 
     c.sendMessage(action);
 }
 
+export class WebClients {
+    privateKey  = fs.readFileSync('domain.key', 'utf8');
+    certificate = fs.readFileSync('chained.pem', 'utf8');
+    credentials = {key: this.privateKey, cert: this.certificate};
+    httpsApp = express();
+    webclients = new Set<WebClient>();
+    httpsServer: https.Server;
+    wss: WebSocket.Server;
+    httpApp = express();
+    httpServer: http.Server;
 
-function socketAuth(req:express.Request, socket:net.Socket) {
-    if (!auth(req)) {
-        try {
-            socket.write("HTTP/1.1 401 Unauthorized\r\nContent-type: text/html\r\n\r\n");
-        } finally {
-            try {
-                socket.destroy();
-            } catch (_error) {}
+    broadcast(act:IAction) {
+        this.webclients.forEach(client => client.sendMessage(act));
+    }
+
+    auth(req: http.IncomingMessage) {
+        var user = basicAuth(req);
+
+        if (!user || !user.name || !user.pass) {
+            return false;
+        };
+
+        for (var u of config.users)
+            if (u.name == user.name && u.password == user.pass) return true;
+
+        return false;
+    }
+
+    constructor() {
+        let authHttp = (req: express.Request, res: express.Response, next: ()=>void ) => {
+            if (this.auth(req))
+                return next();
+            else {
+                res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
+                return res.send(401);
+            }
+        };
+
+        let socketAuth = (req:express.Request, socket:net.Socket) => {
+            if (!this.auth(req)) {
+                try {
+                    socket.write("HTTP/1.1 401 Unauthorized\r\nContent-type: text/html\r\n\r\n");
+                } finally {
+                    try {
+                        socket.destroy();
+                    } catch (_error) {}
+                }
+            }
         }
-    }
-}
 
-server2.on('upgrade', socketAuth);
+        this.httpsApp.use(helmet());
+        this.httpsServer = https.createServer(this.credentials, this.httpsApp);
+        this.wss = new WebSocket.Server({ server: this.httpsServer })
+        this.httpsApp.use(authHttp, express.static("../frontend/public"));
+        this.httpsServer.on('upgrade', socketAuth);
+        this.wss.on('connection', (ws)=>{
+            const u = url.parse(ws.upgradeReq.url, true);
+            console.log("Websocket connection", u.hostname, u.pathname)
+            if (u.pathname == '/sysadmin') {
+                const wc = new WebClient(ws);
+                this.webclients.add(wc);
+                sendInitialState(wc);
+            } else if (u.pathname == '/terminal') {
+                const server = u.query.server as number;
+                const cols = u.query.cols as number;
+                const rows = u.query.rows as number;
+                if (server in hostClients.hostClients)
+                    new ShellJob(hostClients.hostClients[server], ws, cols, rows);
+            } else {
+                console.log("Bad socket", u);
+                ws.close();
+            }
+        });
+
+        this.httpApp.use(helmet())
+        this.httpServer = http.createServer(this.httpApp); 
+        this.httpApp.use('/.well-known/acme-challenge', express.static("/var/www/challenges"));
+        this.httpApp.get("*", function (req, res, next) {
+            res.redirect("https://" + req.headers.host + "/" + req.path);
+        })
+    }
     
-wss.on('connection', (ws)=>{
-
-    const u = url.parse(ws.upgradeReq.url, true);
-    console.log("Websocket connection", u.hostname, u.pathname)
-    if (u.pathname == '/sysadmin') {
-        const wc = new WebClient(ws);
-        webclients.add(wc);
-        sendInitialState(wc);
-    } else if (u.pathname == '/terminal') {
-        const server = u.query.server as number;
-        const cols = u.query.cols as number;
-        const rows = u.query.rows as number;
-        if (server in hostClients)
-            new ShellJob(hostClients[server], ws, cols, rows);
-    } else {
-        console.log("Bad socket", u);
-        ws.close();
+    startServer() {
+        this.httpServer.listen(80, "0.0.0.0");
+        this.httpsServer.listen(443, "0.0.0.0", function(){
+            console.log("server running at https://localhost:8001/")
+        });
     }
-});
-
-const app2 = express();
-const server = http.createServer(app2); 
-app2.use(helmet())
-app2.use('/.well-known/acme-challenge', express.static("/var/www/challenges"));
-app2.get("*", function (req, res, next) {
-    res.redirect("https://" + req.headers.host + "/" + req.path);
-})
-
-export function startServer() {
-    server.listen(80, "0.0.0.0");
-    server2.listen(443, "0.0.0.0", function(){
-        console.log("server running at https://localhost:8001/")
-    });
 }
+
