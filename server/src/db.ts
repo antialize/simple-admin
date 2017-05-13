@@ -64,6 +64,18 @@ export class DB {
                 })});
     }
 
+    getAllObjectsFull() {
+        let db=this.db;
+        return new Promise<{id:number, type:string, name:string, content:string}[]>(cb => {
+            db.all("SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest`=1 ORDER BY `id`", 
+                (err, rows) => {
+                    if (rows === undefined)
+                        cb([]);
+                    else
+                        cb(rows);
+                })});
+    }
+
     getObjectByID(id:number) {
         let db=this.db;
         return new Promise<{version:number, type:string, name:string, content:string}[]>(cb => {

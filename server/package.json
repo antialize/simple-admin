@@ -9,9 +9,11 @@
   "devDependencies": {
     "@types/bcrypt": "^1.0.0",
     "@types/node": "^7.0.5",
+    "@types/priorityqueuejs": "^1.0.1",
     "@types/ws": "0.0.38",
     "bcrypt": "^1.0.2",
     "nodemon": "^1.11.0",
+    "priorityqueuejs": "^1.0.0",
     "ts-node": "^2.0.0",
     "typescript": "^2.1.5",
     "ws": "^2.0.3"

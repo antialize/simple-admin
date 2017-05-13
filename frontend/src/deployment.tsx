@@ -55,10 +55,10 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:IProps): DispatchPr
             };
             dispatch(a);
         },
-        toggle: (id:number, enabled:boolean) => {
+        toggle: (index:number, enabled:boolean) => {
             const a: Actions.IToggleDeploymentObject = {
                 type: Actions.ACTION.ToggleDeploymentObject,
-                id,
+                index,
                 enabled,
                 source: "webclient"
             };
@@ -132,10 +132,31 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
     let c2 = null;
 
     if (items) {
+        let rows = props.d.objects.map((o) => {
+            return <tr key={o.index}>
+                <td>{o.host}</td>
+                <td>{o.name}</td>
+                <td>{o.cls}</td>
+                <td>Add</td>
+                <td><input type="checkbox" checked={o.enabled} onChange={(e)=>props.toggle(o.index, e.target.checked)}/></td>
+                </tr>;
+        });
+        
+        //for(let id of Object.keys(props.d.objects)
+
         content = (
             <div style={{display: 'flex', flexDirection: 'row', maxHeight: "calc(100vh - 170px)"}}>
                 <div style={{flex: "1 1 50%", overflowY: "auto"}}>
-                    KAT
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Host</th><th>Object</th><th>Class</th><th>Action</th><th>Enable</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows}
+                        </tbody>
+                    </table>
                 </div>
                 <div style={{flex: "1 1 50%", overflowY: "auto"}}>
                     <DeployLog />

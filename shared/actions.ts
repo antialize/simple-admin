@@ -157,7 +157,7 @@ export interface ISetDeploymentMessage {
 
 export interface ISetDeploymentObjects {
     type: ACTION.SetDeploymentObjects;
-    objects: {[id:number]:IDeploymentObject};
+    objects: IDeploymentObject[];
 }
 
 export interface IClearDeploymentLog {
@@ -171,13 +171,13 @@ export interface IAddDeploymentLogLines {
 
 export interface ISetDeploymentObjectStatus {
     type: ACTION.SetDeploymentObjectStatus;
-    id: number;
+    index: number;
     status: DEPLOYMENT_OBJECT_STATUS;
 }
 
 export interface IToggleDeploymentObject {
     type: ACTION.ToggleDeploymentObject;
-    id: number;
+    index: number;
     enabled: boolean;
     source: "server" | "webclient";
 }

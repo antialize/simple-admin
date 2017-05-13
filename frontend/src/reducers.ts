@@ -11,7 +11,7 @@ export interface IObjectState {
 export interface IDeploymentState {
     status: DEPLOYMENT_STATUS;
     log: string[];
-    objects: {[id:number]: IDeploymentObject};
+    objects: IDeploymentObject[];
     message: string;
 }
 
@@ -232,7 +232,7 @@ function changeCurrentObject(state: IMainState) {
         state.objects[id] = { current: current, versions: {} }
 }
 
-export function deployment(state: IDeploymentState = {status:DEPLOYMENT_STATUS.Done, log:[], objects:{}, message:""}, action: IAction) {
+export function deployment(state: IDeploymentState = {status:DEPLOYMENT_STATUS.Done, log:[], objects:[], message:""}, action: IAction) {
     switch (action.type) {
     case ACTION.SetDeploymentStatus:
         return Object.assign({}, state, {status: action.status} );
@@ -245,12 +245,12 @@ export function deployment(state: IDeploymentState = {status:DEPLOYMENT_STATUS.D
     case ACTION.AddDeploymentLogLines:
         return Object.assign({}, state, state.log.concat(action.lines));
     case ACTION.SetDeploymentObjectStatus:
-        let x = Object.assign({}, state.objects);
-        x[action.id] = Object.assign({}, x[action.id], {status: action.status});
+        let x = state.objects.slice(0);
+        x[action.index] = Object.assign({}, x[action.index], {status: action.status});
         return Object.assign({}, state, {objects: x});
     case ACTION.ToggleDeploymentObject:
-        let y = Object.assign({}, state.objects);
-        y[action.id] = Object.assign({}, y[action.id], {enabled: action.enabled});
+        let y = state.objects.slice(0);
+        y[action.index] = Object.assign({}, y[action.index], {enabled: action.enabled});
         return Object.assign({}, state, {objects: y});
     }
     return state;

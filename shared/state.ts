@@ -25,25 +25,32 @@ export interface IDeploymentPage {
 }
 export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage;
 
-export interface ICollectionContent {
+export interface IContainsContent {
     contains?: number[];
+}
+
+export interface IVariablesContent {
     variables?: { key: string, value: string }[];
 }
+
+export interface IDependsContent {
+    depends?: number[];
+}
+
+export interface ICollectionContent extends IContainsContent, IVariablesContent {} 
 
 export interface IPackageContent { }
 
-export interface IRootContent {
-    variables?: { key: string, value: string }[];
-}
+export interface IRootContent extends IVariablesContent {}
+
 
 export interface IHostContent extends ICollectionContent {
     password: string;
     messageOnDown: boolean;
     importantServices: string[];
-    contains?: number[];
 }
 
-export interface IUserContent extends ICollectionContent {
+export interface IUserContent extends ICollectionContent, IDependsContent {
     firstName: string;
     lastName: string;
     system: boolean;
@@ -51,7 +58,6 @@ export interface IUserContent extends ICollectionContent {
     password: string;
     email: string;
     groups: string;
-    depends?: number[];
     sudoOn?: number[];
 }
 
@@ -82,10 +88,10 @@ export enum DEPLOYMENT_STATUS {Done, BuildingTree, InvilidTree, ComputingChanges
 export enum DEPLOYMENT_OBJECT_STATUS {Normal, Deplying, Success, Failure}
 
 export interface IDeploymentObject {
-    id: number;
+    index: number;
     host: string;
     cls: string;
     name: string;
     enabled: boolean;
-    status: DEPLOYMENT_STATUS;
+    status: DEPLOYMENT_OBJECT_STATUS;
 }

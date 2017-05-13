@@ -103,7 +103,7 @@ export class WebClient extends JobOwner {
             deployment.stop();
             break;
         case ACTION.ToggleDeploymentObject:
-            deployment.toggleObject(act.id, act.enabled);
+            deployment.toggleObject(act.index, act.enabled);
             break;
         default:
             console.log(act);
