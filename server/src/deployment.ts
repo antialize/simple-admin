@@ -2,6 +2,15 @@ import {DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, IDeploymentObject, IContent
 import {webClients, db} from './instances'
 import {ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects} from '../../shared/actions'
 import * as PriorityQueue from 'priorityqueuejs'
+import * as Mustache from 'mustache'
+
+interface IFullDeploymentObject {
+    inner: IDeploymentObject;
+    prev: IContent;
+    next: IContent;
+    variables: {[key:string]:string};
+    name: string;
+}
 
 export class Deployment {
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
@@ -26,13 +35,10 @@ export class Deployment {
     }
 
     async setupDeploy(deployId:number) {
-        console.log("HELLO");
         let objects: {[id:number]: {id:number, name:string, class:string, content:IContent}} = {};
         let root: number = null;
         let hosts: number[] = [];
-        console.log("HELLO2"); 
         let rows = await db.getAllObjectsFull();
-        console.log("HELLO3");
         for (const r of rows) {
             objects[r.id] = {id: r.id, name: r.name, class: r.type, content: JSON.parse(r.content)};
             if (r.type == 'root')
@@ -40,7 +46,6 @@ export class Deployment {
             else if (r.type == 'host')
                 hosts.push(r.id);
         }
-        console.log("A", rows.length);
         interface DagNode {
             name : string;
             id: number;
@@ -56,8 +61,6 @@ export class Deployment {
         // We first build the full DAG, we later collapse the root and collection nodes
         let rootNode: DagNode = {name:'root', id: root, next: [], variables: {}, inCount: 0, host: 0};
         dagNodes.set(rootNode.name, rootNode);
-
-        console.log("HELLO", hosts);
 
         for (const hostId of hosts) {
             let deps=new Set<number>();
@@ -208,7 +211,7 @@ export class Deployment {
         });
 
         let idx = 0;
-        let deploymentObjects: IDeploymentObject[] = [];
+        let deploymentObjects: IFullDeploymentObject[] = [];
 
         while (!pq.isEmpty()) {
             let node = pq.deq();
@@ -219,21 +222,39 @@ export class Deployment {
             }
             let obj = objects[node.id];
             if (!obj || obj.class === 'collection' || obj.class == 'host' || obj.class == 'root') continue;
-            let o: IDeploymentObject = {
-                index: idx++,
-                cls: obj.class,
-                host: objects[node.host].name,
-                name: objects[node.id].name,
-                enabled: true,
-                status: DEPLOYMENT_OBJECT_STATUS.Normal
+            let o: IFullDeploymentObject = {
+                inner: {
+                    index: idx++,
+                    cls: obj.class,
+                    host: objects[node.host].name,
+                    name: objects[node.id].name,
+                    enabled: true,
+                    status: DEPLOYMENT_OBJECT_STATUS.Normal
+                },
+                name: node.name,
+                next: obj.content,
+                prev: {},
+                variables: node.variables,
             }; 
             deploymentObjects.push(o);
         }
         this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
         
+        let view=[];
+        for (let obj of deploymentObjects) {
+            switch(obj.inner.cls) {
+            case 'file':
+                let ctx = (obj.next as IFileContent);
+                ctx = Object.assign({}, ctx, {path: Mustache.render(ctx.path, obj.variables), data: Mustache.render(ctx.data, obj.variables)});
+                ctx.user = ctx.user || obj.variables['user'] || 'root';
+                ctx.group = ctx.group || obj.variables['user'] || 'root';
+            }
+            view.push(obj.inner);
+        }
+
         let a: ISetDeploymentObjects = {
             type: ACTION.SetDeploymentObjects,
-            objects: deploymentObjects
+            objects: view
         };
         webClients.broadcast(a);
     }
