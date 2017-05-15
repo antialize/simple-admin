@@ -13,7 +13,7 @@ import { Box } from './box'
 import RaisedButton from 'material-ui/RaisedButton';
 import GridList from 'material-ui/GridList/GridList';
 import GridTile from 'material-ui/GridList/GridTile';
-
+import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/Card';
 interface Props {
     status: IStatus;
 }
@@ -67,7 +67,8 @@ export class Status extends React.Component<Props, {}> {
                     lineTension: 0.5,
                     backgroundColor: 'rgba(0,0,0,0.4)',
                     borderColor: 'rgba(0,0,0,1)',
-                    pointRadius: 1,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
                     data: cpu
                 }, {
                     yAxisID: 'io',
@@ -76,7 +77,8 @@ export class Status extends React.Component<Props, {}> {
                     lineTension: 0.5,
                     backgroundColor: 'rgba(255,0,0,0.4)',
                     borderColor: 'rgba(255,0,0,1)',
-                    pointRadius: 1,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
                     data: netread,
                 }, {
                     yAxisID: 'io',
@@ -85,7 +87,8 @@ export class Status extends React.Component<Props, {}> {
                     lineTension: 0.5,
                     backgroundColor: 'rgba(0,255,0,0.4)',
                     borderColor: 'rgba(0,255,0,1)',
-                    pointRadius: 1,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
                     data: netwrite,
                 }, {
                     yAxisID: 'io',
@@ -94,7 +97,8 @@ export class Status extends React.Component<Props, {}> {
                     lineTension: 0.5,
                     backgroundColor: 'rgba(0,0,255,0.4)',
                     borderColor: 'rgba(0,0,255,1)',
-                    pointRadius: 1,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
                     data: diskread,
                 }, {
                     yAxisID: 'io',
@@ -103,7 +107,8 @@ export class Status extends React.Component<Props, {}> {
                     lineTension: 0.5,
                     backgroundColor: 'rgba(0,255,255,0.4)',
                     borderColor: 'rgba(0,255,255,1)',
-                    pointRadius: 1,
+                    borderWidth: 1.5,
+                    pointRadius: 0,
                     data: diskwrite,
                 }
             ]
@@ -111,6 +116,7 @@ export class Status extends React.Component<Props, {}> {
 
         const options = {
             animation: false,
+            maintainAspectRatio: false,
             scales: {
                 xAxes: [{
                     type: 'time',
@@ -150,7 +156,7 @@ export class Status extends React.Component<Props, {}> {
         };
         return (
             <div style={{ display: 'flex', flexDirection: 'row' }}>
-                <div width="400px">
+                <div style={{ width: "250px" }}>
                     <InformationList>
                         <InformationListRow name="Hostname">{s.uname.nodename}</InformationListRow>
                         <InformationListRow name="Kernel">{s.uname.release}</InformationListRow>
@@ -168,8 +174,8 @@ export class Status extends React.Component<Props, {}> {
                         {lst}
                     </InformationList>
                 </div>
-                <div style={{ flex: 1, marginLeft: 20 }}>
-                    <Line data={data} options={options} height={75} />
+                <div style={{ flex: 1, marginLeft: 20, minHeight: '270px' }}>
+                    <Line data={data} options={options} />
                 </div>
             </div>)
     }
@@ -209,10 +215,13 @@ function StatusesImpl(p: StatusesProps) {
                     elm = <div>Down</div>;
 
                 return (
-                    <div style={{ border: "1px solid black" }}>
-                        <h1>{name}</h1>
-                        {elm}
-                    </div>);
+                    <Card style={{ margin: '5px' }}>
+                        <CardTitle title={pp.name} />
+                        <CardText>{elm}</CardText>
+                        <CardActions>
+                            <RaisedButton onClick={(e) => p.setPage(e, a)} label="Details" href={page.link(a)} />
+                        </CardActions>
+                    </Card>);
             })}
         </div >);
 
