@@ -116,7 +116,7 @@ export class Deployment {
                 if (dagNodes.has(name)) return dagNodes.get(name);;
                 
                 let node: DagNode = {name, id, next: [], variables: {}, inCount: 0, host: hostId};
-
+                dagNodes.set(name, node);
                 deps.add(id);
                 path.push(id);
 
