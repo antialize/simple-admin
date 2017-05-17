@@ -199,7 +199,8 @@ function changeCurrentObject(state: IMainState) {
             for (let v in state.objects[id].versions)
                 state.page.version = Math.max(state.page.version, +v);
         }
-        if (state.objects[id].current != null && state.objects[id].current.version == state.page.version) return; //We are allready modifying the right object
+        if (state.objects[id].current != null && state.objects[id].current.version == state.page.version)
+            return; //We are allready modifying the right object
         current = state.objects[id].versions[state.page.version];
     } else { // We are modifying a new object
         if (state.page.id in state.objects && state.objects[id].current != null) return; //We are allready modifying the right object
@@ -232,26 +233,26 @@ function changeCurrentObject(state: IMainState) {
         state.objects[id] = { current: current, versions: {} }
 }
 
-export function deployment(state: IDeploymentState = {status:DEPLOYMENT_STATUS.Done, log:[], objects:[], message:""}, action: IAction) {
+export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, log: [], objects: [], message: "" }, action: IAction) {
     switch (action.type) {
-    case ACTION.SetDeploymentStatus:
-        return Object.assign({}, state, {status: action.status} );
-    case ACTION.SetDeploymentMessage:
-        return Object.assign({}, state, {message: action.message} );
-    case ACTION.SetDeploymentObjects:
-        return Object.assign({}, state, {objects: action.objects} );
-    case ACTION.ClearDeploymentLog:
-        return Object.assign({}, state, {log: []} );
-    case ACTION.AddDeploymentLogLines:
-        return Object.assign({}, state, state.log.concat(action.lines));
-    case ACTION.SetDeploymentObjectStatus:
-        let x = state.objects.slice(0);
-        x[action.index] = Object.assign({}, x[action.index], {status: action.status});
-        return Object.assign({}, state, {objects: x});
-    case ACTION.ToggleDeploymentObject:
-        let y = state.objects.slice(0);
-        y[action.index] = Object.assign({}, y[action.index], {enabled: action.enabled});
-        return Object.assign({}, state, {objects: y});
+        case ACTION.SetDeploymentStatus:
+            return Object.assign({}, state, { status: action.status });
+        case ACTION.SetDeploymentMessage:
+            return Object.assign({}, state, { message: action.message });
+        case ACTION.SetDeploymentObjects:
+            return Object.assign({}, state, { objects: action.objects });
+        case ACTION.ClearDeploymentLog:
+            return Object.assign({}, state, { log: [] });
+        case ACTION.AddDeploymentLogLines:
+            return Object.assign({}, state, state.log.concat(action.lines));
+        case ACTION.SetDeploymentObjectStatus:
+            let x = state.objects.slice(0);
+            x[action.index] = Object.assign({}, x[action.index], { status: action.status });
+            return Object.assign({}, state, { objects: x });
+        case ACTION.ToggleDeploymentObject:
+            let y = state.objects.slice(0);
+            y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
+            return Object.assign({}, state, { objects: y });
     }
     return state;
 }

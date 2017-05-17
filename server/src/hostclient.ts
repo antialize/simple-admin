@@ -1,31 +1,32 @@
 import * as net from 'net';
 import * as fs from 'fs';
-import {IUpdateStatusAction, IHostDown, ACTION} from '../../shared/actions'
-import {IStatus, IStatusUpdate, applyStatusUpdate} from '../../shared/status'
+import { IUpdateStatusAction, IHostDown, ACTION } from '../../shared/actions'
+import { IStatus, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import * as message from './messages'
 import * as WebSocket from 'ws';
 import * as tls from 'tls';
 import * as crypto from 'crypto';
-import {JobOwner} from './jobowner'
-import {StatusJob} from './jobs/statusJob'
+import { JobOwner } from './jobowner'
+import { StatusJob } from './jobs/statusJob'
 import * as bcrypt from 'bcrypt'
-import {webClients, msg, hostClients, db} from './instances'
+import { webClients, msg, hostClients, db } from './instances'
 
-function delay(time:number) {
-  return new Promise<void>(resolve => {
-    setTimeout(() => { resolve();
-    }, time);
-  });
+function delay(time: number) {
+    return new Promise<void>(resolve => {
+        setTimeout(() => {
+            resolve();
+        }, time);
+    });
 }
 
 export class HostClient extends JobOwner {
     private socket: tls.TLSSocket;
-    private buff = Buffer.alloc(4*1024*1024);
+    private buff = Buffer.alloc(4 * 1024 * 1024);
     private used = 0;
     nextJobId = 100;
 
     auth: boolean = null;
-    hostname:string = null;
+    hostname: string = null;
     id: number = null;
     pingId: number = 10;
     status: IStatus = null;
@@ -36,17 +37,17 @@ export class HostClient extends JobOwner {
     constructor(socket: tls.TLSSocket) {
         super();
         this.socket = socket;
-        this.socket.on('close', ()=>this.onClose());
-        this.socket.on('data', (data:any)=>this.onData(data as Buffer));
-        this.pingTimer = setTimeout(()=>{this.sendPing()}, 10000);;
+        this.socket.on('close', () => this.onClose());
+        this.socket.on('data', (data: any) => this.onData(data as Buffer));
+        this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);;
     }
 
     sendPing() {
         this.pingTimer = null;
         const time = process.hrtime();
         this.pingStart = time[0] + time[1] * 1e-9;
-        this.sendMessage({type: 'ping', id: this.pingId++});
-        this.pingTimer = setTimeout(()=>{this.onPingTimeout()}, 20000);
+        this.sendMessage({ type: 'ping', id: this.pingId++ });
+        this.pingTimer = setTimeout(() => { this.onPingTimeout() }, 20000);
     }
 
     onPingTimeout() {
@@ -57,12 +58,12 @@ export class HostClient extends JobOwner {
         this.socket.end();
     }
 
-    onPingResponce(id:number) {
+    onPingResponce(id: number) {
         clearTimeout(this.pingTimer);
         const time = process.hrtime();
         const pingEnd = time[0] + time[1] * 1e-9;
-        console.log("Ping ", pingEnd - this.pingStart);
-        this.pingTimer = setTimeout(()=>{this.sendPing()}, 9000);
+        // console.log("Ping ", pingEnd - this.pingStart);
+        this.pingTimer = setTimeout(() => { this.sendPing() }, 9000);
     }
 
 
@@ -77,23 +78,23 @@ export class HostClient extends JobOwner {
         console.log("Client", this.hostname, "disconnected");
         if (this.id in hostClients.hostClients)
             delete hostClients.hostClients[this.id];
-        
-        let act:IHostDown = {type: ACTION.HostDown, id: this.id};
+
+        let act: IHostDown = { type: ACTION.HostDown, id: this.id };
         webClients.broadcast(act);
         this.kill();
     }
 
-    async validateAuth(obj:message.Auth) {
+    async validateAuth(obj: message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
         if (res === null) return null;
-        if (bcrypt.compareSync(obj.password, (res && res.content)?res.content.password:"theemptystring") 
+        if (bcrypt.compareSync(obj.password, (res && res.content) ? res.content.password : "theemptystring")
             && res !== null) {
             return res.id;
         }
         return null;
     }
 
-    async onMessage(obj:message.Incomming) {
+    async onMessage(obj: message.Incomming) {
         if (this.auth === false) return;
         if (this.auth === null) {
             if (obj.type != "auth") {
@@ -103,7 +104,7 @@ export class HostClient extends JobOwner {
                 return;
             }
 
-            let [id,_] = await Promise.all<number, void>([this.validateAuth(obj), delay(1000)]);
+            let [id, _] = await Promise.all<number, void>([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
                 console.log("Client", obj['hostname'], "connected from", this.socket.remoteAddress, this.socket.remotePort);
                 this.hostname = obj['hostname'];
@@ -118,20 +119,20 @@ export class HostClient extends JobOwner {
             return;
         }
         switch (obj.type) {
-        case "auth":
-            this.socket.end();
-            break;
-        case "pong":
-            this.onPingResponce(obj.id);
-            break;
-        default:
-            const id = obj.id;
-            if (id in this.jobs)
-                this.jobs[id].handleMessage(obj);
+            case "auth":
+                this.socket.end();
+                break;
+            case "pong":
+                this.onPingResponce(obj.id);
+                break;
+            default:
+                const id = obj.id;
+                if (id in this.jobs)
+                    this.jobs[id].handleMessage(obj);
         }
     }
 
-    onData(data:Buffer) {
+    onData(data: Buffer) {
         let start = 0;
         while (true) {
             const idx = data.indexOf('\x1e', start);
@@ -141,38 +142,38 @@ export class HostClient extends JobOwner {
                 this.onMessage(JSON.parse(part.toString('utf8')));
             else {
                 part.copy(this.buff, this.used);
-                this.onMessage(JSON.parse(this.buff.slice(0, this.used+part.length).toString('utf-8')));
+                this.onMessage(JSON.parse(this.buff.slice(0, this.used + part.length).toString('utf-8')));
                 this.used = 0
             }
-            start = idx+1;
+            start = idx + 1;
         }
         if (start < data.length)
-        this.used += data.copy(this.buff, this.used, start)
+            this.used += data.copy(this.buff, this.used, start)
     }
 
-    sendMessage(obj:message.Outgoing) {
-        this.socket.write(JSON.stringify(obj)+'\x1e');
+    sendMessage(obj: message.Outgoing) {
+        this.socket.write(JSON.stringify(obj) + '\x1e');
     }
 
     updateStatus(update: IStatusUpdate) {
         if (this.status && update.smart) {
-            const importantSmart = new Set([5,103,171,172,175,176,181,182,184,187,188,191,197,198,200,221]);
+            const importantSmart = new Set([5, 103, 171, 172, 175, 176, 181, 182, 184, 187, 188, 191, 197, 198, 200, 221]);
             for (const dev in update.smart) {
                 const oldSmart = this.status.smart[dev];
                 const newSmart = update.smart[dev];
                 if (newSmart == null)
-                    msg.emit(this.id, "S.M.A.R.T", "Disk "+dev+" dissapeared");
+                    msg.emit(this.id, "S.M.A.R.T", "Disk " + dev + " dissapeared");
                 else {
-                    const oc: {[id:number]:number} = {};
+                    const oc: { [id: number]: number } = {};
                     for (const entry of oldSmart)
                         oc[entry.id] = entry.raw_value;
 
                     for (const entry of newSmart) {
                         if (!importantSmart.has(entry.id)) continue;
-                        const oldVal = oc[entry.id]?oc[entry.id]:0;
+                        const oldVal = oc[entry.id] ? oc[entry.id] : 0;
                         if (oldVal >= entry.raw_value) continue;
                         msg.emit(this.id, "S.M.A.R.T",
-                            "Disk "+dev+": " + entry.name + "("+ entry.id +")"
+                            "Disk " + dev + ": " + entry.name + "(" + entry.id + ")"
                             + " increased to " + entry.raw_value + " from " + oldVal);
                     }
                 }
@@ -199,24 +200,24 @@ export class HostClient extends JobOwner {
         this.status = applyStatusUpdate(this.status, update);;
 
         let m: IUpdateStatusAction = {
-                type: ACTION.UpdateStatus,
-                host: this.id,
-                update: update
-            };
+            type: ACTION.UpdateStatus,
+            host: this.id,
+            update: update
+        };
         webClients.broadcast(m);
     }
 }
 
 export class HostClients {
-    hostClients:{[id:number]:HostClient} = {};
+    hostClients: { [id: number]: HostClient } = {};
     private hostServer: net.Server;
 
     start() {
-        const privateKey  = fs.readFileSync('domain.key', 'utf8');
+        const privateKey = fs.readFileSync('domain.key', 'utf8');
         const certificate = fs.readFileSync('chained.pem', 'utf8');
-        const options = {key: privateKey, cert: certificate};
+        const options = { key: privateKey, cert: certificate };
 
-        this.hostServer = tls.createServer(options, socket=>{
+        this.hostServer = tls.createServer(options, socket => {
             console.log("Client connected from", socket.remoteAddress, socket.remotePort);
             new HostClient(socket);
         });

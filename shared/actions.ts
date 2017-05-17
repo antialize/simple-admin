@@ -1,9 +1,9 @@
-import {IStatus, IStatusUpdate} from './status';
-import {IPage, INameIdPair, IObject, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject} from './state';
+import { IStatus, IStatusUpdate } from './status';
+import { IPage, INameIdPair, IObject, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject } from './state';
 
 export enum ACTION {
-    UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged, 
-    SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog,  SetServiceLogVisibility, 
+    UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
+    SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
     AddMessage, SetMessageDismissed, SetObjectName, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLogLines, SetDeploymentObjectStatus, ToggleDeploymentObject,
@@ -28,7 +28,7 @@ export interface IObjectChanged {
 }
 
 export interface ISetPageAction {
-    type: ACTION.SetPage;    
+    type: ACTION.SetPage;
     page: IPage;
 }
 
@@ -51,18 +51,18 @@ export interface IMessage {
 
 export interface ISetInitialState {
     type: ACTION.SetInitialState;
-    objectNamesAndIds: {[cls:string]:INameIdPair[]};
-    statuses: {[id:number]: IStatus};
+    objectNamesAndIds: { [cls: string]: INameIdPair[] };
+    statuses: { [id: number]: IStatus };
     messages: IMessage[];
 }
 
 export interface ISetServiceListFilter {
     type: ACTION.SetServiceListFilter;
     host: number;
-    filter: string;   
+    filter: string;
 }
 
-export enum SERVICE_POKE {Start, Stop, Restart, Reload}
+export enum SERVICE_POKE { Start, Stop, Restart, Reload, Kill }
 
 export interface IPokeService {
     type: ACTION.PokeService;
@@ -194,10 +194,10 @@ export interface ICancelDeployment {
     type: ACTION.CancelDeployment
 }
 
-export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState 
-    | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog 
-    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName 
-    | ISetObjectContentParam | IDiscardObject | ISaveObject | IHostDown 
-    | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog 
+export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
+    | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
+    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName
+    | ISetObjectContentParam | IDiscardObject | ISaveObject | IHostDown
+    | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLogLines | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
     | IStartDeployment | IStartDeployment | ICancelDeployment;

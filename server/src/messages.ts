@@ -10,6 +10,15 @@ export interface RunScript {
     stderr_type?: 'none' | 'binary' | 'text' | 'blocked_json';
 }
 
+export interface RunInstant {
+    type: 'run_instant';
+    id: number;
+    name: string;
+    interperter: string;
+    content: string;
+    args: string[];
+}
+
 export interface Kill {
     type: 'kill';
     id: number;
@@ -48,5 +57,5 @@ export interface Pong {
     id: number;
 }
 
-export type Outgoing = RunScript | Data | Kill | Ping;
+export type Outgoing = RunScript | Data | Kill | Ping | RunInstant;
 export type Incomming = Data | Success | Failure | Auth | Pong;

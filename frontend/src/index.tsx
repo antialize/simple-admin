@@ -92,6 +92,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
     case ACTION.StopDeployment:
     case ACTION.StartDeployment:
     case ACTION.CancelDeployment:
+    case ACTION.PokeService:   
         sendMessage(action);
         return;
     case ACTION.ToggleDeploymentObject:
