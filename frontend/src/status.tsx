@@ -154,6 +154,13 @@ export class Status extends React.Component<Props, {}> {
                 ]
             }
         };
+	let swap = (s.meminfo.swap_total == 0)
+		 ? <span>None</span>
+		 : (<span>
+		     <Size size={s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
+		     <LinearProgress mode="determinate" value={s.meminfo.swap_free} max={s.meminfo.swap_total} />
+		 </span>);
+	
         return (
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div style={{ width: "250px" }}>
@@ -167,10 +174,7 @@ export class Status extends React.Component<Props, {}> {
                             <Size size={s.meminfo.free} /><span> of </span><Size size={s.meminfo.total} /><br />
                             <LinearProgress mode="determinate" value={s.meminfo.free} max={s.meminfo.total} />
                         </InformationListRow>
-                        <InformationListRow name="Swap">
-                            <Size size={s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
-                            <LinearProgress mode="determinate" value={s.meminfo.swap_free} max={s.meminfo.swap_total} />
-                        </InformationListRow>
+                        <InformationListRow name="Swap">{swap}</InformationListRow>
                         {lst}
                     </InformationList>
                 </div>
