@@ -130,6 +130,10 @@ async function sendInitialState(c: WebClient) {
         objectNamesAndIds: {},
         statuses: {},
         messages: await msgs,
+        deploymentObjects: deployment.getView(),
+        deploymentStatus: deployment.status,
+        deploymentMessage: deployment.message,
+        deploymentLog: deployment.log
     };
     for (const row of await rows) {
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];

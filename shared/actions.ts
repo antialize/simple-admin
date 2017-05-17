@@ -54,6 +54,10 @@ export interface ISetInitialState {
     objectNamesAndIds: { [cls: string]: INameIdPair[] };
     statuses: { [id: number]: IStatus };
     messages: IMessage[];
+    deploymentObjects: IDeploymentObject[];
+    deploymentStatus: DEPLOYMENT_STATUS;
+    deploymentMessage: string;
+    deploymentLog: string[];
 }
 
 export interface ISetServiceListFilter {

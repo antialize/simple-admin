@@ -1,6 +1,6 @@
-import {DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, IDeploymentObject, IContent, IHostContent, IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent} from '../../shared/state'
+import {DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent, IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent} from '../../shared/state'
 import {webClients, db} from './instances'
-import {ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects} from '../../shared/actions'
+import {ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus} from '../../shared/actions'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 
@@ -10,11 +10,15 @@ interface IFullDeploymentObject {
     next: IContent;
     variables: {[key:string]:string};
     name: string;
+    host: number;
+    object: number;
 }
 
 export class Deployment {
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
     message: string;
+    deploymentObjects: IFullDeploymentObject[] = [];
+    log: string[];
 
     setStatus(s: DEPLOYMENT_STATUS) {
         this.status = s;
@@ -197,22 +201,31 @@ export class Deployment {
             return rhs.id - lhs.id;
         });
 
+        let classOrder = (cls:string) => {
+            switch (cls) {
+            case 'collection': return 10;
+            case 'group': return 20;
+            case 'user': return 30;
+            case 'file': return 40;
+            case 'package': return 50;
+            default: return 900;
+            }
+        }
+
         seen.forEach( (node) => {
             let obj = objects[node.id];
-            switch (obj.class) {
-            case 'collection': node.classOrder = 10; break;
-            case 'group': node.classOrder = 20; break;
-            case 'user': node.classOrder = 30; break;
-            case 'file': node.classOrder = 40; break;
-            case 'package': node.classOrder = 50; break;
-            default: node.classOrder = 900; break;
-            }
+            node.classOrder = classOrder(obj.class);
             if (node.inCount == 0) pq.enq(node);
         });
 
         let idx = 0;
-        let deploymentObjects: IFullDeploymentObject[] = [];
-
+        this.deploymentObjects = [];
+        let oldContent: {[host:number]: {[name:string]: {content: string, cls: string, title:string, name:string}}} = {};
+        let fullDeloyHosts: number[] = [];
+        for (let row of await db.getDeployments()) {
+            if (!(row.host in oldContent)) oldContent[row.host] = {};
+            oldContent[row.host][row.name] = {content: row.content, cls: row.type, title: row.title, name: row.name};
+        }
         while (!pq.isEmpty()) {
             let node = pq.deq();
             for (let next of node.next) {
@@ -221,6 +234,9 @@ export class Deployment {
                     pq.enq(next);
             }
             let obj = objects[node.id];
+            if (obj && obj.class == 'host')
+                fullDeloyHosts.push(node.id);
+
             if (!obj || obj.class === 'collection' || obj.class == 'host' || obj.class == 'root') continue;
             let o: IFullDeploymentObject = {
                 inner: {
@@ -229,19 +245,26 @@ export class Deployment {
                     host: objects[node.host].name,
                     name: objects[node.id].name,
                     enabled: true,
-                    status: DEPLOYMENT_OBJECT_STATUS.Normal
+                    status: DEPLOYMENT_OBJECT_STATUS.Normal,
+                    action: DEPLOYMENT_OBJECT_ACTION.Add
                 },
                 name: node.name,
                 next: obj.content,
                 prev: {},
+                host: node.host,
+                object: node.id,
                 variables: node.variables,
-            }; 
-            deploymentObjects.push(o);
+            };
+            if (node.host in oldContent && node.name in oldContent[node.host]) {
+                o.prev = JSON.parse(oldContent[node.host][node.name].content);
+                delete oldContent[node.host][node.name];
+                o.inner.action = DEPLOYMENT_OBJECT_ACTION.Modify;
+            }
+            this.deploymentObjects.push(o);
         }
-        this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
-        
-        let view=[];
-        for (let obj of deploymentObjects) {
+
+        // Apply templates
+        for (let obj of this.deploymentObjects) {
             switch(obj.inner.cls) {
             case 'file':
                 let ctx = (obj.next as IFileContent);
@@ -249,14 +272,83 @@ export class Deployment {
                 ctx.user = ctx.user || obj.variables['user'] || 'root';
                 ctx.group = ctx.group || obj.variables['user'] || 'root';
             }
-            view.push(obj.inner);
         }
 
+        // Find stuff to remove
+        for (let host of fullDeloyHosts) {
+            if (!(host in oldContent)) continue;
+
+            let values: {content: string, cls: string, title:string, name:string}[] = [];
+            for (let name in oldContent[host])
+                values.push(oldContent[host][name]);
+            values.sort((l, r) => {
+                let lo = classOrder(l.cls);
+                let ro = classOrder(r.cls);
+                if (lo != ro) return ro - lo;
+                return l.name < r.name ? -1 : 1;
+            })
+
+            for (let v of values) {
+                let o: IFullDeploymentObject = {
+                    inner: {
+                        index: idx++,
+                        cls: v.cls,
+                        host: objects[host].name,
+                        name: v.title,
+                        enabled: true,
+                        status: DEPLOYMENT_OBJECT_STATUS.Normal,
+                        action: DEPLOYMENT_OBJECT_ACTION.Remove
+                    },
+                    name: v.name,
+                    next: {},
+                    prev: JSON.parse(v.content),
+                    host: host,
+                    object: null,
+                    variables: null,
+                };
+                this.deploymentObjects.push(o);
+            }
+        }
+       
+        this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
         let a: ISetDeploymentObjects = {
             type: ACTION.SetDeploymentObjects,
-            objects: view
+            objects: this.getView()
         };
         webClients.broadcast(a);
+    }
+
+    wait(time:number) {
+        return new Promise<{}>(cb => {
+            setTimeout(cb, time);
+        })
+    }
+
+    setObjectStatus(index: number, status: DEPLOYMENT_OBJECT_STATUS) {
+        this.deploymentObjects[index].inner.status = status;
+        let a : ISetDeploymentObjectStatus = {
+            type: ACTION.SetDeploymentObjectStatus,
+            index: index,
+            status: status
+        }
+        webClients.broadcast(a);
+    }
+
+    async performDeploy() {
+        this.setStatus(DEPLOYMENT_STATUS.Deploying);
+        for (var o of this.deploymentObjects) {
+            this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
+            await this.wait(4000);
+            this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Success);
+        }
+        this.setStatus(DEPLOYMENT_STATUS.Done);
+    }
+
+    getView() {
+        let view=[];
+        for (let obj of this.deploymentObjects)
+            view.push(obj.inner);
+        return view;
     }
 
     deployObject(id:number) {
@@ -264,15 +356,34 @@ export class Deployment {
         this.setupDeploy(id);
     }
 
-    start() {}
+    start() {
+        if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
+        this.performDeploy();
+    }
 
-    stop() {}
-
-    cancel() {
+    stop() {
+        if (this.status != DEPLOYMENT_STATUS.Deploying) return;
+        //TODO we should wait for the current action to finish
         this.setStatus(DEPLOYMENT_STATUS.Done);
     }
 
+    cancel() {
+        if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
+        this.setStatus(DEPLOYMENT_STATUS.Done);
+        this.deploymentObjects = [];
+        let a: ISetDeploymentObjects = {
+            type: ACTION.SetDeploymentObjects,
+            objects: this.getView()
+        };
+        webClients.broadcast(a);
+        this.setMessage("");
+    }
+
     toggleObject(index: number, enabled: boolean) {
+        if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
+
+        this.deploymentObjects[index].inner.enabled = enabled;
+
         let a: IToggleDeploymentObject = {
             type: ACTION.ToggleDeploymentObject,
             index,

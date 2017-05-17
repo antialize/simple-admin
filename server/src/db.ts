@@ -40,7 +40,9 @@ export class DB {
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
         await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
-        await r("CREATE TABLE IF NOT EXISTS depends (`id` INTEGER, `version` INTEGER, `on` INTEGER)");
+        await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `object` INTEGER, `type` TEXT, `title` TEXT)");
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
+        await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
         await r("UPDATE `objects` SET `newest`=0 WHERE `id`<10000");
         await r("REPLACE INTO objects (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`) VALUES "+
                 "(1, 1, null, 'User', '{}', 'Users', datetime('now'), 1), "+
@@ -50,6 +52,43 @@ export class DB {
                 "(5, 1, null, 'Package', '{}', 'Package', datetime('now'), 1), "+
                 "(6, 1, null, 'Host', '{}', 'Hosts', datetime('now'), 1)");
         await q();
+    }
+
+    getDeployments() {
+        let db=this.db;
+        return new Promise<{host:number, name:string, content:string, type:string, title:string}[]>(cb => {
+            db.all("SELECT `host`, `name`, `content`, `type`, `title` FROM `deployments`", [],
+                (err, rows) => {
+                    if (rows === undefined)
+                        cb([]);
+                    else
+                        cb(rows);
+                })});
+    }
+
+    setDeployment(host:number, name:string, content:string, object:number, type:string, title:string) {
+        let db=this.db;
+        if (content) {
+            return new Promise<{}[]>(cb => {
+                db.run("REPLACE INTO `deployments` SET (`host`, `name`, `content`, `time`, `object`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?, ?)", [host, name, content, object, type, title],
+                    (err) => {
+                         if (err) {
+                            console.log(err);
+                            process.exit(1);
+                         }
+                         cb();
+                    })});
+        } else {
+            return new Promise<{}[]>(cb => {
+                db.all("DELETE FROM `deployments` WHERE `host`=? AND `name`=?", [host, name],
+                    (err) => {
+                         if (err) {
+                            console.log(err);
+                            process.exit(1);
+                         }
+                         cb();
+                    })});
+        }
     }
 
     getAllObjects() {

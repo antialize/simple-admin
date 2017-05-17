@@ -253,6 +253,8 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
             let y = state.objects.slice(0);
             y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
             return Object.assign({}, state, { objects: y });
+        case ACTION.SetInitialState:
+            return {status: action.deploymentStatus, log: action.deploymentLog, objects: action.deploymentObjects, message: action.deploymentMessage};
     }
     return state;
 }

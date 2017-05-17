@@ -86,6 +86,7 @@ export interface IObject {
 export enum DEPLOYMENT_STATUS {Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying}
 
 export enum DEPLOYMENT_OBJECT_STATUS {Normal, Deplying, Success, Failure}
+export enum DEPLOYMENT_OBJECT_ACTION {Add, Modify, Remove}
 
 export interface IDeploymentObject {
     index: number;
@@ -94,4 +95,5 @@ export interface IDeploymentObject {
     name: string;
     enabled: boolean;
     status: DEPLOYMENT_OBJECT_STATUS;
+    action: DEPLOYMENT_OBJECT_ACTION;
 }

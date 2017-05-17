@@ -132,13 +132,30 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
     let c2 = null;
 
     if (items) {
+        let disable=(props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges);
         let rows = props.d.objects.map((o) => {
-            return <tr key={o.index}>
+            let bg:string;
+            switch(o.status) {
+            case State.DEPLOYMENT_OBJECT_STATUS.Deplying: bg = "yellow"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Failure: bg = "red"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Success: bg = "green"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Deplying: bg = "orange"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Normal: bg = o.enabled?"white":"gray"; break;
+            }
+            let act:string;
+            switch(o.action) {
+            case State.DEPLOYMENT_OBJECT_ACTION.Add: act="Add"; break;
+            case State.DEPLOYMENT_OBJECT_ACTION.Modify: act="Modify"; break;
+            case State.DEPLOYMENT_OBJECT_ACTION.Remove: act="Remove"; break;
+
+            }
+
+            return <tr key={o.index} style={{backgroundColor: bg}}>
                 <td>{o.host}</td>
                 <td>{o.name}</td>
                 <td>{o.cls}</td>
-                <td>Add</td>
-                <td><input type="checkbox" checked={o.enabled} onChange={(e)=>props.toggle(o.index, e.target.checked)}/></td>
+                <td>{act}</td>
+                <td><input type="checkbox" checked={o.enabled} disabled={disable} onChange={(e)=>props.toggle(o.index, e.target.checked)}/></td>
                 </tr>;
         });
         
@@ -173,7 +190,7 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
             {c2}
             <div style={{marginTop: '20px'}}>
                 <RaisedButton label="Start" disabled={props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges} onClick={(e)=>props.start()} />
-                <RaisedButton label="Stop" disabled={props.d.status != State.DEPLOYMENT_STATUS.Deploying} onClick={(e)=>props.start()} />
+                <RaisedButton label="Stop" disabled={props.d.status != State.DEPLOYMENT_STATUS.Deploying} onClick={(e)=>props.stop()} />
                 <RaisedButton label="Cancel" disabled={!cancel} onClick={(e)=>props.cancel()} />
                 <RaisedButton label="Deploy all" disabled={props.d.status != State.DEPLOYMENT_STATUS.Done && props.d.status != State.DEPLOYMENT_STATUS.InvilidTree} onClick={(e)=>props.deployAll()} />
             </div>
