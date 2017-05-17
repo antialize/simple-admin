@@ -25,10 +25,46 @@ interface DispatchProps {
     setLogVisibility(name: string, visibility: boolean): void;
 }
 
+let boring = new Set(
+    ["ModemManager.service", "NetworkManager-wait-online.service", "accounts-daemon.service",
+     "acpid.service", "alsa-restore.service", "alsa-state.service", "anacron.service",
+     "apport.service", "apt-daily.service", "avahi-daemon.service", "avahi-dnsconfd.service",
+     "binfmt-support.service", "bluetooth.service", "brltty.service", "cgproxy.service",
+     "colord.service", "console-setup.service", "cups-browsed.service", "dns-clean.service",
+     "emergency.service", "friendly-recovery.service", "getty-static.service", "gpu-manager.service",
+     "grub-common.service", "hddtemp.service", "irqbalance.service", "keyboard-setup.service",
+     "kmod-static-nodes.service", "nfs-config.service", "nfs-utils.service", "ondemand.service",
+     "plymouth-quit-wait.service", "plymouth-quit.service", "plymouth-read-write.service",
+     "plymouth-start.service", "polkitd.service", "pppd-dns.service", "rc-local.service",
+     "rescue.service", "rpc-gssd.service", "rpcbind.service", "rtkit-daemon.service",
+     "setvtrgb.service", "snapd.autoimport.service", "snapd.refresh.service", "snapd.service",
+     "speech-dispatcher.service", "syslog.service", "systemd-ask-password-console.service",
+     "systemd-ask-password-plymouth.service", "systemd-ask-password-wall.service",
+     "systemd-binfmt.service", "systemd-fsck-root.service", "systemd-fsckd.service",
+     "systemd-hwdb-update.service", "systemd-initctl.service", "systemd-journal-flush.service",
+     "systemd-journald.service", "systemd-logind.service", "systemd-machine-id-commit.service",
+     "systemd-modules-load.service", "systemd-networkd-resolvconf-update.service",
+     "systemd-networkd.service", "systemd-random-seed.service", "systemd-remount-fs.service",
+     "systemd-rfkill.service", "systemd-sysctl.service", "systemd-timesyncd.service",
+     "systemd-tmpfiles-clean.service", "systemd-tmpfiles-setup-dev.service", 
+     "systemd-tmpfiles-setup.service", "systemd-udev-trigger.service", "systemd-udevd.service",
+     "systemd-update-utmp-runlevel.service", "systemd-update-utmp.service",
+     "systemd-user-sessions.service", "tlp.service", "udisks2.service", 
+     "unattended-upgrades.service", "upower.service", "ureadahead-stop.service", 
+     "ureadahead.service", "uuidd.service", "whoopsie.service", "hv-fcopy-daemon.service",
+     "hv-kvp-daemon.service", "hv-vss-daemon.service", "iio-sensor-proxy.service",
+     "plymouth-halt.service", "plymouth-reboot.service", "scsitools-pre.service",
+     "scsitools.service", "systemd-halt.service", "systemd-hostnamed.service",
+     "systemd-localed.service", "systemd-reboot.service", "systemd-resolved.service",
+     "systemd-timedated.service", "atd.service", "cpufrequtils.service", "dm-event.service",
+     "haveged.service", "kmod.service", "loadcpufreq.service", "lvm2-lvmetad.service", 
+     "lvm2-lvmpolld.service", "lvm2-monitor.service", "rc.local.service", "urandom.service"]);
+
+
 function mapStateToProps(state: IMainState, props: ExternProps): StateProps {
     const filter = state.serviceListFilter[props.id];
     const services = state.status[props.id].services;
-    const lst = Object.keys(services).filter((x) => (!filter || x.indexOf(filter) != -1));
+    const lst = Object.keys(services).filter((x) => !boring.has(x) && !x.startsWith("ifup@") && (!filter || x.indexOf(filter) != -1));
     lst.sort();
     return { id: props.id, name: name, services: lst.map((name: string) => services[name]), filter: filter, logVisibility: state.serviceLogVisibility[props.id] || {} }
 }
