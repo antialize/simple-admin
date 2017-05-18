@@ -74,6 +74,9 @@ export function UserImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Sudo">
                     <Toggle toggled={c.sudo} onToggle={(e: any, value: boolean) => props.setProp("sudo", value)} />
                 </InformationListRow>
+                <InformationListRow name="Admin">
+                    <Toggle toggled={c.admin} onToggle={(e: any, value: boolean) => props.setProp("admin", value)} />
+                </InformationListRow>
                 <InformationListRow name="Password">
                     <TextField type="password" value={c.password} onChange={(e: any, value: string) => props.setProp("password", value)} />
                 </InformationListRow>
@@ -84,7 +87,7 @@ export function UserImpl(props: StateProps & DispactProps) {
             <Variables variables={c.variables ? c.variables : []} setVariables={(vars: { key: string, value: string }[]) => props.setProp("variables", vars)} />
             <ObjectSelector filter={(cls, id) => (cls == 'file' || cls == 'collection')} selected={c.contains ? c.contains : []} setSelected={(sel: number[]) => { props.setProp("contains", sel) }} name="Has" />
             <ObjectSelector filter={(cls, id) => (cls == 'package')} selected={c.depends ? c.depends : []} setSelected={(sel: number[]) => { props.setProp("depends", sel) }} name="Depends on" />
-            <ObjectSelector filter={(cls, id) => (cls == 'host')} selected={c.sudoOn ? c.sudoOn : []} setSelected={(sel: number[]) => { props.setProp("sudoOn", sel) }} name="Sodu on" />
+            <ObjectSelector filter={(cls, id) => (cls == 'host')} selected={c.sudoOn ? c.sudoOn : []} setSelected={(sel: number[]) => { props.setProp("sudoOn", sel) }} name="Sudo on" />
 
         </div>)
 }

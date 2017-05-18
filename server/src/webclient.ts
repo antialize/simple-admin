@@ -81,12 +81,13 @@ export class WebClient extends JobOwner {
                         let c = act.obj.content as IHostContent;
                         // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
                         if (!c.password.startsWith("$2"))
-                            c.password = bcrypt.hashSync(c.password, 8);
+                            c.password = bcrypt.hashSync(c.password, bcrypt.genSaltSync(10));
                     } else if (act.obj.class == 'user') {
                         let c = act.obj.content as IUserContent;
                         // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
-                        if (!c.password.startsWith("$2"))
-                            c.password = bcrypt.hashSync(c.password, 8);
+                        if (!c.password.startsWith("$2")) {
+                            c.password = bcrypt.hashSync(c.password, bcrypt.genSaltSync(10));
+                        }
                     }
                     let { id, version } = await db.changeObject(act.id, act.obj);
                     act.obj.version = version;
@@ -163,39 +164,61 @@ export class WebClients {
         this.webclients.forEach(client => client.sendMessage(act));
     }
 
-    auth(req: http.IncomingMessage) {
-        var user = basicAuth(req);
+    auth(req: http.IncomingMessage, next: (ok: boolean) => void) {
+        const user = basicAuth(req);
 
         if (!user || !user.name || !user.pass) {
-            return false;
+            next(false);
+            return;
         };
 
-        for (var u of config.users)
-            if (u.name == user.name && u.password == user.pass) return true;
+        for (const u of config.users) {
+            if (u.name == user.name && u.password == user.pass) {
+                next(true);
+                return;
+            }
+        }
 
-        return false;
+        db.getUserContent(user.name).then((contentStr) => {
+            if (!contentStr) {
+                next(false);
+                return;
+            }
+            let content = JSON.parse(contentStr) as IUserContent;
+            if (!content.admin) {
+                next(false);
+                return;
+            }
+            bcrypt.compare(user.pass, content.password, (err, ok) => {
+                next(ok);
+            });
+        });
     }
 
     constructor() {
         let authHttp = (req: express.Request, res: express.Response, next: () => void) => {
-            if (this.auth(req))
-                return next();
-            else {
-                res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
-                return res.send(401);
-            }
+            this.auth(req, (ok) => {
+                if (ok) {
+                    return next();
+                } else {
+                    res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
+                    return res.send(401);
+                }
+            });
         };
 
         let socketAuth = (req: express.Request, socket: net.Socket) => {
-            if (!this.auth(req)) {
-                try {
-                    socket.write("HTTP/1.1 401 Unauthorized\r\nContent-type: text/html\r\n\r\n");
-                } finally {
+            this.auth(req, (ok) => {
+                if (!ok) {
                     try {
-                        socket.destroy();
-                    } catch (_error) { }
+                        socket.write("HTTP/1.1 401 Unauthorized\r\nContent-type: text/html\r\n\r\n");
+                    } finally {
+                        try {
+                            socket.destroy();
+                        } catch (_error) { }
+                    }
                 }
-            }
+            });
         }
 
         this.httpsApp.use(helmet());

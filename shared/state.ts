@@ -37,11 +37,11 @@ export interface IDependsContent {
     depends?: number[];
 }
 
-export interface ICollectionContent extends IContainsContent, IVariablesContent {} 
+export interface ICollectionContent extends IContainsContent, IVariablesContent { }
 
 export interface IPackageContent { }
 
-export interface IRootContent extends IVariablesContent {}
+export interface IRootContent extends IVariablesContent { }
 
 
 export interface IHostContent extends ICollectionContent {
@@ -55,6 +55,7 @@ export interface IUserContent extends ICollectionContent, IDependsContent {
     lastName: string;
     system: boolean;
     sudo: boolean;
+    admin?: boolean;
     password: string;
     email: string;
     groups: string;
@@ -83,10 +84,10 @@ export interface IObject {
     content: IContent;
 }
 
-export enum DEPLOYMENT_STATUS {Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying}
+export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }
 
-export enum DEPLOYMENT_OBJECT_STATUS {Normal, Deplying, Success, Failure}
-export enum DEPLOYMENT_OBJECT_ACTION {Add, Modify, Remove}
+export enum DEPLOYMENT_OBJECT_STATUS { Normal, Deplying, Success, Failure }
+export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove }
 
 export interface IDeploymentObject {
     index: number;
@@ -97,3 +98,4 @@ export interface IDeploymentObject {
     status: DEPLOYMENT_OBJECT_STATUS;
     action: DEPLOYMENT_OBJECT_ACTION;
 }
+
