@@ -1,6 +1,6 @@
-import {DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent, IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent} from '../../shared/state'
-import {webClients, db} from './instances'
-import {ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus} from '../../shared/actions'
+import { DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent, IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent } from '../../shared/state'
+import { webClients, db } from './instances'
+import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus } from '../../shared/actions'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 
@@ -8,7 +8,7 @@ interface IFullDeploymentObject {
     inner: IDeploymentObject;
     prev: IContent;
     next: IContent;
-    variables: {[key:string]:string};
+    variables: { [key: string]: string };
     name: string;
     host: number;
     object: number;
@@ -29,7 +29,7 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    setMessage(msg:string) {
+    setMessage(msg: string) {
         this.message = msg;
         let a: ISetDeploymentMessage = {
             type: ACTION.SetDeploymentMessage,
@@ -38,70 +38,71 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    async setupDeploy(deployId:number) {
-        let objects: {[id:number]: {id:number, name:string, class:string, content:IContent}} = {};
+    async setupDeploy(deployId: number) {
+        let objects: { [id: number]: { id: number, name: string, class: string, content: IContent } } = {};
         let root: number = null;
         let hosts: number[] = [];
         let rows = await db.getAllObjectsFull();
         for (const r of rows) {
-            objects[r.id] = {id: r.id, name: r.name, class: r.type, content: JSON.parse(r.content)};
+            objects[r.id] = { id: r.id, name: r.name, class: r.type, content: JSON.parse(r.content) };
             if (r.type == 'root')
                 root = r.id;
             else if (r.type == 'host')
                 hosts.push(r.id);
         }
         interface DagNode {
-            name : string;
+            name: string;
             id: number;
             next: DagNode[];
-            variables: {[key:string]: string};
+            variables: { [key: string]: string };
             inCount: number;
             host: number;
             classOrder?: number;
         }
 
-        let errors : string[] = [];
+        let errors: string[] = [];
         let dagNodes = new Map<string, DagNode>();
         // We first build the full DAG, we later collapse the root and collection nodes
-        let rootNode: DagNode = {name:'root', id: root, next: [], variables: {}, inCount: 0, host: 0};
+        let rootNode: DagNode = { name: 'root', id: root, next: [], variables: {}, inCount: 0, host: 0 };
         dagNodes.set(rootNode.name, rootNode);
 
         for (const hostId of hosts) {
-            let deps=new Set<number>();
+            let deps = new Set<number>();
             let hostObject = objects[hostId];
-            let hostNode: DagNode = {name: ""+hostId, id: hostId, next: [], variables: {}, inCount: 0, host: hostId};
+            let hostNode: DagNode = { name: "" + hostId, id: hostId, next: [], variables: {}, inCount: 0, host: hostId };
             dagNodes.set(hostNode.name, hostNode);
             rootNode.next.push(hostNode);
 
             let visit = (id: number, path: number[]) => {
+                if (id == null) return;
                 // Id is the id of the user to visit
                 // path is the ids of the root to node path
                 // deps is a set of dependencies push from above, until we get to an actual object
-                const parent = objects[path[path.length-1]];
-                const user = path.find((id:number) => objects[id].class == 'user');
+                const parent = objects[path[path.length - 1]];
+                const user = path.find((id: number) => objects[id].class == 'user');
                 const obj = objects[id];
 
                 if (!(id in objects)) {
-                    errors.push("Missing object "+id+" for host "+hostObject.name+" in "+parent.name);
+                    errors.push("Missing object " + id + " for host " + hostObject.name + " in " + parent.name);
                     return;
                 }
-                
+
                 let ok = true;
                 if (deps.has(id)) {
-                    errors.push(parent.name+" depends on "+obj.name+" which in a sequence of dependencies require the first");
+                    errors.push(parent.name + " depends on " + obj.name + " which in a sequence of dependencies require the first");
                     ok = false;
                 }
                 if (path.indexOf(id) !== -1) {
-                    errors.push(parent.name+" contains "+obj.name+" of which it is it self a member");
+                    errors.push(parent.name + " contains " + obj.name + " of which it is it self a member");
                     ok = false;
                 }
                 if (user != null) {
                     if (obj.class != 'file' && obj.class != 'collection') {
-                        errors.push(obj.name+" of class "+obj.class+" is containd in user "+objects[user].name+" but only files and collections are allowed");
+                        errors.push(obj.name + " of class " + obj.class + " is containd in user " + objects[user].name + " but only files and collections are allowed");
                         ok = false;
                     }
                 } else if (obj.class == 'host') {
-                    errors.push(obj.name+" of class host is contained in the host "+hostObject.name+".");
+                    errors.push(obj.name + " of class host is contained in the host " + hostObject.name + ".");
                     ok = false;
                 }
                 if (!ok) return;
@@ -110,7 +111,7 @@ export class Deployment {
                 if (obj.class == 'user' || obj.class == 'group' || obj.class == 'package') {
                     np = [hostId, id];
                 } else {
-                    np = path.filter((id)=>{
+                    np = path.filter((id) => {
                         const o = objects[id];
                         return o.class == 'user' || o.class == 'host' || (o.class == 'collection' && (o.content as ICollectionContent).variables && (o.content as ICollectionContent).variables.length != 0);
                     });
@@ -118,32 +119,32 @@ export class Deployment {
                 }
                 let name = np.join(".");
                 if (dagNodes.has(name)) return dagNodes.get(name);;
-                
-                let node: DagNode = {name, id, next: [], variables: {}, inCount: 0, host: hostId};
+
+                let node: DagNode = { name, id, next: [], variables: {}, inCount: 0, host: hostId };
                 dagNodes.set(name, node);
                 deps.add(id);
                 path.push(id);
 
                 for (let id of path) {
                     let o = objects[id];
-                    if ('variables' in o.content) 
-                        for (let p of (o.content as IVariablesContent).variables) 
+                    if ('variables' in o.content)
+                        for (let p of (o.content as IVariablesContent).variables)
                             node.variables[p.key] = p.value;
                     switch (o.class) {
-                    case 'host':
-                        node.variables['hostname'] = o.name;
-                        break;
-                    case 'user':
-                        node.variables['user'] = o.name;
-                        break;
+                        case 'host':
+                            node.variables['hostname'] = o.name;
+                            break;
+                        case 'user':
+                            node.variables['user'] = o.name;
+                            break;
                     }
                 }
-                    
+
                 if ('contains' in obj.content) {
                     for (let cid of (obj.content as IContainsContent).contains)
                         node.next.push(visit(cid, path))
-                } 
-                
+                }
+
                 if ('depends' in obj.content) {
                     for (let cid of (obj.content as IDependsContent).depends) {
                         let dnode = visit(cid, [root, hostId]);
@@ -157,9 +158,8 @@ export class Deployment {
                 return node;
             }
 
-            if ((hostObject.content as IHostContent).contains) {               
+            if ((hostObject.content as IHostContent).contains) {
                 for (let id of (hostObject.content as IHostContent).contains) {
-                    console.log("HERE ", hostId, id);
                     hostNode.next.push(visit(id, [root, hostId]));
                 }
             }
@@ -177,8 +177,8 @@ export class Deployment {
             toVisit.push(rootNode);
             seen.add(rootNode);
         } else {
-            dagNodes.forEach( (node, key) => {
-                if (node.id == deployId) {
+            dagNodes.forEach((node, key) => {
+                if (node && node.id == deployId) {
                     toVisit.push(node);
                     seen.add(node);
                 }
@@ -188,6 +188,7 @@ export class Deployment {
         while (toVisit.length !== 0) {
             let node = toVisit.pop();
             for (let next of node.next) {
+                if (!next) continue;
                 next.inCount++;
                 if (seen.has(next)) continue;
                 toVisit.push(next);
@@ -201,18 +202,18 @@ export class Deployment {
             return rhs.id - lhs.id;
         });
 
-        let classOrder = (cls:string) => {
+        let classOrder = (cls: string) => {
             switch (cls) {
-            case 'collection': return 10;
-            case 'group': return 20;
-            case 'user': return 30;
-            case 'file': return 40;
-            case 'package': return 50;
-            default: return 900;
+                case 'collection': return 10;
+                case 'group': return 20;
+                case 'user': return 30;
+                case 'file': return 40;
+                case 'package': return 50;
+                default: return 900;
             }
         }
 
-        seen.forEach( (node) => {
+        seen.forEach((node) => {
             let obj = objects[node.id];
             node.classOrder = classOrder(obj.class);
             if (node.inCount == 0) pq.enq(node);
@@ -220,15 +221,16 @@ export class Deployment {
 
         let idx = 0;
         this.deploymentObjects = [];
-        let oldContent: {[host:number]: {[name:string]: {content: string, cls: string, title:string, name:string}}} = {};
+        let oldContent: { [host: number]: { [name: string]: { content: string, cls: string, title: string, name: string } } } = {};
         let fullDeloyHosts: number[] = [];
         for (let row of await db.getDeployments()) {
             if (!(row.host in oldContent)) oldContent[row.host] = {};
-            oldContent[row.host][row.name] = {content: row.content, cls: row.type, title: row.title, name: row.name};
+            oldContent[row.host][row.name] = { content: row.content, cls: row.type, title: row.title, name: row.name };
         }
         while (!pq.isEmpty()) {
             let node = pq.deq();
             for (let next of node.next) {
+                if (!next) continue;
                 next.inCount--;
                 if (next.inCount == 0)
                     pq.enq(next);
@@ -265,12 +267,12 @@ export class Deployment {
 
         // Apply templates
         for (let obj of this.deploymentObjects) {
-            switch(obj.inner.cls) {
-            case 'file':
-                let ctx = (obj.next as IFileContent);
-                ctx = Object.assign({}, ctx, {path: Mustache.render(ctx.path, obj.variables), data: Mustache.render(ctx.data, obj.variables)});
-                ctx.user = ctx.user || obj.variables['user'] || 'root';
-                ctx.group = ctx.group || obj.variables['user'] || 'root';
+            switch (obj.inner.cls) {
+                case 'file':
+                    let ctx = (obj.next as IFileContent);
+                    ctx = Object.assign({}, ctx, { path: Mustache.render(ctx.path, obj.variables), data: Mustache.render(ctx.data, obj.variables) });
+                    ctx.user = ctx.user || obj.variables['user'] || 'root';
+                    ctx.group = ctx.group || obj.variables['user'] || 'root';
             }
         }
 
@@ -278,7 +280,7 @@ export class Deployment {
         for (let host of fullDeloyHosts) {
             if (!(host in oldContent)) continue;
 
-            let values: {content: string, cls: string, title:string, name:string}[] = [];
+            let values: { content: string, cls: string, title: string, name: string }[] = [];
             for (let name in oldContent[host])
                 values.push(oldContent[host][name]);
             values.sort((l, r) => {
@@ -309,7 +311,7 @@ export class Deployment {
                 this.deploymentObjects.push(o);
             }
         }
-       
+
         this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
         let a: ISetDeploymentObjects = {
             type: ACTION.SetDeploymentObjects,
@@ -318,7 +320,7 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    wait(time:number) {
+    wait(time: number) {
         return new Promise<{}>(cb => {
             setTimeout(cb, time);
         })
@@ -326,7 +328,7 @@ export class Deployment {
 
     setObjectStatus(index: number, status: DEPLOYMENT_OBJECT_STATUS) {
         this.deploymentObjects[index].inner.status = status;
-        let a : ISetDeploymentObjectStatus = {
+        let a: ISetDeploymentObjectStatus = {
             type: ACTION.SetDeploymentObjectStatus,
             index: index,
             status: status
@@ -345,13 +347,13 @@ export class Deployment {
     }
 
     getView() {
-        let view=[];
+        let view = [];
         for (let obj of this.deploymentObjects)
             view.push(obj.inner);
         return view;
     }
 
-    deployObject(id:number) {
+    deployObject(id: number) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.setupDeploy(id);
     }
