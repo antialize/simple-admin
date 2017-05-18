@@ -28,7 +28,7 @@ if not new or not old or old['name'] != new['name'] or old['system'] != new['sys
             args.append('-m')
         if new['sudo']:
             groups.add('sudo')
-        if content['password']:
+        if new['password']:
             args.append('-p')
             args.append(new['password'])
                 

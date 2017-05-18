@@ -60,6 +60,7 @@ export interface IUserContent extends ICollectionContent, IDependsContent {
     email: string;
     groups: string;
     sudoOn?: number[];
+    name?: string;
 }
 
 export interface IGroupContent {

@@ -26,7 +26,7 @@ def job(func):
         try:
             res = await func(obj, output_queue, *args, **kwargs)
             if res == True:
-                await output.put({'type': 'success', 'id': d})
+                await output_queue.put({'type': 'success', 'id': d})
             elif isinstance(res, dict):
                 res['id'] = id
                 await output_queue.put(res)
@@ -83,7 +83,12 @@ async def script_input_handler(stdin, input_queue):
             stdin.close()
             break
         if 'data' in obj:
-            stdin.write(base64.b64decode(obj['data']))
+            if 'datatype' in obj and obj['datatype'] == 'json':
+                stdin.write(json.dumps(obj['data']).encode("utf-8"))
+            elif 'datatype' in obj and obj['datatype'] == 'text':
+                stdin.write(obj['data'].encode("utf-8"))
+            else:
+                stdin.write(base64.b64decode(obj['data']))
             await stdin.drain()
         if obj['type'] == 'close':
             stdin.close()
@@ -111,6 +116,7 @@ async def script_output_handler(id, reader, src, output_queue, type):
         else:
             data = await reader.read(1024*1024)
             if data: data = base64.b64encode(data).decode()
+            else: data=""
         eof = reader.at_eof() or not data
         await output_queue.put({'type': 'data', 'id': id, 'data': data, 'source': src, 'eof': eof})
         if eof: break
@@ -321,6 +327,8 @@ async def client():
                         input_queue = None
                         task = asyncio.ensure_future(jt['func'](running_jobs, obj, output_queue))
                     running_jobs[id] = {'task': task, 'input_queue': input_queue, 'type': t}
+                    if obj['stdin_type'] == 'given_json':
+                        await input_queue.put({'type': 'close', 'datatype': 'json', 'data': obj['input_json']})
                 elif id not in running_jobs:
                     raise JobError(id, "No job with the given id %d is running"%id)
                 elif t == 'cancel':

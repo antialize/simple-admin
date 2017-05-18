@@ -67,20 +67,21 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:IProps): DispatchPr
     }
 }
 
+let theTerm = new Terminal({cursorBlink: false, scrollback: 10000});
+let oldCount: number = 0;
+let clearCount: number = 0;
+
 export class DeployLog extends React.Component<{}, {}> {
     div: HTMLDivElement = null;
-    term: any;
     constructor(props: any) {
         super(props);
-        this.term = new Terminal({cursorBlink: false, scrollback: 10000});
-
     }
     //this.termDiv = document.createElement('div');
     //this.termDiv.style.height = "100%";
     //this.term.open(this.termDiv);
     componentDidMount() {
-        this.term.open(this.div);
-        this.term.write("Cookie");
+        theTerm.open(this.div);
+
     }
 
     render() {
@@ -93,6 +94,15 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
     let cancel = false;
     let status = "";
     let items = false;
+
+    if (props.d.logClearCount != clearCount) {
+        theTerm.clear();
+        clearCount = props.d.logClearCount;
+        oldCount = 0;
+    }
+    
+    for (;oldCount < props.d.log.length; ++oldCount)
+        theTerm.write(props.d.log[oldCount])
 
     switch (props.d.status) {
     case State.DEPLOYMENT_STATUS.BuildingTree:

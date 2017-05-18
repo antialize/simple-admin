@@ -5,7 +5,8 @@ export interface RunScript {
     interperter: string;
     content: string;
     args: string[];
-    stdin_type?: 'none' | 'binary' | 'string' | 'blocked_json';
+    input_json?: any;
+    stdin_type?: 'none' | 'binary' | 'string' | 'blocked_json' | 'given_json';
     stdout_type?: 'none' | 'binary' | 'text' | 'blocked_json';
     stderr_type?: 'none' | 'binary' | 'text' | 'blocked_json';
 }
@@ -34,6 +35,7 @@ export interface Data {
 export interface Success {
     type: 'success';
     id: number;
+    code: number;
 }
 
 export interface Failure {

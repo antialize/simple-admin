@@ -1,8 +1,13 @@
-import { DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent, IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent } from '../../shared/state'
-import { webClients, db } from './instances'
-import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus } from '../../shared/actions'
+import { DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent, 
+    IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent} from '../../shared/state'
+import { webClients, db, hostClients } from './instances'
+import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
+import {DeployJob} from './jobs/deployJob'
+
+//Type only import
+import {HostClient} from './hostclient'
 
 interface IFullDeploymentObject {
     inner: IDeploymentObject;
@@ -273,6 +278,11 @@ export class Deployment {
                     ctx = Object.assign({}, ctx, { path: Mustache.render(ctx.path, obj.variables), data: Mustache.render(ctx.data, obj.variables) });
                     ctx.user = ctx.user || obj.variables['user'] || 'root';
                     ctx.group = ctx.group || obj.variables['user'] || 'root';
+                    break;
+                case 'user':
+                    let ctx2 = (obj.next as IUserContent);
+                    ctx2.name = obj.name;
+                    break;
             }
         }
 
@@ -336,12 +346,55 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
+    deploySingle(hostClient: HostClient, script: string, content:any) {
+        return new Promise<{success: boolean, code:number}>(cb => {
+            new DeployJob(hostClient, script, content, (success, code)=>cb({success,code}));
+        });
+    }
+
     async performDeploy() {
+        this.addLog("Deployment started\r\n")
+
         this.setStatus(DEPLOYMENT_STATUS.Deploying);
-        for (var o of this.deploymentObjects) {
+        let badHosts = new Set<number>();
+        for (let o of this.deploymentObjects) {
+            if (!o.inner.enabled) continue;
+
+            if (badHosts.has(o.host)) {
+                this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Failure);
+                continue
+            }
+            this.addLog("\r\n============================> " + o.inner.name + " (" + o.inner.cls+ ") <================================\r\n");
+            
+
+            let hostClient = hostClients.hostClients[o.host];
+            if (!hostClient || hostClient.closeHandled) {
+                this.addLog("Host " + o.inner.host + " is down\r\n");
+                badHosts.add(o.host);
+                this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Failure);
+                continue;
+            }
+
             this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
-            await this.wait(4000);
-            this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Success);
+
+            let ans = {success:false, code:0};
+
+            switch (o.inner.cls) {
+            case 'user':
+                ans = await this.deploySingle(hostClient, "scripts/user.py", {old: o.prev, new: o.next});
+                break;
+            }
+
+            let ok = ans.success && ans.code == 0;
+            if (!ok) {
+                if (ans.success)
+                    this.addLog("\r\nFailed with exit code "+ans.code+"\r\n");
+                else
+                    this.addLog("\r\nFailed\r\n");
+                badHosts.add(o.host);
+            }
+
+            this.setObjectStatus(o.inner.index, ok?DEPLOYMENT_OBJECT_STATUS.Success:DEPLOYMENT_OBJECT_STATUS.Failure);
         }
         this.setStatus(DEPLOYMENT_STATUS.Done);
     }
@@ -355,6 +408,7 @@ export class Deployment {
 
     deployObject(id: number) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
+        this.clearLog();
         this.setupDeploy(id);
     }
 
@@ -391,6 +445,24 @@ export class Deployment {
             index,
             enabled,
             source: "server"
+        }
+        webClients.broadcast(a);
+    }
+
+    clearLog() {
+        this.log = [];
+        let a: IClearDeploymentLog = {
+            type: ACTION.ClearDeploymentLog,
+        }
+        webClients.broadcast(a);
+    }
+
+    addLog(bytes:string) {
+        this.log.push(bytes);
+
+        let a: IAddDeploymentLog = {
+            type: ACTION.AddDeploymentLog,
+            bytes: bytes
         }
         webClients.broadcast(a);
     }

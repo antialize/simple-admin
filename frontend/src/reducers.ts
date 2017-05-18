@@ -11,6 +11,7 @@ export interface IObjectState {
 export interface IDeploymentState {
     status: DEPLOYMENT_STATUS;
     log: string[];
+    logClearCount: number;
     objects: IDeploymentObject[];
     message: string;
 }
@@ -233,7 +234,7 @@ function changeCurrentObject(state: IMainState) {
         state.objects[id] = { current: current, versions: {} }
 }
 
-export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, log: [], objects: [], message: "" }, action: IAction) {
+export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, log: [], objects: [], message: "", logClearCount: 0 }, action: IAction) {
     switch (action.type) {
         case ACTION.SetDeploymentStatus:
             return Object.assign({}, state, { status: action.status });
@@ -242,9 +243,10 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
         case ACTION.SetDeploymentObjects:
             return Object.assign({}, state, { objects: action.objects });
         case ACTION.ClearDeploymentLog:
-            return Object.assign({}, state, { log: [] });
-        case ACTION.AddDeploymentLogLines:
-            return Object.assign({}, state, state.log.concat(action.lines));
+            return Object.assign({}, state, { log: [], logClearCount: state.logClearCount+1 });
+        case ACTION.AddDeploymentLog:
+            console.log("HELLO", action.bytes,  state.log.concat( [action.bytes] ));
+            return Object.assign({}, state, {log: state.log.concat( [action.bytes] )} );
         case ACTION.SetDeploymentObjectStatus:
             let x = state.objects.slice(0);
             x[action.index] = Object.assign({}, x[action.index], { status: action.status });
@@ -254,7 +256,7 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
             y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
             return Object.assign({}, state, { objects: y });
         case ACTION.SetInitialState:
-            return {status: action.deploymentStatus, log: action.deploymentLog, objects: action.deploymentObjects, message: action.deploymentMessage};
+            return {status: action.deploymentStatus, log: action.deploymentLog ? action.deploymentLog : [] , objects: action.deploymentObjects, message: action.deploymentMessage, logClearCount: 0};
     }
     return state;
 }

@@ -6,7 +6,7 @@ export enum ACTION {
     SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
     AddMessage, SetMessageDismissed, SetObjectName, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown,
-    DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLogLines, SetDeploymentObjectStatus, ToggleDeploymentObject,
+    DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject,
     StopDeployment, StartDeployment, CancelDeployment
 }
 
@@ -168,9 +168,9 @@ export interface IClearDeploymentLog {
     type: ACTION.ClearDeploymentLog;
 }
 
-export interface IAddDeploymentLogLines {
-    type: ACTION.AddDeploymentLogLines;
-    lines: string[];
+export interface IAddDeploymentLog {
+    type: ACTION.AddDeploymentLog;
+    bytes: string;
 }
 
 export interface ISetDeploymentObjectStatus {
@@ -203,5 +203,5 @@ export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilte
     | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName
     | ISetObjectContentParam | IDiscardObject | ISaveObject | IHostDown
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
-    | IAddDeploymentLogLines | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
+    | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
     | IStartDeployment | IStartDeployment | ICancelDeployment;
