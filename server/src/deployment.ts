@@ -281,7 +281,7 @@ export class Deployment {
                     break;
                 case 'user':
                     let ctx2 = (obj.next as IUserContent);
-                    ctx2.name = obj.name;
+                    ctx2.name = obj.inner.name;
                     break;
             }
         }

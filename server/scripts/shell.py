@@ -9,6 +9,7 @@ import select
 (pid, fd) = pty.fork()
 if pid == 0:
     os.environ['name'] = 'xterm-color'
+    os.environ['TERM'] = 'xterm'
     os.execl("/bin/bash", "/bin/bash")
 
 flag = fcntl.fcntl(0, fcntl.F_GETFL)
