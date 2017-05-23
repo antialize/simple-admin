@@ -16,9 +16,9 @@ export class DeployJob extends Job {
         let msg: message.RunScript = {
             'type': 'run_script', 
             'id': this.id, 
-            'name': 'log.py', 
+            'name': script, 
             'interperter': '/usr/bin/python3', 
-            'content': fs.readFileSync(script, 'utf-8'),
+            'content': fs.readFileSync("scripts/"+script, 'utf-8'),
             'args': [],
             'stdin_type': 'given_json',
             'input_json': content,

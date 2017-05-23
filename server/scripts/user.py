@@ -54,9 +54,11 @@ if not new or not old or old['name'] != new['name'] or old['system'] != new['sys
             groups.add('sudo')
         if new['password']:
             args.append('-p')
-            args.append(new['password'])     
-        args.append('-G')
-        args.append(','.join(groups & egroups))
+            args.append(new['password'])
+        mygroups = groups & egroups
+        if mygroups:
+            args.append('-G')
+            args.append(','.join(s))
         args.append(new['name'])
         run(args)
 else:
@@ -71,6 +73,7 @@ else:
         groups.add('sudo')
     if not new['system']:
         groups.add(new['name'])
+    mygroups = groups & egroups
     args.append('-G')
     args.append(','.join(groups & egroups))
     args.append(new['name'])

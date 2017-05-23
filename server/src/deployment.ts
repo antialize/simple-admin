@@ -275,7 +275,8 @@ export class Deployment {
             switch (obj.inner.cls) {
                 case 'file':
                     let ctx = (obj.next as IFileContent);
-                    ctx = Object.assign({}, ctx, { path: Mustache.render(ctx.path, obj.variables), data: Mustache.render(ctx.data, obj.variables) });
+                    ctx.path = Mustache.render(ctx.path, obj.variables);
+                    ctx.data = Mustache.render(ctx.data, obj.variables);;
                     ctx.user = ctx.user || obj.variables['user'] || 'root';
                     ctx.group = ctx.group || obj.variables['user'] || 'root';
                     break;
@@ -381,7 +382,10 @@ export class Deployment {
 
             switch (o.inner.cls) {
             case 'user':
-                ans = await this.deploySingle(hostClient, "scripts/user.py", {old: o.prev, new: o.next});
+                ans = await this.deploySingle(hostClient, "user.py", {old: o.prev, new: o.next});
+                break
+            case 'file':
+                ans = await this.deploySingle(hostClient, "file.py", {old: o.prev, new: o.next});
                 break;
             }
 
