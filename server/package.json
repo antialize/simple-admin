@@ -12,7 +12,6 @@
     "@types/node": "^7.0.5",
     "@types/priorityqueuejs": "^1.0.1",
     "@types/ws": "0.0.38",
-    "bcrypt": "^1.0.2",
     "mustache": "^2.3.0",
     "nodemon": "^1.11.0",
     "priorityqueuejs": "^1.0.0",

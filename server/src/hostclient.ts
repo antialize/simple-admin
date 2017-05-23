@@ -8,7 +8,7 @@ import * as tls from 'tls';
 import * as crypto from 'crypto';
 import { JobOwner } from './jobowner'
 import { StatusJob } from './jobs/statusJob'
-import * as bcrypt from 'bcrypt'
+import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
 
 function delay(time: number) {
@@ -86,11 +86,8 @@ export class HostClient extends JobOwner {
 
     async validateAuth(obj: message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
-        if (res === null) return null;
-        if (bcrypt.compareSync(obj.password, (res && res.content) ? res.content.password : "theemptystring")
-            && res !== null) {
+        if (await crypt.validate(obj.password, res && res.content && res.content.password))
             return res.id;
-        }
         return null;
     }
 

@@ -15,7 +15,7 @@ import { PokeServiceJob } from './jobs/pokeServiceJob'
 import * as fs from 'fs';
 import * as basicAuth from 'basic-auth'
 import { config } from './config'
-import * as bcrypt from 'bcrypt'
+import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment } from './instances'
 
@@ -80,13 +80,14 @@ export class WebClient extends JobOwner {
                     if (act.obj.class == 'host') {
                         let c = act.obj.content as IHostContent;
                         // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
-                        if (!c.password.startsWith("$2"))
-                            c.password = bcrypt.hashSync(c.password, bcrypt.genSaltSync(10));
+                        if (!c.password.startsWith("$6$")) {
+                            c.password = await crypt.hash(c.password);
+                        }
                     } else if (act.obj.class == 'user') {
                         let c = act.obj.content as IUserContent;
                         // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
-                        if (!c.password.startsWith("$2")) {
-                            c.password = bcrypt.hashSync(c.password, bcrypt.genSaltSync(10));
+                        if (!c.password.startsWith("$6$")) {
+                            c.password = await crypt.hash(c.password);
                         }
                     }
                     let { id, version } = await db.changeObject(act.id, act.obj);
@@ -189,9 +190,8 @@ export class WebClients {
                 next(false);
                 return;
             }
-            bcrypt.compare(user.pass, content.password, (err, ok) => {
-                next(ok);
-            });
+
+            crypt.validate(user.pass, content.password).then(next);
         });
     }
 
