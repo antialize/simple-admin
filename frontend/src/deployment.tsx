@@ -121,7 +121,7 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
         items = true;
         break;
     case State.DEPLOYMENT_STATUS.Done:
-        status = ""
+        status = " - Done"
         spin = false;
         items = true;
         break;
@@ -130,18 +130,16 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
         spin = false;
         break;
     case State.DEPLOYMENT_STATUS.ReviewChanges:
-        status = "";
+        status = " - Review changes";
         spin = false;
         cancel = true;
         items = true;
     }
 
     let content = null;
-    if (props.d.status == State.DEPLOYMENT_STATUS.InvilidTree)
-        content = <div>{props.d.message}</div>;
     let c2 = null;
 
-    if (items) {
+    if (items && props.d.objects.length > 0) {
         let disable=(props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges);
         let rows = props.d.objects.map((o) => {
             let bg:string;
@@ -196,6 +194,7 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
             <h1>
                 {spin?<CircularProgress />:null} Deployment{status}
             </h1>
+	    <div>{props.d.message}</div>
             {content}
             {c2}
             <div style={{marginTop: '20px'}}>

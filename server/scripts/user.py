@@ -1,4 +1,4 @@
-import sys, json, subprocess, pty, fcntl, os, select
+import sys, json, subprocess, pty, fcntl, os, select, pwd
 
 content = json.loads(sys.stdin.read())
 
@@ -36,7 +36,19 @@ for line in open('/etc/group', 'r'):
     group = line.split(":")[0]
     egroups.add(group)
 
-if not new or not old or old['name'] != new['name'] or old['system'] != new['system']:
+
+exists = False
+isSystem = False
+if new:
+    try:
+        ent = pwd.getpwnam(new['name'])
+        isSystem = ent.pw_uid < 1000
+        exists = True
+    except KeyError:
+        pass
+
+
+if not new or (old and old['name'] != new['name']) or not exists or isSystem != new['system']:
     if old:
         run2(['userdel', old['name']])
     if new:
@@ -58,7 +70,7 @@ if not new or not old or old['name'] != new['name'] or old['system'] != new['sys
         mygroups = groups & egroups
         if mygroups:
             args.append('-G')
-            args.append(','.join(s))
+            args.append(','.join(mygroups))
         args.append(new['name'])
         run(args)
 else:

@@ -72,7 +72,7 @@ export class DB {
         let db = this.db;
         if (content) {
             return new Promise<{}[]>(cb => {
-                db.run("REPLACE INTO `deployments` SET (`host`, `name`, `content`, `time`, `object`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?, ?)", [host, name, content, object, type, title],
+                db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `object`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?, ?)", [host, name, content, object, type, title],
                     (err) => {
                         if (err) {
                             console.log(err);
@@ -107,6 +107,48 @@ export class DB {
                         cb(row.content)
                     else
                         cb(null);
+                })
+        });
+    }
+
+    getPackages(host: number) {
+        let db = this.db;
+        return new Promise<string[]>(cb => {
+            db.all("SELECT `name` FROM `installedPackages` WHERE `host` = ?", [host],
+                (err, rows) => {
+                    let ans = [];
+                    if (rows !== undefined)
+                        for (const row of rows)
+                            ans.push(row['name'])
+                    cb(ans);
+                })
+        });
+    }
+
+    removePackages(host: number, packages: string[]) {
+        let db = this.db;
+        return new Promise<{}>((cb, ecb) => {
+            db.run("DELETE FROM `installedPackages` WHERE `host` = ? AND `name` IN (" + packages.map(_ => "?").join(",") + ")",
+                ([host] as any[]).concat(packages),
+                (err) => {
+                    if (err) ecb(err);
+                    else cb()
+                })
+        });
+    }
+
+    addPackages(host: number, packages: string[]) {
+        let db = this.db;
+        return new Promise<{}>((cb, ecb) => {
+            let args: any[] = [];
+            for (let pkg of packages) {
+                args.push(host);
+                args.push(pkg);
+            }
+            db.run("REPLACE INTO `installedPackages` (`host`, `name`) VALUES " + packages.map(_ => "(?, ?)").join(", "), args,
+                (err) => {
+                    if (err) ecb(err);
+                    else cb()
                 })
         });
     }

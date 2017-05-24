@@ -1,13 +1,16 @@
-import { DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent, 
-    IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent} from '../../shared/state'
+import {
+    DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent,
+    IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent
+} from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
-import {DeployJob} from './jobs/deployJob'
+import { DeployJob } from './jobs/deployJob'
 
 //Type only import
-import {HostClient} from './hostclient'
+import { HostClient } from './hostclient'
+
 
 interface IFullDeploymentObject {
     inner: IDeploymentObject;
@@ -141,6 +144,8 @@ export class Deployment {
                             break;
                         case 'user':
                             node.variables['user'] = o.name;
+                            node.variables['email'] = (o.content as IUserContent).email;
+                            node.variables['username'] = (o.content as IUserContent).firstName + " " + (o.content as IUserContent).lastName;
                             break;
                     }
                 }
@@ -284,6 +289,14 @@ export class Deployment {
                     let ctx2 = (obj.next as IUserContent);
                     ctx2.name = obj.inner.name;
                     break;
+                case 'group':
+                    let ctx3 = (obj.next as IGroupContent);
+                    ctx3.name = obj.inner.name;
+                    break;
+                case 'package':
+                    let ctx4 = (obj.next as IPackageContent);
+                    ctx4.name = obj.inner.name;
+                    break;
             }
         }
 
@@ -323,12 +336,25 @@ export class Deployment {
             }
         }
 
-        this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
+        this.deploymentObjects = this.deploymentObjects.filter(o => {
+            let a = JSON.stringify(o.prev);
+            let b = JSON.stringify(o.next);
+            return a !== b;
+        });
+        for (let i = 0; i < this.deploymentObjects.length; ++i)
+            this.deploymentObjects[i].inner.index = i;
+
         let a: ISetDeploymentObjects = {
             type: ACTION.SetDeploymentObjects,
             objects: this.getView()
         };
         webClients.broadcast(a);
+        if (this.deploymentObjects.length == 0) {
+            this.setStatus(DEPLOYMENT_STATUS.Done);
+            this.setMessage("Everything up to date, nothing to deploy!");
+        } else {
+            this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
+        }
     }
 
     wait(time: number) {
@@ -347,9 +373,9 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    deploySingle(hostClient: HostClient, script: string, content:any) {
-        return new Promise<{success: boolean, code:number}>(cb => {
-            new DeployJob(hostClient, script, content, (success, code)=>cb({success,code}));
+    deploySingle(hostClient: HostClient, script: string, content: any) {
+        return new Promise<{ success: boolean, code: number }>(cb => {
+            new DeployJob(hostClient, script, content, (success, code) => cb({ success, code }));
         });
     }
 
@@ -358,15 +384,14 @@ export class Deployment {
 
         this.setStatus(DEPLOYMENT_STATUS.Deploying);
         let badHosts = new Set<number>();
-        for (let o of this.deploymentObjects) {
+        for (let i = 0; i < this.deploymentObjects.length; ++i) {
+            let o = this.deploymentObjects[i];
             if (!o.inner.enabled) continue;
 
             if (badHosts.has(o.host)) {
                 this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Failure);
                 continue
             }
-            this.addLog("\r\n============================> " + o.inner.name + " (" + o.inner.cls+ ") <================================\r\n");
-            
 
             let hostClient = hostClients.hostClients[o.host];
             if (!hostClient || hostClient.closeHandled) {
@@ -376,29 +401,88 @@ export class Deployment {
                 continue;
             }
 
+
+            if (o.inner.cls == 'package') {
+                let j = i;
+
+                let packages = new Set(await db.getPackages(o.host));
+                let nextPackages = new Set(packages);
+
+                for (; j < this.deploymentObjects.length; ++j) {
+                    let o2 = this.deploymentObjects[j];
+                    if (!o2.inner.enabled) continue;
+                    if (o2.inner.cls !== 'package') break;
+                    if (o2.host != o.host) break;
+                    this.setObjectStatus(j, DEPLOYMENT_OBJECT_STATUS.Deplying);
+
+                    if (o2.prev)
+                        nextPackages.delete((o2.prev as IPackageContent).name);
+                    if (o2.next)
+                        nextPackages.add((o2.next as IPackageContent).name);
+                }
+
+                let ans = await this.deploySingle(hostClient, "packages.py", { packages: Array.from(nextPackages) });
+                let ok = ans.success && ans.code == 0;
+                if (!ok) {
+                    for (let k = i; k < j; ++k) {
+                        let o2 = this.deploymentObjects[j];
+                        if (!o2.inner.enabled) continue;
+                        this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Failure);
+                    }
+                    if (ans.success)
+                        this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
+                    else
+                        this.addLog("\r\nFailed\r\n");
+                    badHosts.add(o.host);
+                } else {
+                    let add: string[] = [];
+                    let remove: string[] = [];
+                    nextPackages.forEach(v => { if (!(packages.has(v))) add.push(v); });
+                    packages.forEach(v => { if (!(nextPackages.has(v))) remove.push(v); });
+                    if (add.length > 0) await db.addPackages(o.host, add);
+                    if (remove.length > 0) await db.removePackages(o.host, remove);
+
+                    for (let k = i; k < j; ++k) {
+                        let o2 = this.deploymentObjects[k];
+                        if (!o2.inner.enabled) continue;
+                        await db.setDeployment(o2.host, o2.name, JSON.stringify(o2.next), o2.object, o2.inner.cls, o2.inner.name);
+                        this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Success);
+                    }
+                }
+                i = j - 1;
+                continue;
+            }
+
+
+            this.addLog("\r\n============================> " + o.inner.name + " (" + o.inner.cls + ") <================================\r\n");
+
             this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
-            let ans = {success:false, code:0};
+            let ans = { success: false, code: 0 };
 
             switch (o.inner.cls) {
-            case 'user':
-                ans = await this.deploySingle(hostClient, "user.py", {old: o.prev, new: o.next});
-                break
-            case 'file':
-                ans = await this.deploySingle(hostClient, "file.py", {old: o.prev, new: o.next});
-                break;
+                case 'user':
+                    ans = await this.deploySingle(hostClient, "user.py", { old: o.prev, new: o.next });
+                    break
+                case 'file':
+                    ans = await this.deploySingle(hostClient, "file.py", { old: o.prev, new: o.next });
+                    break;
+                case 'group':
+                    ans = await this.deploySingle(hostClient, "group.py", { old: o.prev, new: o.next });
+                    break;
             }
 
             let ok = ans.success && ans.code == 0;
             if (!ok) {
                 if (ans.success)
-                    this.addLog("\r\nFailed with exit code "+ans.code+"\r\n");
+                    this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
                 else
                     this.addLog("\r\nFailed\r\n");
                 badHosts.add(o.host);
+            } else {
+                await db.setDeployment(o.host, o.name, JSON.stringify(o.next), o.object, o.inner.cls, o.inner.name);
             }
-
-            this.setObjectStatus(o.inner.index, ok?DEPLOYMENT_OBJECT_STATUS.Success:DEPLOYMENT_OBJECT_STATUS.Failure);
+            this.setObjectStatus(o.inner.index, ok ? DEPLOYMENT_OBJECT_STATUS.Success : DEPLOYMENT_OBJECT_STATUS.Failure);
         }
         this.setStatus(DEPLOYMENT_STATUS.Done);
     }
@@ -413,6 +497,7 @@ export class Deployment {
     deployObject(id: number) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.clearLog();
+        this.setMessage("");
         this.setupDeploy(id);
     }
 
@@ -461,7 +546,7 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    addLog(bytes:string) {
+    addLog(bytes: string) {
         this.log.push(bytes);
 
         let a: IAddDeploymentLog = {

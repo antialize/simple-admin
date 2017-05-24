@@ -39,7 +39,9 @@ export interface IDependsContent {
 
 export interface ICollectionContent extends IContainsContent, IVariablesContent { }
 
-export interface IPackageContent { }
+export interface IPackageContent {
+    name?: string;
+}
 
 export interface IRootContent extends IVariablesContent { }
 
@@ -65,6 +67,7 @@ export interface IUserContent extends ICollectionContent, IDependsContent {
 
 export interface IGroupContent {
     system: boolean;
+    name?: string;
 }
 
 export interface IFileContent {
