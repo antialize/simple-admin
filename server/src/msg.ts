@@ -1,13 +1,17 @@
 import * as webclient from './webclient'
 import {db, webClients} from './instances'
 import * as actions from '../../shared/actions'
+import {errorHandler, ErrorType, SAError} from './error'
 
 export class Msg {
     emit(host:number, type:string, message:string, subtype:string = null, url:string=null) {
         const time = +new Date() / 1000;
         db.db.run("INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)",
                 [host, type, subtype, message, url, time],  function (err) {
-                    if (err != null) return;
+                    if (err != null) {
+                        errorHandler("Msg::emit", false)(new SAError(ErrorType.Database, err));
+                        return;
+                    }
                     const act: actions.IAddMessage = {
                     type: actions.ACTION.AddMessage,
                     message: {
@@ -20,7 +24,6 @@ export class Msg {
                         url,
                         dismissed: false
                     }};
-                    console.log("Message", act);
                     webClients.broadcast(act);
                 });
     }
@@ -28,7 +31,7 @@ export class Msg {
     setDismissed(id: number, dismissed: boolean) {
         db.db.run("UPDATE `messages` SET `dismissed`=? WHERE `id`=?", [dismissed, id], (err)=>{
             if (err == null) return;
-            console.log("Failed to set dismiss status", err);
+            errorHandler("Msg::setDismissed", false)(new SAError(ErrorType.Database, err));
         });
         const act: actions.ISetMessageDismissed = {
             type: actions.ACTION.SetMessageDismissed,
@@ -42,12 +45,11 @@ export class Msg {
 
     getAll() {
         return new Promise<actions.IMessage[]>(
-            cb=>{
+            (cb, cbe)=>{
                 db.db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed` FROM `messages`", 
                     (err, rows) => {
                         if (err) {
-                            console.log("Failed to find messages in database");
-                            cb([]);
+                            cbe(new SAError(ErrorType.Database, err));
                             return;
                         }
                         const res: actions.IMessage[] = [];

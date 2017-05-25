@@ -1,6 +1,6 @@
 import * as sqlite from 'sqlite3'
 import { IHostContent, IObject } from '../../shared/state'
-
+import { ErrorType, SAError} from './error'
 type IV = { id: number, version: number };
 
 export class DB {
@@ -12,23 +12,21 @@ export class DB {
         let db = this.db;
 
         const r = (stmt: string) => {
-            return new Promise<void>(cb =>
+            return new Promise<void>((cb, cbe) =>
                 db.run(stmt, [], (err) => {
-                    if (err) {
-                        console.log(stmt, err);
-                        process.exit(1);
-                    } else
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else
                         cb();
                 }));
         };
 
         const q = () => {
-            return new Promise<void>(cb => {
+            return new Promise<void>((cb, cbe) => {
                 db.get("SELECT max(`id`) as `id` FROM `objects`",
                     (err, row) => {
                         if (err) {
-                            console.log(err);
-                            process.exit(1);
+                            cbe(new SAError(ErrorType.Database, err));
                         } else if (row !== undefined) {
                             this.nextObjectId = Math.max(row['id'] + 1, this.nextObjectId);
                             cb();
@@ -57,10 +55,12 @@ export class DB {
 
     getDeployments() {
         let db = this.db;
-        return new Promise<{ host: number, name: string, content: string, type: string, title: string }[]>(cb => {
+        return new Promise<{ host: number, name: string, content: string, type: string, title: string }[]>((cb, cbe) => {
             db.all("SELECT `host`, `name`, `content`, `type`, `title` FROM `deployments`", [],
                 (err, rows) => {
-                    if (rows === undefined)
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (rows === undefined)
                         cb([]);
                     else
                         cb(rows);
@@ -71,25 +71,23 @@ export class DB {
     setDeployment(host: number, name: string, content: string, object: number, type: string, title: string) {
         let db = this.db;
         if (content) {
-            return new Promise<{}[]>(cb => {
+            return new Promise<{}[]>((cb, cbe) => {
                 db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `object`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?, ?)", [host, name, content, object, type, title],
                     (err) => {
-                        if (err) {
-                            console.log(err);
-                            process.exit(1);
-                        }
-                        cb();
+                        if (err) 
+                            cbe(new SAError(ErrorType.Database, err));
+                        else
+                            cb();
                     })
             });
         } else {
-            return new Promise<{}[]>(cb => {
+            return new Promise<{}[]>((cb, cbe) => {
                 db.all("DELETE FROM `deployments` WHERE `host`=? AND `name`=?", [host, name],
                     (err) => {
-                        if (err) {
-                            console.log(err);
-                            process.exit(1);
-                        }
-                        cb();
+                       if (err) 
+                            cbe(new SAError(ErrorType.Database, err));
+                        else
+                            cb();
                     })
             });
         }
@@ -97,13 +95,12 @@ export class DB {
 
     getUserContent(name: string) {
         let db = this.db;
-        return new Promise<string>(cb => {
+        return new Promise<string>((cb, cbe) => {
             db.get("SELECT `content` FROM `objects` WHERE `type`='user' AND `name`=? AND `newest`=1", [name],
                 (err, row) => {
-                    if (err) {
-                        console.log(err);
-                        process.exit(1);
-                    } else if (row)
+                    if (err) 
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (row)
                         cb(row.content)
                     else
                         cb(null);
@@ -113,14 +110,18 @@ export class DB {
 
     getPackages(host: number) {
         let db = this.db;
-        return new Promise<string[]>(cb => {
+        return new Promise<string[]>((cb, cbe) => {
             db.all("SELECT `name` FROM `installedPackages` WHERE `host` = ?", [host],
                 (err, rows) => {
-                    let ans = [];
-                    if (rows !== undefined)
-                        for (const row of rows)
-                            ans.push(row['name'])
-                    cb(ans);
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else {
+                        let ans = [];
+                        if (rows !== undefined)
+                            for (const row of rows)
+                                ans.push(row['name'])
+                        cb(ans);
+                    }
                 })
         });
     }
@@ -131,7 +132,7 @@ export class DB {
             db.run("DELETE FROM `installedPackages` WHERE `host` = ? AND `name` IN (" + packages.map(_ => "?").join(",") + ")",
                 ([host] as any[]).concat(packages),
                 (err) => {
-                    if (err) ecb(err);
+                    if (err) ecb(new SAError(ErrorType.Database, err));
                     else cb()
                 })
         });
@@ -139,7 +140,7 @@ export class DB {
 
     addPackages(host: number, packages: string[]) {
         let db = this.db;
-        return new Promise<{}>((cb, ecb) => {
+        return new Promise<{}>((cb, cbe) => {
             let args: any[] = [];
             for (let pkg of packages) {
                 args.push(host);
@@ -147,7 +148,7 @@ export class DB {
             }
             db.run("REPLACE INTO `installedPackages` (`host`, `name`) VALUES " + packages.map(_ => "(?, ?)").join(", "), args,
                 (err) => {
-                    if (err) ecb(err);
+                    if (err) cbe(new SAError(ErrorType.Database, err));
                     else cb()
                 })
         });
@@ -155,10 +156,12 @@ export class DB {
 
     getAllObjects() {
         let db = this.db;
-        return new Promise<{ id: number, type: string, name: string }[]>(cb => {
+        return new Promise<{ id: number, type: string, name: string }[]>((cb, cbe) => {
             db.all("SELECT `id`, `type`, `name` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
-                    if (rows === undefined)
+                    if (err) 
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (rows === undefined)
                         cb([]);
                     else
                         cb(rows);
@@ -168,10 +171,12 @@ export class DB {
 
     getAllObjectsFull() {
         let db = this.db;
-        return new Promise<{ id: number, type: string, name: string, content: string }[]>(cb => {
+        return new Promise<{ id: number, type: string, name: string, content: string }[]>((cb, cbe) => {
             db.all("SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
-                    if (rows === undefined)
+                    if (err) 
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (rows === undefined)
                         cb([]);
                     else
                         cb(rows);
@@ -181,10 +186,12 @@ export class DB {
 
     getObjectByID(id: number) {
         let db = this.db;
-        return new Promise<{ version: number, type: string, name: string, content: string }[]>(cb => {
+        return new Promise<{ version: number, type: string, name: string, content: string }[]>((cb, cbe) => {
             db.all("SELECT `version`, `type`, `name`, `content` FROM `objects` WHERE `id`=?", [id],
                 (err, rows) => {
-                    if (rows === undefined)
+                    if (err) 
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (rows === undefined)
                         cb([]);
                     else
                         cb(rows)
@@ -194,26 +201,25 @@ export class DB {
 
     changeObject(id: number, object: IObject) {
         let db = this.db;
-        let ins = ({ id, version }: IV) => (cb: (res: IV) => void) => {
+        let ins = ({ id, version }: IV) => (cb: (res: IV) => void, cbe: (error:SAError) => void) => {
             db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`) VALUES (?, ?, ?, ?, ?, '', datetime('now'), 1)", [id, version, object.class, object.name, JSON.stringify(object.content)], (err) => {
-                if (err) {
-                    console.log(err);
-                    process.exit(1);
-                }
-                cb({ id, version });
+                if (err)
+                    cbe(new SAError(ErrorType.Database, err));
+                else
+                    cb({ id, version });
             })
         };
         if (id < 0) {
             return new Promise<IV>(ins({ id: this.nextObjectId++, version: 1 }));
         }
-        return new Promise<IV>(cb => {
+        return new Promise<IV>((cb, cbe) => {
             db.get("SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?", [id],
                 (err, row) => {
-                    if (err || row === undefined) {
-                        console.log(err);
-                        process.exit(1);
-                    }
-                    {
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (row == undefined)
+                        cbe(new SAError(ErrorType.Database, "Unable to find row"));
+                    else {
                         let version = row['version'] + 1;
                         db.run("UPDATE `objects` SET `newest`=0 WHERE `id` = ?", [id], (err) => {
 
@@ -231,10 +237,12 @@ export class DB {
 
     getHostContentByName(hostname: string) {
         let db = this.db;
-        return new Promise<{ id: number, content: IHostContent }>(cb => {
+        return new Promise<{ id: number, content: IHostContent }>((cb, cbe) => {
             db.get("SELECT `id`, `content` FROM `objects` WHERE `type` = 'host' AND `name`=? AND `newest`=1", [hostname],
                 (err, row) => {
-                    if (row === undefined)
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else if (row === undefined)
                         cb(null);
                     else
                         cb({ id: row['id'], content: JSON.parse(row['content']) })

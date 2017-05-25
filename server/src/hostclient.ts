@@ -10,6 +10,7 @@ import { JobOwner } from './jobowner'
 import { StatusJob } from './jobs/statusJob'
 import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
+import {errorHandler} from './error';
 
 function delay(time: number) {
     return new Promise<void>(resolve => {
@@ -136,10 +137,10 @@ export class HostClient extends JobOwner {
             if (idx == -1) break;
             const part = data.slice(start, idx);
             if (this.used == 0)
-                this.onMessage(JSON.parse(part.toString('utf8')));
+                this.onMessage(JSON.parse(part.toString('utf8'))).catch(errorHandler("HostClient::onMessage"));
             else {
                 part.copy(this.buff, this.used);
-                this.onMessage(JSON.parse(this.buff.slice(0, this.used + part.length).toString('utf-8')));
+                this.onMessage(JSON.parse(this.buff.slice(0, this.used + part.length).toString('utf-8'))).catch(errorHandler("HostClient::onMessage"));;
                 this.used = 0
             }
             start = idx + 1;

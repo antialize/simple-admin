@@ -18,6 +18,7 @@ import { config } from './config'
 import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment } from './instances'
+import {errorHandler} from './error'
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -32,7 +33,7 @@ export class WebClient extends JobOwner {
         super()
         this.connection = socket;
         this.connection.on('close', () => this.onClose());
-        this.connection.on('message', (msg) => this.onMessage(msg));
+        this.connection.on('message', (msg) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
     }
 
     onClose() {
@@ -79,13 +80,13 @@ export class WebClient extends JobOwner {
                 {
                     if (act.obj.class == 'host') {
                         let c = act.obj.content as IHostContent;
-                        // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
+                        // HACK HACK HACK if the string starts with $6$ we belive we have allready bcrypt'ed it
                         if (!c.password.startsWith("$6$")) {
                             c.password = await crypt.hash(c.password);
                         }
                     } else if (act.obj.class == 'user') {
                         let c = act.obj.content as IUserContent;
-                        // HACK HACK HACK if the string starts with $2 we belive we have allready bcrypt'ed it
+                        // HACK HACK HACK if the string starts with $6$ we belive we have allready bcrypt'ed it
                         if (!c.password.startsWith("$6$")) {
                             c.password = await crypt.hash(c.password);
                         }
@@ -126,13 +127,13 @@ export class WebClient extends JobOwner {
                 }
                 break;
             case ACTION.DeployObject:
-                deployment.deployObject(act.id);
+                deployment.deployObject(act.id).catch(errorHandler("Deployment::deployObject", this));
                 break;
             case ACTION.CancelDeployment:
                 deployment.cancel();
                 break;
             case ACTION.StartDeployment:
-                deployment.start();
+                deployment.start().catch(errorHandler("Deployment::start", this));
                 break;
             case ACTION.StopDeployment:
                 deployment.stop();
@@ -219,7 +220,10 @@ export class WebClients {
             }
 
             crypt.validate(user.pass, content.password).then(next);
-        });
+        }).catch(err => {
+            errorHandler("WebClient::auth")(err);
+            next(false);
+        })
     }
 
     constructor() {
@@ -255,11 +259,10 @@ export class WebClients {
         this.httpsServer.on('upgrade', socketAuth);
         this.wss.on('connection', (ws) => {
             const u = url.parse(ws.upgradeReq.url, true);
-            console.log("Websocket connection", u.hostname, u.pathname)
             if (u.pathname == '/sysadmin') {
                 const wc = new WebClient(ws);
                 this.webclients.add(wc);
-                sendInitialState(wc);
+                sendInitialState(wc).catch(errorHandler("WebClient::sendInitialState"));
             } else if (u.pathname == '/terminal') {
                 const server = u.query.server as number;
                 const cols = u.query.cols as number;
@@ -267,7 +270,6 @@ export class WebClients {
                 if (server in hostClients.hostClients)
                     new ShellJob(hostClients.hostClients[server], ws, cols, rows);
             } else {
-                console.log("Bad socket", u);
                 ws.close();
             }
         });
@@ -283,7 +285,7 @@ export class WebClients {
     startServer() {
         this.httpServer.listen(80, "0.0.0.0");
         this.httpsServer.listen(443, "0.0.0.0", function() {
-            console.log("server running at https://localhost:8001/")
+            console.log("server running")
         });
     }
 }

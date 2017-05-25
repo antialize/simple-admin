@@ -7,7 +7,7 @@ import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentO
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'
-
+import {errorHandler} from './error'
 //Type only import
 import { HostClient } from './hostclient'
 
@@ -87,13 +87,14 @@ export class Deployment {
                 // path is the ids of the root to node path
                 // deps is a set of dependencies push from above, until we get to an actual object
                 const parent = objects[path[path.length - 1]];
-                const user = path.find((id: number) => objects[id].class == 'user');
-                const obj = objects[id];
 
-                if (!(id in objects)) {
+                if (!(id in objects) || objects[id] == undefined) {
                     errors.push("Missing object " + id + " for host " + hostObject.name + " in " + parent.name);
                     return;
                 }
+
+                const user = path.find((id: number) => objects[id] && objects[id].class == 'user');
+                const obj = objects[id];
 
                 let ok = true;
                 if (deps.has(id)) {
@@ -121,6 +122,7 @@ export class Deployment {
                 } else {
                     np = path.filter((id) => {
                         const o = objects[id];
+                        if (o == undefined) return false;
                         return o.class == 'user' || o.class == 'host' || (o.class == 'collection' && (o.content as ICollectionContent).variables && (o.content as ICollectionContent).variables.length != 0);
                     });
                     np.push(id);
@@ -135,6 +137,8 @@ export class Deployment {
 
                 for (let id of path) {
                     let o = objects[id];
+                    if (o == undefined) continue;
+
                     if ('variables' in o.content)
                         for (let p of (o.content as IVariablesContent).variables)
                             node.variables[p.key] = p.value;
@@ -225,6 +229,7 @@ export class Deployment {
 
         seen.forEach((node) => {
             let obj = objects[node.id];
+            if (obj == undefined) return;
             node.classOrder = classOrder(obj.class);
             if (node.inCount == 0) pq.enq(node);
         });
@@ -494,16 +499,16 @@ export class Deployment {
         return view;
     }
 
-    deployObject(id: number) {
+    async deployObject(id: number) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.clearLog();
         this.setMessage("");
-        this.setupDeploy(id);
+        await this.setupDeploy(id);
     }
 
-    start() {
+    async start() {
         if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
-        this.performDeploy();
+        await this.performDeploy();
     }
 
     stop() {
