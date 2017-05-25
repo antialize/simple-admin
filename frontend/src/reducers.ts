@@ -6,6 +6,7 @@ import { IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent, IGr
 export interface IObjectState {
     current: IObject | null;
     versions: { [version: number]: IObject };
+    touched: boolean;
 }
 
 export interface IDeploymentState {
@@ -115,14 +116,14 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
             if (action.id in ret)
                 ret[action.id].versions = Object.assign({}, ret[action.id].versions);
             else
-                ret[action.id] = { current: null, versions: {} };
+                ret[action.id] = { current: null, versions: {}, touched: false };
             for (const obj of action.object)
                 ret[action.id].versions[obj.version] = obj;
             return ret;
         case ACTION.DiscardObject:
             if (!(action.id in state)) return state;
             let ret2 = Object.assign({}, state);
-            ret2[action.id] = { current: null, versions: state[action.id].versions };
+            ret2[action.id] = { current: null, versions: state[action.id].versions, touched: false };
             return ret2;
         case ACTION.SetObjectName:
             if (!(action.id in state)) return state;
@@ -130,6 +131,7 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
             ret3[action.id] = Object.assign({}, ret3[action.id]);
             ret3[action.id].current = Object.assign({}, ret3[action.id].current);
             ret3[action.id].current.name = action.name;
+            ret3[action.id].touched = true;
             return ret3;
         case ACTION.SetObjectContentParam:
             if (!(action.id in state)) return state;
@@ -138,7 +140,13 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
             ret4[action.id].current = Object.assign({}, ret4[action.id].current);
             ret4[action.id].current.content = Object.assign({}, ret4[action.id].current.content);
             (ret4[action.id].current.content as { [key: string]: any })[action.param] = action.value;
+            ret4[action.id].touched = true;
             return ret4;
+        case ACTION.SaveObject:
+            if (!(action.id in state)) return state;
+            let ret5 = Object.assign({}, state);
+            ret5[action.id] = Object.assign({}, ret5[action.id], {touched: false});
+            return ret5;
         default:
             return state;
     }
@@ -231,7 +239,7 @@ function changeCurrentObject(state: IMainState) {
     if (id in state.objects)
         state.objects[id] = Object.assign({}, state.objects[id], { current: current });
     else
-        state.objects[id] = { current: current, versions: {} }
+        state.objects[id] = {touched:false, current: current, versions: {} }
 }
 
 export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, log: [], objects: [], message: "", logClearCount: 0 }, action: IAction) {

@@ -87,7 +87,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
     case ACTION.SaveObject:
         action.obj = store.getState().objects[action.id].current
         sendMessage(action);
-        return;
+        break;
     case ACTION.DeployObject:
     case ACTION.StopDeployment:
     case ACTION.StartDeployment:
