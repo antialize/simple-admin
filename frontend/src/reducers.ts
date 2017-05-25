@@ -91,18 +91,25 @@ function objectNamesAndIds(state: { [cls: string]: INameIdPair[] } = {}, action:
             return action.objectNamesAndIds;
         case ACTION.ObjectChanged:
             const s2 = Object.assign({}, state);
-            let version = -1;
-            let name = "";
-            let cls = "";
-            for (const ob of action.object) {
-                if (ob.version < version) continue;
-                version = ob.version;
-                name = ob.name;
-                cls = ob.class;
+            if (action.object.length == 0) {
+               for (let cls in s2) {
+                    if (s2[cls].findIndex(v => v.id == action.id) == -1) continue;
+                    s2[cls] = s2[cls].filter(v=> v.id != action.id);
+               }
+            } else {
+                let version = -1;
+                let name = "";
+                let cls = "";
+                for (const ob of action.object) {
+                    if (ob.version < version) continue;
+                    version = ob.version;
+                    name = ob.name;
+                    cls = ob.class;
+                }
+                if (!(cls in s2)) s2[cls] = [];
+                else s2[cls] = s2[cls].filter((v) => v.id != action.id);
+                s2[cls].push({ id: action.id, name });
             }
-            if (!(cls in s2)) s2[cls] = [];
-            else s2[cls] = s2[cls].filter((v) => v.id != action.id);
-            s2[cls].push({ id: action.id, name });
             return s2;
         default:
             return state;
@@ -113,12 +120,17 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
     switch (action.type) {
         case ACTION.ObjectChanged:
             let ret = Object.assign({}, state);
-            if (action.id in ret)
-                ret[action.id].versions = Object.assign({}, ret[action.id].versions);
-            else
-                ret[action.id] = { current: null, versions: {}, touched: false };
-            for (const obj of action.object)
-                ret[action.id].versions[obj.version] = obj;
+            if (action.object.length == 0) { //The object was deleted
+                if (action.id in ret)
+                    delete ret[action.id];
+            } else {
+                if (action.id in ret)
+                    ret[action.id].versions = Object.assign({}, ret[action.id].versions);
+                else
+                    ret[action.id] = { current: null, versions: {}, touched: false };
+                for (const obj of action.object)
+                    ret[action.id].versions[obj.version] = obj;
+            }
             return ret;
         case ACTION.DiscardObject:
             if (!(action.id in state)) return state;

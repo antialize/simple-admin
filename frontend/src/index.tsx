@@ -8,7 +8,7 @@ import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import * as injectTapEventPlugin from 'react-tap-event-plugin'
 import {Statuses} from './status'
 import * as State from '../../shared/state';
-import {IAction, ACTION, IFetchObject} from '../../shared/actions'
+import {IAction, ACTION, IFetchObject, IAlert} from '../../shared/actions'
 import * as $ from "jquery";
 import * as page from './page'
 
@@ -61,7 +61,7 @@ export function addActionTarget(action:ACTION, target:ActionTarget) {
 }
  
 export function removeActionTarget(action:ACTION, target:ActionTarget) {
-    actionTargets[action] =  actionTargets[action].filter((t)=>t !== target);
+    actionTargets[action] = actionTargets[action].filter((t)=>t !== target);
 }
 
 export function sendMessage(action:IAction) {
@@ -89,6 +89,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
         sendMessage(action);
         break;
     case ACTION.DeployObject:
+    case ACTION.DeleteObject:
     case ACTION.StopDeployment:
     case ACTION.StartDeployment:
     case ACTION.CancelDeployment:
@@ -106,6 +107,10 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
             sendMessage(action);
             return;
         }
+        break;
+    case ACTION.Alert:
+        alert(action.message);
+        return;
     }
     return next(action);
 }

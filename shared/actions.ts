@@ -5,9 +5,9 @@ export enum ACTION {
     UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
     SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
     AddMessage, SetMessageDismissed, SetObjectName, SetObjectContentParam, DiscardObject, SaveObject,
-    HostDown,
-    DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject,
-    StopDeployment, StartDeployment, CancelDeployment
+    HostDown, Alert,
+    DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
+    StopDeployment, StartDeployment, CancelDeployment,
 }
 
 export interface IUpdateStatusAction {
@@ -149,6 +149,11 @@ export interface IDeployObject {
     id: number;
 }
 
+export interface IDeleteObject {
+    type: ACTION.DeleteObject;
+    id: number;
+}
+
 export interface ISetDeploymentStatus {
     type: ACTION.SetDeploymentStatus;
     status: DEPLOYMENT_STATUS;
@@ -195,13 +200,19 @@ export interface IStartDeployment {
 }
 
 export interface ICancelDeployment {
-    type: ACTION.CancelDeployment
+    type: ACTION.CancelDeployment;
+}
+
+export interface IAlert {
+    type: ACTION.Alert;
+    message: string;
+    title: string;
 }
 
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
     | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName
-    | ISetObjectContentParam | IDiscardObject | ISaveObject | IHostDown
+    | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
-    | IStartDeployment | IStartDeployment | ICancelDeployment;
+    | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert;

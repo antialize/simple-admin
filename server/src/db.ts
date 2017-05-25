@@ -213,15 +213,19 @@ export class DB {
                         console.log(err);
                         process.exit(1);
                     }
-                    let version = row['version'] + 1;
-                    db.run("UPDATE `objects` SET `newest`=0 WHERE `id` = ?", [id], (err) => {
-                        if (err) {
-                            console.log(err);
-                            process.exit(1);
-                        }
-                        ins({ id, version })(cb);
-                    })
-                })
+                    {
+                        let version = row['version'] + 1;
+                        db.run("UPDATE `objects` SET `newest`=0 WHERE `id` = ?", [id], (err) => {
+
+                            if (err)
+                                cbe(new SAError(ErrorType.Database, err));
+                            else if (object)
+                                ins({ id, version })(cb, cbe);
+                            else
+                                cb({id, version});
+                        });
+                    }
+                });
         });
     }
 

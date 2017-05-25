@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as https from 'https';
-import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction } from '../../shared/actions'
+import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert } from '../../shared/actions'
 import * as express from 'express';
 import { IObject, IHostContent, IUserContent, PAGE_TYPE } from '../../shared/state'
 import * as message from './messages'
@@ -96,6 +96,33 @@ export class WebClient extends JobOwner {
                     webClients.broadcast(res2);
                     let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Object, class: act.obj.class, id, version } };
                     this.sendMessage(res3);
+                }
+                break;
+            case ACTION.DeleteObject:
+                {
+                    let objects = await db.getAllObjectsFull();
+                    let conflicts:string[] = [];
+                    for (let object of objects) {
+                        let content = JSON.parse(object.content);
+                        for (let val of ['sudoOn', 'depends', 'contains']) {
+                            if (!(val in content)) continue;
+                            for (let id of (content[val]) as number[]) {
+                                if (id != act.id) continue;
+                                conflicts.push("* "+object.name+" ("+object.type+") "+val);
+                            }
+                        }
+                    }
+                    if (conflicts.length > 0) {
+                        let res:IAlert = {type: ACTION.Alert, title: "Cannot delete object", message: "The object can not be delete as it is in use by:\n"+conflicts.join("\n")};
+                        this.sendMessage(res);
+                    } else {
+                        console.log("Delete object ", act.id);
+                        await db.changeObject(act.id, null);
+                        let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
+                        webClients.broadcast(res2);
+                        let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Dashbord} };
+                        this.sendMessage(res3);
+                    }
                 }
                 break;
             case ACTION.DeployObject:
