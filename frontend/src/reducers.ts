@@ -225,7 +225,7 @@ function changeCurrentObject(state: IMainState) {
                 current.content = { password: "", messageOnDown: true, importantServices: [] } as IHostContent;
                 break;
             case "user":
-                current.content = { firstName: "", lastName: "", system: false, sudo: false, password: "", email: "", groups: "" } as IUserContent;
+                current.content = { firstName: "", lastName: "", system: false, sudo: false, password: "", email: "", groups: "", shell: "/bin/bash" } as IUserContent;
                 break;
             case "group":
                 current.content = { system: false } as IGroupContent;

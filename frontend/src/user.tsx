@@ -68,6 +68,9 @@ export function UserImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Email">
                     <TextField value={c.email} onChange={(e: any, value: string) => props.setProp("email", value)} />
                 </InformationListRow>
+                <InformationListRow name="Shell">
+                    <TextField value={c.shell || ""} onChange={(e: any, value: string) => props.setProp("shell", value)} />
+                </InformationListRow>
                 <InformationListRow name="System">
                     <Toggle toggled={c.system} onToggle={(e: any, value: boolean) => props.setProp("system", value)} />
                 </InformationListRow>

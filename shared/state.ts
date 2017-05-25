@@ -60,6 +60,7 @@ export interface IUserContent extends ICollectionContent, IDependsContent {
     admin?: boolean;
     password: string;
     email: string;
+    shell?: string;
     groups: string;
     sudoOn?: number[];
     name?: string;

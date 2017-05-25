@@ -67,6 +67,9 @@ if not new or (old and old['name'] != new['name']) or not exists or isSystem != 
         if new['password']:
             args.append('-p')
             args.append(new['password'])
+        if 'shell' in new and new['shell']:
+            args.append("-s")
+            args.append(new['shell'])
         mygroups = groups & egroups
         if mygroups:
             args.append('-G')
@@ -81,6 +84,9 @@ else:
         args.append(new['password'])
     else:
         run(['passwd', '-d',  new['name']])
+    if 'shell' in new and new['shell']:
+        args.append("-s")
+        args.append(new['shell'])
     if new['sudo']:
         groups.add('sudo')
     if not new['system']:
