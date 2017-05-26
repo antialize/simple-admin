@@ -58,10 +58,9 @@ export function HostImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Hostname"><TextField value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} /></InformationListRow>
                 <InformationListRow name="Password"><TextField type="password" value={c.password} onChange={(e:any, value:string) => props.setProp("password",value)}/></InformationListRow>
                 <InformationListRow name="Message on down"><Toggle alt="Should we generate messages when the server goes down" toggled={c.messageOnDown !== false} onToggle={(e:any, value:boolean) => props.setProp("messageOnDown",value)}/></InformationListRow>
+                <InformationListRow name="Variables" long={true}><Variables variables={c.variables?c.variables:[]} setVariables={(vars: {key:string, value:string}[])=> props.setProp("variables", vars)} /></InformationListRow>
+                <InformationListRow name="Has" long={true}><ObjectSelector filter={(cls,id)=>cls!='host'} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}}/></InformationListRow>
             </InformationList>
-    	    <Variables variables={c.variables?c.variables:[]} setVariables={(vars: {key:string, value:string}[])=> props.setProp("variables", vars)} />
-            <ObjectSelector filter={(cls,id)=>cls!='host'} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}} name="Has"/>
-
         </div>)
 }
 

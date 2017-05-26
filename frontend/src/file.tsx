@@ -7,6 +7,7 @@ import {connect} from 'react-redux'
 import {IMainState} from './reducers';
 import {IObject, IFileContent} from '../../shared/state'
 import {ACTION, ISetObjectName, ISetObjectContentParam} from '../../shared/actions'
+import {Triggers} from './triggers';
 
 interface IProps {
     id: number;
@@ -68,8 +69,11 @@ export function FileImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Mode">
                     <TextField value={c.mode} onChange={(e:any, value:string) => props.setProp("mode",value)} />
                 </InformationListRow>
+                <InformationListRow name="Triggers" long={true}>
+                    <Triggers triggers={c.triggers ? c.triggers : []} setTriggers={triggers => props.setProp("triggers", triggers)} />
+                </InformationListRow>
             </InformationList>
-	    <Editor data={c.data} setData={(v:string) => props.setProp("data", v)} lang={c.lang} setLang={(v:string) => props.setProp("lang", v)}/>
+	        <Editor data={c.data} setData={(v:string) => props.setProp("data", v)} lang={c.lang} setLang={(v:string) => props.setProp("lang", v)}/>
         </div>)
 }
 

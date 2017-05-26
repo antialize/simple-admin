@@ -1,5 +1,7 @@
 export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment }
 
+export enum TRIGGER_TYPE {None, RestartService, ReloadService}
+
 export interface INameIdPair {
     name: string;
     id: number;
@@ -78,6 +80,7 @@ export interface IFileContent {
     mode: string;
     data: string;
     lang: string;
+    triggers: {type:TRIGGER_TYPE, value:string}[];
 }
 
 export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent | IRootContent | IPackageContent;

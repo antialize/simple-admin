@@ -11,7 +11,6 @@ interface IProps {
     selected: number[];
     setSelected(selected: number[]): void;
     filter(cls:string, id:number): boolean;
-    name: string;
 }
 
 interface StateProps {
@@ -41,26 +40,21 @@ export function ObjectSelectorImpl(props:StateProps) {
     }
 
     return (
-        <Card>
-            <CardTitle title={props.p.name}/>
-            <CardText>
-                <div style={{display: 'flex', flexWrap: 'wrap'}}>
-                    {selected.map((o)=>{
-                        return <Chip key={o.key} style={{margin:4}} onRequestDelete={()=>{
-                            props.p.setSelected(props.p.selected.filter((id)=>id != o.key))
-                            }}>{o.label}</Chip>
-                    })}
-                </div>
-            </CardText>
-            <CardActions>
-                Add: <AutoComplete
-                    hintText="Type anything"
+        <div>
+            <div style={{display: 'flex', flexWrap: 'wrap'}}>
+                {selected.map((o)=>{
+                    return <Chip key={o.key} style={{margin:4}} onRequestDelete={()=>{
+                        props.p.setSelected(props.p.selected.filter((id)=>id != o.key))
+                        }}>{o.label}</Chip>
+                })}
+            </div>
+            <AutoComplete
+                    hintText="Add"
                     dataSource={all}
                     dataSourceConfig={{text:"label",value:"key"}}
-                    onNewRequest={(item:Item)=>{props.p.setSelected(props.p.selected.concat([item.key]))}}
+                    onNewRequest={(item:Item)=>{props.p.setSelected(props.p.selected.concat([item.key])); return "";}}
                     />
-            </CardActions>
-        </Card>
+        </div>
     )
 }
 

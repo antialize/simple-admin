@@ -53,7 +53,11 @@ export function RootImpl(props: StateProps & DispactProps) {
     const c = props.current.content as IRootContent;
     return (
         <div>
-            <Variables variables={c.variables ? c.variables : []} setVariables={(vars: { key: string, value: string }[]) => props.setProp("variables", vars)} />
+            <InformationList key={props.id + props.current.version}>
+                <InformationListRow name="Variabels" long={true}>
+                    <Variables variables={c.variables ? c.variables : []} setVariables={(vars: { key: string, value: string }[]) => props.setProp("variables", vars)} />
+                </InformationListRow>
+            </InformationList>
         </div>)
 }
 

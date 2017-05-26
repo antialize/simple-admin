@@ -37,19 +37,14 @@ export function Variables(props:IProps) {
 		</tr>);
 				
     return (
-        <Card>
-            <CardTitle title="Variables"/>
-            <CardText>
-			<table>
-			<thead>
-			<tr><th>Key</th><th>Value</th><th></th></tr>
-			</thead>
-			<tbody>
-			{rows}
-			</tbody>
-			</table>
-            </CardText>
-        </Card>
+		<table>
+		<thead>
+		<tr><th>Key</th><th>Value</th><th></th></tr>
+		</thead>
+		<tbody>
+		{rows}
+		</tbody>
+		</table>
     )
 }
 

@@ -11,5 +11,5 @@ export function InformationList(props:any) {
 }
 
 export function InformationListRow(props:any) {
-    return (<tr><td>{props.name}</td><td>{props.children}</td></tr>)
+    return (<tr><td style={props.long?{verticalAlign: "top", paddingTop: "4px"}:{}}>{props.name}</td><td>{props.children}</td></tr>)
 }

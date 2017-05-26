@@ -81,17 +81,24 @@ export function UserImpl(props: StateProps & DispactProps) {
                     <Toggle toggled={c.admin} onToggle={(e: any, value: boolean) => props.setProp("admin", value)} />
                 </InformationListRow>
                 <InformationListRow name="Password">
-                    <TextField type="password" value={c.password} onChange={(e: any, value: string) => props.setProp("password", value)} />
+                    <TextField type="password" value={c.password} onChange={(e: any, value: string) => props.setProp("password", value)}  />
                 </InformationListRow>
                 <InformationListRow name="Groups">
                     <TextField value={c.groups} onChange={(e: any, value: string) => props.setProp("groups", value)} />
                 </InformationListRow>
+                <InformationListRow name="Variabels" long={true}>
+                    <Variables variables={c.variables ? c.variables : []} setVariables={(vars: { key: string, value: string }[]) => props.setProp("variables", vars)} />
+                </InformationListRow>
+                <InformationListRow name="Has" long={true}>
+                    <ObjectSelector filter={(cls, id) => (cls == 'file' || cls == 'collection')} selected={c.contains ? c.contains : []} setSelected={(sel: number[]) => { props.setProp("contains", sel) }} />
+                </InformationListRow>
+                <InformationListRow name="Depends on" long={true}>
+                    <ObjectSelector filter={(cls, id) => (cls == 'package')} selected={c.depends ? c.depends : []} setSelected={(sel: number[]) => { props.setProp("depends", sel) }}/>
+                </InformationListRow>
+                <InformationListRow name="Sudo on" long={true}>
+                    <ObjectSelector filter={(cls, id) => (cls == 'host')} selected={c.sudoOn ? c.sudoOn : []} setSelected={(sel: number[]) => { props.setProp("sudoOn", sel) }} />
+                </InformationListRow>
             </InformationList>
-            <Variables variables={c.variables ? c.variables : []} setVariables={(vars: { key: string, value: string }[]) => props.setProp("variables", vars)} />
-            <ObjectSelector filter={(cls, id) => (cls == 'file' || cls == 'collection')} selected={c.contains ? c.contains : []} setSelected={(sel: number[]) => { props.setProp("contains", sel) }} name="Has" />
-            <ObjectSelector filter={(cls, id) => (cls == 'package')} selected={c.depends ? c.depends : []} setSelected={(sel: number[]) => { props.setProp("depends", sel) }} name="Depends on" />
-            <ObjectSelector filter={(cls, id) => (cls == 'host')} selected={c.sudoOn ? c.sudoOn : []} setSelected={(sel: number[]) => { props.setProp("sudoOn", sel) }} name="Sudo on" />
-
         </div>)
 }
 
