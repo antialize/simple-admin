@@ -7,6 +7,8 @@ import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
+import Checkbox from 'material-ui/Checkbox';
+
 import * as page from './page'
 import CircularProgress from 'material-ui/CircularProgress';
 
@@ -73,6 +75,8 @@ let clearCount: number = 0;
 
 export class DeployLog extends React.Component<{}, {}> {
     div: HTMLDivElement = null;
+    interval: number;
+
     constructor(props: any) {
         super(props);
     }
@@ -81,11 +85,16 @@ export class DeployLog extends React.Component<{}, {}> {
     //this.term.open(this.termDiv);
     componentDidMount() {
         theTerm.open(this.div);
+        theTerm.fit();
 
+        $(window).resize(() => {
+            theTerm.fit();      
+        });
+        this.interval = setInterval(()=>theTerm.term.fit(), 2000);
     }
 
     render() {
-        return <div ref={(div)=>this.div=div}/>
+        return <div className="deployment_log" ref={(div)=>this.div=div}/>
     }
 }
 
@@ -137,18 +146,16 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
     }
 
     let content = null;
-    let c2 = null;
 
     if (items && props.d.objects.length > 0) {
         let disable=(props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges);
         let rows = props.d.objects.map((o) => {
-            let bg:string;
+            let cn:string;
             switch(o.status) {
-            case State.DEPLOYMENT_OBJECT_STATUS.Deplying: bg = "yellow"; break;
-            case State.DEPLOYMENT_OBJECT_STATUS.Failure: bg = "red"; break;
-            case State.DEPLOYMENT_OBJECT_STATUS.Success: bg = "green"; break;
-            case State.DEPLOYMENT_OBJECT_STATUS.Deplying: bg = "orange"; break;
-            case State.DEPLOYMENT_OBJECT_STATUS.Normal: bg = o.enabled?"white":"gray"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Deplying: cn = "deployment_active"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Failure: cn = "deployment_failure"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Success: cn = "deployment_success"; break;
+            case State.DEPLOYMENT_OBJECT_STATUS.Normal: cn = o.enabled?"deployment_normal":"deployment_disabled"; break;
             }
             let act:string;
             switch(o.action) {
@@ -158,46 +165,39 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
 
             }
 
-            return <tr key={o.index} style={{backgroundColor: bg}}>
+            return <tr key={o.index} className={cn}>
                 <td>{o.host}</td>
                 <td>{o.name}</td>
                 <td>{o.cls}</td>
                 <td>{act}</td>
-                <td><input type="checkbox" checked={o.enabled} disabled={disable} onChange={(e)=>props.toggle(o.index, e.target.checked)}/></td>
+                <td><Checkbox checked={o.enabled} disabled={disable} onCheck={(e, checked)=>props.toggle(o.index, checked)}/></td>
                 </tr>;
         });
-        
-        //for(let id of Object.keys(props.d.objects)
 
         content = (
-            <div style={{display: 'flex', flexDirection: 'row', maxHeight: "calc(100vh - 170px)"}}>
-                <div style={{flex: "1 1 50%", overflowY: "auto"}}>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Host</th><th>Object</th><th>Class</th><th>Action</th><th>Enable</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows}
-                        </tbody>
-                    </table>
-                </div>
-                <div style={{flex: "1 1 50%", overflowY: "auto"}}>
-                    <DeployLog />
-                </div>
+            <div className="deployment_items">
+                <table className="deployment">
+                    <thead>
+                        <tr>
+                            <th>Host</th><th>Object</th><th>Class</th><th>Action</th><th>Enable</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows}
+                    </tbody>
+                </table>
             </div>);
     }
 
     return (
-        <div>
-            <h1>
+        <div className="deployment_container">
+            <h1 className="deployment_header">
                 {spin?<CircularProgress />:null} Deployment{status}
             </h1>
-	    <div>{props.d.message}</div>
+	        <div className="deployment_message">{props.d.message}</div>
             {content}
-            {c2}
-            <div style={{marginTop: '20px'}}>
+            <DeployLog />
+            <div className="deployment_buttons">
                 <RaisedButton label="Start" disabled={props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges} onClick={(e)=>props.start()} />
                 <RaisedButton label="Stop" disabled={props.d.status != State.DEPLOYMENT_STATUS.Deploying} onClick={(e)=>props.stop()} />
                 <RaisedButton label="Cancel" disabled={!cancel} onClick={(e)=>props.cancel()} />
