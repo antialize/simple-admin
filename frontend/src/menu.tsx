@@ -50,7 +50,7 @@ function MenuImpl(props:Props) {
             <ListItem primaryText="Dashbord" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Dashbord})} href={page.link({type:State.PAGE_TYPE.Dashbord})}></ListItem>
             <Divider/>
             <ListItem primaryText="Hosts" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"host"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"host"})}
-                nestedItems={hostList} open={true} />
+                nestedItems={hostList} initiallyOpen={true} />
             <ListItem primaryText="Users" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"user"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"user"})} />
             <ListItem primaryText="Groups" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"group"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"group"})}/>
             <ListItem primaryText="Files" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"file"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"file"})}/>
