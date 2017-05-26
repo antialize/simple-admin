@@ -132,7 +132,7 @@ tr.deployment_disabled td {
 @media (min-width: 1500px) {
     .deployment_container {
         display: grid;
-        grid-template-columns: 600px 1fr;
+        grid-template-columns: 650px 1fr;
         grid-template-rows: auto auto auto auto 1fr;
         grid-gap: 10px;
         height: calc(100vh - 20px);

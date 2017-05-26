@@ -87,10 +87,10 @@ export class DeployLog extends React.Component<{}, {}> {
         theTerm.open(this.div);
         theTerm.fit();
 
-        $(window).resize(() => {
-            theTerm.fit();      
-        });
-        this.interval = setInterval(()=>theTerm.term.fit(), 2000);
+        //$(window).resize(() => {
+        //    theTerm.fit();      
+        //});
+        //this.interval = setInterval(()=>theTerm.term.fit(), 2000);
     }
 
     render() {
@@ -147,8 +147,10 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
 
     let content = null;
 
+    let cannotSelect=(props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges);
+    let hasDisabled = false;
+    let hasEnabled = false;
     if (items && props.d.objects.length > 0) {
-        let disable=(props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges);
         let rows = props.d.objects.map((o) => {
             let cn:string;
             switch(o.status) {
@@ -165,12 +167,15 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
 
             }
 
+            if (o.enabled) hasEnabled = true;
+            else hasDisabled = true;
+
             return <tr key={o.index} className={cn}>
                 <td>{o.host}</td>
                 <td>{o.name}</td>
                 <td>{o.cls}</td>
                 <td>{act}</td>
-                <td><Checkbox checked={o.enabled} disabled={disable} onCheck={(e, checked)=>props.toggle(o.index, checked)}/></td>
+                <td><Checkbox checked={o.enabled} disabled={cannotSelect} onCheck={(e, checked)=>props.toggle(o.index, checked)}/></td>
                 </tr>;
         });
 
@@ -189,6 +194,19 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
             </div>);
     }
 
+    let selectAll = function() {
+        for (let o of props.d.objects) {
+            if (o.enabled) continue;
+            props.toggle(o.index, true);
+        }
+    }
+
+    let deselectAll = function() {
+        for (let o of props.d.objects) {
+            if (!o.enabled) continue;
+            props.toggle(o.index, false);
+        }
+    }
     return (
         <div className="deployment_container">
             <h1 className="deployment_header">
@@ -202,6 +220,8 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
                 <RaisedButton label="Stop" disabled={props.d.status != State.DEPLOYMENT_STATUS.Deploying} onClick={(e)=>props.stop()} />
                 <RaisedButton label="Cancel" disabled={!cancel} onClick={(e)=>props.cancel()} />
                 <RaisedButton label="Deploy all" disabled={props.d.status != State.DEPLOYMENT_STATUS.Done && props.d.status != State.DEPLOYMENT_STATUS.InvilidTree} onClick={(e)=>props.deployAll()} />
+                <RaisedButton label="Enable all" disabled={cannotSelect || !hasDisabled} onClick={(e)=>selectAll()} />
+                <RaisedButton label="Disable all" disabled={cannotSelect || !hasEnabled} onClick={(e)=>deselectAll()} />
             </div>
         </div>
         );
