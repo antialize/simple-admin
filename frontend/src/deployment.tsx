@@ -164,7 +164,7 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
             case State.DEPLOYMENT_OBJECT_ACTION.Add: act="Add"; break;
             case State.DEPLOYMENT_OBJECT_ACTION.Modify: act="Modify"; break;
             case State.DEPLOYMENT_OBJECT_ACTION.Remove: act="Remove"; break;
-
+            case State.DEPLOYMENT_OBJECT_ACTION.Trigger: act="Trigger"; break;
             }
 
             if (o.enabled) hasEnabled = true;

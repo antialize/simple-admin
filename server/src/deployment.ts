@@ -1,6 +1,7 @@
 import {
     DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent,
-    IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent
+    IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent,
+    ITrigger, TRIGGER_TYPE
 } from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
@@ -11,6 +12,8 @@ import {errorHandler} from './error'
 //Type only import
 import { HostClient } from './hostclient'
 
+
+function never(n: never, message: string) {throw new Error(message);}
 
 interface IFullDeploymentObject {
     inner: IDeploymentObject;
@@ -328,7 +331,8 @@ export class Deployment {
                         name: v.title,
                         enabled: true,
                         status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                        action: DEPLOYMENT_OBJECT_ACTION.Remove
+                        action: DEPLOYMENT_OBJECT_ACTION.Remove,
+
                     },
                     name: v.name,
                     next: {},
@@ -341,11 +345,58 @@ export class Deployment {
             }
         }
 
+        // Filter away stuff that has not changed
         this.deploymentObjects = this.deploymentObjects.filter(o => {
             let a = JSON.stringify(o.prev);
             let b = JSON.stringify(o.next);
             return a !== b;
         });
+
+        // Find triggers
+        let triggers: (ITrigger & {host:number})[] = [];
+        for (let obj of this.deploymentObjects) {
+            let ctx = obj.next || obj.prev;
+            if ('triggers' in ctx)
+                for(let trigger of (ctx as IFileContent).triggers) 
+                    triggers.push(Object.assign({host: obj.host}, trigger))
+        }
+        triggers.sort((l,r) => {
+            if (l.host != r.host) return l.host < r.host ? -1 : 1;
+            if (l.value != r.value) return l.value < r.value ? -1 :  1;
+            return l.type - r.type;
+        })
+
+        for (let i = 0; i < triggers.length; ++i) {
+            let t = triggers[i];
+            if (i != 0 && t.host == triggers[i-1].host && t.value != triggers[i-1].value && t.type && triggers[i-1].type) continue;
+            let cls = "reload";
+            switch (t.type) {
+            case TRIGGER_TYPE.ReloadService: cls = "reload"; break;
+            case TRIGGER_TYPE.RestartService: cls = "restart"; break;
+            case TRIGGER_TYPE.None: cls = "none"; break;
+            default: never(t.type, "Case not handled;");
+            }
+
+            let o: IFullDeploymentObject = {
+                inner: {
+                    index: idx++,
+                    cls: cls,
+                    host: objects[t.host].name,
+                    name: t.value,
+                    enabled: true,
+                    status: DEPLOYMENT_OBJECT_STATUS.Normal,
+                    action: DEPLOYMENT_OBJECT_ACTION.Trigger
+                },
+                name: null,
+                next: {},
+                prev: {},
+                host: t.host,
+                object: null,
+                variables: null
+            }
+            this.deploymentObjects.push(o);
+        }
+
         for (let i = 0; i < this.deploymentObjects.length; ++i)
             this.deploymentObjects[i].inner.index = i;
 
@@ -466,15 +517,19 @@ export class Deployment {
             let ans = { success: false, code: 0 };
 
             switch (o.inner.cls) {
-                case 'user':
-                    ans = await this.deploySingle(hostClient, "user.py", { old: o.prev, new: o.next });
-                    break
-                case 'file':
-                    ans = await this.deploySingle(hostClient, "file.py", { old: o.prev, new: o.next });
-                    break;
-                case 'group':
-                    ans = await this.deploySingle(hostClient, "group.py", { old: o.prev, new: o.next });
-                    break;
+            case 'user':
+                ans = await this.deploySingle(hostClient, "user.py", { old: o.prev, new: o.next });
+                break
+            case 'file':
+                ans = await this.deploySingle(hostClient, "file.py", { old: o.prev, new: o.next });
+                break;
+            case 'group':
+                ans = await this.deploySingle(hostClient, "group.py", { old: o.prev, new: o.next });
+                break;
+            case 'reload':
+            case 'restart':
+                ans = await this.deploySingle(hostClient, "trigger.py", { name: o.inner.name, type: o.inner.cls});
+                break;
             }
 
             let ok = ans.success && ans.code == 0;
@@ -483,7 +538,8 @@ export class Deployment {
                     this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
                 else
                     this.addLog("\r\nFailed\r\n");
-                badHosts.add(o.host);
+                if (o.inner.cls != 'reload' && o.inner.cls != 'restart')
+                    badHosts.add(o.host);
             } else {
                 await db.setDeployment(o.host, o.name, JSON.stringify(o.next), o.object, o.inner.cls, o.inner.name);
             }

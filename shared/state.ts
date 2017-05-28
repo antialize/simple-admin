@@ -73,6 +73,10 @@ export interface IGroupContent {
     name?: string;
 }
 
+export interface ITrigger {
+    type:TRIGGER_TYPE, value:string
+}
+
 export interface IFileContent {
     path: string;
     user: string;
@@ -80,7 +84,7 @@ export interface IFileContent {
     mode: string;
     data: string;
     lang: string;
-    triggers: {type:TRIGGER_TYPE, value:string}[];
+    triggers?: ITrigger[];
 }
 
 export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent | IRootContent | IPackageContent;
@@ -95,7 +99,7 @@ export interface IObject {
 export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }
 
 export enum DEPLOYMENT_OBJECT_STATUS { Normal, Deplying, Success, Failure }
-export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove }
+export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove, Trigger }
 
 export interface IDeploymentObject {
     index: number;
