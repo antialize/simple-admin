@@ -8,6 +8,7 @@ import * as Actions from '../../shared/actions'
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import * as page from './page'
+import {ObjectFinder} from './object_finder'
 
 interface Props {
     setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
@@ -59,6 +60,8 @@ function MenuImpl(props:Props) {
 	        <ListItem primaryText="Root" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class:"root", id: props.rootId, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: "root", id: props.rootId, version:null})}/>
             <Divider/>
 	        <ListItem primaryText="Deployment" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}/>
+            <Divider/>
+            <ListItem primaryText={<ObjectFinder />} />
         </List>
     </Drawer>);
 }

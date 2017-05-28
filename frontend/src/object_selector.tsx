@@ -1,7 +1,7 @@
 import * as React from "react";
 import Chip from 'material-ui/Chip';
 import {Card, CardActions, CardHeader, CardMedia, CardTitle, CardText} from 'material-ui/Card';
-import AutoComplete from 'material-ui/AutoComplete';
+import {ClearAutoComplete} from './clear_auto_complete';
 
 import {INameIdPair} from '../../shared/state'
 import {IMainState} from './reducers';
@@ -48,7 +48,7 @@ export function ObjectSelectorImpl(props:StateProps) {
                         }}>{o.label}</Chip>
                 })}
             </div>
-            <AutoComplete
+            <ClearAutoComplete
                     hintText="Add"
                     dataSource={all}
                     dataSourceConfig={{text:"label",value:"key"}}
