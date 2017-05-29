@@ -14,8 +14,8 @@ export function hash(password:string) {
 export function validate(password: string, hash:string | undefined) {
     let ok = hash !== undefined;
     return new Promise<boolean>((cb, rej) => {
-        crypt3(password, hash || "$1$SrkubyRm$DEQU3KupUxt4yfhbK1HyV/", (err, val)=> {
-            if (err) rej(err);
+        crypt3(password, hash || "$1$SrkubyRm$DEQU3KupUxt4yfhbK1HyV/", (err, val) => {
+            if (err) cb(false); //rej(err);
             // TODO we should realy use a timing safe compare here
             cb(val === hash && ok);
         })});
