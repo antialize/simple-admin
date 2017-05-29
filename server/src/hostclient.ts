@@ -112,6 +112,7 @@ export class HostClient extends JobOwner {
                 hostClients.hostClients[this.id] = this;
             } else {
                 console.log("Client from", this.socket.remoteAddress, this.socket.remotePort, "invalid auth", obj);
+                this.socket.end();
                 this.auth = false;
             }
             return;
