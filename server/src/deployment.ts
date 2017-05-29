@@ -477,11 +477,11 @@ export class Deployment {
                         nextPackages.add((o2.next as IPackageContent).name);
                 }
 
-                let ans = await this.deploySingle(hostClient, "packages.py", { packages: Array.from(nextPackages) });
+                let ans = await this.deploySingle(hostClient, "packages.py", { packages: Array.from(nextPackages).filter(i => i != undefined) });
                 let ok = ans.success && ans.code == 0;
                 if (!ok) {
                     for (let k = i; k < j; ++k) {
-                        let o2 = this.deploymentObjects[j];
+                        let o2 = this.deploymentObjects[k];
                         if (!o2.inner.enabled) continue;
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Failure);
                     }
