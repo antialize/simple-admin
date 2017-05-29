@@ -269,7 +269,7 @@ export class Deployment {
                     action: DEPLOYMENT_OBJECT_ACTION.Add
                 },
                 name: node.name,
-                next: obj.content,
+                next: Object.assign({}, obj.content),
                 prev: {},
                 host: node.host,
                 object: node.id,
