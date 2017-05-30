@@ -4,7 +4,7 @@ import { IPage, INameIdPair, IObject, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATU
 export enum ACTION {
     UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
     SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
-    AddMessage, SetMessageDismissed, SetObjectName, SetObjectContentParam, DiscardObject, SaveObject,
+    AddMessage, SetMessageDismissed, SetObjectName, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
     StopDeployment, StartDeployment, CancelDeployment,
@@ -121,6 +121,12 @@ export interface ISetObjectName {
     name: string;
 }
 
+export interface ISetObjectCatagory {
+    type: ACTION.SetObjectCatagory;
+    id: number;
+    catagory: string;
+}
+
 export interface ISetObjectContentParam {
     type: ACTION.SetObjectContentParam;
     id: number;
@@ -215,4 +221,4 @@ export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilte
     | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
-    | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert;
+    | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory;

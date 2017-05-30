@@ -99,16 +99,18 @@ function objectNamesAndIds(state: { [cls: string]: INameIdPair[] } = {}, action:
             } else {
                 let version = -1;
                 let name = "";
+                let catagory = "";
                 let cls = "";
                 for (const ob of action.object) {
                     if (ob.version < version) continue;
                     version = ob.version;
                     name = ob.name;
                     cls = ob.class;
+                    catagory = ob.catagory;
                 }
                 if (!(cls in s2)) s2[cls] = [];
                 else s2[cls] = s2[cls].filter((v) => v.id != action.id);
-                s2[cls].push({ id: action.id, name });
+                s2[cls].push({ id: action.id, name, catagory});
             }
             return s2;
         default:
@@ -159,6 +161,14 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
             let ret5 = Object.assign({}, state);
             ret5[action.id] = Object.assign({}, ret5[action.id], {touched: false});
             return ret5;
+        case ACTION.SetObjectCatagory:
+            if (!(action.id in state)) return state;
+            let ret6 = Object.assign({}, state);
+            ret6[action.id] = Object.assign({}, ret6[action.id]);
+            ret6[action.id].current = Object.assign({}, ret6[action.id].current);
+            ret6[action.id].current.catagory = action.catagory;
+            ret6[action.id].touched = true;
+            return ret6;
         default:
             return state;
     }
@@ -230,7 +240,8 @@ function changeCurrentObject(state: IMainState) {
             class: state.page.class,
             name: "",
             version: null,
-            content: {} as ICollectionContent
+            content: {} as ICollectionContent,
+            catagory: "",
         }
         switch (state.page.class) {
             case "host":

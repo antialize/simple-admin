@@ -6,8 +6,9 @@ import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import {IMainState} from './reducers';
 import {IObject, IFileContent} from '../../shared/state'
-import {ACTION, ISetObjectName, ISetObjectContentParam} from '../../shared/actions'
+import {ACTION, ISetObjectName, ISetObjectContentParam, ISetObjectCatagory} from '../../shared/actions'
 import {Triggers} from './triggers';
+import {Catagory} from './catagory';
 
 interface IProps {
     id: number;
@@ -19,6 +20,7 @@ interface StateProps {
 }
 
 interface DispactProps {
+    setCatagory: (name: string) => void;
     setName: (name: string) => void;
     setProp: (prop:string, value:any) => void;
 }
@@ -34,6 +36,14 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactPr
                 type: ACTION.SetObjectName,
                 id: p.id,
                 name
+            };
+            dispatch(a);
+        },
+        setCatagory: (catagory: string) => {
+            const a:ISetObjectCatagory = {
+                type: ACTION.SetObjectCatagory,
+                id: p.id,
+                catagory
             };
             dispatch(a);
         },
@@ -57,6 +67,7 @@ export function FileImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Name">
                     <TextField value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} />
                 </InformationListRow>
+                <InformationListRow name="Catagory"><Catagory cls="file" catagory={props.current.catagory} setCatagory={props.setCatagory} /></InformationListRow>
                 <InformationListRow name="Path">
                     <TextField value={c.path} onChange={(e:any, value:string) => props.setProp("path",value)} />
                 </InformationListRow>

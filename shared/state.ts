@@ -5,6 +5,7 @@ export enum TRIGGER_TYPE {None, RestartService, ReloadService}
 export interface INameIdPair {
     name: string;
     id: number;
+    catagory: string;
 }
 export interface IObjectListPage {
     type: PAGE_TYPE.ObjectList;
@@ -94,6 +95,7 @@ export interface IObject {
     name: string;
     version: number;
     content: IContent;
+    catagory: string;
 }
 
 export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }

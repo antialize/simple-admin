@@ -7,8 +7,9 @@ import { IMainState } from './reducers';
 import { Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import { IObject, IUserContent } from '../../shared/state'
-import { ACTION, ISetObjectName, ISetObjectContentParam } from '../../shared/actions'
+import { ACTION, ISetObjectName, ISetObjectContentParam, ISetObjectCatagory } from '../../shared/actions'
 import { Variables } from './variables'
+import { Catagory } from './catagory'
 import { Password } from './password'
 
 interface IProps {
@@ -21,6 +22,7 @@ interface StateProps {
 }
 
 interface DispactProps {
+    setCatagory: (name: string) => void;
     setName: (name: string) => void;
     setProp: (prop: string, value: any) => void;
 }
@@ -36,6 +38,14 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>, p: IProps): DispactP
                 type: ACTION.SetObjectName,
                 id: p.id,
                 name
+            };
+            dispatch(a);
+        },
+        setCatagory: (catagory: string) => {
+            const a:ISetObjectCatagory = {
+                type: ACTION.SetObjectCatagory,
+                id: p.id,
+                catagory
             };
             dispatch(a);
         },
@@ -60,6 +70,7 @@ export function UserImpl(props: StateProps & DispactProps) {
                 <InformationListRow name="Name">
                     <TextField value={props.current.name} onChange={(e: any, value: string) => props.setName(value)} />
                 </InformationListRow>
+                <InformationListRow name="Catagory"><Catagory cls="user" catagory={props.current.catagory} setCatagory={props.setCatagory} /></InformationListRow>
                 <InformationListRow name="First Name">
                     <TextField value={c.firstName} onChange={(e: any, value: string) => props.setProp("firstName", value)} />
                 </InformationListRow>

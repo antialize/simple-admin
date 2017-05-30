@@ -11,6 +11,12 @@ export class DB {
         this.db = new sqlite.Database("sysadmin.db");
         let db = this.db;
 
+        const i = (stmt: string) => {
+            return new Promise<void>((cb, cbe) =>
+                db.run(stmt, [], (err) => {
+                    cb();
+                }));
+        };
         const r = (stmt: string) => {
             return new Promise<void>((cb, cbe) =>
                 db.run(stmt, [], (err) => {
@@ -36,6 +42,7 @@ export class DB {
         };
 
         await r("CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)");
+        await i("ALTER TABLE `objects` ADD COLUMN `catagory` TEXT");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
         await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
@@ -156,8 +163,8 @@ export class DB {
 
     getAllObjects() {
         let db = this.db;
-        return new Promise<{ id: number, type: string, name: string }[]>((cb, cbe) => {
-            db.all("SELECT `id`, `type`, `name` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+        return new Promise<{ id: number, type: string, name: string, catagory: string }[]>((cb, cbe) => {
+            db.all("SELECT `id`, `type`, `name`, `catagory` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
                     if (err) 
                         cbe(new SAError(ErrorType.Database, err));
@@ -171,8 +178,8 @@ export class DB {
 
     getAllObjectsFull() {
         let db = this.db;
-        return new Promise<{ id: number, type: string, name: string, content: string }[]>((cb, cbe) => {
-            db.all("SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+        return new Promise<{ id: number, type: string, name: string, content: string, catagory: string }[]>((cb, cbe) => {
+            db.all("SELECT `id`, `type`, `name`, `content`, `catagory` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
                     if (err) 
                         cbe(new SAError(ErrorType.Database, err));
@@ -186,8 +193,8 @@ export class DB {
 
     getObjectByID(id: number) {
         let db = this.db;
-        return new Promise<{ version: number, type: string, name: string, content: string }[]>((cb, cbe) => {
-            db.all("SELECT `version`, `type`, `name`, `content` FROM `objects` WHERE `id`=?", [id],
+        return new Promise<{ version: number, type: string, name: string, content: string, catagory: string }[]>((cb, cbe) => {
+            db.all("SELECT `version`, `type`, `name`, `content`, `catagory` FROM `objects` WHERE `id`=?", [id],
                 (err, rows) => {
                     if (err) 
                         cbe(new SAError(ErrorType.Database, err));
@@ -202,7 +209,7 @@ export class DB {
     changeObject(id: number, object: IObject) {
         let db = this.db;
         let ins = ({ id, version }: IV) => (cb: (res: IV) => void, cbe: (error:SAError) => void) => {
-            db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`) VALUES (?, ?, ?, ?, ?, '', datetime('now'), 1)", [id, version, object.class, object.name, JSON.stringify(object.content)], (err) => {
+            db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`, `catagory`) VALUES (?, ?, ?, ?, ?, '', datetime('now'), 1, ?)", [id, version, object.class, object.name, JSON.stringify(object.content), object.catagory], (err) => {
                 if (err)
                     cbe(new SAError(ErrorType.Database, err));
                 else

@@ -6,9 +6,10 @@ import {IObject, IHostContent} from '../../shared/state'
 import {IMainState} from './reducers';
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
-import {ACTION, ISetObjectName, ISetObjectContentParam} from '../../shared/actions'
+import {ACTION, ISetObjectName, ISetObjectContentParam, ISetObjectCatagory} from '../../shared/actions'
 import {ObjectSelector} from './object_selector'
 import {Variables} from './variables'
+import {Catagory} from './catagory'
 import {Password} from './password'
 
 interface IProps {
@@ -21,6 +22,7 @@ interface StateProps {
 }
 
 interface DispactProps {
+    setCatagory: (name: string) => void;
     setName: (name: string) => void;
     setProp: (prop:string, value:any) => void;
 }
@@ -36,6 +38,14 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactPr
                 type: ACTION.SetObjectName,
                 id: p.id,
                 name
+            };
+            dispatch(a);
+        },
+        setCatagory: (catagory: string) => {
+            const a:ISetObjectCatagory = {
+                type: ACTION.SetObjectCatagory,
+                id: p.id,
+                catagory
             };
             dispatch(a);
         },
@@ -57,6 +67,7 @@ export function HostImpl(props: StateProps & DispactProps) {
         <div>
             <InformationList key={props.id + props.current.version}>
                 <InformationListRow name="Hostname"><TextField value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} /></InformationListRow>
+                <InformationListRow name="Catagory"><Catagory cls="host" catagory={props.current.catagory} setCatagory={props.setCatagory} /></InformationListRow>
                 <InformationListRow name="Password"><Password value={c.password} onChange={value => props.setProp("password",value)}/></InformationListRow>
                 <InformationListRow name="Message on down"><Toggle alt="Should we generate messages when the server goes down" toggled={c.messageOnDown !== false} onToggle={(e:any, value:boolean) => props.setProp("messageOnDown",value)}/></InformationListRow>
                 <InformationListRow name="Variables" long={true}><Variables variables={c.variables?c.variables:[]} setVariables={(vars: {key:string, value:string}[])=> props.setProp("variables", vars)} /></InformationListRow>

@@ -53,7 +53,8 @@ export class WebClient extends JobOwner {
                             version: row.version,
                             class: row.type,
                             name: row.name,
-                            content: JSON.parse(row.content)
+                            content: JSON.parse(row.content),
+                            catagory: row.catagory,
                         }
                     );
                 }
@@ -167,7 +168,7 @@ async function sendInitialState(c: WebClient) {
     };
     for (const row of await rows) {
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({ id: row.id, name: row.name });
+        action.objectNamesAndIds[row.type].push({ id: row.id, name: row.name, catagory: row.catagory });
     }
 
     for (const id in hostClients.hostClients) {
