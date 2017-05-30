@@ -204,30 +204,54 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
 }
 
 function StatusesImpl(p: StatusesProps) {
-    let hosts = (p.hosts) ? p.hosts.map((v) => v) : [];
-    hosts.sort((a, b) => a.name < b.name ? -1 : 1);
-    return (
-        <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
-        }}>
-            {hosts.map(pp => {
-                let a: State.IPage = { type: State.PAGE_TYPE.Object, class: 'host', id: pp.id, version: null };
-                let elm;
-                if (p.statuses[pp.id] && p.statuses[pp.id].up)
-                    elm = <Status status={p.statuses[pp.id]} />;
-                else
-                    elm = <div>Down</div>;
+    let catagories: {[key:string]: State.INameIdPair[]} = {};
 
-                return (
-                    <Card style={{ margin: '5px' }}>
-                        <CardTitle title={pp.name} />
-                        <CardText>{elm}</CardText>
-                        <CardActions>
-                            <RaisedButton onClick={(e) => p.setPage(e, a)} label="Details" href={page.link(a)} />
-                        </CardActions>
-                    </Card>);
-            })}
-        </div >);
+    for (let host of p.hosts) {
+	let cat = host.catagory || "Other";
+	if (!(cat in catagories))
+	    catagories[cat] = [];
+	catagories[cat].push(host);
+    }
+
+    let chunks = [];
+
+    let cats = Object.keys(catagories);
+    cats.sort();
+    
+    for (let cat of cats) {
+	let hosts = catagories[cat];
+	hosts.sort((a, b) => a.name < b.name ? -1 : 1);
+
+	chunks.push(
+	    <div key={cat}>
+	    <h2>{cat}</h2>
+	    <div style={{
+		display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
+		}}>
+		    {hosts.map(pp => {
+			 let a: State.IPage = { type: State.PAGE_TYPE.Object, class: 'host', id: pp.id, version: null };
+			 let elm;
+			 if (p.statuses[pp.id] && p.statuses[pp.id].up)
+			     elm = <Status status={p.statuses[pp.id]} />;
+			 else
+			     elm = <div>Down</div>;
+			 
+			 return (
+			     <Card style={{ margin: '5px' }}>
+				 <CardTitle title={pp.name} />
+				 <CardText>{elm}</CardText>
+				 <CardActions>
+				     <RaisedButton onClick={(e) => p.setPage(e, a)} label="Details" href={page.link(a)} />
+				 </CardActions>
+			     </Card>);
+		    })}
+	    </div>
+	    </div>);
+    }
+
+	    
+    return <div>{chunks}</div>;
+}
 
     /*  return (
         {/* <div>
@@ -250,6 +274,6 @@ function StatusesImpl(p: StatusesProps) {
             })}
             </div>   }
     )*/
-}
+
 
 export let Statuses = connect(mapStateToProps, mapDispatchToProps)(StatusesImpl);
