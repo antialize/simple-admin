@@ -9,6 +9,7 @@ import { connect } from 'react-redux'
 import { IObject, IUserContent } from '../../shared/state'
 import { ACTION, ISetObjectName, ISetObjectContentParam } from '../../shared/actions'
 import { Variables } from './variables'
+import { Password } from './password'
 
 interface IProps {
     id: number;
@@ -81,7 +82,7 @@ export function UserImpl(props: StateProps & DispactProps) {
                     <Toggle toggled={c.admin} onToggle={(e: any, value: boolean) => props.setProp("admin", value)} />
                 </InformationListRow>
                 <InformationListRow name="Password">
-                    <TextField type="password" value={c.password} onChange={(e: any, value: string) => props.setProp("password", value)}  />
+                    <Password value={c.password} onChange={value => props.setProp("password", value)}  />
                 </InformationListRow>
                 <InformationListRow name="Groups">
                     <TextField value={c.groups} onChange={(e: any, value: string) => props.setProp("groups", value)} />
