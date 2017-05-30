@@ -292,6 +292,7 @@ export class Deployment {
                     ctx.data = Mustache.render(ctx.data, obj.variables);;
                     ctx.user = ctx.user || obj.variables['user'] || 'root';
                     ctx.group = ctx.group || obj.variables['user'] || 'root';
+                    obj.inner.name = ctx.path;
                     break;
                 case 'user':
                     let ctx2 = (obj.next as IUserContent);
