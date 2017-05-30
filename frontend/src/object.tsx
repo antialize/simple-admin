@@ -5,6 +5,7 @@ import { Host } from './host'
 import { Collection } from './collection'
 import { Root } from './root'
 import { Package } from './package'
+import { UFWAllow } from './ufwallow'
 import { IMainState } from './reducers'
 import { Dispatch } from 'redux'
 import { connect } from 'react-redux'
@@ -111,6 +112,9 @@ function ObjectImpl(p: DispactProps & StateProps) {
             break;
         case 'package':
             content = <Package id={p.id} />;
+            break;
+        case 'ufwallow':
+            content = <UFWAllow id={p.id} />;
             break;
         default:
             content = <div><h1>NOT IMPLEMENTED</h1></div>;

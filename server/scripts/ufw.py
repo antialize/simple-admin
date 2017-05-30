@@ -1,4 +1,4 @@
-import sys, json, subprocess, pty, fcntl, os, select, tempfile
+import sys, json, subprocess, pty, fcntl, os, select, pwd
 
 content = json.loads(sys.stdin.read())
 
@@ -22,9 +22,11 @@ def run(args):
     os.write(1, ("> %s\n"%(" ".join(args))).encode("utf-8"))
     subprocess.check_call(args)
 
-if content['type'] == 'reload':
-    run(["systemctl", "reload", content['name']])
-elif content['type'] == 'restart':
-    run(["systemctl", "restart", content['name']])
-elif content['type'] == 'enableufw':
-    run(["ufw", "enable"])
+old = content['old']
+new = content['new']
+
+if not new or not old or old['allow'] != new['allow']:
+    if old:
+        run(["ufw", "reject", *old['allow'].split(" ")])
+    if new:
+        run(["ufw", "allow", *new['allow'].split(" ")])

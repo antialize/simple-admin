@@ -221,12 +221,13 @@ export class Deployment {
 
         let classOrder = (cls: string) => {
             switch (cls) {
-                case 'collection': return 10;
-                case 'group': return 20;
-                case 'user': return 30;
-                case 'file': return 40;
-                case 'package': return 50;
-                default: return 900;
+            case 'collection': return 10;
+            case 'group': return 20;
+            case 'user': return 30;
+            case 'file': return 40;
+            case 'package': return 50;
+            case 'ufwallow': return 60;
+            default: return 900;
             }
         }
 
@@ -360,6 +361,8 @@ export class Deployment {
             if ('triggers' in ctx)
                 for(let trigger of (ctx as IFileContent).triggers) 
                     triggers.push(Object.assign({host: obj.host}, trigger))
+            if (obj.inner.cls == "ufwallow")
+                triggers.push({host: obj.host, type: TRIGGER_TYPE.EnableUfw, value:"Enable ufw"})
         }
         triggers.sort((l,r) => {
             if (l.host != r.host) return l.host < r.host ? -1 : 1;
@@ -374,6 +377,7 @@ export class Deployment {
             switch (t.type) {
             case TRIGGER_TYPE.ReloadService: cls = "reload"; break;
             case TRIGGER_TYPE.RestartService: cls = "restart"; break;
+            case TRIGGER_TYPE.EnableUfw: cls = "enableufw"; break;
             case TRIGGER_TYPE.None: cls = "none"; break;
             default: never(t.type, "Case not handled;");
             }
@@ -527,8 +531,12 @@ export class Deployment {
             case 'group':
                 ans = await this.deploySingle(hostClient, "group.py", { old: o.prev, new: o.next });
                 break;
+            case 'ufwallow':
+                ans = await this.deploySingle(hostClient, "ufw.py", { old: o.prev, new: o.next });
+                break;
             case 'reload':
             case 'restart':
+            case 'enableufw':
                 ans = await this.deploySingle(hostClient, "trigger.py", { name: o.inner.name, type: o.inner.cls});
                 break;
             }

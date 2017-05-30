@@ -1,6 +1,6 @@
 export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment }
 
-export enum TRIGGER_TYPE {None, RestartService, ReloadService}
+export enum TRIGGER_TYPE {None, RestartService, ReloadService, EnableUfw}
 
 export interface INameIdPair {
     name: string;
@@ -46,8 +46,11 @@ export interface IPackageContent {
     name?: string;
 }
 
-export interface IRootContent extends IVariablesContent { }
+export interface IUFWAllowContent {
+    allow: string;
+}
 
+export interface IRootContent extends IVariablesContent { }
 
 export interface IHostContent extends ICollectionContent {
     password: string;
@@ -88,7 +91,7 @@ export interface IFileContent {
     triggers?: ITrigger[];
 }
 
-export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent | IRootContent | IPackageContent;
+export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent | IRootContent | IPackageContent | IUFWAllowContent;
 
 export interface IObject {
     class: string;
