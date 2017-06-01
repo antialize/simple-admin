@@ -9,7 +9,7 @@ export function UFWAllow(props: {id:number}) {
             hasContains: false,
             containsName: "Contains",
             content: [
-                {type: ClassPropType.text, name: "allow", title: "Allow", default:"", description: "ufw allow *"}
+                {type: ClassPropType.text, name: "allow", title: "Allow", default:"", description: "ufw allow *", template: false, variable:""}
             ]
         }}/>;
 }

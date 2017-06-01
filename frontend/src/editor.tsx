@@ -343,7 +343,8 @@ interface IProps {
     setLang(lang:string): void;
     lang: string;
     setData(data:string): void;
-    data: string;    
+    data: string;
+    fixedLang: boolean;
 }
 
 interface IState {
@@ -371,9 +372,11 @@ export default class Editor extends React.Component<IProps, IState> {
                 <Toolbar>
                     <ToolbarGroup firstChild={true}>
                         Language:
-                         <DropDownMenu value={this.props.lang} onChange={(e, i, v) => this.props.setLang(v)}>
-                            {lang}
-                        </DropDownMenu>
+                        {this.props.fixedLang
+                            ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
+                            : <DropDownMenu value={this.props.lang} onChange={(e, i, v) => this.props.setLang(v)}>
+                                {lang}
+                            </DropDownMenu>}
                         Theme:
                         <DropDownMenu value={this.state.theme} onChange={(e, i, v) => this.setState({theme: v})}>
                             {te}

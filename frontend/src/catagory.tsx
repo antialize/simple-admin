@@ -19,7 +19,6 @@ function mapStateToProps(s:IMainState, p: IProps): StateProps {
 }
 
 function CatagoryImpl(props: StateProps) {
-    console.log(props.catagories);
     return <AutoComplete
                 searchText={props.p.catagory || ""}
                 filter={AutoComplete.caseInsensitiveFilter}
