@@ -2,6 +2,9 @@ import * as React from "react";
 import {InformationList, InformationListRow} from './information_list'
 import TextField from 'material-ui/TextField';
 import Toggle from 'material-ui/Toggle';
+import SelectField from 'material-ui/SelectField';
+import MenuItem from 'material-ui/MenuItem';
+
 import {IObject} from '../../shared/state'
 import {IMainState} from './reducers';
 import {Dispatch} from 'redux'
@@ -15,7 +18,7 @@ import {Triggers} from './triggers';
 import Editor from './editor'
 
 export enum ClassPropType {
-    bool, text, password, document
+    bool, text, password, document, choice, classContent
 }
 
 export interface IBoolClassProp {
@@ -49,14 +52,28 @@ export interface IDocumentClassProp {
     description: string;
 }
 
-export type IClassProp = IBoolClassProp | ITextClassProp | IPasswordClassProp | IDocumentClassProp;
+export interface IChoiceClassProp {
+    type: ClassPropType.choice;
+    title: string;
+    name: string;
+    description: string;
+    default: string;
+    choices: string[];
+}
+
+export interface IClassContentClassProp {
+    type: ClassPropType.classContent;
+    name: string;
+}
+
+export type IClassProp = IBoolClassProp | ITextClassProp | IPasswordClassProp | IDocumentClassProp | IChoiceClassProp | IClassContentClassProp;
 
 export interface IClass {
     hasCatagory?: boolean;
     hasVariables?: boolean;
     hasContains?: boolean;
-    hasTriggers?: boolean;
     hasSudoOn?: boolean;
+    hasTriggers?: boolean;
     hasDepends?: boolean;
     containsName?: string;
     content: IClassProp[];
@@ -131,8 +148,20 @@ function ClassImpl(props: StateProps & DispactProps) {
         case ClassPropType.text:
             rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?ct.default:v} onChange={(e: any, value: string) => props.setProp(ct.name,  value)}  hintText={ct.description}/></InformationListRow>);
             break;
+        case ClassPropType.choice:
+            rows.push(
+                <InformationListRow>
+                    <SelectField value={v==undefined?ct.default:v} onChange={(a: any, b: any, value:string) => props.setProp(ct.name,  value)}  hintText={ct.description}>
+                        {ct.choices.map(n =><MenuItem value={n} primaryText={n} />)}
+                    </SelectField>
+                </InformationListRow>);
+            break;
         case ClassPropType.document:
             extra.push(<Editor key={ct.name} data={v==undefined?"":v} setData={(v:string) => props.setProp(c[ct.name], v)} lang={c[ct.langName]} setLang={(v:string) => props.setProp(ct.langName, v)}/>);
+            break;
+        case ClassPropType.classContent:
+            extra.push(<div>Class Content</div>)
+            break;
         }
     }
 

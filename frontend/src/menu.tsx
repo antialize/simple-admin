@@ -59,6 +59,7 @@ function MenuImpl(props:Props) {
             <ListItem primaryText="Packages" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"package"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"package"})}/>
             <ListItem primaryText="UFW allow" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"ufwallow"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"ufwallow"})}/>
 	        <ListItem primaryText="Root" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class:"root", id: props.rootId, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: "root", id: props.rootId, version:null})}/>
+            <ListItem primaryText="Types" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"type"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"type"})}/>
             <Divider/>
 	        <ListItem primaryText="Deployment" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}/>
             <Divider/>

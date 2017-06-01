@@ -17,6 +17,7 @@ import RaisedButton from 'material-ui/RaisedButton'
 import { HostExtra } from './hostextra'
 import { Box } from './box'
 import {setPage} from './page'
+import {Type} from './type'
 
 interface IProps {
     class: string;
@@ -115,6 +116,9 @@ function ObjectImpl(p: DispactProps & StateProps) {
             break;
         case 'ufwallow':
             content = <UFWAllow id={p.id} />;
+            break;
+        case 'type':
+            content = <Type id={p.id} />;
             break;
         default:
             content = <div><h1>NOT IMPLEMENTED</h1></div>;
