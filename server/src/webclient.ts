@@ -85,7 +85,7 @@ export class WebClient extends JobOwner {
                     let c = act.obj.content;
                     const typeRow = await db.getNewestObjectByID(act.obj.type);
                     let type = JSON.parse(typeRow.content) as IType;
-                    for (let r of type.content) {
+                    for (let r of type.content || []) {
                         if (r.type != TypePropType.password) continue;
                         if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
                         c[r.name] = await crypt.hash(c[r.name]);

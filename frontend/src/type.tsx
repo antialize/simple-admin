@@ -177,7 +177,7 @@ function TypeImpl(props: StateProps & DispactProps) {
     const c = props.current.content as {[key:string]:any};
     let rows = [];
     let extra = [];
-    for (const ct of type.content) {
+    for (const ct of type.content || []) {
         if (ct.type == TypePropType.none) continue;
         let v = c[ct.name];
         switch (ct.type) {

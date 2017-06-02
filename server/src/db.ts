@@ -1,10 +1,12 @@
 import * as sqlite from 'sqlite3'
 import { IObject2 } from '../../shared/state'
-import { Host } from '../../shared/type'
+import { Host, hostId } from '../../shared/type'
 
 import { ErrorType, SAError} from './error'
 type IV = { id: number, version: number };
-import {defaults} from './default';
+import {defaults, userId, groupId, fileId, collectionId, ufwAllowId, packageId} from './default';
+
+
 
 export class DB {
     db: sqlite.Database = null
@@ -53,6 +55,10 @@ export class DB {
         await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `object` INTEGER, `type` TEXT, `title` TEXT)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
+
+        for (let pair of [ ['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId] ]) {
+            await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);   
+        }
 
         for (let d of defaults) {
             await r("REPLACE INTO `objects` (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`, `catagory`) VALUES (?, '1', ?, ?, ?, '', datetime('now'), 0, ?)", [
