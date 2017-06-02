@@ -5,7 +5,7 @@ import {connect} from 'react-redux'
 
 interface IProps {
     catagory: string;
-    cls: string;
+    type: number;
     setCatagory(catagory:string): void;
 }
 
@@ -15,7 +15,7 @@ interface StateProps {
 }
 
 function mapStateToProps(s:IMainState, p: IProps): StateProps {
-    return {p, catagories: s.objectNamesAndIds[p.cls].map(x=>x.catagory)}
+    return {p, catagories: (s.objectDigests[p.type] || []).map(x=>x.catagory)}
 }
 
 function CatagoryImpl(props: StateProps) {

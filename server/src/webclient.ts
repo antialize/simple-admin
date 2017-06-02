@@ -2,7 +2,7 @@ import * as http from 'http';
 import * as https from 'https';
 import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert } from '../../shared/actions'
 import * as express from 'express';
-import { IObject, IHostContent, IUserContent, PAGE_TYPE } from '../../shared/state'
+import { IObject2, PAGE_TYPE } from '../../shared/state'
 import * as message from './messages'
 import * as WebSocket from 'ws';
 import * as url from 'url';
@@ -19,6 +19,7 @@ import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment } from './instances'
 import {errorHandler} from './error'
+import {IType, typeId, TypePropType} from '../../shared/type'
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -50,8 +51,9 @@ export class WebClient extends JobOwner {
                 for (const row of rows) {
                     res.object.push(
                         {
+                            id: act.id,
                             version: row.version,
-                            class: row.type,
+                            type: row.type,
                             name: row.name,
                             content: JSON.parse(row.content),
                             catagory: row.catagory,
@@ -79,24 +81,20 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.SaveObject:
                 {
-                    if (act.obj.class == 'host') {
-                        let c = act.obj.content as IHostContent;
-                        // HACK HACK HACK if the string starts with $6$ we belive we have allready bcrypt'ed it
-                        if (!c.password.startsWith("$6$")) {
-                            c.password = await crypt.hash(c.password);
-                        }
-                    } else if (act.obj.class == 'user') {
-                        let c = act.obj.content as IUserContent;
-                        // HACK HACK HACK if the string starts with $6$ we belive we have allready bcrypt'ed it
-                        if (!c.password.startsWith("$6$")) {
-                            c.password = await crypt.hash(c.password);
-                        }
+                    // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
+                    let c = act.obj.content;
+                    const typeRow = await db.getNewestObjectByID(act.obj.type);
+                    let type = JSON.parse(typeRow.content) as IType;
+                    for (let r of type.content) {
+                        if (r.type != TypePropType.password) continue;
+                        if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
+                        c[r.name] = await crypt.hash(c[r.name]);
                     }
                     let { id, version } = await db.changeObject(act.id, act.obj);
                     act.obj.version = version;
                     let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [act.obj] };
                     webClients.broadcast(res2);
-                    let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Object, class: act.obj.class, id, version } };
+                    let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Object, objectType: act.obj.type, id, version } };
                     this.sendMessage(res3);
                 }
                 break;
@@ -153,7 +151,7 @@ export class WebClient extends JobOwner {
 }
 
 async function sendInitialState(c: WebClient) {
-    const rows = db.getAllObjects();
+    const rows = db.getAllObjectsFull();
     const msgs = msg.getAll();
 
     let action: ISetInitialState = {
@@ -164,11 +162,21 @@ async function sendInitialState(c: WebClient) {
         deploymentObjects: deployment.getView(),
         deploymentStatus: deployment.status,
         deploymentMessage: deployment.message,
-        deploymentLog: deployment.log
+        deploymentLog: deployment.log,
+        types: {},
     };
     for (const row of await rows) {
+        if (row.type == typeId) {
+            action.types[row.id] = {id: row.id,
+                type: row.type,
+                name: row.name,
+                catagory: row.catagory,
+                content: JSON.parse(row.content) as IType,
+                version: row.version,
+                };
+        }
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({ id: row.id, name: row.name, catagory: row.catagory });
+        action.objectNamesAndIds[row.type].push({type: row.type, id: row.id, name: row.name, catagory: row.catagory });
     }
 
     for (const id in hostClients.hostClients) {
@@ -214,7 +222,7 @@ export class WebClients {
                 next(false);
                 return;
             }
-            let content = JSON.parse(contentStr) as IUserContent;
+            let content = JSON.parse(contentStr);
             if (!content.admin) {
                 next(false);
                 return;

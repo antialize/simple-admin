@@ -3,7 +3,7 @@ import Chip from 'material-ui/Chip';
 import {Card, CardActions, CardHeader, CardMedia, CardTitle, CardText} from 'material-ui/Card';
 import {ClearAutoComplete} from './clear_auto_complete';
 
-import {INameIdPair} from '../../shared/state'
+import {IObjectDigest} from '../../shared/state'
 import {IMainState} from './reducers';
 import {connect} from 'react-redux'
 
@@ -14,12 +14,12 @@ interface IProps {
 }
 
 interface StateProps {
-    objectNamesAndIds: {[cls:string]:INameIdPair[]};
+    objectNamesAndIds: {[cls:string]:IObjectDigest[]};
     p: IProps;
 }
 
 function mapStateToProps(s:IMainState, p: IProps): StateProps {
-    return {objectNamesAndIds: s.objectNamesAndIds, p};
+    return {objectNamesAndIds: s.objectDigests, p};
 }
 
 export function ObjectSelectorImpl(props:StateProps) {

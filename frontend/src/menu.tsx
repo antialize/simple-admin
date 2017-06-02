@@ -9,23 +9,33 @@ import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import * as page from './page'
 import {ObjectFinder} from './object_finder'
+import {IType, hostId, typeId, rootInstanceId, rootId} from '../../shared/type'
 
 interface Props {
     setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
-    hosts: State.INameIdPair[];
+    hosts: State.IObjectDigest[];
+    types: State.IObject2<IType>[];
     rootId: number;
 }
 
 function mapStateToProps(s:IMainState) {
-    let lst = s.objectNamesAndIds['host'];
-    if (lst === undefined) lst = [];
-    lst.sort((l, r)=>{return l.name < r.name?-1:1}) ;
-    let rootId: number = null;
+    let hosts = (s.objectDigests[hostId] || []).slice(0);
+    hosts.sort((l, r)=>{return l.name < r.name?-1:1});
 
-    if (s.objectNamesAndIds['root'])
-	for (var item of s.objectNamesAndIds['root'])
-	    rootId = item.id;
-    return {hosts: lst, rootId: rootId};
+    let types: State.IObject2<IType>[] = [];
+    if (s.types)
+        for (let key in s.types)
+            types.push(s.types[key]);
+
+    types.sort((l, r)=>{
+        if (l.id == hostId) return -1;
+        if (r.id == hostId) return 1;
+        if (l.id == typeId) return 1;
+        if (r.id == typeId) return -1;
+        return l.name < r.name?-1:1
+    })
+
+    return {hosts, rootId, types};
 }
 
 function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
@@ -38,30 +48,33 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
 
 function MenuImpl(props:Props) {
     const hostList = props.hosts.map(n=>
-	<ListItem primaryText={n.name}
-		  key={n.id}
-		  onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class: 'host', id: n.id, version:null})}
-		  href={page.link({type:State.PAGE_TYPE.Object, class: 'host', id: n.id, version:null})}/>);
+        <ListItem primaryText={n.name}
+            key={n.id}
+            onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: n.id, version:null})}
+            href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: n.id, version:null})}/>);
     hostList.push(
-	<ListItem
-	    key="add" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class: 'host', id: null, version:null})}
-	    href={page.link({type:State.PAGE_TYPE.Object, class: 'host', id: null, version:null})}>Add new</ListItem>);
+        <ListItem
+            key="add" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: null, version:null})}
+            href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: null, version:null})}>Add new</ListItem>);
+
     return (<Drawer open={true}>
         <List>
             <ListItem primaryText="Dashbord" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Dashbord})} href={page.link({type:State.PAGE_TYPE.Dashbord})}></ListItem>
             <Divider/>
-            <ListItem primaryText="Hosts" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"host"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"host"})}
-                nestedItems={hostList} initiallyOpen={true} />
-            <ListItem primaryText="Users" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"user"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"user"})} />
-            <ListItem primaryText="Groups" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"group"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"group"})}/>
-            <ListItem primaryText="Files" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"file"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"file"})}/>
-            <ListItem primaryText="Collections" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"collection"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"collection"})}/>
-            <ListItem primaryText="Packages" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"package"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"package"})}/>
-            <ListItem primaryText="UFW allow" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"ufwallow"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"ufwallow"})}/>
-	        <ListItem primaryText="Root" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class:"root", id: props.rootId, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: "root", id: props.rootId, version:null})}/>
-            <ListItem primaryText="Types" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, class:"type"})} href={page.link({type:State.PAGE_TYPE.ObjectList, class:"type"})}/>
+            {props.types.map(t => {
+                if (t.content.kind == "trigger") return;
+                if (t.id == rootId)
+                    return <ListItem primaryText={t.name}
+                        key={rootInstanceId}
+                        onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
+                        href={page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}/>;
+
+                return <ListItem key={t.id} primaryText={t.content.plural} onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, objectType:t.id})} href={page.link({type:State.PAGE_TYPE.ObjectList, objectType:t.id})} 
+                        nestedItems={t.id == hostId?hostList:undefined} initiallyOpen={t.id == hostId}
+                        />
+            })}
             <Divider/>
-	        <ListItem primaryText="Deployment" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}/>
+            <ListItem primaryText="Deployment" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}/>
             <Divider/>
             <ListItem primaryText={<ObjectFinder />} />
         </List>

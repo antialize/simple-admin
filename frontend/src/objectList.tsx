@@ -10,26 +10,26 @@ import RaisedButton from 'material-ui/RaisedButton';
 import * as page from './page'
 
 interface IProps {
-    class: string;
+    type: number;
 }
 
 interface Props {
-    objects: State.INameIdPair[];
+    objects: State.IObjectDigest[];
     filter: string;
-    class: string;
+    type: number;
     setFilter(filter:string):void;
     setPage(e: React.MouseEvent<{}>, p: State.IPage):void;
 }
 
 function mapStateToProps(s:IMainState, o:IProps) {
-    let lst = (o.class in s.objectNamesAndIds ? s.objectNamesAndIds[o.class] : []);
-    let filt = (o.class in s.objectListFilter ? s.objectListFilter[o.class] : "");
+    let lst = (o.type in s.objectDigests ? s.objectDigests[o.type] : []);
+    let filt = (o.type in s.objectListFilter ? s.objectListFilter[o.type] : "");
     lst = lst.filter((st)=>st.name.toUpperCase().includes(filt.toUpperCase()));
     lst.sort((l,r)=>{return l.name < r.name ? -1 : 1;});
     return {
         objects:  lst,
         filter: filt,
-        class: o.class
+        type: o.type
     }
 }
 
@@ -39,7 +39,7 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:IProps) {
             const p:Actions.ISetObjectListFilter = {
                 type: Actions.ACTION.SetObjectListFilter,
                 filter: filter,
-                class: o.class
+                objectType: o.type
             };
             dispatch(p);
         },
@@ -54,9 +54,9 @@ function ObjectListImpl(props:Props) {
             <div>
                 <TextField floatingLabelText="Filter" onChange={(a, v)=>{props.setFilter(v);}} value={props.filter}/>
                 <List>
-                    {props.objects.map(v => <ListItem primaryText={v.name} key={v.id} onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class: props.class, id: v.id, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: props.class, id: v.id, version:null})}/>)}
+                    {props.objects.map(v => <ListItem primaryText={v.name} key={v.id} onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: props.type, id: v.id, version:null})} href={page.link({type:State.PAGE_TYPE.Object, objectType: props.type, id: v.id, version:null})}/>)}
                 </List>
-                <RaisedButton label="Add new" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, class: props.class, id: null, version:null})} href={page.link({type:State.PAGE_TYPE.Object, class: props.class, id: null, version:null})} />
+                <RaisedButton label="Add new" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: props.type, id: null, version:null})} href={page.link({type:State.PAGE_TYPE.Object, objectType: props.type, id: null, version:null})} />
             </div>
         );
 }

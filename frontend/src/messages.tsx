@@ -1,6 +1,7 @@
 import * as React from "react";
 import {IMainState} from './reducers';
 import {ISetMessageDismissed, ACTION, IMessage} from '../../shared/actions'
+import {hostId} from '../../shared/type'
 import {connect, Dispatch } from 'react-redux';
 import RaisedButton from 'material-ui/RaisedButton';
 import {Log} from './log'
@@ -23,9 +24,9 @@ function mapStateToProps(state:IMainState, props:ExternProps): StateProps {
     const messages: (IMessage & {hostname: string})[] = [];
     const hostNames: {[id:number]: string} = {}
     let count = 0;
-    if (state.objectNamesAndIds['host'])
-	for (const p of state.objectNamesAndIds['host'])
-            hostNames[p.id] = p.name;
+    if (state.objectDigests[hostId])
+        for (const p of state.objectDigests[hostId])
+                hostNames[p.id] = p.name;
 
     for (const id in state.messages) {
         const message = state.messages[id];

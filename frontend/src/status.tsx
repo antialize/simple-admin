@@ -5,6 +5,7 @@ import { Size } from './size';
 import { Time } from './time';
 import { IMainState } from './reducers';
 import { IStatus, IStatuses } from '../../shared/status';
+import { hostId} from '../../shared/type';
 import * as State from '../../shared/state';
 import { InformationList, InformationListRow } from './information_list';
 import * as page from './page'
@@ -186,13 +187,13 @@ export class Status extends React.Component<Props, {}> {
 }
 
 interface StatusesProps {
-    hosts: State.INameIdPair[];
+    hosts: State.IObjectDigest[];
     statuses: IStatuses;
     setPage: (e: React.MouseEvent<{}>, p: State.IPage) => void;
 }
 
 function mapStateToProps(state: IMainState) {
-    return { 'hosts': state.objectNamesAndIds['host'], 'statuses': state.status };
+    return { 'hosts': state.objectDigests[hostId] || [], 'statuses': state.status };
 }
 
 function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
@@ -204,7 +205,7 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
 }
 
 function StatusesImpl(p: StatusesProps) {
-    let catagories: {[key:string]: State.INameIdPair[]} = {};
+    let catagories: {[key:string]: State.IObjectDigest[]} = {};
 
     for (let host of p.hosts) {
 	let cat = host.catagory || "Other";
@@ -229,7 +230,7 @@ function StatusesImpl(p: StatusesProps) {
 		display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
 		}}>
 		    {hosts.map(pp => {
-			 let a: State.IPage = { type: State.PAGE_TYPE.Object, class: 'host', id: pp.id, version: null };
+			 let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id: pp.id, version: null };
 			 let elm;
 			 if (p.statuses[pp.id] && p.statuses[pp.id].up)
 			     elm = <Status status={p.statuses[pp.id]} />;

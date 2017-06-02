@@ -1,5 +1,6 @@
 import { IStatus, IStatusUpdate } from './status';
-import { IPage, INameIdPair, IObject, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject } from './state';
+import { IPage, IObjectDigest, IObject2, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject } from './state';
+import { IType } from './type'
 
 export enum ACTION {
     UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
@@ -24,7 +25,7 @@ export interface IFetchObject {
 export interface IObjectChanged {
     type: ACTION.ObjectChanged;
     id: number;
-    object: IObject[];
+    object: IObject2<any>[];
 }
 
 export interface ISetPageAction {
@@ -34,7 +35,7 @@ export interface ISetPageAction {
 
 export interface ISetObjectListFilter {
     type: ACTION.SetObjectListFilter;
-    class: string;
+    objectType: number;
     filter: string;
 }
 
@@ -51,13 +52,14 @@ export interface IMessage {
 
 export interface ISetInitialState {
     type: ACTION.SetInitialState;
-    objectNamesAndIds: { [cls: string]: INameIdPair[] };
+    objectNamesAndIds: { [cls: string]: IObjectDigest[] };
     statuses: { [id: number]: IStatus };
     messages: IMessage[];
     deploymentObjects: IDeploymentObject[];
     deploymentStatus: DEPLOYMENT_STATUS;
     deploymentMessage: string;
     deploymentLog: string[];
+    types: { [id:number]: IObject2<IType>};
 }
 
 export interface ISetServiceListFilter {
@@ -142,7 +144,7 @@ export interface IDiscardObject {
 export interface ISaveObject {
     type: ACTION.SaveObject;
     id: number;
-    obj?: IObject;
+    obj?: IObject2<any>;
 }
 
 export interface IHostDown {

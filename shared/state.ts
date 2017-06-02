@@ -2,19 +2,20 @@ export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment }
 
 export enum TRIGGER_TYPE {None, RestartService, ReloadService, EnableUfw}
 
-export interface INameIdPair {
+export interface IObjectDigest {
     name: string;
     id: number;
+    type: number;
     catagory: string;
 }
 export interface IObjectListPage {
     type: PAGE_TYPE.ObjectList;
-    class: string;
+    objectType: number;
 }
 
 export interface IObjectPage {
     type: PAGE_TYPE.Object;
-    class: string;
+    objectType: number;
     id?: number;
     version?: number;
 };
@@ -28,77 +29,13 @@ export interface IDeploymentPage {
 }
 export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage;
 
-export interface IContainsContent {
-    contains?: number[];
-}
-
-export interface IVariablesContent {
-    variables?: { key: string, value: string }[];
-}
-
-export interface IDependsContent {
-    depends?: number[];
-}
-
-export interface ICollectionContent extends IContainsContent, IVariablesContent { }
-
-export interface IPackageContent {
-    name?: string;
-}
-
-export interface IUFWAllowContent {
-    allow: string;
-}
-
-export interface IRootContent extends IVariablesContent { }
-
-export interface IHostContent extends ICollectionContent {
-    password: string;
-    messageOnDown: boolean;
-    importantServices: string[];
-}
-
-export interface IUserContent extends ICollectionContent, IDependsContent {
-    firstName: string;
-    lastName: string;
-    system: boolean;
-    sudo: boolean;
-    admin?: boolean;
-    password: string;
-    email: string;
-    shell?: string;
-    groups: string;
-    sudoOn?: number[];
-    name?: string;
-}
-
-export interface IGroupContent {
-    system: boolean;
-    name?: string;
-}
-
-export interface ITrigger {
-    type:TRIGGER_TYPE, value:string
-}
-
-export interface IFileContent {
-    path: string;
-    user: string;
-    group: string;
-    mode: string;
-    data: string;
-    lang: string;
-    triggers?: ITrigger[];
-}
-
-export type IContent = IHostContent | IUserContent | IGroupContent | IFileContent | ICollectionContent | IRootContent | IPackageContent | IUFWAllowContent;
-
-export interface IObject {
-    class: string;
+export interface IObject2<T> {
+    id: number;
+    type: number;
     name: string;
-    version: number;
-    content: IContent;
     catagory: string;
+    content: T;
+    version: number;
 }
 
 export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }

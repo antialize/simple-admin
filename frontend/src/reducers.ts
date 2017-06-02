@@ -1,11 +1,12 @@
 import { IUpdateStatusAction, IAction, ACTION, IMessage } from '../../shared/actions'
 import { IStatus, IStatuses, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import { Reducer, combineReducers } from 'redux';
-import { IPage, PAGE_TYPE, IObject, INameIdPair, IHostContent, IUserContent, IGroupContent, IFileContent, ICollectionContent, IRootContent, DEPLOYMENT_STATUS, IDeploymentObject } from '../../shared/state'
+import { IPage, PAGE_TYPE, IObjectDigest, DEPLOYMENT_STATUS, IDeploymentObject, IObject2 } from '../../shared/state'
+import { IType, fillDefaults } from '../../shared/type'
 
 export interface IObjectState {
-    current: IObject | null;
-    versions: { [version: number]: IObject };
+    current: IObject2<any> | null;
+    versions: { [version: number]: IObject2<any>  };
     touched: boolean;
 }
 
@@ -20,14 +21,15 @@ export interface IDeploymentState {
 export interface IMainState {
     status: IStatuses;
     page: IPage;
-    objectListFilter: { [cls: string]: string };
+    objectListFilter: { [type: number]: string };
     serviceListFilter: { [host: number]: string };
-    objectNamesAndIds: { [cls: string]: INameIdPair[] };
+    objectDigests: { [type: number]: IObjectDigest[] };
     objects: { [id: number]: IObjectState };
     loaded: boolean;
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
     messages: { [id: number]: IMessage };
     deployment: IDeploymentState;
+    types: {[id:number]: IObject2<IType>};
 };
 
 function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
@@ -85,7 +87,7 @@ function loaded(state = false, action: IAction) {
     }
 }
 
-function objectNamesAndIds(state: { [cls: string]: INameIdPair[] } = {}, action: IAction) {
+function objectDigests(state: { [type: number]: IObjectDigest[] } = {}, action: IAction) {
     switch (action.type) {
         case ACTION.SetInitialState:
             return action.objectNamesAndIds;
@@ -100,21 +102,30 @@ function objectNamesAndIds(state: { [cls: string]: INameIdPair[] } = {}, action:
                 let version = -1;
                 let name = "";
                 let catagory = "";
-                let cls = "";
+                let type = -1;
                 for (const ob of action.object) {
                     if (ob.version < version) continue;
                     version = ob.version;
                     name = ob.name;
-                    cls = ob.class;
+                    type = ob.type;
                     catagory = ob.catagory;
                 }
-                if (!(cls in s2)) s2[cls] = [];
-                else s2[cls] = s2[cls].filter((v) => v.id != action.id);
-                s2[cls].push({ id: action.id, name, catagory});
+                if (!(type in s2)) s2[type] = [];
+                else s2[type] = s2[type].filter((v) => v.id != action.id);
+                s2[type].push({ id: action.id, name, catagory, type});
             }
             return s2;
         default:
             return state;
+    }
+}
+
+function types(state: {[id:number]:IObject2<IType>} = {}, action: IAction) {
+    switch (action.type) {
+    case ACTION.SetInitialState:
+        return action.types;
+    default:
+        return state;
     }
 }
 
@@ -174,11 +185,11 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
     }
 }
 
-function objectListFilter(state: { [cls: string]: string } = {}, action: IAction) {
+function objectListFilter(state: { [type: number]: string } = {}, action: IAction) {
     switch (action.type) {
         case ACTION.SetObjectListFilter:
-            let x: { [cls: string]: string } = {};
-            x[action.class] = action.filter;
+            let x: { [type: number]: string } = {};
+            x[action.objectType] = action.filter;
             return Object.assign({}, state, x);
         default:
             return state;
@@ -220,7 +231,7 @@ function page(state: IPage = { type: PAGE_TYPE.Dashbord }, action: IAction) {
 function changeCurrentObject(state: IMainState) {
     if (state.page.type != PAGE_TYPE.Object) return; // We are not viewing an object
     let id = state.page.id;
-    let current: IObject = null;
+    let current: IObject2<any> = null;
     if (id >= 0) { // We are modifying an existing object
         if (!(id in state.objects)) return; // The object has not been loaded
         if (state.page.version == null) {
@@ -232,32 +243,16 @@ function changeCurrentObject(state: IMainState) {
         }
         if (state.objects[id].current != null && state.objects[id].current.version == state.page.version)
             return; //We are allready modifying the right object
-        current = state.objects[id].versions[state.page.version];
+        current = Object.assign(state.objects[id].versions[state.page.version]);
     } else { // We are modifying a new object
         if (state.page.id in state.objects && state.objects[id].current != null) return; //We are allready modifying the right object
         // We need to create a new object
-        current = {
-            class: state.page.class,
-            name: "",
-            version: null,
-            content: {} as ICollectionContent,
-            catagory: "",
-        }
-        switch (state.page.class) {
-            case "host":
-                current.content = { password: "", messageOnDown: true, importantServices: [] } as IHostContent;
-                break;
-            case "user":
-                current.content = { firstName: "", lastName: "", system: false, sudo: false, password: "", email: "", groups: "", shell: "/bin/bash" } as IUserContent;
-                break;
-            case "group":
-                current.content = { system: false } as IGroupContent;
-                break;
-            case "file":
-                current.content = { path: "", user: "", group: "", mode: "644", data: "", lang: null } as IFileContent;
-                break;
-        }
+        current = {id: id, type: state.page.objectType, name:"", version: null, catagory: "", content: {}};
     }
+
+    current.content = Object.assign({}, current.content);
+    fillDefaults(current.content, state.types[state.page.objectType].content);
+
     state.objects = Object.assign({}, state.objects);
     if (id in state.objects)
         state.objects[id] = Object.assign({}, state.objects[id], { current: current });
@@ -296,8 +291,9 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         status: status(state ? state.status : undefined, action),
         page: page(state ? state.page : undefined, action),
         objectListFilter: objectListFilter(state ? state.objectListFilter : undefined, action),
-        objectNamesAndIds: objectNamesAndIds(state ? state.objectNamesAndIds : undefined, action),
+        objectDigests: objectDigests(state ? state.objectDigests : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
+        types: types(state ? state.types: undefined, action),
         loaded: loaded(state ? state.loaded : undefined, action),
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         messages: messages(state ? state.messages : undefined, action),

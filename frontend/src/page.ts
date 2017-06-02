@@ -38,11 +38,11 @@ export function link(page: State.IPage) {
         break;
     case State.PAGE_TYPE.ObjectList:
         o['page'] = 'objectlist';
-        o['class'] = page.class;
+        o['type'] = ""+page.objectType;
         break;
     case State.PAGE_TYPE.Object:
         o['page'] = 'object';
-        o['class'] = page.class;
+        o['type'] = ""+page.objectType;
         if (page.id !== null) o['id'] = ""+page.id;
         else o['id'] == '-1';
         if (page.version !== null) o['version'] = ""+page.version;
@@ -66,9 +66,9 @@ export function get(): State.IPage {
     case 'deployment':
         return {type: State.PAGE_TYPE.Deployment};
     case 'objectlist':
-        return {type: State.PAGE_TYPE.ObjectList, class: getUrlParameter('class')};
+        return {type: State.PAGE_TYPE.ObjectList, objectType: +getUrlParameter('type')};
     case 'object':
         let v=getUrlParameter('version');
-        return {type: State.PAGE_TYPE.Object, class: getUrlParameter('class'), id: +getUrlParameter('id'), version: (v?+v:null)};
+        return {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
     }
 }

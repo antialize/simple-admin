@@ -23,10 +23,14 @@ injectTapEventPlugin();
 
 interface Props {
     page: State.IPage;
+    type?: string;
 }
 
 function mapStateToProps(s:IMainState) {
-    return {page: s.page}
+    let ans: Props = {page: s.page};
+    if (ans.page.type == State.PAGE_TYPE.ObjectList)
+        ans.type = s.types[ans.page.objectType].content.plural;
+    return ans;
 }
 
 function MainPageImpl(props: Props) {
@@ -39,9 +43,9 @@ function MainPageImpl(props: Props) {
             <Statuses />
         </div>;
     case State.PAGE_TYPE.ObjectList:
-        return <div><h1>List of {p.class}</h1><ObjectList class={p.class} /></div>
+        return <div><h1>List of {props.type}</h1><ObjectList type={p.objectType} /></div>
     case State.PAGE_TYPE.Object:
-        return <div><Object class={p.class} id={p.id} version={p.version} /> </div>
+        return <div><Object type={p.objectType} id={p.id} version={p.version} /> </div>
     case State.PAGE_TYPE.Deployment:
         return <div><Deployment /></div>
     }
@@ -85,7 +89,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
         }
         break;
     case ACTION.SaveObject:
-        action.obj = store.getState().objects[action.id].current
+        action.obj = store.getState().objects[action.id].current;
         sendMessage(action);
         break;
     case ACTION.DeployObject:

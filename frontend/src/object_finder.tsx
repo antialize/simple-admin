@@ -1,6 +1,7 @@
 import * as React from "react";
 import {ClearAutoComplete} from './clear_auto_complete';
-import {INameIdPair} from '../../shared/state'
+import {IObjectDigest, IObject2} from '../../shared/state'
+import {IType} from '../../shared/type'
 import {IMainState} from './reducers';
 import {connect} from 'react-redux'
 import {Dispatch} from 'redux'
@@ -10,23 +11,24 @@ import * as page from './page'
 
 
 interface StateProps {
-    objectNamesAndIds: {[cls:string]:INameIdPair[]};
+    objectDigests: {[type:number]:IObjectDigest[]};
+    types: {[id:number]:IObject2<IType>};
 }
 
 interface DispatchProps {
-    displayObject(id:number, cls:string):void;
+    displayObject(id:number, type:number):void;
 }
 
 function mapStateToProps(s:IMainState, p: {}): StateProps {
-    return {objectNamesAndIds: s.objectNamesAndIds};
+    return {objectDigests: s.objectDigests, types: s.types};
 }
 
 function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
     return {
-        displayObject: (id: number, cls:string) => {
+        displayObject: (id: number, type:number) => {
             page.setPage({
                 type: State.PAGE_TYPE.Object,
-                class: cls,
+                objectType: type,
                 id
             }, dispatch);
         }
@@ -34,12 +36,15 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
 }
 
 export function ObjectFinderImpl(props:StateProps & DispatchProps) {
-    type Item = {label:string, key:number, cls:string};
+    type Item = {label:string, key:number, type:number};
     let all: Item[] = [];
-    for (let cls in props.objectNamesAndIds) {
-        let ps = props.objectNamesAndIds[cls];
+    for (let type_ in props.objectDigests) {
+        let type = +type_;
+        let ti = props.types[type];
+        let ps = props.objectDigests[type_];
         for (let p of ps) {
-            let item: Item = {label: p.name + " (" + cls + ")", key: p.id, cls: cls};
+            if (!ti) continue;
+            let item: Item = {label: p.name + " (" + ti.name + ")", key: p.id, type: type};
             all.push(item);
         }
     }
@@ -49,7 +54,7 @@ export function ObjectFinderImpl(props:StateProps & DispatchProps) {
                 hintText="Search"
                 dataSource={all}
                 dataSourceConfig={{text:"label",value:"key"}}
-                onNewRequest={(item:Item)=>{props.displayObject(item.key, item.cls)}}
+                onNewRequest={(item:Item)=>{props.displayObject(item.key, item.type)}}
                 />
     )
 }
