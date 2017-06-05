@@ -104,6 +104,8 @@ export class WebClient extends JobOwner {
                     let conflicts:string[] = [];
                     for (let object of objects) {
                         let content = JSON.parse(object.content);
+                        if (object.type == act.id)
+                            conflicts.push("* "+object.name+" ("+object.type+") type");
                         for (let val of ['sudoOn', 'depends', 'contains']) {
                             if (!(val in content)) continue;
                             for (let id of (content[val]) as number[]) {
@@ -126,7 +128,7 @@ export class WebClient extends JobOwner {
                 }
                 break;
             case ACTION.DeployObject:
-                deployment.deployObject(act.id).catch(errorHandler("Deployment::deployObject", this));
+                deployment.deployObject(act.id, act.redeploy).catch(errorHandler("Deployment::deployObject", this));
                 break;
             case ACTION.CancelDeployment:
                 deployment.cancel();

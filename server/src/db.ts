@@ -52,7 +52,7 @@ export class DB {
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
         await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
-        await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `object` INTEGER, `type` TEXT, `title` TEXT)");
+        await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
 
@@ -70,10 +70,10 @@ export class DB {
         this.nextObjectId = Math.max((await q("SELECT max(`id`) as `id` FROM `objects`"))['id'], this.nextObjectId);
     }
 
-    getDeployments() {
+    getDeployments(host:number) {
         let db = this.db;
-        return new Promise<{ host: number, name: string, content: string, type: string, title: string }[]>((cb, cbe) => {
-            db.all("SELECT `host`, `name`, `content`, `type`, `title` FROM `deployments`", [],
+        return new Promise<{name: string, type: number, title: string, content: string}[]>((cb, cbe) => {
+            db.all("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -85,11 +85,11 @@ export class DB {
         });
     }
 
-    setDeployment(host: number, name: string, content: string, object: number, type: string, title: string) {
+    setDeployment(host: number, name: string, content: string, type: number, title: string) {
         let db = this.db;
         if (content) {
             return new Promise<{}[]>((cb, cbe) => {
-                db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `object`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?, ?)", [host, name, content, object, type, title],
+                db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?)", [host, name, content, type, title],
                     (err) => {
                         if (err) 
                             cbe(new SAError(ErrorType.Database, err));
@@ -268,7 +268,7 @@ export class DB {
     getHostContentByName(hostname: string) {
         let db = this.db;
         return new Promise<{ id: number, content: Host }>((cb, cbe) => {
-            db.get("SELECT `id`, `content` FROM `objects` WHERE `type` = 'host' AND `name`=? AND `newest`=1", [hostname],
+            db.get("SELECT `id`, `content` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));

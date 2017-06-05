@@ -87,7 +87,8 @@ export class HostClient extends JobOwner {
 
     async validateAuth(obj: message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
-        if (await crypt.validate(obj.password, res && res.content && res.content.password))
+        console.log(obj.password,  res && res.content && (res.content as any).password);
+        if (await crypt.validate(obj.password, res && res.content && (res.content as any).password))
             return res.id;
         return null;
     }

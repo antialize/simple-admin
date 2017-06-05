@@ -155,6 +155,7 @@ export interface IHostDown {
 export interface IDeployObject {
     type: ACTION.DeployObject;
     id: number;
+    redeploy: boolean;
 }
 
 export interface IDeleteObject {

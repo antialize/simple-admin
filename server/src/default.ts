@@ -1,4 +1,4 @@
-import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, 
+import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
     IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId,
     rootInstanceId} from "../../shared/type"
 
@@ -31,13 +31,15 @@ export let defaults: IDefault[] =
             name: "Type",
             catagory: "Buildin",
             content: {
+                deployOrder: 0,
                 plural: "Types",
                 kind: "type",
                 hasCatagory: true,
                 content: [
                     {type: TypePropType.text, title: "Name variable", name:"nameVariable", description:"nameVariable", default: "", template:false, variable:""} as ITextTypeProp,
                     {type: TypePropType.text, title: "Plural", name:"plural", description:"Plural of name", default: "", template:false, variable:""} as ITextTypeProp,
-                    {type: TypePropType.choice, title: "Kind", name:"kind", description:"", default:"delta", choices:["delta", "trigger", "host", "accumulate", "catagory", "root", "type"]} as IChoiceTypeProp,
+                    {type: TypePropType.choice, title: "Kind", name:"kind", description: "", default:"delta", choices:["delta", "trigger", "host", "accumulate", "catagory", "root", "type"]} as IChoiceTypeProp,
+                    {type: TypePropType.number, title: "Deploy order", name:"deployOrder", description:"", default: 0} as INumberTypeProp,
                     {type: TypePropType.bool, title: "Has catagory", name:"hasCatagory", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
                     {type: TypePropType.bool, title: "Has variables", name:"hasVariables", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
                     {type: TypePropType.bool, title: "Has triggers", name:"hasTriggers", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
@@ -95,6 +97,7 @@ export let defaults: IDefault[] =
             name: "Collection",
             catagory: "Buildin",
             content: {
+                deployOrder: 10,
                 plural: "Collections",
                 kind: "collection",
                 hasCatagory: true,
@@ -111,6 +114,7 @@ export let defaults: IDefault[] =
             name: "Complex collection",
             catagory: "Buildin",
             content: {
+                deployOrder: 10,
                 plural: "Complex collections",
                 kind: "collection",
                 hasVariables: true,
@@ -128,19 +132,21 @@ export let defaults: IDefault[] =
             name: "File",
             catagory: "Buildin",
             content: {
+                deployOrder: 40,
                 plural: "Files",
                 kind: "delta",
                 hasCatagory: true,
                 hasTriggers: true,
                 content: [
-                    {type: TypePropType.text, title: "Path", name:"path",  description:"Where to store the file", default: "", template:true, variable:"path"},
-                    {type: TypePropType.text, title: "User", name:"user",  description:"User to store as", default: "", template:true, variable:""},
-                    {type: TypePropType.text, title: "Group", name:"group",  description:"Group to store as", default: "", template:true, variable:""},
+                    {type: TypePropType.text, title: "Path", name:"path",  description:"Where to store the file", default: "", template:true, variable:"path", deployTitle:true},
+                    {type: TypePropType.text, title: "User", name:"user",  description:"User to store as", default: "{{{user}}}", template:true, variable:""},
+                    {type: TypePropType.text, title: "Group", name:"group",  description:"Group to store as", default: "{{{user}}}", template:true, variable:""},
                     {type: TypePropType.text, title: "Mode", name:"mode",  description:"Mode to use", default: "644", template:true, variable:""},
                     {type: TypePropType.document, title: "Data", name:"data",  description:"Mode to use", default: "644", langName:"lang", lang:"", template:true, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
+                    "{{{preamble}}}\n"+
+                    "import tempfile\n"+
                     "old = content['old']\n"+
                     "new = content['new']\n"+
                     "\n"+
@@ -151,7 +157,7 @@ export let defaults: IDefault[] =
                     "    if not os.path.exists(d):\n"+
                     "        run(['sudo', '-u', new['user'], 'mkdir', '-p', d])\n"+
                     "    tf = tempfile.NamedTemporaryFile(dir=d, suffix='~', prefix='.tmp', delete=False, mode='w', encoding='utf-8')\n"+
-                    "    os.write(1, ('> #writing to %s\n'%tf.name).encode('utf-8'))\n"+
+                    "    prompt('# writing to %s'%tf.name)\n"+
                     "    tf.write(new['data'])\n"+
                     "    tf.close()\n"+
                     "\n"+
@@ -168,6 +174,7 @@ export let defaults: IDefault[] =
             name: "User",
             catagory: "Buildin",
             content: {
+                deployOrder: 30,
                 plural: "Users",
                 kind: "delta",
                 hasCatagory: true,
@@ -189,7 +196,8 @@ export let defaults: IDefault[] =
                     {type: TypePropType.text, title: "Groups", name:"groups", description:"Groups the user is member of", default: "", template:true, variable:"" } as ITextTypeProp,                
                 ],
                 script:
-                    "{{preamble}}\n"+
+                    "{{{preamble}}}\n"+
+                    "import pwd\n"+
                     "old = content['old']\n"+
                     "new = content['new']\n"+
                     "\n"+
@@ -210,9 +218,9 @@ export let defaults: IDefault[] =
                     "\n"+
                     "if not new or (old and old['name'] != new['name']) or not exists or isSystem != new['system']:\n"+
                     "    if old:\n"+
-                    "        run2(['userdel', old['name']])\n"+
+                    "        runUnchecked(['userdel', old['name']])\n"+
                     "    if new:\n"+
-                    "        run2(['userdel', new['name']])\n"+
+                    "        runUnchecked(['userdel', new['name']])\n"+
                     "        args = ['useradd']\n"+
                     "        groups = set(new['groups'])\n"+
                     "        if new['system']:\n"+
@@ -266,6 +274,7 @@ export let defaults: IDefault[] =
             name: "Group",
             catagory: "Buildin",
             content: {
+                deployOrder: 20,
                 plural: "Groups",
                 kind: "delta",
                 hasCatagory: false,
@@ -276,7 +285,8 @@ export let defaults: IDefault[] =
                     {type: TypePropType.bool, title: "System", name:"system",  description:"Is this a system group", default: false, template:false, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
+                    "{{{preamble}}}\n"+
+                    "import grp\n"+
                     "old = content['old']\n"+
                     "new = content['new']\n"+
                     "\n"+
@@ -292,7 +302,7 @@ export let defaults: IDefault[] =
                     "\n"+
                     "if not new or (old and new['name'] != old['name']) or new['system'] != isSystem or not exists:\n"+
                     "    if old:\n"+
-                    "        run2(['groupdel', old['name']])\n"+
+                    "        runUnchecked(['groupdel', old['name']])\n"+
                     "    if new:\n"+
                     "        args = ['groupadd']\n"+
                     "        if new['system']:\n"+
@@ -309,21 +319,22 @@ export let defaults: IDefault[] =
             name: "UFW Allow",
             catagory: "Buildin",
             content: {
+                deployOrder: 60,
                 plural: "UFW Allows",
                 kind: "delta",
                 content: [
                     {type: TypePropType.text, name: "allow", title: "Allow", default:"", description: "ufw allow *", template: false, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
+                    "{{{preamble}}}\n"+
                     "old = content['old']\n"+
                     "new = content['new']\n"+
                     "\n"+
                     "if not new or not old or old['allow'] != new['allow']:\n"+
-                    "if old:\n"+
-                    "    run(['ufw', 'reject', *old['allow'].split(' ')])\n"+
-                    "if new:\n"+
-                    "     run(['ufw', 'allow', *new['allow'].split(' ')])\n"
+                    "    if old:\n"+
+                    "        run(['ufw', 'reject', *old['allow'].split(' ')])\n"+
+                    "    if new:\n"+
+                    "        run(['ufw', 'allow', *new['allow'].split(' ')])\n"
             }
         },
 
@@ -331,16 +342,17 @@ export let defaults: IDefault[] =
         {
             type: typeId,
             id: reloadServiceTriggerId,
-            name: "Restart service",
+            name: "Reload service",
             catagory: "Buildin",
             content: {
+                deployOrder: 0,
                 plural: "",
                 kind: "trigger",
                 content: [
                     {type: TypePropType.text, name: "service", title: "Service", default:"", description: "Service to reload", template: true, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
+                    "{{{preamble}}}\n"+
                     "run(['systemctl', 'reload', content['service']])\n"
             }
         },
@@ -353,13 +365,14 @@ export let defaults: IDefault[] =
             name: "Restart service",
             catagory: "Buildin",
             content: {
+                deployOrder: 0,
                 plural: "",
                 kind: "trigger",
                 content: [
                     {type: TypePropType.text, name: "service", title: "Service", default:"", description: "Service to restart", template: true, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
+                    "{{{preamble}}}\n"+
                     "run(['systemctl', 'restart', content['service']])\n"
             }
         },
@@ -371,14 +384,15 @@ export let defaults: IDefault[] =
             name: "Run",
             catagory: "Buildin",
             content: {
+                deployOrder: 0,
                 plural: "",
                 kind: "trigger",
                 content: [
                     {type: TypePropType.text, name: "code", title: "Code", default:"", description: "Shell code to run", template: true, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
-                    "subprocess.check_call([content['code']], shell=True)\n"
+                    "{{{preamble}}}\n"+
+                    "runShell(content['code'])\n"
             }
         },
 
@@ -389,23 +403,15 @@ export let defaults: IDefault[] =
             name: "Package",
             catagory: "Buildin",
             content: {
+                deployOrder: 50,
                 plural: "Packages",
                 kind: "sum",
                 content: [
-                    {type: TypePropType.text, name: "name", title: "Name", default:"", description: "The package to install", template: true, variable:""},
                 ],
                 script:
-                    "{{preamble}}\n"+
-                    "# TODO This does not work\n"+
+                    "{{{preamble}}}\n"+
+                    "import tempfile\n"+
                     "os.environ['DEBIAN_FRONTEND'] = 'noninteractive'\n" +
-                    "\n" +
-                    "def run(args):\n" +
-                    "    os.write(1, ('> %s\n'%(' '.join(args))).encode('utf-8'))\n" +
-                    "    subprocess.check_call(args)\n" +
-                    "\n" +
-                    "def run2(args):\n" +
-                    "    os.write(1, ('> %s\n'%(' '.join(args))).encode('utf-8'))\n" +
-                    "    subprocess.call(args)\n" +
                     "\n" +
                     "version = 1\n" +
                     "try:\n" +
@@ -430,7 +436,7 @@ export let defaults: IDefault[] =
                     "Architecture: all\n" +
                     "Depends: %s\n" +
                     "Description: Simple admin dependency package\n" +
-                    "'''%(version, ', '.join(content['packages'])))\n" +
+                    "'''%(version, ', '.join(map(lambda x: x['name'], content['objects'].values()))))\n" +
                     "\n" +
                     "run(['dpkg-deb', '--build', d, deb])\n" +
                     "run(['apt', 'install', '-y', deb])\n" +
@@ -445,15 +451,15 @@ export let defaults: IDefault[] =
             name: "Root",
             catagory: "",
             content: {
-                variables: [],
-                preamble: 
-                    "import sys, json, subprocess, pty, fcntl, os, select, pwd\n" +
+                variables: [{key:'user', value:'root'}],
+                preamble:                                                                                                                                                                                                                    
+                    "import sys, json, subprocess, pty, fcntl, os, select, socket, shlex\n" +
                     "\n" +
                     "content = json.loads(sys.stdin.read())\n" +
                     "\n" +
                     "(pid, fd) = pty.fork()\n" +
                     "if pid != 0:\n" +
-                    "    try: \n" +
+                    "    try:\n" +
                     "        while True:\n" +
                     "            d = os.read(fd, 1024*1024)\n" +
                     "            if not d: break\n" +
@@ -464,16 +470,24 @@ export let defaults: IDefault[] =
                     "    (_, state) = os.waitpid(pid, 0)\n" +
                     "    sys.exit(-os.WTERMSIG(state) if os.WTERMSIG(state) != 0 else os.WEXITSTATUS(state))\n" +
                     "\n" +
+                    "hostname = socket.gethostname()\n" +
                     "os.environ['name'] = 'xterm-color'\n" +
                     "os.environ['TERM'] = 'xterm'\n" +
                     "\n" +
+                    "def prompt(value):\n" +
+                    "    os.write(1, ('\\033[94m%s$\\033[0m %s\\r\\n'%(hostname, value)).encode('utf-8'))\n" +
+                    "\n" +
                     "def run(args):\n" +
-                    "    os.write(1, ('> %s\n'%(' '.join(args))).encode('utf-8'))\n" +
+                    "    prompt(' '.join(map(shlex.quote, args)))\n" +
                     "    subprocess.check_call(args)\n" +
                     "\n" +
-                    "def run2(args):\n" +
-                    "    os.write(1, ('> %s\n'%(' '.join(args))).encode('utf-8'))\n" +
-                    "    subprocess.call(args)\n"
+                    "def runUnchecked(args):\n" +
+                    "    prompt(' '.join(map(shlex.quote, args)))\n" +
+                    "    subprocess.call(args)\n" +
+                    "\n" +
+                    "def runShell(cmd):\n" +
+                    "    prompt(cmd)\n" +
+                    "    subprocess.call([cmd], shell=True)\n"
             }   
         },
 

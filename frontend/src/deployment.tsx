@@ -22,8 +22,9 @@ interface DispatchProps {
     cancel: ()=>void;
     stop: ()=>void;
     start: ()=>void;
-    deployAll: ()=>void;
+    deployAll: (redeploy:boolean)=>void;
     toggle: (id:number, enabled: boolean) => void;
+    setPage(e: React.MouseEvent<{}>, p: State.IPage):void;
 }
 
 function mapStateToProps(s:IMainState, o:IProps): StateProps {
@@ -50,10 +51,11 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:IProps): DispatchPr
             };
             dispatch(a);
         },
-        deployAll: () => {
+        deployAll: (redeploy:boolean) => {
             const a: Actions.IDeployObject = {
                 type: Actions.ACTION.DeployObject,
-                id: null
+                id: null,
+                redeploy
             };
             dispatch(a);
         },
@@ -66,8 +68,11 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:IProps): DispatchPr
             };
             dispatch(a);
         },
+        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
+            page.onClick(e, p, dispatch);
+        }
     }
-}
+};
 
 let theTerm = new Terminal({cursorBlink: false, scrollback: 10000});
 let oldCount: number = 0;
@@ -170,12 +175,13 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
             if (o.enabled) hasEnabled = true;
             else hasDisabled = true;
 
-            return <tr key={o.index} className={cn}>
-                <td>{o.host}</td>
-                <td>{o.name}</td>
-                <td>{o.cls}</td>
+            return <tr key={o.index} className={cn} alt={o.script}>
+                <td>{o.hostName}</td>
+                <td>{o.title}</td>
+                <td>{o.typeName}</td>
                 <td>{act}</td>
                 <td><Checkbox checked={o.enabled} disabled={cannotSelect} onCheck={(e, checked)=>props.toggle(o.index, checked)}/></td>
+                <td><RaisedButton label="Details" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.DeploymentDetails, index: o.index})} href={page.link({type:State.PAGE_TYPE.DeploymentDetails, index: o.index})} /></td>
                 </tr>;
         });
 
@@ -184,7 +190,7 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
                 <table className="deployment">
                     <thead>
                         <tr>
-                            <th>Host</th><th>Object</th><th>Class</th><th>Action</th><th>Enable</th>
+                            <th>Host</th><th>Object</th><th>Type</th><th>Action</th><th>Enable</th><th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -219,7 +225,8 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
                 <RaisedButton label="Start" disabled={props.d.status != State.DEPLOYMENT_STATUS.ReviewChanges} onClick={(e)=>props.start()} />
                 <RaisedButton label="Stop" disabled={props.d.status != State.DEPLOYMENT_STATUS.Deploying} onClick={(e)=>props.stop()} />
                 <RaisedButton label="Cancel" disabled={!cancel} onClick={(e)=>props.cancel()} />
-                <RaisedButton label="Deploy all" disabled={props.d.status != State.DEPLOYMENT_STATUS.Done && props.d.status != State.DEPLOYMENT_STATUS.InvilidTree} onClick={(e)=>props.deployAll()} />
+                <RaisedButton label="Deploy all" disabled={props.d.status != State.DEPLOYMENT_STATUS.Done && props.d.status != State.DEPLOYMENT_STATUS.InvilidTree} onClick={(e)=>props.deployAll(false)} />
+                <RaisedButton label="Redeploy all" disabled={props.d.status != State.DEPLOYMENT_STATUS.Done && props.d.status != State.DEPLOYMENT_STATUS.InvilidTree} onClick={(e)=>props.deployAll(true)} />
                 <RaisedButton label="Enable all" disabled={cannotSelect || !hasDisabled} onClick={(e)=>selectAll()} />
                 <RaisedButton label="Disable all" disabled={cannotSelect || !hasEnabled} onClick={(e)=>deselectAll()} />
             </div>

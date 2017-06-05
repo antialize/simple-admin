@@ -1,34 +1,32 @@
 import {
-    DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IContent, IHostContent,
-    IUserContent, ICollectionContent, IPackageContent, IGroupContent, IFileContent, IVariablesContent, IDependsContent, IContainsContent,
-    ITrigger, TRIGGER_TYPE
+    DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IObject2, IDeploymentTrigger
 } from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
+import { typeId, rootInstanceId, rootId, hostId, IVariables , IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains} from '../../shared/type'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'
 import { errorHandler } from './error'
+
 //Type only import
 import { HostClient } from './hostclient'
 
-
-function never(n: never, message: string) { throw new Error(message); }
-
-interface IFullDeploymentObject {
-    inner: IDeploymentObject;
-    prev: IContent;
-    next: IContent;
-    variables: { [key: string]: string };
-    name: string;
-    host: number;
+interface IDeployContent {
+    script: string;
+    content: {[key:string]: any};
+    triggers: any[];
+    deploymentOrder: number;
+    typeName: string;
     object: number;
 }
+
+function never(n: never, message: string) { throw new Error(message); }
 
 export class Deployment {
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
     message: string;
-    deploymentObjects: IFullDeploymentObject[] = [];
+    deploymentObjects: IDeploymentObject[] = [];
     log: string[];
 
     setStatus(s: DEPLOYMENT_STATUS) {
@@ -49,362 +47,407 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    async setupDeploy(deployId: number) {
-        let objects: { [id: number]: { id: number, name: string, class: string, content: IContent } } = {};
-        let root: number = null;
-        let hosts: number[] = [];
-        let rows = await db.getAllObjectsFull();
-        for (const r of rows) {
-            objects[r.id] = { id: r.id, name: r.name, class: r.type, content: JSON.parse(r.content) };
-            if (r.type == 'root')
-                root = r.id;
-            else if (r.type == 'host')
+    async setupDeploy(deployId: number, redeploy:boolean) {
+        const objects: { [id: number]: IObject2<any> } = {};
+        const hosts: number[] = [];
+        const errors: string[] = [];
+        this.deploymentObjects = [];
+
+        const visitContent = (deploymentTitle: string, objContent: {[key:string]: any}, variables: {[key:string]: string}, type: IType, hasVars: boolean, content: {[key:string]: any}) => {
+            for (let item of type.content) {
+                switch (item.type) {
+                case TypePropType.bool:
+                {
+                    let v = objContent[item.name] as boolean;
+                    if (v === undefined || v === null) v = item.default;
+                    if (item.variable) {hasVars = true; variables[item.variable] = v ? "true" : "false";}
+                    content[item.name] = v;
+                    break;
+                }
+                case TypePropType.choice:
+                {
+                    let v = objContent[item.name] as string;
+                    if (v == undefined || v === null) v = item.default;
+                    if (item.variable) {hasVars = true; variables[item.variable] = v;}
+                    content[item.name] = v;
+                    break;
+                }
+                case TypePropType.document:
+                {
+                    let v = objContent[item.name] as string;
+                    if (v == undefined || v === null) v = "";
+                    if (item.template) v = Mustache.render(v, variables);
+                    if (item.variable) {hasVars = true; variables[item.variable] = v;}
+                    content[item.name] = v;
+                    break;
+                }
+                case TypePropType.number:
+                {
+                    let v = objContent[item.name] as number;
+                    if (v == undefined || v === null) v = item.default;
+                    content[item.name] = v;
+                    break;
+                }
+                case TypePropType.password:
+                {
+                    let v = objContent[item.name] as string;
+                    if (v == undefined || v === null) v = "";
+                    content[item.name] = v;
+                    break;
+                }
+                case TypePropType.text:
+                {
+                    let v = objContent[item.name] as string;
+                    if (v == undefined || v === null) v = item.default;
+                    if (item.template) v = Mustache.render(v, variables);
+                    if (item.variable) {hasVars = true; variables[item.variable] = v;}
+                    content[item.name] = v;
+                    if (item.deployTitle) deploymentTitle = v;
+                    break;
+                }
+                case TypePropType.none:
+                case TypePropType.typeContent:
+                    break;
+                default: 
+                    never(item, "We should not get here");
+                }
+            }
+            const script = type.script && Mustache.render(type.script, variables);
+            return {deploymentTitle, variables, script, content, hasVars};
+        };
+
+        const visitObject = (id:number, variables: {[key:string]: string}) => {
+            const obj = objects[id];
+            if (!obj) return null;
+            const type = objects[obj.type] as IObject2<IType>;
+
+            let content: {[key:string]: any} = {};
+            variables = Object.assign({}, variables);
+            let hasVars = false;
+
+            if (type.content.hasVariables && 'variables' in obj.content) {
+                for (const v of (obj.content as IVariables).variables)
+                    variables[v.key] = v.value;
+                hasVars = true; 
+            }
+            if (type.content.nameVariable)
+                variables[type.content.nameVariable] = obj.name;
+           
+            let deploymentTitle = obj.name;
+
+            return visitContent(obj.name, obj.content, variables, type.content, hasVars, content);
+        };
+
+        // Collect all objects
+        for (const r of await db.getAllObjectsFull()) {
+            objects[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content), catagory: r.catagory, version: r.version };
+            if (r.type == hostId)
                 hosts.push(r.id);
         }
-        interface DagNode {
-            name: string;
-            id: number;
-            next: DagNode[];
-            variables: { [key: string]: string };
-            inCount: number;
-            host: number;
-            classOrder?: number;
+
+        // Compute root variables
+        let rootVariable: {[key:string]: string} = {};
+        if (rootInstanceId in objects) {
+            const v = visitObject(rootInstanceId, rootVariable);
+            rootVariable = v.variables;
         }
 
-        let errors: string[] = [];
-        let dagNodes = new Map<string, DagNode>();
-        // We first build the full DAG, we later collapse the root and collection nodes
-        let rootNode: DagNode = { name: 'root', id: root, next: [], variables: {}, inCount: 0, host: 0 };
-        dagNodes.set(rootNode.name, rootNode);
-
+        // Find deployment objects on a host by host basis
         for (const hostId of hosts) {
-            let deps = new Set<number>();
-            let hostObject = objects[hostId];
-            let hostNode: DagNode = { name: "" + hostId, id: hostId, next: [], variables: {}, inCount: 0, host: hostId };
-            dagNodes.set(hostNode.name, hostNode);
-            rootNode.next.push(hostNode);
 
-            let visit = (id: number, path: number[]) => {
+            interface DagNode {
+                name: string | null;
+                id: number;
+                next: DagNode[];
+                inCount: number;
+                typeOrder: number;
+                triggers: IDeploymentTrigger[];
+                deploymentTitle: string;
+                script: string;
+                content: {[key:string]: any}
+            }
+
+            const hostObject = objects[hostId];
+            const hostVariables = visitObject(hostId, rootVariable).variables;
+            const nodes = new Map<string, DagNode>();
+            const centinals = new Map<number, DagNode>();
+            const topVisiting = new Set<number>();
+            let hostDeploymentObjects: IDeploymentObject[] = [];
+
+            // Visit an object contained directly in the host
+            let visitTop = (id: number) => {
+                if (centinals.has(id)) return centinals.get(id);
+                if (topVisiting.has(id)) {
+                    errors.push("Cyclip dependency");
+                    return null;
+                }
+                topVisiting.add(id);
+                let centinal: DagNode = {next: [], name: id+".cent", id: null, inCount: 0, typeOrder: 0, triggers: [], deploymentTitle: "", script: "", content: null};
+                nodes.set(centinal.name, centinal);
+                visit(id, [], [], centinal, hostVariables);
+                topVisiting.delete(id);
+                return centinal;
+            }
+
+            // Visit any object
+            let visit = (id: number, path: number[], prefix: number[], sentinal:DagNode, variables: {[key:string]: string}) => {
                 if (id == null) return;
-                // Id is the id of the user to visit
-                // path is the ids of the root to node path
-                // deps is a set of dependencies push from above, until we get to an actual object
-                const parent = objects[path[path.length - 1]];
+                const name = prefix.join(".")+"."+id;
+                if (nodes.has(name)) return nodes.get(name);
 
+                const parent = objects[path[path.length - 1]];
                 if (!(id in objects) || objects[id] == undefined) {
                     errors.push("Missing object " + id + " for host " + hostObject.name + " in " + parent.name);
-                    return;
+                    return null;
                 }
-
-                const user = path.find((id: number) => objects[id] && objects[id].class == 'user');
                 const obj = objects[id];
-
-                let ok = true;
-                if (deps.has(id)) {
-                    errors.push(parent.name + " depends on " + obj.name + " which in a sequence of dependencies require the first");
-                    ok = false;
-                }
+                const type = objects[obj.type] as IObject2<IType>;
                 if (path.indexOf(id) !== -1) {
                     errors.push(parent.name + " contains " + obj.name + " of which it is it self a member");
-                    ok = false;
+                    return null;
                 }
-                if (user != null) {
-                    if (obj.class != 'file' && obj.class != 'collection') {
-                        errors.push(obj.name + " of class " + obj.class + " is containd in user " + objects[user].name + " but only files and collections are allowed");
-                        ok = false;
-                    }
-                } else if (obj.class == 'host') {
-                    errors.push(obj.name + " of class host is contained in the host " + hostObject.name + ".");
-                    ok = false;
-                }
-                if (!ok) return;
+              
+                const v = visitObject(id, variables);
+                Mustache.render(type.content.script, v.variables);
+                v.content['name'] = obj.name;
 
-                let np = null;
-                if (obj.class == 'user' || obj.class == 'group' || obj.class == 'package') {
-                    np = [hostId, id];
-                } else {
-                    np = path.filter((id) => {
-                        const o = objects[id];
-                        if (o == undefined) return false;
-                        return o.class == 'user' || o.class == 'host' || (o.class == 'collection' && (o.content as ICollectionContent).variables && (o.content as ICollectionContent).variables.length != 0);
-                    });
-                    np.push(id);
-                }
-                let name = np.join(".");
-                if (dagNodes.has(name)) return dagNodes.get(name);;
+                let node: DagNode = {
+                    next: [sentinal], 
+                    name: prefix.join(".")+"."+id, 
+                    id, 
+                    inCount: 0, 
+                    typeOrder: type.content.deployOrder, 
+                    triggers:[], 
+                    deploymentTitle: v.deploymentTitle,
+                    script: v.script,
+                    content: v.content};
+                nodes.set(node.name, node);
 
-                let node: DagNode = { name, id, next: [], variables: {}, inCount: 0, host: hostId };
-                dagNodes.set(name, node);
-                deps.add(id);
-                path.push(id);
+                if (type.content.hasTriggers && 'triggers' in obj.content) {
+                    for (const trigger of (obj.content as ITriggers).triggers) {
 
-                for (let id of path) {
-                    let o = objects[id];
-                    if (o == undefined) continue;
-
-                    if ('variables' in o.content)
-                        for (let p of (o.content as IVariablesContent).variables)
-                            node.variables[p.key] = p.value;
-                    switch (o.class) {
-                        case 'host':
-                            node.variables['hostname'] = o.name;
-                            break;
-                        case 'user':
-                            node.variables['user'] = o.name;
-                            node.variables['email'] = (o.content as IUserContent).email;
-                            node.variables['username'] = (o.content as IUserContent).firstName + " " + (o.content as IUserContent).lastName;
-                            break;
+                        let x = visitContent("trigger", trigger.values, Object.assign({}, v.variables), (objects[trigger.id] as IObject2<IType>).content, false, {})
+                        let t: IDeploymentTrigger = {typeId: trigger.id, script: x.script, content: x.content, title: x.deploymentTitle};
+                        node.triggers.push(t);
                     }
                 }
 
-                if ('contains' in obj.content) {
-                    for (let cid of (obj.content as IContainsContent).contains)
-                        node.next.push(visit(cid, path))
-                }
-
-                if ('depends' in obj.content) {
-                    for (let cid of (obj.content as IDependsContent).depends) {
-                        let dnode = visit(cid, [root, hostId]);
-                        hostNode.next.push(dnode);
-                        dnode.next.push(node);
+                if (type.content.hasContains && 'contains' in obj.content) {
+                    const childPath = path.slice(0);
+                    childPath.push(id);
+                    let childPrefix = prefix;
+                    if (v.hasVars) {
+                        childPrefix = childPrefix.slice(0);
+                        childPrefix.push(id);
+                    }
+                    
+                    for (const childId of (obj.content as IContains).contains) {
+                        const next = visit(childId, childPath, childPrefix, sentinal, v.variables);
+                        if (next)
+                            node.next.push(next)
                     }
                 }
-                path.pop();
-                deps.delete(id);
 
+                if (type.content.hasDepends && 'depends' in obj.content) {
+                    for (const depId of (obj.content as IDepends).depends) {
+                        const cent = visitTop(depId);
+                        if (cent)
+                            cent.next.push(node);
+                    }
+                }
                 return node;
             }
 
-            if ((hostObject.content as IHostContent).contains) {
-                for (let id of (hostObject.content as IHostContent).contains) {
-                    hostNode.next.push(visit(id, [root, hostId]));
-                }
-            }
-        }
+            // Visit all the things
+            if ('contains' in hostObject.content) 
+                for (const depId of (hostObject.content as IContains).contains)
+                    visitTop(depId);
 
-        if (errors.length != 0) {
-            this.setStatus(DEPLOYMENT_STATUS.InvilidTree);
-            this.setMessage(errors.join("\n"));
-        }
+            if (errors.length != 0) continue;
 
-        // Find all nodes reachable from deployId, and prep them for top sort
-        let seen = new Set<DagNode>();
-        let toVisit: DagNode[] = [];
-        if (deployId == null) {
-            toVisit.push(rootNode);
-            seen.add(rootNode);
-        } else {
-            dagNodes.forEach((node, key) => {
-                if (node && node.id == deployId) {
+            const hostFull = deployId == null || deployId == hostId;
+
+            // Find all nodes reachable from deployId, and prep them for top sort
+            const seen = new Set<DagNode>();
+            const toVisit: DagNode[] = [];
+            nodes.forEach((node, key) => {
+                if (node && (node.id == deployId || hostFull) ) {
                     toVisit.push(node);
                     seen.add(node);
                 }
             });
-        }
 
-        while (toVisit.length !== 0) {
-            let node = toVisit.pop();
-            for (let next of node.next) {
-                if (!next) continue;
-                next.inCount++;
-                if (seen.has(next)) continue;
-                toVisit.push(next);
-                seen.add(next);
+            // There is nothing to deploy here
+            if (toVisit.length == 0 && !hostFull) continue; 
+
+            // Perform topsort and construct deployment objects
+            while (toVisit.length !== 0) {
+                const node = toVisit.pop();
+                for (const next of node.next) {
+                    if (!next) continue;
+                    next.inCount++;
+                    if (seen.has(next)) continue;
+                    toVisit.push(next);
+                    seen.add(next);
+                }
             }
-        }
 
-        let pq = new PriorityQueue<DagNode>((lhs, rhs) => {
-            if (lhs.host != rhs.host) return rhs.host - lhs.host;
-            if (rhs.classOrder != lhs.classOrder) return rhs.classOrder - lhs.classOrder;
-            return rhs.id - lhs.id;
-        });
+            const pq = new PriorityQueue<DagNode>((lhs, rhs) => {
+                if (rhs.typeOrder != lhs.typeOrder) return rhs.typeOrder - lhs.typeOrder;
+                return rhs.id - lhs.id;
+            });
 
-        let classOrder = (cls: string) => {
-            switch (cls) {
-                case 'collection': return 10;
-                case 'group': return 20;
-                case 'user': return 30;
-                case 'file': return 40;
-                case 'package': return 50;
-                case 'ufwallow': return 60;
-                default: return 900;
+            seen.forEach((node) => {
+                const obj = objects[node.id];
+                if (obj == undefined) return;
+                const type = objects[obj.type] as IObject2<IType>;
+                if (type == undefined) return;
+                node.typeOrder = type.content.deployOrder;
+                if (node.inCount == 0) pq.enq(node);
+            });
+
+
+
+            const oldContent: { [name: string]: { content: IDeployContent, type: number, title: string, name: string } } = {};
+            for (const row of await db.getDeployments(hostId)) {
+                let c = JSON.parse(row.content) as IDeployContent;
+                if (!c.content) continue;
+                oldContent[row.name] = { content: c, type: row.type, title: row.title, name: row.name };
             }
-        }
 
-        seen.forEach((node) => {
-            let obj = objects[node.id];
-            if (obj == undefined) return;
-            node.classOrder = classOrder(obj.class);
-            if (node.inCount == 0) pq.enq(node);
-        });
+            while (!pq.isEmpty()) {
+                const node = pq.deq();
+                for (const next of node.next) {
+                    if (!next) continue;
+                    next.inCount--;
+                    if (next.inCount == 0)
+                        pq.enq(next);
+                }
+                if (node.id == null) continue;
+                const obj = objects[node.id];
+                if (!obj) continue;
+                const type = objects[obj.type] as IObject2<IType>;
+                if (type.content.kind == "collection" || type.content.kind == "root" || type.content.kind == "host") continue;
 
-        let idx = 0;
-        this.deploymentObjects = [];
-        let oldContent: { [host: number]: { [name: string]: { content: string, cls: string, title: string, name: string } } } = {};
-        let fullDeloyHosts: number[] = [];
-        for (let row of await db.getDeployments()) {
-            if (!(row.host in oldContent)) oldContent[row.host] = {};
-            oldContent[row.host][row.name] = { content: row.content, cls: row.type, title: row.title, name: row.name };
-        }
-        while (!pq.isEmpty()) {
-            let node = pq.deq();
-            for (let next of node.next) {
-                if (!next) continue;
-                next.inCount--;
-                if (next.inCount == 0)
-                    pq.enq(next);
-            }
-            let obj = objects[node.id];
-            if (obj && obj.class == 'host')
-                fullDeloyHosts.push(node.id);
-
-            if (!obj || obj.class === 'collection' || obj.class == 'host' || obj.class == 'root') continue;
-            let o: IFullDeploymentObject = {
-                inner: {
-                    index: idx++,
-                    cls: obj.class,
-                    host: objects[node.host].name,
-                    name: objects[node.id].name,
+                const o: IDeploymentObject = {
+                    index: 0,
                     enabled: true,
                     status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                    action: DEPLOYMENT_OBJECT_ACTION.Add
-                },
-                name: node.name,
-                next: Object.assign({}, obj.content),
-                prev: {},
-                host: node.host,
-                object: node.id,
-                variables: node.variables,
-            };
-            if (node.host in oldContent && node.name in oldContent[node.host]) {
-                o.prev = JSON.parse(oldContent[node.host][node.name].content);
-                delete oldContent[node.host][node.name];
-                o.inner.action = DEPLOYMENT_OBJECT_ACTION.Modify;
+                    action: DEPLOYMENT_OBJECT_ACTION.Add, 
+                    hostName: hostObject.name,
+                    title: node.deploymentTitle,
+                    name: node.name,
+                    script: node.script,
+                    nextContent: node.content,
+                    prevContent: null,
+                    host: hostId,
+                    triggers: node.triggers,
+                    typeName: type.name, 
+                    id: node.id,
+                    typeId: obj.type,
+                    deploymentOrder: node.typeOrder,
+                };
+
+                if (node.name in oldContent) {
+                    if (!redeploy) {
+                        o.prevContent = oldContent[node.name].content.content;
+                        o.action = DEPLOYMENT_OBJECT_ACTION.Modify;
+                    }
+                    delete oldContent[node.name];
+                }
+                hostDeploymentObjects.push(o);
             }
-            this.deploymentObjects.push(o);
-        }
 
-        // Apply templates
-        for (let obj of this.deploymentObjects) {
-            switch (obj.inner.cls) {
-                case 'file':
-                    let ctx = (obj.next as IFileContent);
-                    ctx.path = Mustache.render(ctx.path, obj.variables);
-                    ctx.data = Mustache.render(ctx.data, obj.variables);;
-                    ctx.user = ctx.user || obj.variables['user'] || 'root';
-                    ctx.group = ctx.group || obj.variables['user'] || 'root';
-                    obj.inner.name = ctx.path;
-                    break;
-                case 'user':
-                    let ctx2 = (obj.next as IUserContent);
-                    ctx2.name = obj.inner.name;
-                    break;
-                case 'group':
-                    let ctx3 = (obj.next as IGroupContent);
-                    ctx3.name = obj.inner.name;
-                    break;
-                case 'package':
-                    let ctx4 = (obj.next as IPackageContent);
-                    ctx4.name = obj.inner.name;
-                    break;
-            }
-        }
+            // Filter away stuff that has not changed
+            hostDeploymentObjects = hostDeploymentObjects.filter(o => {
+                let a = JSON.stringify(o.nextContent);
+                let b = JSON.stringify(o.prevContent);
+                return a !== b;
+            });
+        
+            // Find stuff to remove
+            if (hostFull) {
+                const values: { content: IDeployContent, type: number, title: string, name: string}[] = [];
+                for (const name in oldContent)
+                    values.push(oldContent[name]);
 
-        // Find stuff to remove
-        for (let host of fullDeloyHosts) {
-            if (!(host in oldContent)) continue;
+                values.sort((l, r) => {
+                    const lo = l.content.deploymentOrder;
+                    const ro = r.content.deploymentOrder;
+                    if (lo != ro) return ro - lo;
+                    return l.name < r.name ? -1 : 1;
+                })
 
-            let values: { content: string, cls: string, title: string, name: string }[] = [];
-            for (let name in oldContent[host])
-                values.push(oldContent[host][name]);
-            values.sort((l, r) => {
-                let lo = classOrder(l.cls);
-                let ro = classOrder(r.cls);
-                if (lo != ro) return ro - lo;
-                return l.name < r.name ? -1 : 1;
-            })
-
-            for (let v of values) {
-                let o: IFullDeploymentObject = {
-                    inner: {
-                        index: idx++,
-                        cls: v.cls,
-                        host: objects[host].name,
-                        name: v.title,
+                for (const v of values) {
+                    const o: IDeploymentObject = {
+                        index: 0,
                         enabled: true,
                         status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                        action: DEPLOYMENT_OBJECT_ACTION.Remove,
-
-                    },
-                    name: v.name,
-                    next: {},
-                    prev: JSON.parse(v.content),
-                    host: host,
-                    object: null,
-                    variables: null,
-                };
+                        action: DEPLOYMENT_OBJECT_ACTION.Remove, 
+                        hostName: hostObject.name,
+                        title: v.title,
+                        name: v.name,
+                        script: v.content.script,
+                        nextContent: null,
+                        prevContent: v.content.content,
+                        host: hostId,
+                        triggers: v.content.triggers,
+                        typeName: v.content.typeName,
+                        id: v.content.object,
+                        typeId: v.type,
+                        deploymentOrder: v.content.deploymentOrder                       
+                    };
+                    hostDeploymentObjects.push(o);
+                }
+            }
+            let triggers: IDeploymentTrigger[] = [];
+            for (let o of hostDeploymentObjects) {
                 this.deploymentObjects.push(o);
-            }
-        }
-
-        // Filter away stuff that has not changed
-        this.deploymentObjects = this.deploymentObjects.filter(o => {
-            let a = JSON.stringify(o.prev);
-            let b = JSON.stringify(o.next);
-            return a !== b;
-        });
-
-        // Find triggers
-        let triggers: (ITrigger & { host: number })[] = [];
-        for (let obj of this.deploymentObjects) {
-            let ctx = obj.next || obj.prev;
-            if ('triggers' in ctx)
-                for (let trigger of (ctx as IFileContent).triggers)
-                    triggers.push(Object.assign({ host: obj.host }, trigger))
-            if (obj.inner.cls == "ufwallow")
-                triggers.push({ host: obj.host, type: TRIGGER_TYPE.EnableUfw, value: "Enable ufw" })
-        }
-        triggers.sort((l, r) => {
-            if (l.host != r.host) return l.host < r.host ? -1 : 1;
-            if (l.value != r.value) return l.value < r.value ? -1 : 1;
-            return l.type - r.type;
-        })
-
-
-        for (let i = 0; i < triggers.length; ++i) {
-            let t = triggers[i];
-            if (i != 0 && t.host == triggers[i - 1].host && t.value == triggers[i - 1].value && t.type == triggers[i - 1].type) continue;
-            let cls = "reload";
-            switch (t.type) {
-                case TRIGGER_TYPE.ReloadService: cls = "reload"; break;
-                case TRIGGER_TYPE.RestartService: cls = "restart"; break;
-                case TRIGGER_TYPE.EnableUfw: cls = "enableufw"; break;
-                case TRIGGER_TYPE.None: cls = "none"; break;
-                default: never(t.type, "Case not handled;");
+                for (let trigger of o.triggers)
+                    triggers.push(trigger);
             }
 
-            let o: IFullDeploymentObject = {
-                inner: {
-                    index: idx++,
-                    cls: cls,
-                    host: objects[t.host].name,
-                    name: t.value,
+            triggers.sort((l, r) => {
+                if (l.typeId != r.typeId) return l.typeId - r.typeId;
+                if (l.script != r.script) return l.script < r.script ? -1 : 1;
+                return JSON.stringify(l.content) < JSON.stringify(r.content) ? -1 : 1;
+            });
+
+            for (let i = 0; i < triggers.length; ++i) {
+                let t = triggers[i];
+                if (i != 0 && t.typeId == triggers[i - 1].typeId && t.script == triggers[i-1].script && JSON.stringify(t.content) == JSON.stringify(triggers[i - 1].content)) continue;
+        
+                let o: IDeploymentObject = {
+                    index: 0,
                     enabled: true,
                     status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                    action: DEPLOYMENT_OBJECT_ACTION.Trigger
-                },
-                name: null,
-                next: {},
-                prev: {},
-                host: t.host,
-                object: null,
-                variables: null
-            }
-            this.deploymentObjects.push(o);
+                    action: DEPLOYMENT_OBJECT_ACTION.Trigger,
+                    hostName: hostObject.name,
+                    title: t.title,
+                    name: "",
+                    script: t.script,
+                    nextContent: t.content,
+                    prevContent: null,
+                    host: hostId,
+                    triggers: [],
+                    typeName: objects[t.typeId].name,
+                    id: null,
+                    typeId: t.typeId,
+                    deploymentOrder: 0
+                };
+                this.deploymentObjects.push(o);
+            } 
+        }
+
+        if (errors.length != 0) {
+            this.deploymentObjects = [];
+            this.setStatus(DEPLOYMENT_STATUS.InvilidTree);
+            this.setMessage(errors.join("\n"));
+            return;
         }
 
         for (let i = 0; i < this.deploymentObjects.length; ++i)
-            this.deploymentObjects[i].inner.index = i;
+            this.deploymentObjects[i].index = i;
 
         let a: ISetDeploymentObjects = {
             type: ACTION.SetDeploymentObjects,
@@ -426,7 +469,7 @@ export class Deployment {
     }
 
     setObjectStatus(index: number, status: DEPLOYMENT_OBJECT_STATUS) {
-        this.deploymentObjects[index].inner.status = status;
+        this.deploymentObjects[index].status = status;
         let a: ISetDeploymentObjectStatus = {
             type: ACTION.SetDeploymentObjectStatus,
             index: index,
@@ -442,53 +485,77 @@ export class Deployment {
     }
 
     async performDeploy() {
+        const types: { [id: number]: IObject2<IType> } = {};
+
+        for (const r of await db.getAllObjectsFull())
+            if (r.type == typeId)
+                types[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content) as IType, catagory: r.catagory, version: r.version };
+
+
         this.addLog("Deployment started\r\n")
 
         this.setStatus(DEPLOYMENT_STATUS.Deploying);
         let badHosts = new Set<number>();
+        let curHost = -1;
+
+        let hostObjects : {[type:number]: {[name:string]: {[key:string]: any}}} = {};
+
         for (let i = 0; i < this.deploymentObjects.length; ++i) {
             let o = this.deploymentObjects[i];
-            if (!o.inner.enabled) continue;
+            if (!o.enabled) continue;
+            let type= types[o.typeId];
 
             if (badHosts.has(o.host)) {
-                this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Failure);
+                this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
                 continue
+            }
+
+            if (o.host != curHost) {
+                curHost = o.host;
+                this.addHeader(o.hostName, "=");
+                hostObjects = {};
+                for (const row of await db.getDeployments(curHost)) {
+                    let c = JSON.parse(row.content) as IDeployContent;
+                    if (!c.content) continue;
+                    if (!(row.type in hostObjects)) hostObjects[row.type] = {};
+                    hostObjects[row.type][row.name] = c.content;
+                }
             }
 
             let hostClient = hostClients.hostClients[o.host];
             if (!hostClient || hostClient.closeHandled) {
-                this.addLog("Host " + o.inner.host + " is down\r\n");
+                this.addLog("Host " + o.hostName + " is down\r\n");
                 badHosts.add(o.host);
-                this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Failure);
+                this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
                 continue;
             }
 
-
-            if (o.inner.cls == 'package') {
+            if (type.content.kind == "sum") {
                 let j = i;
 
-                let packages = new Set(await db.getPackages(o.host));
-                let nextPackages = new Set(packages);
-
+                let curObjects = hostObjects[o.typeId] || {};
+                let nextObjects = Object.assign({}, curObjects);
+        
                 for (; j < this.deploymentObjects.length; ++j) {
                     let o2 = this.deploymentObjects[j];
-                    if (!o2.inner.enabled) continue;
-                    if (o2.inner.cls !== 'package') break;
+                    if (!o2.enabled) continue;
+                    if (o2.typeId !== o.typeId) break;
                     if (o2.host != o.host) break;
                     this.setObjectStatus(j, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
-                    if (o2.prev)
-                        nextPackages.delete((o2.prev as IPackageContent).name);
-                    if (o2.next)
-                        nextPackages.add((o2.next as IPackageContent).name);
+                    if (o2.prevContent)
+                        delete nextObjects[o2.name];
+                    if (o2.nextContent)
+                        nextObjects[o2.name] = o2.nextContent;
                 }
 
-                let ans = await this.deploySingle(hostClient, "packages.py", { packages: Array.from(nextPackages).filter(i => i != undefined) });
+                let ans = await this.deploySingle(hostClient, o.script, { objects: nextObjects });
+
                 let ok = ans.success && ans.code == 0;
                 if (!ok) {
                     for (let k = i; k < j; ++k) {
                         let o2 = this.deploymentObjects[k];
-                        if (!o2.inner.enabled) continue;
+                        if (!o2.enabled) continue;
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Failure);
                     }
                     if (ans.success)
@@ -497,49 +564,40 @@ export class Deployment {
                         this.addLog("\r\nFailed\r\n");
                     badHosts.add(o.host);
                 } else {
-                    let add: string[] = [];
-                    let remove: string[] = [];
-                    nextPackages.forEach(v => { if (!(packages.has(v))) add.push(v); });
-                    packages.forEach(v => { if (!(nextPackages.has(v))) remove.push(v); });
-                    if (add.length > 0) await db.addPackages(o.host, add);
-                    if (remove.length > 0) await db.removePackages(o.host, remove);
+                    hostObjects[o.typeId] = nextObjects;
 
                     for (let k = i; k < j; ++k) {
                         let o2 = this.deploymentObjects[k];
-                        if (!o2.inner.enabled) continue;
-                        await db.setDeployment(o2.host, o2.name, JSON.stringify(o2.next), o2.object, o2.inner.cls, o2.inner.name);
+                        if (!o2.enabled) continue;
+
+                        let c: IDeployContent = {
+                            content: o2.nextContent,
+                            script: o2.script,
+                            triggers: o2.triggers,
+                            deploymentOrder: o2.deploymentOrder,
+                            typeName: o2.typeName,
+                            object: o2.id,
+                        };
+                        await db.setDeployment(o2.host, o2.name, JSON.stringify(c), o2.typeId, o2.title);
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Success);
                     }
                 }
                 i = j - 1;
                 continue;
+                
             }
 
 
-            this.addLog("\r\n============================> " + o.inner.name + " (" + o.inner.cls + ") <================================\r\n");
+            this.addHeader(o.title + " (" + o.typeName + ")", "-");
 
-            this.setObjectStatus(o.inner.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
+            this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
             let ans = { success: false, code: 0 };
 
-            switch (o.inner.cls) {
-                case 'user':
-                    ans = await this.deploySingle(hostClient, "user.py", { old: o.prev, new: o.next });
-                    break
-                case 'file':
-                    ans = await this.deploySingle(hostClient, "file.py", { old: o.prev, new: o.next });
-                    break;
-                case 'group':
-                    ans = await this.deploySingle(hostClient, "group.py", { old: o.prev, new: o.next });
-                    break;
-                case 'ufwallow':
-                    ans = await this.deploySingle(hostClient, "ufw.py", { old: o.prev, new: o.next });
-                    break;
-                case 'reload':
-                case 'restart':
-                case 'enableufw':
-                    ans = await this.deploySingle(hostClient, "trigger.py", { name: o.inner.name, type: o.inner.cls });
-                    break;
+            if (type.content.kind == "trigger") {
+                ans = await this.deploySingle(hostClient, o.script, o.nextContent)
+            } else if (type.content.kind == "delta") {
+                ans = await this.deploySingle(hostClient, o.script, {old: o.prevContent, new: o.nextContent});
             }
 
             let ok = ans.success && ans.code == 0;
@@ -548,28 +606,33 @@ export class Deployment {
                     this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
                 else
                     this.addLog("\r\nFailed\r\n");
-                if (o.inner.cls != 'reload' && o.inner.cls != 'restart')
+                if (type.content.kind != "trigger")
                     badHosts.add(o.host);
-            } else {
-                await db.setDeployment(o.host, o.name, JSON.stringify(o.next), o.object, o.inner.cls, o.inner.name);
+            } else if (type.content.kind != "trigger") {
+                let c: IDeployContent = {
+                    content: o.nextContent,
+                    script: o.script,
+                    triggers: o.triggers,
+                    deploymentOrder: o.deploymentOrder,
+                    typeName: o.typeName,
+                    object: o.id,
+                };
+                await db.setDeployment(o.host, o.name, JSON.stringify(c), o.typeId, o.title);
             }
-            this.setObjectStatus(o.inner.index, ok ? DEPLOYMENT_OBJECT_STATUS.Success : DEPLOYMENT_OBJECT_STATUS.Failure);
+            this.setObjectStatus(o.index, ok ? DEPLOYMENT_OBJECT_STATUS.Success : DEPLOYMENT_OBJECT_STATUS.Failure);
         }
         this.setStatus(DEPLOYMENT_STATUS.Done);
     }
 
     getView() {
-        let view = [];
-        for (let obj of this.deploymentObjects)
-            view.push(obj.inner);
-        return view;
+        return this.deploymentObjects;
     }
 
-    async deployObject(id: number) {
+    async deployObject(id: number, redeploy:boolean) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.clearLog();
         this.setMessage("");
-        await this.setupDeploy(id);
+        await this.setupDeploy(id, redeploy);
     }
 
     async start() {
@@ -598,7 +661,7 @@ export class Deployment {
     toggleObject(index: number, enabled: boolean) {
         if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
 
-        this.deploymentObjects[index].inner.enabled = enabled;
+        this.deploymentObjects[index].enabled = enabled;
 
         let a: IToggleDeploymentObject = {
             type: ACTION.ToggleDeploymentObject,
@@ -615,6 +678,13 @@ export class Deployment {
             type: ACTION.ClearDeploymentLog,
         }
         webClients.broadcast(a);
+    }
+
+    addHeader(name: string, sep: string="-") {
+        let t = 100 - 4 - name.length;
+        let l = t / 2;
+        let r = t - l;
+        this.addLog("\r\n\x1b[91m" + sep.repeat(l) + "> " + name + " <" + sep.repeat(r) + "\x1b[0m\r\n");
     }
 
     addLog(bytes: string) {

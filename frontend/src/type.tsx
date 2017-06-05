@@ -21,7 +21,6 @@ import {IType, ITypeProp, TypePropType, hostId} from '../../shared/type'
 
 interface IProps {
     id: number;
-    type: IType;
     typeId: number;
 }
 
@@ -30,6 +29,7 @@ interface StateProps {
     id: number;
     type: IType;
     typeId: number;
+    triggers:IObject2<IType>[];
 }
 
 interface DispactProps {
@@ -39,7 +39,14 @@ interface DispactProps {
 }
 
 function mapStateToProps(s:IMainState, p: IProps): StateProps {
-    return {current: s.objects[p.id].current, id: p.id, type: p.type, typeId: p.typeId};
+    let triggers:IObject2<IType>[] = [];
+    for(const key in s.types) {
+        const type = s.types[key];
+        if (type.content.kind != "trigger") continue;
+        triggers.push(type);
+    }
+
+    return {current: s.objects[p.id].current, id: p.id, type: s.types && s.types[p.typeId] && s.types[p.typeId].content, typeId: p.typeId, triggers};
 }
 
 function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactProps {
@@ -112,22 +119,24 @@ function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void}
         }
         let temp;
         if (r.type == TypePropType.text || r.type == TypePropType.document) 
-            temp = <Toggle toggled={r.template} onToggle={(a,value)=>change({template: value})}/>;
+            temp = <Toggle key="template" toggled={r.template} onToggle={(a,value)=>change({template: value})}/>;
         else
-            temp = <Toggle toggled={false} disabled={true}/>;
+            temp = <Toggle key="template" toggled={false} disabled={true}/>;
         let var_;
         if (r.type == TypePropType.text || r.type == TypePropType.choice || r.type == TypePropType.bool)
-            var_ = <TextField value={r.variable} onChange={(a, value) => change({variable: value})}/>;
+            var_ = <TextField key="var" value={r.variable} onChange={(a, value) => change({variable: value})}/>;
         else
-            var_ = <TextField value="" disabled={true} />;
+            var_ = <TextField key="var" value="" disabled={true} />;
         let extra = null;
         if (r.type == TypePropType.choice)
             extra = <TextField hintText="Choices" value={((r.choices) || []).join(", ").trim()} onChange={(a, value) => change({choices: value.split(",").map(v=>v.trim())})}/>;
         else if (r.type == TypePropType.document)
             extra = <span>
-                <TextField hintText="LangName" value={r.langName || ""} onChange={(a, value) => change({langName: value})}/>
-                <TextField hintText="Lang" value={r.lang || ""} onChange={(a, value) => change({lang: value})}/>
+                <TextField key="langname" hintText="LangName" value={r.langName || ""} onChange={(a, value) => change({langName: value})}/>
+                <TextField key="lang" hintText="Lang" value={r.lang || ""} onChange={(a, value) => change({lang: value})}/>
                 </span>;
+        else if (r.type == TypePropType.text)
+            extra = <Toggle key="deploytitle" toggled={r.deployTitle} onToggle={(a,value)=>change({deployTitle: value})} title="Deploy title" name="Deploy title"/>;
 
         rows.push(
             <tr key={i}>
@@ -173,11 +182,16 @@ function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void}
 }
 
 function TypeImpl(props: StateProps & DispactProps) {
+    if (!props.type)
+        return <div>Missing type</div>;
+    if (!props.current)
+        return <div>Missing content</div>;
+
     const type = props.type;
     const c = props.current.content as {[key:string]:any};
     let rows = [];
     let extra = [];
-    for (const ct of type.content || []) {
+    for (const ct of (type && type.content) || []) {
         if (ct.type == TypePropType.none) continue;
         let v = c[ct.name];
         switch (ct.type) {
@@ -189,6 +203,9 @@ function TypeImpl(props: StateProps & DispactProps) {
             break;
         case TypePropType.text:
             rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?ct.default:v} onChange={(e: any, value: string) => props.setProp(ct.name,  value)}  hintText={ct.description}/></InformationListRow>);
+            break;
+        case TypePropType.number:
+            rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?""+ct.default:""+v} onChange={(e: any, value: string) => props.setProp(ct.name,  +value)}  hintText={ct.description}/></InformationListRow>);
             break;
         case TypePropType.choice:
             rows.push(

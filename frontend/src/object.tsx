@@ -11,7 +11,7 @@ import { HostExtra } from './hostextra'
 import { Box } from './box'
 import {setPage} from './page'
 import {Type} from './type'
-import {IType} from '../../shared/type'
+import {IType, hostId} from '../../shared/type'
 
 
 interface IProps {
@@ -25,20 +25,20 @@ interface StateProps {
     hasCurrent: boolean;
     canDeploy: boolean;
     touched: boolean;
-    type: IObject2<IType>;
+    typeName: string;
     typeId: number;
 }
 
 interface DispactProps {
     discard: () => void;
     save: () => void;
-    deploy: () => void;
+    deploy: (redeploy:boolean) => void;
     delete: () => void;
 }
 
 function mapStateToProps(s: IMainState, p: IProps): StateProps {
     return {
-        type: s.types[p.type],
+        typeName: s.types[p.type].name,
         typeId: p.type,
         id: p.id,
         hasCurrent: p.id in s.objects && s.objects[p.id].current != null,
@@ -63,10 +63,11 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>, p: IProps): DispactP
             };
             dispatch(a);
         },
-        deploy: () => {
+        deploy: (redeploy:boolean) => {
             const a: IDeployObject = {
                 type: ACTION.DeployObject,
-                id: p.id
+                id: p.id,
+                redeploy
             };
             dispatch(a);
             setPage({type: PAGE_TYPE.Deployment}, dispatch);
@@ -88,14 +89,17 @@ function ObjectImpl(p: DispactProps & StateProps) {
     let isNew = p.id < 0;
     let content = null;
     let extra = null;
-
+    if (p.typeId == hostId) {
+        extra = <HostExtra id={p.id} />;
+    }
     return (
         <div>
-            <Box title={p.type.name} expanded={true} collapsable={true}>
-                <div><Type id={p.id} type={p.type.content} typeId={p.typeId}/></div>
+            <Box title={p.typeName} expanded={true} collapsable={true}>
+                <div><Type id={p.id} typeId={p.typeId}/></div>
                 <div>
                     <RaisedButton label="Save" primary={true} style={{ margin: 10 }} onClick={p.save} disabled={!p.touched}/>
-                    <RaisedButton label="Deploy" primary={true} style={{margin:10}} onClick={p.deploy} disabled={!p.canDeploy}/>
+                    <RaisedButton label="Deploy" primary={true} style={{margin:10}} onClick={()=>p.deploy(false)} disabled={!p.canDeploy}/>
+                    <RaisedButton label="Redeploy" primary={true} style={{margin:10}} onClick={()=>p.deploy(true)} disabled={!p.canDeploy}/>
                     <RaisedButton label="Discard" secondary={true} style={{ margin: 10 }} onClick={p.discard} disabled={!p.touched} />
                     <RaisedButton label="Delete" secondary={true} style={{ margin: 10 }} onClick={p.delete} disabled={!p.canDeploy /*|| p.class == 'root'*/}/>
                 </div>

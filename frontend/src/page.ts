@@ -7,6 +7,10 @@ import * as $ from 'jquery'
 
 let nextNewObjectId=-2;
 
+function never(n:never, message:string) {
+    console.error(message);
+}
+
 export function setPage(page: State.IPage, dispatch:Dispatch<IMainState>) {
     let pg = Object.assign({}, page);
     if (pg.type == State.PAGE_TYPE.Object && pg.id === null) {
@@ -47,6 +51,12 @@ export function link(page: State.IPage) {
         else o['id'] == '-1';
         if (page.version !== null) o['version'] = ""+page.version;
         break;
+    case State.PAGE_TYPE.DeploymentDetails:
+        o['page'] = 'deploymentDetails'
+        o['index'] = ""+page.index;
+        break;
+    default:
+        never(page, "Unhandled page");
     }
     return "?"+$.param(o)
 }
@@ -70,5 +80,7 @@ export function get(): State.IPage {
     case 'object':
         let v=getUrlParameter('version');
         return {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
+    case 'deploymentDetails':
+        return {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};
     }
 }

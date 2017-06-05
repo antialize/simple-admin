@@ -345,6 +345,7 @@ interface IProps {
     setData(data:string): void;
     data: string;
     fixedLang: boolean;
+    readOnly?: boolean;
 }
 
 interface IState {
@@ -383,7 +384,7 @@ export default class Editor extends React.Component<IProps, IState> {
                         </DropDownMenu>
                     </ToolbarGroup>
                 </Toolbar>
-                <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true}} onChange={v => this.props.setData(v)} />
+                <CodeMirror  value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly}} onChange={v => this.props.setData(v)} />
             </div>
         )
     }

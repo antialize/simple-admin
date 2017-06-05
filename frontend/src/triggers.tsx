@@ -1,90 +1,77 @@
 import * as React from "react";
 import {Card, CardActions, CardHeader, CardMedia, CardTitle, CardText} from 'material-ui/Card';
 import TextField from 'material-ui/TextField';
-import {TRIGGER_TYPE} from '../../shared/state'
 import SelectField from 'material-ui/SelectField';
 import MenuItem from 'material-ui/MenuItem';
 
+import {IObject2} from '../../shared/state'
+import {IType, TypePropType, ITrigger, ITriggers} from '../../shared/type'
+import {connect} from 'react-redux'
+import {IMainState} from './reducers';
+
+
 interface IProps {
-    triggers: {type:TRIGGER_TYPE, value:string}[];
-    setTriggers(triggers: {type:TRIGGER_TYPE, value:string}[]):void;
+    triggers: ITrigger[];
+    setTriggers(triggers: ITrigger[]):void;
 }
-/*
-export function Triggers(props:IProps) {
-	let triggers = props.triggers.slice(0);
-	let rows=[];
-	let setTriggers = () => {
-		props.setTriggers(triggers.filter(t => t.type != TRIGGER_TYPE.None));
-	}
-	
-    for (let i=0; i <= triggers.length; ++i) {
-		let v = i < triggers.length && triggers[i];
-		rows.push(
-			<tr key={i}>
-				<td>
-                    <SelectField floatingLabelText="Type"
-                        value={v.type || TRIGGER_TYPE.None}
-                        onChange={(e:any, idx:number, value:TRIGGER_TYPE) => {
-                            if (v)
-                                triggers[i].type = value; 
-                            else
-                                triggers.push({type:value, value:""});
-                            setTriggers();
-                        }}>
-                        <MenuItem value={TRIGGER_TYPE.None} primaryText="None" />
-                        <MenuItem value={TRIGGER_TYPE.RestartService} primaryText="Restart Service" />
-                        <MenuItem value={TRIGGER_TYPE.ReloadService} primaryText="Reload Service" />
-                    </SelectField>
-				</td><td>
-					<TextField value={v.value || ""} disabled={!v} onChange={(e:any, value:string) => {triggers[i].value = value; setTriggers();}} />
-				</td>
-		   </tr>);
+
+interface StateProps {
+    triggers:IObject2<IType>[];
+    p: IProps;
+}
+
+function mapStateToProps(s:IMainState, p: IProps): StateProps {
+    let triggers:IObject2<IType>[] = [];
+    for(const key in s.types) {
+        const type = s.types[key];
+        if (type.content.kind != "trigger") continue;
+        triggers.push(type);
     }
+    triggers.sort( (l,r) => {
+        return l.name < r.name ? -1: 1;
+    });
+    return {triggers, p}
+}
 
-    return (
-        <Card>
-            <CardTitle title="Triggers"/>
-            <CardText>
-			<table>
-			<thead>
-			<tr><th>Type</th><th>Value</th><th></th></tr>
-			</thead>
-			<tbody>
-			{rows}
-			</tbody>
-			</table>
-            </CardText>
-        </Card>
-    )
-}*/
-
-export function Triggers(props:IProps) {
-	let triggers = props.triggers.slice(0);
-	let rows=[];
+export function TriggersImpl(props:StateProps) {
+	let triggers = props.p.triggers.slice(0);
+	let rows: JSX.Element[] =[];
 	let setTriggers = () => {
-		props.setTriggers(triggers.filter(t => t.type != TRIGGER_TYPE.None));
+		props.p.setTriggers(triggers.filter(t => t.id != 0));
 	}
 	
     for (let i=0; i <= triggers.length; ++i) {
-		let v = i < triggers.length && triggers[i];
+		const v = i < triggers.length && triggers[i];
+
+        const t = v ? props.triggers.find(t => t.id == v.id) : null;
+        let fields: JSX.Element[] = [];
+        if (v && t && t.content && t.content.content) {
+            for (let item of t.content.content) {
+                switch (item.type) {
+                case TypePropType.text: {
+                    let itt = item;
+                    fields.push(<TextField key={item.name} value={(v && v.values && v.values[item.name]) || item.default} disabled={!v} onChange={(e:any, value:string) => {triggers[i].values = Object.assign({}, triggers[i].values); triggers[i].values[itt.name] = value; setTriggers();}} hintText={item.title}/>);
+                }
+                }
+            }
+        }
 		rows.push(
 			<tr key={i}>
 				<td>
                     <SelectField
-                        value={v.type || TRIGGER_TYPE.None}
-                        onChange={(e:any, idx:number, value:TRIGGER_TYPE) => {
+                        value={v.id || 0}
+                        onChange={(e:any, idx:number, value:number) => {
                             if (v)
-                                triggers[i].type = value; 
+                                triggers[i] = {id:value, values: []}; 
                             else
-                                triggers.push({type:value, value:""});
+                                triggers.push({id:value, values:[]});
                             setTriggers();
                         }}>
-                        <MenuItem value={TRIGGER_TYPE.None} primaryText="None" />
-                        <MenuItem value={TRIGGER_TYPE.RestartService} primaryText="Restart Service" />
-                        <MenuItem value={TRIGGER_TYPE.ReloadService} primaryText="Reload Service" />
+                        <MenuItem value={0} primaryText="None" />
+                        {props.triggers.map(t => <MenuItem key={t.name} value={t.id} primaryText={t.name} />)}
                     </SelectField>
 				</td><td>
-					<TextField value={v.value || ""} disabled={!v} onChange={(e:any, value:string) => {triggers[i].value = value; setTriggers();}} />
+                    {fields}
 				</td>
 		   </tr>);
     }
@@ -92,7 +79,7 @@ export function Triggers(props:IProps) {
     return (
         <table>
             <thead>
-            <tr><th>Type</th><th>Value</th><th></th></tr>
+            <tr><th>Type</th><th>Content</th><th></th></tr>
             </thead>
             <tbody>
             {rows}
@@ -100,3 +87,5 @@ export function Triggers(props:IProps) {
         </table>
     )
 }
+
+export const Triggers = connect(mapStateToProps)(TriggersImpl);

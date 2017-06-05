@@ -1,6 +1,6 @@
-export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment }
+import {IType} from './type'
 
-export enum TRIGGER_TYPE {None, RestartService, ReloadService, EnableUfw}
+export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment, DeploymentDetails }
 
 export interface IObjectDigest {
     name: string;
@@ -27,7 +27,13 @@ export interface IDashbordPage {
 export interface IDeploymentPage {
     type: PAGE_TYPE.Deployment;
 }
-export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage;
+
+export interface IDeploymentDetailsPage {
+    type: PAGE_TYPE.DeploymentDetails;
+    index: number;
+}
+
+export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage | IDeploymentDetailsPage;
 
 export interface IObject2<T> {
     id: number;
@@ -43,13 +49,31 @@ export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChange
 export enum DEPLOYMENT_OBJECT_STATUS { Normal, Deplying, Success, Failure }
 export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove, Trigger }
 
+
+export interface IDeploymentTrigger {
+    typeId: number,
+    script: string,
+    content: {[key:string]:any},
+    title: string,
+}
+
 export interface IDeploymentObject {
     index: number;
-    host: string;
-    cls: string;
+    host: number;
+    hostName: string;
+    title: string;
     name: string;
     enabled: boolean;
     status: DEPLOYMENT_OBJECT_STATUS;
     action: DEPLOYMENT_OBJECT_ACTION;
+
+    script: string;
+    nextContent: {[key:string]: any};
+    prevContent: {[key:string]: any};
+    id: number;
+    typeId: number;
+    typeName: string;
+    triggers: IDeploymentTrigger[];
+    deploymentOrder: number;
 }
 

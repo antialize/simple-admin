@@ -19,12 +19,19 @@ import CircularProgress from 'material-ui/CircularProgress';
 import {Messages} from './messages';
 import {remoteHost} from './config';
 import {Deployment} from './deployment';
+import {DeploymentDetails} from './deploymentDetails';
+
 injectTapEventPlugin();
 
 interface Props {
     page: State.IPage;
     type?: string;
 }
+
+function never(n: never, message: string) {
+    console.error(message);
+}
+
 
 function mapStateToProps(s:IMainState) {
     let ans: Props = {page: s.page};
@@ -48,6 +55,10 @@ function MainPageImpl(props: Props) {
         return <div><Object type={p.objectType} id={p.id} version={p.version} /> </div>
     case State.PAGE_TYPE.Deployment:
         return <div><Deployment /></div>
+    case State.PAGE_TYPE.DeploymentDetails:
+        return <div><DeploymentDetails index={p.index} /></div>
+    default:
+        never(p, "Unhandled page type");
     }
 }
 
