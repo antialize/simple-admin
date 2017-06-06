@@ -2,7 +2,7 @@ import { IUpdateStatusAction, IAction, ACTION, IMessage } from '../../shared/act
 import { IStatus, IStatuses, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import { Reducer, combineReducers } from 'redux';
 import { IPage, PAGE_TYPE, IObjectDigest, DEPLOYMENT_STATUS, IDeploymentObject, IObject2 } from '../../shared/state'
-import { IType, fillDefaults } from '../../shared/type'
+import { IType, fillDefaults, typeId } from '../../shared/type'
 
 export interface IObjectState {
     current: IObject2<any> | null;
@@ -124,6 +124,20 @@ function types(state: {[id:number]:IObject2<IType>} = {}, action: IAction) {
     switch (action.type) {
     case ACTION.SetInitialState:
         return action.types;
+    case ACTION.ObjectChanged:
+        if (action.object.length == 0) {
+            if (action.id in state) {
+                let a = Object.assign({}, state);
+                delete a[action.id];
+                return a;
+            }
+        } else if (action.object[action.object.length -1].type == typeId) {
+            let x = action.object[action.object.length -1];
+            let a = Object.assign({}, state);
+            a[x.id] = x;
+            return a;
+        }
+        return state;
     default:
         return state;
     }

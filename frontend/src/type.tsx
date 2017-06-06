@@ -17,7 +17,7 @@ import {Password} from './password'
 import {Triggers} from './triggers';
 import Editor from './editor'
 
-import {IType, ITypeProp, TypePropType, hostId} from '../../shared/type'
+import {IType, ITypeProp, TypePropType, hostId, typeId, rootId} from '../../shared/type'
 
 interface IProps {
     id: number;
@@ -232,9 +232,9 @@ function TypeImpl(props: StateProps & DispactProps) {
                 {rows}
                 {type.hasTriggers?<InformationListRow name="Triggers" long={true}><Triggers triggers={c.triggers || []} setTriggers={triggers => props.setProp("triggers", triggers)} /></InformationListRow>:null}
                 {type.hasVariables?<InformationListRow name="Variables" long={true}><Variables variables={c.variables || []} setVariables={(vars: {key:string, value:string}[])=> props.setProp("variables", vars)} /></InformationListRow>:null}
-                {type.hasContains?<InformationListRow name={type.containsName || "Contains"} long={true}><ObjectSelector filter={(type,id)=>type!='host'} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}}/></InformationListRow>:null}
-                {type.hasDepends?<InformationListRow name="Depends on" long={true}><ObjectSelector filter={(type, id) => (type != 'host')} selected={c.depends ? c.depends : []} setSelected={(sel: number[]) => { props.setProp("depends", sel) }}/></InformationListRow>:null}
-                {type.hasSudoOn?<InformationListRow name="Sudo on" long={true}><ObjectSelector filter={(type, id) => (type == 'host')} selected={c.sudoOn ? c.sudoOn : []} setSelected={(sel: number[]) => { props.setProp("sudoOn", sel) }} /></InformationListRow>:null}
+                {type.hasContains?<InformationListRow name={type.containsName || "Contains"} long={true}><ObjectSelector filter={(type,id)=>(type != hostId && type != typeId && type != rootId)} selected={c.contains?c.contains:[]} setSelected={(sel:number[]) => {props.setProp("contains",sel)}}/></InformationListRow>:null}
+                {type.hasDepends?<InformationListRow name="Depends on" long={true}><ObjectSelector filter={(type, id) => (type != hostId && type != typeId && type != rootId)} selected={c.depends ? c.depends : []} setSelected={(sel: number[]) => { props.setProp("depends", sel) }}/></InformationListRow>:null}
+                {type.hasSudoOn?<InformationListRow name="Sudo on" long={true}><ObjectSelector filter={(type, id) => (type == hostId)} selected={c.sudoOn ? c.sudoOn : []} setSelected={(sel: number[]) => { props.setProp("sudoOn", sel) }} /></InformationListRow>:null}
             </InformationList>
             {extra}
         </div>)

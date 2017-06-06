@@ -10,7 +10,7 @@ import {connect} from 'react-redux'
 interface IProps {
     selected: number[];
     setSelected(selected: number[]): void;
-    filter(cls:string, id:number): boolean;
+    filter(type:number, id:number): boolean;
 }
 
 interface StateProps {
@@ -33,7 +33,7 @@ export function ObjectSelectorImpl(props:StateProps) {
     for (let type in props.objectDigests) {
         let ps = props.objectDigests[type];
         for (let p of ps) {
-            //if (!props.p.filter(cls, p.id)) continue;
+            if (!props.p.filter(p.type, p.id)) continue;
             let item: Item = {label: p.name + " (" + ((props.types && type in props.types && props.types[type].name) || +type) + ")", key: p.id};
             all.push(item);
             if (p.id in sel) selected.push(item);
