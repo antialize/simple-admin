@@ -3,7 +3,7 @@ import {
 } from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
-import { typeId, rootInstanceId, rootId, hostId, IVariables , IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains} from '../../shared/type'
+import { typeId, rootInstanceId, rootId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains } from '../../shared/type'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'
@@ -14,7 +14,7 @@ import { HostClient } from './hostclient'
 
 interface IDeployContent {
     script: string;
-    content: {[key:string]: any};
+    content: { [key: string]: any };
     triggers: any[];
     deploymentOrder: number;
     typeName: string;
@@ -47,92 +47,92 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    async setupDeploy(deployId: number, redeploy:boolean) {
+    async setupDeploy(deployId: number, redeploy: boolean) {
         const objects: { [id: number]: IObject2<any> } = {};
         const hosts: number[] = [];
         const errors: string[] = [];
         this.deploymentObjects = [];
 
-        const visitContent = (deploymentTitle: string, objContent: {[key:string]: any}, variables: {[key:string]: string}, type: IType, hasVars: boolean, content: {[key:string]: any}) => {
-            for (let item of type.content) {
+        const visitContent = (deploymentTitle: string, objContent: { [key: string]: any }, variables: { [key: string]: string }, type: IType, hasVars: boolean, content: { [key: string]: any }) => {
+            for (let item of type.content || []) {
                 switch (item.type) {
-                case TypePropType.bool:
-                {
-                    let v = objContent[item.name] as boolean;
-                    if (v === undefined || v === null) v = item.default;
-                    if (item.variable) {hasVars = true; variables[item.variable] = v ? "true" : "false";}
-                    content[item.name] = v;
-                    break;
-                }
-                case TypePropType.choice:
-                {
-                    let v = objContent[item.name] as string;
-                    if (v == undefined || v === null) v = item.default;
-                    if (item.variable) {hasVars = true; variables[item.variable] = v;}
-                    content[item.name] = v;
-                    break;
-                }
-                case TypePropType.document:
-                {
-                    let v = objContent[item.name] as string;
-                    if (v == undefined || v === null) v = "";
-                    if (item.template) v = Mustache.render(v, variables);
-                    if (item.variable) {hasVars = true; variables[item.variable] = v;}
-                    content[item.name] = v;
-                    break;
-                }
-                case TypePropType.number:
-                {
-                    let v = objContent[item.name] as number;
-                    if (v == undefined || v === null) v = item.default;
-                    content[item.name] = v;
-                    break;
-                }
-                case TypePropType.password:
-                {
-                    let v = objContent[item.name] as string;
-                    if (v == undefined || v === null) v = "";
-                    content[item.name] = v;
-                    break;
-                }
-                case TypePropType.text:
-                {
-                    let v = objContent[item.name] as string;
-                    if (v == undefined || v === null) v = item.default;
-                    if (item.template) v = Mustache.render(v, variables);
-                    if (item.variable) {hasVars = true; variables[item.variable] = v;}
-                    content[item.name] = v;
-                    if (item.deployTitle) deploymentTitle = v;
-                    break;
-                }
-                case TypePropType.none:
-                case TypePropType.typeContent:
-                    break;
-                default: 
-                    never(item, "We should not get here");
+                    case TypePropType.bool:
+                        {
+                            let v = objContent[item.name] as boolean;
+                            if (v === undefined || v === null) v = item.default;
+                            if (item.variable) { hasVars = true; variables[item.variable] = v ? "true" : "false"; }
+                            content[item.name] = v;
+                            break;
+                        }
+                    case TypePropType.choice:
+                        {
+                            let v = objContent[item.name] as string;
+                            if (v == undefined || v === null) v = item.default;
+                            if (item.variable) { hasVars = true; variables[item.variable] = v; }
+                            content[item.name] = v;
+                            break;
+                        }
+                    case TypePropType.document:
+                        {
+                            let v = objContent[item.name] as string;
+                            if (v == undefined || v === null) v = "";
+                            if (item.template) v = Mustache.render(v, variables);
+                            if (item.variable) { hasVars = true; variables[item.variable] = v; }
+                            content[item.name] = v;
+                            break;
+                        }
+                    case TypePropType.number:
+                        {
+                            let v = objContent[item.name] as number;
+                            if (v == undefined || v === null) v = item.default;
+                            content[item.name] = v;
+                            break;
+                        }
+                    case TypePropType.password:
+                        {
+                            let v = objContent[item.name] as string;
+                            if (v == undefined || v === null) v = "";
+                            content[item.name] = v;
+                            break;
+                        }
+                    case TypePropType.text:
+                        {
+                            let v = objContent[item.name] as string;
+                            if (v == undefined || v === null) v = item.default;
+                            if (item.template) v = Mustache.render(v, variables);
+                            if (item.variable) { hasVars = true; variables[item.variable] = v; }
+                            content[item.name] = v;
+                            if (item.deployTitle) deploymentTitle = v;
+                            break;
+                        }
+                    case TypePropType.none:
+                    case TypePropType.typeContent:
+                        break;
+                    default:
+                        never(item, "We should not get here");
                 }
             }
             const script = type.script && Mustache.render(type.script, variables);
-            return {deploymentTitle, variables, script, content, hasVars};
+            return { deploymentTitle, variables, script, content, hasVars };
         };
 
-        const visitObject = (id:number, variables: {[key:string]: string}) => {
+        const visitObject = (id: number, variables: { [key: string]: string }) => {
             const obj = objects[id];
             if (!obj) return null;
             const type = objects[obj.type] as IObject2<IType>;
 
-            let content: {[key:string]: any} = {};
+            let content: { [key: string]: any } = {};
             variables = Object.assign({}, variables);
             let hasVars = false;
 
             if (type.content.hasVariables && 'variables' in obj.content) {
                 for (const v of (obj.content as IVariables).variables)
                     variables[v.key] = v.value;
-                hasVars = true; 
+                hasVars = true;
             }
             if (type.content.nameVariable)
                 variables[type.content.nameVariable] = obj.name;
-           
+
             let deploymentTitle = obj.name;
 
             return visitContent(obj.name, obj.content, variables, type.content, hasVars, content);
@@ -146,10 +146,10 @@ export class Deployment {
         }
 
         // Compute root variables
-        let rootVariable: {[key:string]: string} = {};
+        let rootVariable: { [key: string]: string } = {};
         if (rootInstanceId in objects) {
             const v = visitObject(rootInstanceId, rootVariable);
-            rootVariable = v.variables;
+            if (v) rootVariable = v.variables;
         }
 
         // Find deployment objects on a host by host basis
@@ -164,7 +164,7 @@ export class Deployment {
                 triggers: IDeploymentTrigger[];
                 deploymentTitle: string;
                 script: string;
-                content: {[key:string]: any}
+                content: { [key: string]: any }
             }
 
             const hostObject = objects[hostId];
@@ -182,7 +182,7 @@ export class Deployment {
                     return null;
                 }
                 topVisiting.add(id);
-                let centinal: DagNode = {next: [], name: id+".cent", id: null, inCount: 0, typeOrder: 0, triggers: [], deploymentTitle: "", script: "", content: null};
+                let centinal: DagNode = { next: [], name: id + ".cent", id: null, inCount: 0, typeOrder: 0, triggers: [], deploymentTitle: "", script: "", content: null };
                 nodes.set(centinal.name, centinal);
                 visit(id, [], [], centinal, hostVariables);
                 topVisiting.delete(id);
@@ -190,9 +190,9 @@ export class Deployment {
             }
 
             // Visit any object
-            let visit = (id: number, path: number[], prefix: number[], sentinal:DagNode, variables: {[key:string]: string}) => {
+            let visit = (id: number, path: number[], prefix: number[], sentinal: DagNode, variables: { [key: string]: string }) => {
                 if (id == null) return;
-                const name = prefix.join(".")+"."+id;
+                const name = prefix.join(".") + "." + id;
                 if (nodes.has(name)) return nodes.get(name);
 
                 const parent = objects[path[path.length - 1]];
@@ -206,28 +206,34 @@ export class Deployment {
                     errors.push(parent.name + " contains " + obj.name + " of which it is it self a member");
                     return null;
                 }
-              
+
                 const v = visitObject(id, variables);
-                Mustache.render(type.content.script, v.variables);
+                if (!v) {
+                    errors.push("Error visiting " + name + " " + obj.name + " " + type + " " + id + " "+v);
+                    return null;
+                }
+                //v.script = type.content.script && Mustache.render(type.content.script, v.variables);
                 v.content['name'] = obj.name;
 
                 let node: DagNode = {
-                    next: [sentinal], 
-                    name: prefix.join(".")+"."+id, 
-                    id, 
-                    inCount: 0, 
-                    typeOrder: type.content.deployOrder, 
-                    triggers:[], 
+                    next: [sentinal],
+                    name: prefix.join(".") + "." + id,
+                    id,
+                    inCount: 0,
+                    typeOrder: type.content.deployOrder,
+                    triggers: [],
                     deploymentTitle: v.deploymentTitle,
                     script: v.script,
-                    content: v.content};
+                    content: v.content
+                };
                 nodes.set(node.name, node);
 
                 if (type.content.hasTriggers && 'triggers' in obj.content) {
                     for (const trigger of (obj.content as ITriggers).triggers) {
-
+                        if (!objects[trigger.id]) continue;
                         let x = visitContent("trigger", trigger.values, Object.assign({}, v.variables), (objects[trigger.id] as IObject2<IType>).content, false, {})
-                        let t: IDeploymentTrigger = {typeId: trigger.id, script: x.script, content: x.content, title: x.deploymentTitle};
+                        if (!x) continue;
+                        let t: IDeploymentTrigger = { typeId: trigger.id, script: x.script, content: x.content, title: x.deploymentTitle };
                         node.triggers.push(t);
                     }
                 }
@@ -240,7 +246,7 @@ export class Deployment {
                         childPrefix = childPrefix.slice(0);
                         childPrefix.push(id);
                     }
-                    
+
                     for (const childId of (obj.content as IContains).contains) {
                         const next = visit(childId, childPath, childPrefix, sentinal, v.variables);
                         if (next)
@@ -259,7 +265,7 @@ export class Deployment {
             }
 
             // Visit all the things
-            if ('contains' in hostObject.content) 
+            if ('contains' in hostObject.content)
                 for (const depId of (hostObject.content as IContains).contains)
                     visitTop(depId);
 
@@ -271,14 +277,14 @@ export class Deployment {
             const seen = new Set<DagNode>();
             const toVisit: DagNode[] = [];
             nodes.forEach((node, key) => {
-                if (node && (node.id == deployId || hostFull) ) {
+                if (node && (node.id == deployId || hostFull)) {
                     toVisit.push(node);
                     seen.add(node);
                 }
             });
 
             // There is nothing to deploy here
-            if (toVisit.length == 0 && !hostFull) continue; 
+            if (toVisit.length == 0 && !hostFull) continue;
 
             // Perform topsort and construct deployment objects
             while (toVisit.length !== 0) {
@@ -333,7 +339,7 @@ export class Deployment {
                     index: 0,
                     enabled: true,
                     status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                    action: DEPLOYMENT_OBJECT_ACTION.Add, 
+                    action: DEPLOYMENT_OBJECT_ACTION.Add,
                     hostName: hostObject.name,
                     title: node.deploymentTitle,
                     name: node.name,
@@ -342,7 +348,7 @@ export class Deployment {
                     prevContent: null,
                     host: hostId,
                     triggers: node.triggers,
-                    typeName: type.name, 
+                    typeName: type.name,
                     id: node.id,
                     typeId: obj.type,
                     deploymentOrder: node.typeOrder,
@@ -364,10 +370,10 @@ export class Deployment {
                 let b = JSON.stringify(o.prevContent);
                 return a !== b;
             });
-        
+
             // Find stuff to remove
             if (hostFull) {
-                const values: { content: IDeployContent, type: number, title: string, name: string}[] = [];
+                const values: { content: IDeployContent, type: number, title: string, name: string }[] = [];
                 for (const name in oldContent)
                     values.push(oldContent[name]);
 
@@ -383,7 +389,7 @@ export class Deployment {
                         index: 0,
                         enabled: true,
                         status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                        action: DEPLOYMENT_OBJECT_ACTION.Remove, 
+                        action: DEPLOYMENT_OBJECT_ACTION.Remove,
                         hostName: hostObject.name,
                         title: v.title,
                         name: v.name,
@@ -395,7 +401,7 @@ export class Deployment {
                         typeName: v.content.typeName,
                         id: v.content.object,
                         typeId: v.type,
-                        deploymentOrder: v.content.deploymentOrder                       
+                        deploymentOrder: v.content.deploymentOrder
                     };
                     hostDeploymentObjects.push(o);
                 }
@@ -415,8 +421,8 @@ export class Deployment {
 
             for (let i = 0; i < triggers.length; ++i) {
                 let t = triggers[i];
-                if (i != 0 && t.typeId == triggers[i - 1].typeId && t.script == triggers[i-1].script && JSON.stringify(t.content) == JSON.stringify(triggers[i - 1].content)) continue;
-        
+                if (i != 0 && t.typeId == triggers[i - 1].typeId && t.script == triggers[i - 1].script && JSON.stringify(t.content) == JSON.stringify(triggers[i - 1].content)) continue;
+
                 let o: IDeploymentObject = {
                     index: 0,
                     enabled: true,
@@ -436,7 +442,7 @@ export class Deployment {
                     deploymentOrder: 0
                 };
                 this.deploymentObjects.push(o);
-            } 
+            }
         }
 
         if (errors.length != 0) {
@@ -498,12 +504,12 @@ export class Deployment {
         let badHosts = new Set<number>();
         let curHost = -1;
 
-        let hostObjects : {[type:number]: {[name:string]: {[key:string]: any}}} = {};
+        let hostObjects: { [type: number]: { [name: string]: { [key: string]: any } } } = {};
 
         for (let i = 0; i < this.deploymentObjects.length; ++i) {
             let o = this.deploymentObjects[i];
             if (!o.enabled) continue;
-            let type= types[o.typeId];
+            let type = types[o.typeId];
 
             if (badHosts.has(o.host)) {
                 this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
@@ -535,7 +541,7 @@ export class Deployment {
 
                 let curObjects = hostObjects[o.typeId] || {};
                 let nextObjects = Object.assign({}, curObjects);
-        
+
                 for (; j < this.deploymentObjects.length; ++j) {
                     let o2 = this.deploymentObjects[j];
                     if (!o2.enabled) continue;
@@ -584,7 +590,7 @@ export class Deployment {
                 }
                 i = j - 1;
                 continue;
-                
+
             }
 
 
@@ -597,7 +603,7 @@ export class Deployment {
             if (type.content.kind == "trigger") {
                 ans = await this.deploySingle(hostClient, o.script, o.nextContent)
             } else if (type.content.kind == "delta") {
-                ans = await this.deploySingle(hostClient, o.script, {old: o.prevContent, new: o.nextContent});
+                ans = await this.deploySingle(hostClient, o.script, { old: o.prevContent, new: o.nextContent });
             }
 
             let ok = ans.success && ans.code == 0;
@@ -628,7 +634,7 @@ export class Deployment {
         return this.deploymentObjects;
     }
 
-    async deployObject(id: number, redeploy:boolean) {
+    async deployObject(id: number, redeploy: boolean) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.clearLog();
         this.setMessage("");
@@ -680,7 +686,7 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    addHeader(name: string, sep: string="-") {
+    addHeader(name: string, sep: string = "-") {
         let t = 100 - 4 - name.length;
         let l = t / 2;
         let r = t - l;

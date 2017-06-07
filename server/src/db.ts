@@ -2,9 +2,9 @@ import * as sqlite from 'sqlite3'
 import { IObject2 } from '../../shared/state'
 import { Host, hostId } from '../../shared/type'
 
-import { ErrorType, SAError} from './error'
+import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
-import {defaults, userId, groupId, fileId, collectionId, ufwAllowId, packageId} from './default';
+import { defaults, userId, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
 
 
 
@@ -16,13 +16,13 @@ export class DB {
         this.db = new sqlite.Database("sysadmin.db");
         let db = this.db;
 
-        const i = (stmt: string, args: any[]=[]) => {
+        const i = (stmt: string, args: any[] = []) => {
             return new Promise<void>((cb, cbe) =>
                 db.run(stmt, args, (err) => {
                     cb();
                 }));
         };
-        const r = (stmt: string, args: any[]=[]) => {
+        const r = (stmt: string, args: any[] = []) => {
             return new Promise<void>((cb, cbe) =>
                 db.run(stmt, args, (err) => {
                     if (err)
@@ -32,7 +32,7 @@ export class DB {
                 }));
         };
 
-        const q = (stmt: string, args: any[]=[]) => {
+        const q = (stmt: string, args: any[] = []) => {
             return new Promise<any>((cb, cbe) => {
                 db.get(stmt, args,
                     (err, row) => {
@@ -56,8 +56,8 @@ export class DB {
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
 
-        for (let pair of [ ['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId] ]) {
-            await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);   
+        for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
+            await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }
 
         for (let d of defaults) {
@@ -70,9 +70,9 @@ export class DB {
         this.nextObjectId = Math.max((await q("SELECT max(`id`) as `id` FROM `objects`"))['id'], this.nextObjectId);
     }
 
-    getDeployments(host:number) {
+    getDeployments(host: number) {
         let db = this.db;
-        return new Promise<{name: string, type: number, title: string, content: string}[]>((cb, cbe) => {
+        return new Promise<{ name: string, type: number, title: string, content: string }[]>((cb, cbe) => {
             db.all("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],
                 (err, rows) => {
                     if (err)
@@ -91,7 +91,7 @@ export class DB {
             return new Promise<{}[]>((cb, cbe) => {
                 db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?)", [host, name, content, type, title],
                     (err) => {
-                        if (err) 
+                        if (err)
                             cbe(new SAError(ErrorType.Database, err));
                         else
                             cb();
@@ -101,7 +101,7 @@ export class DB {
             return new Promise<{}[]>((cb, cbe) => {
                 db.all("DELETE FROM `deployments` WHERE `host`=? AND `name`=?", [host, name],
                     (err) => {
-                       if (err) 
+                        if (err)
                             cbe(new SAError(ErrorType.Database, err));
                         else
                             cb();
@@ -113,9 +113,9 @@ export class DB {
     getUserContent(name: string) {
         let db = this.db;
         return new Promise<string>((cb, cbe) => {
-            db.get("SELECT `content` FROM `objects` WHERE `type`='user' AND `name`=? AND `newest`=1", [name],
+            db.get("SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1", [userId, name],
                 (err, row) => {
-                    if (err) 
+                    if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (row)
                         cb(row.content)
@@ -176,7 +176,7 @@ export class DB {
         return new Promise<{ id: number, type: number, name: string, catagory: string }[]>((cb, cbe) => {
             db.all("SELECT `id`, `type`, `name`, `catagory` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
-                    if (err) 
+                    if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (rows === undefined)
                         cb([]);
@@ -188,10 +188,10 @@ export class DB {
 
     getAllObjectsFull() {
         let db = this.db;
-        return new Promise<{ id: number, type: number, name: string, content: string, catagory: string, version:number }[]>((cb, cbe) => {
+        return new Promise<{ id: number, type: number, name: string, content: string, catagory: string, version: number }[]>((cb, cbe) => {
             db.all("SELECT `id`, `type`, `name`, `content`, `catagory`, `version` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
-                    if (err) 
+                    if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (rows === undefined)
                         cb([]);
@@ -206,7 +206,7 @@ export class DB {
         return new Promise<{ version: number, type: number, name: string, content: string, catagory: string }[]>((cb, cbe) => {
             db.all("SELECT `version`, `type`, `name`, `content`, `catagory` FROM `objects` WHERE `id`=?", [id],
                 (err, rows) => {
-                    if (err) 
+                    if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (rows === undefined)
                         cb([]);
@@ -221,9 +221,9 @@ export class DB {
         return new Promise<{ version: number, type: number, name: string, content: string, catagory: string }>((cb, cbe) => {
             db.get("SELECT `version`, `type`, `name`, `content`, `catagory` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
                 (err, row) => {
-                    if (err) 
+                    if (err)
                         cbe(new SAError(ErrorType.Database, err));
-                    else 
+                    else
                         cb(row)
                 })
         });
@@ -231,7 +231,7 @@ export class DB {
 
     changeObject(id: number, object: IObject2<any>) {
         let db = this.db;
-        let ins = ({ id, version }: IV) => (cb: (res: IV) => void, cbe: (error:SAError) => void) => {
+        let ins = ({ id, version }: IV) => (cb: (res: IV) => void, cbe: (error: SAError) => void) => {
             db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `comment`, `time`, `newest`, `catagory`) VALUES (?, ?, ?, ?, ?, '', datetime('now'), 1, ?)", [id, version, object.type, object.name, JSON.stringify(object.content), object.catagory], (err) => {
                 if (err)
                     cbe(new SAError(ErrorType.Database, err));
@@ -258,7 +258,7 @@ export class DB {
                             else if (object)
                                 ins({ id, version })(cb, cbe);
                             else
-                                cb({id, version});
+                                cb({ id, version });
                         });
                     }
                 });

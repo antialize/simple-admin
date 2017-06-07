@@ -218,7 +218,7 @@ function DeploymentImpl(props:StateProps & DispatchProps) {
             <h1 className="deployment_header">
                 {spin?<CircularProgress />:null} Deployment{status}
             </h1>
-	        <div className="deployment_message">{props.d.message}</div>
+	        <div className="deployment_message">{props.d.message?<ul>{props.d.message.split("\n").map(v=><li>{v}</li>)}</ul>:null}</div>
             {content}
             <DeployLog />
             <div className="deployment_buttons">

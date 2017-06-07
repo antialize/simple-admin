@@ -123,7 +123,7 @@ function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void}
         else
             temp = <Toggle key="template" toggled={false} disabled={true}/>;
         let var_;
-        if (r.type == TypePropType.text || r.type == TypePropType.choice || r.type == TypePropType.bool)
+        if (r.type == TypePropType.text || r.type == TypePropType.choice || r.type == TypePropType.bool || r.type == TypePropType.document)
             var_ = <TextField key="var" value={r.variable} onChange={(a, value) => change({variable: value})}/>;
         else
             var_ = <TextField key="var" value="" disabled={true} />;
