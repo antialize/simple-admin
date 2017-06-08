@@ -176,13 +176,14 @@ export class Deployment {
 
             // Visit an object contained directly in the host
             let visitTop = (id: number) => {
+                if (id == null || !objects[id]) return;
                 if (centinals.has(id)) return centinals.get(id);
                 if (topVisiting.has(id)) {
                     errors.push("Cyclip dependency");
                     return null;
                 }
                 topVisiting.add(id);
-                let centinal: DagNode = { next: [], name: id + ".cent", id: null, inCount: 0, typeOrder: 0, triggers: [], deploymentTitle: "", script: "", content: null };
+                let centinal: DagNode = { next: [], name: id + ".cent", id: null, inCount: 0, typeOrder: 0, triggers: [], deploymentTitle: id + ".cent", script: "", content: null };
                 nodes.set(centinal.name, centinal);
                 visit(id, [], [], centinal, hostVariables);
                 topVisiting.delete(id);
@@ -305,10 +306,10 @@ export class Deployment {
 
             seen.forEach((node) => {
                 const obj = objects[node.id];
-                if (obj == undefined) return;
-                const type = objects[obj.type] as IObject2<IType>;
-                if (type == undefined) return;
-                node.typeOrder = type.content.deployOrder;
+                //if (obj == undefined) return;
+                const type = obj && objects[obj.type] as IObject2<IType>;
+                //if (type == undefined) return;
+                node.typeOrder = type?type.content.deployOrder: 0;
                 if (node.inCount == 0) pq.enq(node);
             });
 
@@ -323,6 +324,7 @@ export class Deployment {
 
             while (!pq.isEmpty()) {
                 const node = pq.deq();
+                seen.delete(node);
                 for (const next of node.next) {
                     if (!next) continue;
                     next.inCount--;
@@ -362,6 +364,14 @@ export class Deployment {
                     delete oldContent[node.name];
                 }
                 hostDeploymentObjects.push(o);
+            }
+
+            if (seen.size != 0) {
+                errors.push("There is a cycle");
+                seen.forEach(n => {
+                    console.log(n.id, n.deploymentTitle, n.inCount, n.next.map(v => v.deploymentTitle).join(","));
+                    
+                });
             }
 
             // Filter away stuff that has not changed
