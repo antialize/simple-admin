@@ -154,44 +154,57 @@ export class Deployment {
 
         // Find deployment objects on a host by host basis
         for (const hostId of hosts) {
+            enum NodeType {
+                normal, sentinal
+            };
 
-            interface DagNode {
-                name: string | null;
-                id: number;
+            interface BaseDagNode {
                 next: DagNode[];
+                prev: DagNode[];
                 inCount: number;
                 typeOrder: number;
+                id: number;
+            }
+
+            interface SentinalDagNode extends BaseDagNode {
+                type: NodeType.sentinal
+            }
+
+            interface NormalDagNode extends BaseDagNode {
+                type: NodeType.normal;
+                name: string | null;
                 triggers: IDeploymentTrigger[];
                 deploymentTitle: string;
                 script: string;
                 content: { [key: string]: any }
+                
             }
+            type DagNode = SentinalDagNode | NormalDagNode;
 
             const hostObject = objects[hostId];
             const hostVariables = visitObject(hostId, rootVariable).variables;
-            const nodes = new Map<string, DagNode>();
-            const centinals = new Map<number, DagNode>();
+            const nodes = new Map<string, {node: NormalDagNode, sentinal: SentinalDagNode}>();
+            const tops = new Map<number, {node: NormalDagNode, sentinal: SentinalDagNode}>();
             const topVisiting = new Set<number>();
             let hostDeploymentObjects: IDeploymentObject[] = [];
 
             // Visit an object contained directly in the host
             let visitTop = (id: number) => {
                 if (id == null || !objects[id]) return;
-                if (centinals.has(id)) return centinals.get(id);
+                if (tops.has(id)) return tops.get(id);
                 if (topVisiting.has(id)) {
                     errors.push("Cyclip dependency");
                     return null;
                 }
                 topVisiting.add(id);
-                let centinal: DagNode = { next: [], name: id + ".cent", id: null, inCount: 0, typeOrder: 0, triggers: [], deploymentTitle: id + ".cent", script: "", content: null };
-                nodes.set(centinal.name, centinal);
-                visit(id, [], [], centinal, hostVariables);
+                const c = visit(id, [], [], hostVariables);
+                tops.set(id, c)
                 topVisiting.delete(id);
-                return centinal;
+                return c;
             }
 
             // Visit any object
-            let visit = (id: number, path: number[], prefix: number[], sentinal: DagNode, variables: { [key: string]: string }) => {
+            let visit = (id: number, path: number[], prefix: number[], /*sentinal: DagNode,*/ variables: { [key: string]: string }) => {
                 if (id == null) return;
                 const name = prefix.join(".") + "." + id;
                 if (nodes.has(name)) return nodes.get(name);
@@ -215,8 +228,19 @@ export class Deployment {
                 }
                 v.content['name'] = obj.name;
 
-                let node: DagNode = {
-                    next: [sentinal],
+                const sentinal: SentinalDagNode = {
+                    type: NodeType.sentinal,
+                    next: [],
+                    prev: [],
+                    id,
+                    inCount: 0,
+                    typeOrder: 0
+                };
+
+                const node: NormalDagNode = {
+                    type: NodeType.normal,
+                    next: [],
+                    prev: [],
                     name: prefix.join(".") + "." + id,
                     id,
                     inCount: 0,
@@ -226,7 +250,9 @@ export class Deployment {
                     script: v.script,
                     content: v.content
                 };
-                nodes.set(node.name, node);
+                sentinal.prev.push(node);
+                node.next.push(sentinal);
+                nodes.set(node.name, {node, sentinal});
 
                 if (type.content.hasTriggers && 'triggers' in obj.content) {
                     for (const trigger of (obj.content as ITriggers).triggers) {
@@ -248,20 +274,26 @@ export class Deployment {
                     }
 
                     for (const childId of (obj.content as IContains).contains) {
-                        const next = visit(childId, childPath, childPrefix, sentinal, v.variables);
-                        if (next)
-                            node.next.push(next)
+                        const c = visit(childId, childPath, childPrefix, v.variables);
+                        if (c) {
+                            c.node.prev.push(node);
+                            node.next.push(c.node);
+                            c.sentinal.next.push(sentinal);
+                            sentinal.prev.push(c.sentinal);
+                        }
                     }
                 }
 
                 if (type.content.hasDepends && 'depends' in obj.content) {
                     for (const depId of (obj.content as IDepends).depends) {
-                        const cent = visitTop(depId);
-                        if (cent)
-                            cent.next.push(node);
+                        const c = visitTop(depId);
+                        if (c) {
+                            c.sentinal.next.push(node);
+                            node.prev.push(c.sentinal);
+                        }
                     }
                 }
-                return node;
+                return {node, sentinal};
             }
 
             // Visit all the things
@@ -276,10 +308,11 @@ export class Deployment {
             // Find all nodes reachable from deployId, and prep them for top sort
             const seen = new Set<DagNode>();
             const toVisit: DagNode[] = [];
-            nodes.forEach((node, key) => {
-                if (node && (node.id == deployId || hostFull)) {
-                    toVisit.push(node);
-                    seen.add(node);
+            nodes.forEach((c, key) => {
+                if (!c) return;
+                if (hostFull || c.sentinal.id == deployId) {
+                    toVisit.push(c.sentinal);
+                    seen.add(c.sentinal);
                 }
             });
 
@@ -289,12 +322,12 @@ export class Deployment {
             // Perform topsort and construct deployment objects
             while (toVisit.length !== 0) {
                 const node = toVisit.pop();
-                for (const next of node.next) {
-                    if (!next) continue;
-                    next.inCount++;
-                    if (seen.has(next)) continue;
-                    toVisit.push(next);
-                    seen.add(next);
+                for (const prev of node.prev) {
+                    if (!prev) continue;
+                    node.inCount++;
+                    if (seen.has(prev)) continue;
+                    toVisit.push(prev);
+                    seen.add(prev);
                 }
             }
 
@@ -308,7 +341,7 @@ export class Deployment {
                 //if (obj == undefined) return;
                 const type = obj && objects[obj.type] as IObject2<IType>;
                 //if (type == undefined) return;
-                node.typeOrder = type?type.content.deployOrder: 0;
+               // node.typeOrder = type?type.content.deployOrder: 0;
                 if (node.inCount == 0) pq.enq(node);
             });
 
@@ -330,7 +363,7 @@ export class Deployment {
                     if (next.inCount == 0)
                         pq.enq(next);
                 }
-                if (node.id == null) continue;
+                if (node.id == null || node.type == NodeType.sentinal) continue;
                 const obj = objects[node.id];
                 if (!obj) continue;
                 const type = objects[obj.type] as IObject2<IType>;
@@ -369,10 +402,10 @@ export class Deployment {
 
             if (seen.size != 0) {
                 errors.push("There is a cycle");
-                seen.forEach(n => {
-                    console.log(n.id, n.deploymentTitle, n.inCount, n.next.map(v => v.deploymentTitle).join(","));
-                    
-                });
+                //seen.forEach(n => {
+                //    if (n.type == NodeType.sentinal) return;
+                //    console.log(n.id, n.deploymentTitle, n.inCount, n.next.map(v => v.deploymentTitle).join(","));
+                //});
             }
 
             // Filter away stuff that has not changed
