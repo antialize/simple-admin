@@ -6,14 +6,12 @@ import { IType, fillDefaults, typeId } from '../../shared/type'
 
 export interface IObjectState {
     current: IObject2<any> | null;
-    versions: { [version: number]: IObject2<any>  };
+    versions: { [version: number]: IObject2<any> };
     touched: boolean;
 }
 
 export interface IDeploymentState {
     status: DEPLOYMENT_STATUS;
-    log: string[];
-    logClearCount: number;
     objects: IDeploymentObject[];
     message: string;
 }
@@ -271,10 +269,10 @@ function changeCurrentObject(state: IMainState) {
     if (id in state.objects)
         state.objects[id] = Object.assign({}, state.objects[id], { current: current });
     else
-        state.objects[id] = {touched:false, current: current, versions: {} }
+        state.objects[id] = { touched: false, current: current, versions: {} }
 }
 
-export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, log: [], objects: [], message: "", logClearCount: 0 }, action: IAction) {
+export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, objects: [], message: "" }, action: IAction) {
     switch (action.type) {
         case ACTION.SetDeploymentStatus:
             return Object.assign({}, state, { status: action.status });
@@ -282,10 +280,10 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
             return Object.assign({}, state, { message: action.message });
         case ACTION.SetDeploymentObjects:
             return Object.assign({}, state, { objects: action.objects });
-        case ACTION.ClearDeploymentLog:
-            return Object.assign({}, state, { log: [], logClearCount: state.logClearCount + 1 });
-        case ACTION.AddDeploymentLog:
-            return Object.assign({}, state, { log: state.log.concat([action.bytes]) });
+        /* case ACTION.ClearDeploymentLog:
+             return Object.assign({}, state, { log: [], logClearCount: state.logClearCount + 1 });
+         case ACTION.AddDeploymentLog:
+             return Object.assign({}, state, { log: state.log.concat([action.bytes]) });*/
         case ACTION.SetDeploymentObjectStatus:
             let x = state.objects.slice(0);
             x[action.index] = Object.assign({}, x[action.index], { status: action.status });
@@ -295,7 +293,7 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
             y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
             return Object.assign({}, state, { objects: y });
         case ACTION.SetInitialState:
-            return { status: action.deploymentStatus, log: action.deploymentLog ? action.deploymentLog : [], objects: action.deploymentObjects, message: action.deploymentMessage, logClearCount: 0 };
+            return { status: action.deploymentStatus, /*log: action.deploymentLog ? action.deploymentLog : [],*/ objects: action.deploymentObjects, message: action.deploymentMessage, logClearCount: 0 };
     }
     return state;
 }

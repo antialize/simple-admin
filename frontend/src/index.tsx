@@ -20,6 +20,7 @@ import {Messages} from './messages';
 import {remoteHost} from './config';
 import {Deployment} from './deployment';
 import {DeploymentDetails} from './deploymentDetails';
+import {add, clear} from './deployment/log';
 
 injectTapEventPlugin();
 
@@ -142,10 +143,23 @@ socket.onmessage = (data=>{
             if (t.handle(d)) 
                 return;
     }
+
+    if (d.type == ACTION.ClearDeploymentLog) {
+        clear();
+        return;
+    }
+
+    if (d.type == ACTION.AddDeploymentLog) {
+        add(d.bytes);
+        return;
+    }
+
     store.dispatch(d);
     switch (d.type) {
     case ACTION.SetInitialState:
         console.log("Set initial state");
+        for (const b of d.deploymentLog)
+            add(b);
         store.dispatch({
             type: ACTION.SetPage,
             page: page.get()})
