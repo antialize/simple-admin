@@ -68,6 +68,7 @@ export interface IDeploymentObject {
     action: DEPLOYMENT_OBJECT_ACTION;
 
     script: string;
+    prevScript: string;
     nextContent: {[key:string]: any};
     prevContent: {[key:string]: any};
     id: number;

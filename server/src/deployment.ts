@@ -213,7 +213,6 @@ export class Deployment {
                     errors.push("Error visiting " + name + " " + obj.name + " " + type + " " + id + " "+v);
                     return null;
                 }
-                //v.script = type.content.script && Mustache.render(type.content.script, v.variables);
                 v.content['name'] = obj.name;
 
                 let node: DagNode = {
@@ -346,6 +345,7 @@ export class Deployment {
                     title: node.deploymentTitle,
                     name: node.name,
                     script: node.script,
+                    prevScript: "",
                     nextContent: node.content,
                     prevContent: null,
                     host: hostId,
@@ -359,6 +359,7 @@ export class Deployment {
                 if (node.name in oldContent) {
                     if (!redeploy) {
                         o.prevContent = oldContent[node.name].content.content;
+                        o.prevScript = oldContent[node.name].content.script;
                         o.action = DEPLOYMENT_OBJECT_ACTION.Modify;
                     }
                     delete oldContent[node.name];
@@ -378,7 +379,7 @@ export class Deployment {
             hostDeploymentObjects = hostDeploymentObjects.filter(o => {
                 let a = JSON.stringify(o.nextContent);
                 let b = JSON.stringify(o.prevContent);
-                return a !== b;
+                return a !== b || o.script != o.prevScript;
             });
 
             // Find stuff to remove
@@ -404,6 +405,7 @@ export class Deployment {
                         title: v.title,
                         name: v.name,
                         script: v.content.script,
+                        prevScript: "",
                         nextContent: null,
                         prevContent: v.content.content,
                         host: hostId,
@@ -442,6 +444,7 @@ export class Deployment {
                     title: t.title,
                     name: "",
                     script: t.script,
+                    prevScript: "",
                     nextContent: t.content,
                     prevContent: null,
                     host: hostId,

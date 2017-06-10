@@ -63,7 +63,6 @@ export class HostClient extends JobOwner {
         clearTimeout(this.pingTimer);
         const time = process.hrtime();
         const pingEnd = time[0] + time[1] * 1e-9;
-        // console.log("Ping ", pingEnd - this.pingStart);
         this.pingTimer = setTimeout(() => { this.sendPing() }, 9000);
     }
 
@@ -87,7 +86,6 @@ export class HostClient extends JobOwner {
 
     async validateAuth(obj: message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
-        console.log(obj.password,  res && res.content && (res.content as any).password);
         if (await crypt.validate(obj.password, res && res.content && (res.content as any).password))
             return res.id;
         return null;
