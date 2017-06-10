@@ -35,6 +35,9 @@ export let defaults: IDefault[] =
                 plural: "Types",
                 kind: "type",
                 hasCatagory: true,
+                hasDepends: true,
+                hasContains: true,
+                hasTriggers: true,
                 content: [
                     {type: TypePropType.text, title: "Name variable", name:"nameVariable", description:"nameVariable", default: "", template:false, variable:""} as ITextTypeProp,
                     {type: TypePropType.text, title: "Plural", name:"plural", description:"Plural of name", default: "", template:false, variable:""} as ITextTypeProp,

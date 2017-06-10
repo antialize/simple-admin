@@ -254,17 +254,24 @@ export class Deployment {
                 node.next.push(sentinal);
                 nodes.set(node.name, {node, sentinal});
 
-                if (type.content.hasTriggers && 'triggers' in obj.content) {
-                    for (const trigger of (obj.content as ITriggers).triggers) {
+                const handleTriggers = (triggers: ITrigger[]) => {
+                    for (const trigger of triggers) {
                         if (!objects[trigger.id]) continue;
                         let x = visitContent("trigger", trigger.values, Object.assign({}, v.variables), (objects[trigger.id] as IObject2<IType>).content, false, {})
                         if (!x) continue;
                         let t: IDeploymentTrigger = { typeId: trigger.id, script: x.script, content: x.content, title: x.deploymentTitle };
                         node.triggers.push(t);
                     }
-                }
+                };
 
-                if (type.content.hasContains && 'contains' in obj.content) {
+                if (type.content.hasTriggers && 'triggers' in obj.content) 
+                    handleTriggers((obj.content as ITriggers).triggers);
+                if ('triggers' in type.content) 
+                    handleTriggers((type.content as ITriggers).triggers);
+
+                
+
+                {
                     const childPath = path.slice(0);
                     childPath.push(id);
                     let childPrefix = prefix;
@@ -273,26 +280,43 @@ export class Deployment {
                         childPrefix.push(id);
                     }
 
-                    for (const childId of (obj.content as IContains).contains) {
-                        const c = visit(childId, childPath, childPrefix, v.variables);
-                        if (c) {
-                            c.node.prev.push(node);
-                            node.next.push(c.node);
-                            c.sentinal.next.push(sentinal);
-                            sentinal.prev.push(c.sentinal);
+                    const handleContains = (contains: number[]) => {
+                        for (const childId of contains) {
+                            const c = visit(childId, childPath, childPrefix, v.variables);
+                            if (c) {
+                                c.node.prev.push(node);
+                                node.next.push(c.node);
+                                c.sentinal.next.push(sentinal);
+                                sentinal.prev.push(c.sentinal);
+                            }
                         }
                     }
+
+                    if (type.content.hasContains && 'contains' in obj.content)
+                        handleContains((obj.content as IContains).contains);
+
+                    if ('contains' in type.content)
+                        handleContains((type.content as IContains).contains);                    
                 }
 
-                if (type.content.hasDepends && 'depends' in obj.content) {
-                    for (const depId of (obj.content as IDepends).depends) {
+                const handleDepends = (deps:number[]) => {
+                    for (const depId of deps) {
                         const c = visitTop(depId);
                         if (c) {
                             c.sentinal.next.push(node);
                             node.prev.push(c.sentinal);
                         }
                     }
+                };
+
+                if (type.content.hasDepends && 'depends' in obj.content) 
+                    handleDepends((obj.content as IDepends).depends);
+
+                if ('depends' in type.content) {
+                    console.log("TYPE DEPENDS",(type.content as IDepends).depends );
+                    handleDepends((type.content as IDepends).depends);
                 }
+
                 return {node, sentinal};
             }
 
