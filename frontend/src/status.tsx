@@ -158,8 +158,8 @@ export class Status extends React.Component<Props, {}> {
 	let swap = (s.meminfo.swap_total == 0)
 		 ? <span>None</span>
 		 : (<span>
-		     <Size size={s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
-		     <LinearProgress mode="determinate" value={s.meminfo.swap_free} max={s.meminfo.swap_total} />
+		     <Size size={s.meminfo.swap_total-s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
+		     <LinearProgress mode="determinate" value={s.meminfo.swap_total-s.meminfo.swap_free} max={s.meminfo.swap_total} />
 		 </span>);
 	
         return (
@@ -172,8 +172,7 @@ export class Status extends React.Component<Props, {}> {
                         <InformationListRow name="Uptime"><Time seconds={s.uptime.total} /></InformationListRow>
                         <InformationListRow name="Loadavg">{s.loadavg.minute}</InformationListRow>
                         <InformationListRow name="Memory">
-                            <Size size={s.meminfo.free} /><span> of </span><Size size={s.meminfo.total} /><br />
-                            <LinearProgress mode="determinate" value={s.meminfo.free} max={s.meminfo.total} />
+                            <Size size={s.meminfo.total - s.meminfo.free} /><span> of </span><Size size={s.meminfo.total} /><br />
                         </InformationListRow>
                         <InformationListRow name="Swap">{swap}</InformationListRow>
                         {lst}
