@@ -280,17 +280,20 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
             return Object.assign({}, state, { message: action.message });
         case ACTION.SetDeploymentObjects:
             return Object.assign({}, state, { objects: action.objects });
-        /* case ACTION.ClearDeploymentLog:
-             return Object.assign({}, state, { log: [], logClearCount: state.logClearCount + 1 });
-         case ACTION.AddDeploymentLog:
-             return Object.assign({}, state, { log: state.log.concat([action.bytes]) });*/
         case ACTION.SetDeploymentObjectStatus:
             let x = state.objects.slice(0);
             x[action.index] = Object.assign({}, x[action.index], { status: action.status });
             return Object.assign({}, state, { objects: x });
         case ACTION.ToggleDeploymentObject:
             let y = state.objects.slice(0);
-            y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
+            if (action.index === null) {
+                for (let o of y) {
+                    if (o.enabled == action.enabled) continue;
+                    y[o.index] = Object.assign({}, o, { enabled: action.enabled })
+                }
+            } else {
+                y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
+            }
             return Object.assign({}, state, { objects: y });
         case ACTION.SetInitialState:
             return { status: action.deploymentStatus, /*log: action.deploymentLog ? action.deploymentLog : [],*/ objects: action.deploymentObjects, message: action.deploymentMessage, logClearCount: 0 };

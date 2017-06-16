@@ -734,10 +734,15 @@ export class Deployment {
         this.setMessage("");
     }
 
-    toggleObject(index: number, enabled: boolean) {
+    toggleObject(index: number | null, enabled: boolean) {
         if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
 
-        this.deploymentObjects[index].enabled = enabled;
+        if (index === null) {
+            for (const o of this.deploymentObjects)
+                o.enabled = enabled
+        } else {
+            this.deploymentObjects[index].enabled = enabled;
+        }
 
         let a: IToggleDeploymentObject = {
             type: ACTION.ToggleDeploymentObject,
