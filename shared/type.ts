@@ -20,6 +20,7 @@ export interface ITextTypeProp {
     template: boolean;
     variable: string;
     deployTitle?: boolean;
+    lines?: number;
 }
 
 export interface IPasswordTypeProp {

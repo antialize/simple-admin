@@ -136,7 +136,18 @@ function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void}
                 <TextField key="lang" hintText="Lang" value={r.lang || ""} onChange={(a, value) => change({lang: value})}/>
                 </span>;
         else if (r.type == TypePropType.text)
-            extra = <Toggle key="deploytitle" toggled={r.deployTitle} onToggle={(a,value)=>change({deployTitle: value})} title="Deploy title" name="Deploy title"/>;
+            extra = (
+                <span style={{verticalAlign:"middle"}}>
+                    <SelectField hintText="Size" value={r.lines || 0} onChange={(a,b,value) => change({lines: value})} style={{width:"120px", display:'inline-block', verticalAlign:"middle"}}>
+                        <MenuItem key={0} value={0} primaryText="Normal" />
+                        <MenuItem key={1} value={1} primaryText="1 Line" />
+                        <MenuItem key={2} value={2} primaryText="2 Lines" />
+                        <MenuItem key={3} value={3} primaryText="3 Lines" />
+                        <MenuItem key={4} value={4} primaryText="4 Lines" />
+                        <MenuItem key={5} value={5} primaryText="5 Lines" />
+                    </SelectField>
+                    <Toggle key="deploytitle" toggled={r.deployTitle} onToggle={(a,value)=>change({deployTitle: value})} label="Deploy title" labelPosition="right" style={{width:"120px", display:'inline-block', verticalAlign:"middle"}} />
+                </span>)
 
         rows.push(
             <tr key={i}>
@@ -202,7 +213,7 @@ function TypeImpl(props: StateProps & DispactProps) {
             rows.push(<InformationListRow key={ct.name} name={ct.title}><Toggle alt={ct.description} toggled={v==undefined?ct.default:v} onToggle={(e:any, value:boolean) => props.setProp(ct.name,value)}/></InformationListRow>);
             break;
         case TypePropType.text:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?ct.default:v} onChange={(e: any, value: string) => props.setProp(ct.name,  value)}  hintText={ct.description}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?ct.default:v} fullWidth={ct.lines && ct.lines > 0} multiLine={ct.lines && ct.lines > 1} rows={ct.lines || 1} onChange={(e: any, value: string) => props.setProp(ct.name,  value)}  hintText={ct.description}/></InformationListRow>);
             break;
         case TypePropType.number:
             rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?""+ct.default:""+v} onChange={(e: any, value: string) => props.setProp(ct.name,  +value)}  hintText={ct.description}/></InformationListRow>);
