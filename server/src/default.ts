@@ -1,5 +1,5 @@
 import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
-    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId,
+    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, IMonitorContentTypeProp,
     rootInstanceId} from "../../shared/type"
 
 export const userId = 4;
@@ -9,6 +9,7 @@ export const collectionId = 7;
 export const complexCollectionId = 8;
 export const ufwAllowId = 9;
 export const packageId = 10;
+export const monitorId = 11;
 
 export const reloadServiceTriggerId = 50;
 export const restartServiceTriggerId = 51;
@@ -41,7 +42,7 @@ export let defaults: IDefault[] =
                 content: [
                     {type: TypePropType.text, title: "Name variable", name:"nameVariable", description:"nameVariable", default: "", template:false, variable:""} as ITextTypeProp,
                     {type: TypePropType.text, title: "Plural", name:"plural", description:"Plural of name", default: "", template:false, variable:""} as ITextTypeProp,
-                    {type: TypePropType.choice, title: "Kind", name:"kind", description: "", default:"delta", choices:["delta", "trigger", "host", "accumulate", "catagory", "root", "type"]} as IChoiceTypeProp,
+                    {type: TypePropType.choice, title: "Kind", name:"kind", description: "", default:"delta", choices:["delta", "trigger", "host", "accumulate", "collection", "root", "type","monitor"]} as IChoiceTypeProp,
                     {type: TypePropType.number, title: "Deploy order", name:"deployOrder", description:"", default: 0} as INumberTypeProp,
                     {type: TypePropType.bool, title: "Has catagory", name:"hasCatagory", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
                     {type: TypePropType.bool, title: "Has variables", name:"hasVariables", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
@@ -444,6 +445,23 @@ export let defaults: IDefault[] =
                     "run(['dpkg-deb', '--build', d, deb])\n" +
                     "run(['apt', 'install', '-y', deb])\n" +
                     "run(['apt', 'autoremove', '-y'])\n"
+            }
+        },
+
+        ///////////////////////////////////////////////////// Monitor type ///////////////////////////////////////////////////////////
+        {
+            type: typeId,
+            id: monitorId,
+            name: "Monitor",
+            catagory: "Buildin",
+            content: {
+                deployOrder: 100,
+                plural: "Monitors",
+                kind: "monitor",
+                content: [
+                    {type: TypePropType.monitorContent, name:"content"} as IMonitorContentTypeProp,  
+                    {type: TypePropType.document, title: "Script", name:"script", description:"", lang: "Python", langName: "", template:true} as IDocumentTypeProp
+                ],
             }
         },
 

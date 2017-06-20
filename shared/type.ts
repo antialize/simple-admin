@@ -1,5 +1,5 @@
 export enum TypePropType {
-    none, bool, text, password, document, choice, typeContent, number
+    none, bool, text, password, document, choice, typeContent, number, monitorContent
 }
 
 export interface IBoolTypeProp {
@@ -64,11 +64,16 @@ export interface ITypeContentTypeProp {
     name: string;
 }
 
+export interface IMonitorContentTypeProp {
+    type: TypePropType.monitorContent;
+    name: string;
+}
+
 export interface INoneTypeProp {
     type: TypePropType.none;
 }
 
-export type ITypeProp = IBoolTypeProp | ITextTypeProp | INumberTypeProp | IPasswordTypeProp | IDocumentTypeProp | IChoiceTypeProp | ITypeContentTypeProp | INoneTypeProp;
+export type ITypeProp = IBoolTypeProp | ITextTypeProp | INumberTypeProp | IPasswordTypeProp | IDocumentTypeProp | IChoiceTypeProp | ITypeContentTypeProp | INoneTypeProp | IMonitorContentTypeProp;
 
 export type KindType = "host" | "root" | "collection" | "delta" | "sum" | "type" | "trigger"
 
