@@ -27,6 +27,8 @@ interface StateProps {
     touched: boolean;
     typeName: string;
     typeId: number;
+    version: number;
+    versions: number;
 }
 
 interface DispactProps {
@@ -37,13 +39,21 @@ interface DispactProps {
 }
 
 function mapStateToProps(s: IMainState, p: IProps): StateProps {
+    let versions = 1;
+    if (p.id in s.objects) {
+        for (let version in s.objects[p.id].versions)
+            versions = Math.max(versions, (+version)+1);
+    }
+   
     return {
         typeName: s.types[p.type].name,
         typeId: p.type,
         id: p.id,
         hasCurrent: p.id in s.objects && s.objects[p.id].current != null,
         canDeploy: s.deployment.status == DEPLOYMENT_STATUS.Done || s.deployment.status == DEPLOYMENT_STATUS.InvilidTree,
-        touched: p.id in s.objects &&  s.objects[p.id].touched
+        touched: p.id in s.objects &&  s.objects[p.id].touched,
+        version: p.version,
+        versions: versions
     };
 }
 
@@ -96,6 +106,7 @@ function ObjectImpl(p: DispactProps & StateProps) {
         <div>
             <Box title={p.typeName} expanded={true} collapsable={true}>
                 <div><Type id={p.id} typeId={p.typeId}/></div>
+                <div>{p.versions}</div>
                 <div>
                     <RaisedButton label="Save" primary={true} style={{ margin: 10 }} onClick={p.save} disabled={!p.touched}/>
                     <RaisedButton label="Deploy" primary={true} style={{margin:10}} onClick={()=>p.deploy(false)} disabled={!p.canDeploy}/>
