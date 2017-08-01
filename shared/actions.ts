@@ -5,7 +5,7 @@ import { IType } from './type'
 export enum ACTION {
     UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
     SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
-    AddMessage, SetMessageDismissed, SetObjectName, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
+    AddMessage, SetMessageDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
     StopDeployment, StartDeployment, CancelDeployment,
@@ -123,6 +123,12 @@ export interface ISetObjectName {
     name: string;
 }
 
+export interface ISetObjectComment {
+    type: ACTION.SetObjectComment;
+    id: number;
+    comment: string;
+}
+
 export interface ISetObjectCatagory {
     type: ACTION.SetObjectCatagory;
     id: number;
@@ -220,8 +226,8 @@ export interface IAlert {
 
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
-    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName
-    | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
+    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName 
+    | ISetObjectComment | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
     | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory;

@@ -21,6 +21,7 @@ interface IDefault {
     name: string;
     catagory: string;
     content: object;
+    comment: string;
 }
 
 export let defaults: IDefault[] = 
@@ -31,6 +32,7 @@ export let defaults: IDefault[] =
             id: typeId,
             name: "Type",
             catagory: "Buildin",
+            comment: "Type of types (buildin)",
             content: {
                 deployOrder: 0,
                 plural: "Types",
@@ -63,6 +65,7 @@ export let defaults: IDefault[] =
             id: hostId,
             name: "Host",
             catagory: "Buildin",
+            comment: "The type of a host (buildin)",
             content: {
                 plural: "Hosts",
                 kind: "host",
@@ -84,6 +87,7 @@ export let defaults: IDefault[] =
             id: rootId,
             name: "Root",
             catagory: "Buildin",
+            comment: "The type of the singular root object (buildin)",
             content: {
                 plural: "Roots",
                 kind: "root",
@@ -100,6 +104,7 @@ export let defaults: IDefault[] =
             id: collectionId,
             name: "Collection",
             catagory: "Buildin",
+            comment: "Generic collection type, does not split elements",
             content: {
                 deployOrder: 10,
                 plural: "Collections",
@@ -117,6 +122,7 @@ export let defaults: IDefault[] =
             id: complexCollectionId,
             name: "Complex collection",
             catagory: "Buildin",
+            comment: "Complex collection type, has variables and such, causes element splits",
             content: {
                 deployOrder: 10,
                 plural: "Complex collections",
@@ -135,6 +141,7 @@ export let defaults: IDefault[] =
             id: fileId,
             name: "File",
             catagory: "Buildin",
+            comment: "File type",
             content: {
                 deployOrder: 40,
                 plural: "Files",
@@ -177,6 +184,7 @@ export let defaults: IDefault[] =
             id: userId,
             name: "User",
             catagory: "Buildin",
+            comment: "The type of a user\nDo not delete the password field, as that is also used when logging in to simple admin",
             content: {
                 deployOrder: 30,
                 plural: "Users",
@@ -277,6 +285,7 @@ export let defaults: IDefault[] =
             id: groupId,
             name: "Group",
             catagory: "Buildin",
+            comment: "The type of a unix group",
             content: {
                 deployOrder: 20,
                 plural: "Groups",
@@ -322,6 +331,7 @@ export let defaults: IDefault[] =
             id: ufwAllowId,
             name: "UFW Allow",
             catagory: "Buildin",
+            comment: "Type to poke holes throu a ufw firewall",
             content: {
                 deployOrder: 60,
                 plural: "UFW Allows",
@@ -348,6 +358,7 @@ export let defaults: IDefault[] =
             id: reloadServiceTriggerId,
             name: "Reload service",
             catagory: "Buildin",
+            comment: "Reloads a systemd service",
             content: {
                 deployOrder: 0,
                 plural: "",
@@ -368,6 +379,7 @@ export let defaults: IDefault[] =
             id: restartServiceTriggerId,
             name: "Restart service",
             catagory: "Buildin",
+            comment: "Restarts a systemd service",
             content: {
                 deployOrder: 0,
                 plural: "",
@@ -387,6 +399,7 @@ export let defaults: IDefault[] =
             id: runTriggerId,
             name: "Run",
             catagory: "Buildin",
+            comment: "Run some shell code",
             content: {
                 deployOrder: 0,
                 plural: "",
@@ -406,6 +419,7 @@ export let defaults: IDefault[] =
             id: packageId,
             name: "Package",
             catagory: "Buildin",
+            comment: "Install debian packages",
             content: {
                 deployOrder: 50,
                 plural: "Packages",
@@ -454,6 +468,7 @@ export let defaults: IDefault[] =
             id: monitorId,
             name: "Monitor",
             catagory: "Buildin",
+            comment: "Monitor things on a hosts",
             content: {
                 deployOrder: 100,
                 plural: "Monitors",
@@ -471,6 +486,7 @@ export let defaults: IDefault[] =
             id: rootInstanceId,
             name: "Root",
             catagory: "",
+            comment: "The singular root instance",
             content: {
                 variables: [{key:'user', value:'root'}],
                 preamble:                                                                                                                                                                                                                    

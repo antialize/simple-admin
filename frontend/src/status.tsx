@@ -5,7 +5,7 @@ import { Size } from './size';
 import { Time } from './time';
 import { IMainState } from './reducers';
 import { IStatus, IStatuses } from '../../shared/status';
-import { hostId} from '../../shared/type';
+import { hostId } from '../../shared/type';
 import * as State from '../../shared/state';
 import { InformationList, InformationListRow } from './information_list';
 import * as page from './page'
@@ -155,13 +155,13 @@ export class Status extends React.Component<Props, {}> {
                 ]
             }
         };
-	let swap = (s.meminfo.swap_total == 0)
-		 ? <span>None</span>
-		 : (<span>
-		     <Size size={s.meminfo.swap_total-s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
-		     <LinearProgress mode="determinate" value={s.meminfo.swap_total-s.meminfo.swap_free} max={s.meminfo.swap_total} />
-		 </span>);
-	
+        let swap = (s.meminfo.swap_total == 0)
+            ? <span>None</span>
+            : (<span>
+                <Size size={s.meminfo.swap_total - s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
+                <LinearProgress mode="determinate" value={s.meminfo.swap_total - s.meminfo.swap_free} max={s.meminfo.swap_total} />
+            </span>);
+
         return (
             <div style={{ display: 'flex', flexDirection: 'row' }}>
                 <div style={{ width: "250px" }}>
@@ -204,76 +204,76 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
 }
 
 function StatusesImpl(p: StatusesProps) {
-    let catagories: {[key:string]: State.IObjectDigest[]} = {};
+    let catagories: { [key: string]: State.IObjectDigest[] } = {};
 
     for (let host of p.hosts) {
-	let cat = host.catagory || "Other";
-	if (!(cat in catagories))
-	    catagories[cat] = [];
-	catagories[cat].push(host);
+        let cat = host.catagory || "Other";
+        if (!(cat in catagories))
+            catagories[cat] = [];
+        catagories[cat].push(host);
     }
 
     let chunks = [];
 
     let cats = Object.keys(catagories);
     cats.sort();
-    
-    for (let cat of cats) {
-	let hosts = catagories[cat];
-	hosts.sort((a, b) => a.name < b.name ? -1 : 1);
 
-	chunks.push(
-	    <div key={cat}>
-	    <h2>{cat}</h2>
-	    <div style={{
-		display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
-		}}>
-		    {hosts.map(pp => {
-			 let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id: pp.id, version: null };
-			 let elm;
-			 if (p.statuses[pp.id] && p.statuses[pp.id].up)
-			     elm = <Status status={p.statuses[pp.id]} />;
-			 else
-			     elm = <div>Down</div>;
-			 
-			 return (
-			     <Card style={{ margin: '5px' }}>
-				 <CardTitle title={pp.name} />
-				 <CardText>{elm}</CardText>
-				 <CardActions>
-				     <RaisedButton onClick={(e) => p.setPage(e, a)} label="Details" href={page.link(a)} />
-				 </CardActions>
-			     </Card>);
-		    })}
-	    </div>
-	    </div>);
+    for (let cat of cats) {
+        let hosts = catagories[cat];
+        hosts.sort((a, b) => a.name < b.name ? -1 : 1);
+
+        chunks.push(
+            <div key={cat}>
+                <h2>{cat}</h2>
+                <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
+                }}>
+                    {hosts.map(pp => {
+                        let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id: pp.id, version: null };
+                        let elm;
+                        if (p.statuses[pp.id] && p.statuses[pp.id].up)
+                            elm = <Status status={p.statuses[pp.id]} />;
+                        else
+                            elm = <div>Down</div>;
+
+                        return (
+                            <Card key={pp.id} style={{ margin: '5px' }}>
+                                <CardTitle title={pp.name} />
+                                <CardText>{elm}</CardText>
+                                <CardActions>
+                                    <RaisedButton onClick={(e) => p.setPage(e, a)} label="Details" href={page.link(a)} />
+                                </CardActions>
+                            </Card>);
+                    })}
+                </div>
+            </div>);
     }
 
-	    
+
     return <div>{chunks}</div>;
 }
 
-    /*  return (
-        {/* <div>
-            {hosts.map( pp=> {
-            let a: State.IPage = {type:State.PAGE_TYPE.Object, class: 'host', id: pp.id, version:null};
-            let elm;
-            if (p.statuses[pp.id] && p.statuses[pp.id].up)
-            elm = <Status status={p.statuses[pp.id]} />
-            else
-            elm = <div>Down</div>
+/*  return (
+    {/* <div>
+        {hosts.map( pp=> {
+        let a: State.IPage = {type:State.PAGE_TYPE.Object, class: 'host', id: pp.id, version:null};
+        let elm;
+        if (p.statuses[pp.id] && p.statuses[pp.id].up)
+        elm = <Status status={p.statuses[pp.id]} />
+        else
+        elm = <div>Down</div>
 
-            return (<Box key={pp.name}
-            title={pp.name}
-            expanded={true}
-            collapsable={true}
-            >
-            {elm}
-            <RaisedButton onClick={(e)=>p.setPage(e, a)} label="Details" href={page.link(a)} />
-            </Box>)
-            })}
-            </div>   }
-    )*/
+        return (<Box key={pp.name}
+        title={pp.name}
+        expanded={true}
+        collapsable={true}
+        >
+        {elm}
+        <RaisedButton onClick={(e)=>p.setPage(e, a)} label="Details" href={page.link(a)} />
+        </Box>)
+        })}
+        </div>   }
+)*/
 
 
 export let Statuses = connect(mapStateToProps, mapDispatchToProps)(StatusesImpl);

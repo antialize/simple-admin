@@ -158,7 +158,7 @@ socket.onmessage = (data=>{
     switch (d.type) {
     case ACTION.SetInitialState:
         console.log("Set initial state");
-        for (const b of d.deploymentLog || [])
+        for (const b of (d.deploymentLog || []))
             add(b);
         store.dispatch({
             type: ACTION.SetPage,

@@ -1,5 +1,5 @@
 export enum MonitorPropType {
-    none, string, aOfB, number, uptime, distribution, sumAndCount
+    none, string, aOfB, number, uptime, distribution, sumAndCount, sum
 }
 
 export enum MonitorUnit {

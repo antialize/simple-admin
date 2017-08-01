@@ -18,8 +18,8 @@ import { config } from './config'
 import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment } from './instances'
-import {errorHandler} from './error'
-import {IType, typeId, TypePropType} from '../../shared/type'
+import { errorHandler } from './error'
+import { IType, typeId, TypePropType } from '../../shared/type'
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -57,6 +57,7 @@ export class WebClient extends JobOwner {
                             name: row.name,
                             content: JSON.parse(row.content),
                             catagory: row.catagory,
+                            comment: row.comment,
                         }
                     );
                 }
@@ -90,7 +91,9 @@ export class WebClient extends JobOwner {
                         if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
                         c[r.name] = await crypt.hash(c[r.name]);
                     }
+                    console.log("A");
                     let { id, version } = await db.changeObject(act.id, act.obj);
+                    console.log("B");
                     act.obj.version = version;
                     let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [act.obj] };
                     webClients.broadcast(res2);
@@ -101,28 +104,28 @@ export class WebClient extends JobOwner {
             case ACTION.DeleteObject:
                 {
                     let objects = await db.getAllObjectsFull();
-                    let conflicts:string[] = [];
+                    let conflicts: string[] = [];
                     for (let object of objects) {
                         let content = JSON.parse(object.content);
                         if (object.type == act.id)
-                            conflicts.push("* "+object.name+" ("+object.type+") type");
+                            conflicts.push("* " + object.name + " (" + object.type + ") type");
                         for (let val of ['sudoOn', 'depends', 'contains']) {
                             if (!(val in content)) continue;
                             for (let id of (content[val]) as number[]) {
                                 if (id != act.id) continue;
-                                conflicts.push("* "+object.name+" ("+object.type+") "+val);
+                                conflicts.push("* " + object.name + " (" + object.type + ") " + val);
                             }
                         }
                     }
                     if (conflicts.length > 0) {
-                        let res:IAlert = {type: ACTION.Alert, title: "Cannot delete object", message: "The object can not be delete as it is in use by:\n"+conflicts.join("\n")};
+                        let res: IAlert = { type: ACTION.Alert, title: "Cannot delete object", message: "The object can not be delete as it is in use by:\n" + conflicts.join("\n") };
                         this.sendMessage(res);
                     } else {
                         console.log("Delete object ", act.id);
                         await db.changeObject(act.id, null);
                         let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                         webClients.broadcast(res2);
-                        let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Dashbord} };
+                        let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Dashbord } };
                         this.sendMessage(res3);
                     }
                 }
@@ -154,7 +157,7 @@ export class WebClient extends JobOwner {
 
 async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjectsFull();
-    const msgs = msg.getAll();
+    const msgs = msg.getResent();
 
     let action: ISetInitialState = {
         type: ACTION.SetInitialState,
@@ -169,16 +172,18 @@ async function sendInitialState(c: WebClient) {
     };
     for (const row of await rows) {
         if (row.type == typeId) {
-            action.types[row.id] = {id: row.id,
+            action.types[row.id] = {
+                id: row.id,
                 type: row.type,
                 name: row.name,
                 catagory: row.catagory,
                 content: JSON.parse(row.content) as IType,
                 version: row.version,
-                };
+                comment: row.comment
+            };
         }
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({type: row.type, id: row.id, name: row.name, catagory: row.catagory });
+        action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, catagory: row.catagory });
     }
 
     for (const id in hostClients.hostClients) {

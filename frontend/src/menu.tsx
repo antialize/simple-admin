@@ -10,16 +10,39 @@ import {connect} from 'react-redux'
 import * as page from './page'
 import {ObjectFinder} from './object_finder'
 import {IType, hostId, typeId, rootInstanceId, rootId} from '../../shared/type'
+import Avatar from 'material-ui/Avatar';
 
 interface Props {
     setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
-    hosts: State.IObjectDigest[];
+    hosts: {id:number, name:string, down:boolean, messages:number}[];
     types: State.IObject2<IType>[];
     rootId: number;
 }
 
 function mapStateToProps(s:IMainState) {
-    let hosts = (s.objectDigests[hostId] || []).slice(0);
+
+    let hostMessages: {[id:number]: number} = {};
+
+    for (const id in s.messages) {
+        const message = s.messages[id];
+        if (message.dismissed || message.host == null) continue;
+        if (!(message.host in hostMessages)) hostMessages[message.host] = 1;
+        else hostMessages[message.host]++;
+    }
+    let hosts: {id:number, name:string, down:boolean, messages:number}[] = [];
+    if (s.objectDigests[hostId]) {
+
+        hosts = s.objectDigests[hostId].map(v => { 
+            let st = s.status[v.id];
+            return {
+            id: v.id,
+            name: v.name,
+            down: !st || !st.up,
+            messages: hostMessages[v.id] || 0
+        }}
+        )
+    }
+
     hosts.sort((l, r)=>{return l.name < r.name?-1:1});
 
     let types: State.IObject2<IType>[] = [];
@@ -49,13 +72,11 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
 function MenuImpl(props:Props) {
     const hostList = props.hosts.map(n=>
         <ListItem primaryText={n.name}
+            style={{color:n.down?"red":"black"}}
             key={n.id}
             onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: n.id, version:null})}
+            rightAvatar={n.messages?(<Avatar color="black" backgroundColor="red">{n.messages}</Avatar>):null}
             href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: n.id, version:null})}/>);
-    hostList.push(
-        <ListItem
-            key="add" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: null, version:null})}
-            href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: null, version:null})}>Add new</ListItem>);
 
     return (<Drawer open={true}>
         <List>

@@ -91,6 +91,7 @@ export function MonitorContent(p: {content: IMonitorProp[], onChange: (v: IMonit
                         <MenuItem value={MonitorPropType.aOfB} primaryText="A of b" />
                         <MenuItem value={MonitorPropType.distribution} primaryText="Distribution" />
                         <MenuItem value={MonitorPropType.number} primaryText="Number" />
+                        <MenuItem value={MonitorPropType.sum} primaryText="Sum" />
                         <MenuItem value={MonitorPropType.string} primaryText="String" />
                         <MenuItem value={MonitorPropType.sumAndCount} primaryText="Sum and count" />
                         <MenuItem value={MonitorPropType.uptime} primaryText="Uptime" />

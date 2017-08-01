@@ -42,6 +42,7 @@ export interface IObject2<T> {
     catagory: string;
     content: T;
     version: number;
+    comment: string;
 }
 
 export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }

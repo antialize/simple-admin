@@ -170,6 +170,14 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
             ret3[action.id].current.name = action.name;
             ret3[action.id].touched = true;
             return ret3;
+        case ACTION.SetObjectComment:
+            if (!(action.id in state)) return state;
+            let ret7 = Object.assign({}, state);
+            ret7[action.id] = Object.assign({}, ret7[action.id]);
+            ret7[action.id].current = Object.assign({}, ret7[action.id].current);
+            ret7[action.id].current.comment = action.comment;
+            ret7[action.id].touched = true;
+            return ret7;
         case ACTION.SetObjectContentParam:
             if (!(action.id in state)) return state;
             let ret4 = Object.assign({}, state);
@@ -259,7 +267,7 @@ function changeCurrentObject(state: IMainState) {
     } else { // We are modifying a new object
         if (state.page.id in state.objects && state.objects[id].current != null) return; //We are allready modifying the right object
         // We need to create a new object
-        current = {id: id, type: state.page.objectType, name:"", version: null, catagory: "", content: {}};
+        current = {id: id, type: state.page.objectType, name:"", version: null, catagory: "", content: {}, comment: ""};
     }
 
     current.content = Object.assign({}, current.content);

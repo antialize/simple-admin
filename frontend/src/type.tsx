@@ -9,7 +9,7 @@ import {IObject2} from '../../shared/state'
 import {IMainState} from './reducers';
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
-import {ACTION, ISetObjectName, ISetObjectContentParam, ISetObjectCatagory} from '../../shared/actions'
+import {ACTION, ISetObjectName, ISetObjectComment, ISetObjectContentParam, ISetObjectCatagory} from '../../shared/actions'
 import {ObjectSelector} from './object_selector'
 import {Variables} from './variables'
 import {Catagory} from './catagory'
@@ -38,6 +38,7 @@ interface StateProps {
 interface DispactProps {
     setCatagory: (name: string) => void;
     setName: (name: string) => void;
+    setComment: (comment: string) => void;
     setProp: (prop:string, value:any) => void;
 }
 
@@ -59,6 +60,14 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactPr
                 type: ACTION.SetObjectName,
                 id: p.id,
                 name
+            };
+            dispatch(a);
+        },
+        setComment: (comment: string) => {
+            const a:ISetObjectComment = {
+                type: ACTION.SetObjectComment,
+                id: p.id,
+                comment
             };
             dispatch(a);
         },
@@ -132,6 +141,7 @@ function TypeImpl(props: StateProps & DispactProps) {
         <div>
             <InformationList key={props.id + props.current.version}>
                 <InformationListRow name="Name"><TextField key="name" value={props.current.name} onChange={(e:any, value:string) => props.setName(value)} /></InformationListRow>
+                <InformationListRow name="Comment"><TextField key="comment" fullWidth={true} multiLine={true} value={props.current.comment} onChange={(e:any, value:string) => props.setComment(value)} /></InformationListRow>
                 {type.hasCatagory?<InformationListRow name="Catagory"><Catagory type={props.typeId} catagory={props.current.catagory} setCatagory={props.setCatagory} /></InformationListRow>:null}
                 {rows}
                 {type.hasTriggers?<InformationListRow name="Triggers" long={true}><Triggers triggers={c.triggers || []} setTriggers={triggers => props.setProp("triggers", triggers)} /></InformationListRow>:null}
