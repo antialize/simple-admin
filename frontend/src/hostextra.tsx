@@ -10,6 +10,7 @@ import {HostTerminals} from './terminal'
 import {Log} from './log'
 import {Smart} from './smart'
 import {Messages} from './messages'
+import {Setup} from './setup'
 
 interface ExternProps {
     id: number;
@@ -59,13 +60,22 @@ function HostExtraImpl(props:IProps2) {
                 </Box>
             </div>
         )
+    } else if (props.id > 0) {
+        c = (
+            <Box title="Setup" collapsable={false} expanded={true}>
+               <Setup host={props.id} />
+            </Box>);
     }
+
     return (
         <div>
-            <Messages host={props.id} />
-            <Box title="Status" collapsable={true} expanded={true}>
-                <SpecificStatus id={props.id} />
-            </Box>
+            {props.id > 0 ? 
+                <div>
+                    <Messages host={props.id} />
+                    <Box title="Status" collapsable={true} expanded={true}>
+                        <SpecificStatus id={props.id} />
+                    </Box>
+                </div>: null}
             {c}
         </div>)
 }

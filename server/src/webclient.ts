@@ -20,6 +20,7 @@ import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment } from './instances'
 import { errorHandler } from './error'
 import { IType, typeId, TypePropType } from '../../shared/type'
+import setup from './setup'
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -276,6 +277,7 @@ export class WebClients {
         this.httpsApp.use(helmet());
         this.httpsServer = https.createServer(this.credentials, this.httpsApp);
         this.wss = new WebSocket.Server({ server: this.httpsServer })
+        this.httpsApp.get("/setup.sh", (req, res) => setup(req, res));
         this.httpsApp.use(authHttp, express.static("../frontend/public"));
         this.httpsServer.on('upgrade', socketAuth);
         this.wss.on('connection', (ws) => {

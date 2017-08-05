@@ -138,7 +138,8 @@ export function fillDefaults(content:{[key:string]:any}, type: IType) {
             if (!(item.name in content)) content[item.name] = "";
             break;
         case TypePropType.password:
-            if (!(item.name in content)) content[item.name] = "";
+            if (!(item.name in content))
+                content[item.name] = Array.from((window as any).crypto.getRandomValues(new Uint8Array(18)), (byte:number) => ('0' + (byte & 0xFF).toString(16)).slice(-2)).join('');
             break;
         case TypePropType.none:
             break;

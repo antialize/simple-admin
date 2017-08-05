@@ -120,6 +120,9 @@ export class Deployment {
                                 if (item.deployTitle) deploymentTitle = v;
                                 break;
                             }
+                        case TypePropType.monitorContent:
+                            //TODO
+                            break;
                         case TypePropType.none:
                         case TypePropType.typeContent:
                             break;
@@ -155,7 +158,7 @@ export class Deployment {
 
             // Collect all objects
             for (const r of await db.getAllObjectsFull()) {
-                objects[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content), catagory: r.catagory, version: r.version };
+                objects[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content), catagory: r.catagory, version: r.version, comment: r.comment };
                 if (r.type == hostId)
                     hosts.push(r.id);
             }
@@ -587,7 +590,7 @@ export class Deployment {
 
         for (const r of await db.getAllObjectsFull())
             if (r.type == typeId)
-                types[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content) as IType, catagory: r.catagory, version: r.version };
+                types[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content) as IType, catagory: r.catagory, version: r.version, comment: r.comment };
 
 
         this.addLog("Deployment started\r\n")

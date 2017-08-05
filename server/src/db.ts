@@ -269,15 +269,15 @@ export class DB {
 
     getHostContentByName(hostname: string) {
         let db = this.db;
-        return new Promise<{ id: number, content: Host }>((cb, cbe) => {
-            db.get("SELECT `id`, `content` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
+        return new Promise<{ id: number, content: Host, version: number, type:number, name: string, catagory:string, comment: string }>((cb, cbe) => {
+            db.get("SELECT `id`, `content`, `version`, `name`, `catagory`, `comment` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (row === undefined)
                         cb(null);
                     else
-                        cb({ id: row['id'], content: JSON.parse(row['content']) })
+                        cb({ id: row['id'], content: JSON.parse(row['content']), version: row['version'], type: hostId, name: hostname, catagory: row['catagory'], comment: row['comment'] })
                 })
         });
     }
