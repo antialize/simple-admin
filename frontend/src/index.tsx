@@ -6,7 +6,7 @@ import { mainReducer, IMainState } from './reducers'
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider'; 
 import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import * as injectTapEventPlugin from 'react-tap-event-plugin'
-import {Statuses} from './status'
+import {Statuses} from './statuses'
 import * as State from '../../shared/state';
 import {IAction, ACTION, IFetchObject, IAlert, CONNECTION_STATUS, ISetConnectionStatus} from '../../shared/actions'
 import * as $ from "jquery";
@@ -22,6 +22,7 @@ import {Deployment} from './deployment';
 import {DeploymentDetails} from './deploymentDetails';
 import {add, clear} from './deployment/log';
 import Dialog from 'material-ui/Dialog';
+import {debugStyle} from './debug'
 
 injectTapEventPlugin();
 
@@ -46,19 +47,19 @@ function MainPageImpl(props: Props) {
     const p = props.page;
     switch (p.type) {
     case State.PAGE_TYPE.Dashbord:
-        return <div>
+        return <div style={debugStyle()}>
             <h1>Dashboard</h1>
             <Messages />
             <Statuses />
         </div>;
     case State.PAGE_TYPE.ObjectList:
-        return <div><h1>List of {props.type}</h1><ObjectList type={p.objectType} /></div>
+        return <div style={debugStyle()}><h1>List of {props.type}</h1><ObjectList type={p.objectType} /></div>
     case State.PAGE_TYPE.Object:
-        return <div><Object type={p.objectType} id={p.id} version={p.version} /> </div>
+        return <div style={debugStyle()}><Object type={p.objectType} id={p.id} version={p.version} /> </div>
     case State.PAGE_TYPE.Deployment:
-        return <div><Deployment /></div>
+        return <div style={debugStyle()}><Deployment /></div>
     case State.PAGE_TYPE.DeploymentDetails:
-        return <div><DeploymentDetails index={p.index} /></div>
+        return <div style={debugStyle()}><DeploymentDetails index={p.index} /></div>
     default:
         never(p, "Unhandled page type");
     }
