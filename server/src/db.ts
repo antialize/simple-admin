@@ -127,52 +127,6 @@ export class DB {
         });
     }
 
-    getPackages(host: number) {
-        let db = this.db;
-        return new Promise<string[]>((cb, cbe) => {
-            db.all("SELECT `name` FROM `installedPackages` WHERE `host` = ?", [host],
-                (err, rows) => {
-                    if (err)
-                        cbe(new SAError(ErrorType.Database, err));
-                    else {
-                        let ans = [];
-                        if (rows !== undefined)
-                            for (const row of rows)
-                                ans.push(row['name'])
-                        cb(ans);
-                    }
-                })
-        });
-    }
-
-    removePackages(host: number, packages: string[]) {
-        let db = this.db;
-        return new Promise<{}>((cb, ecb) => {
-            db.run("DELETE FROM `installedPackages` WHERE `host` = ? AND `name` IN (" + packages.map(_ => "?").join(",") + ")",
-                ([host] as any[]).concat(packages),
-                (err) => {
-                    if (err) ecb(new SAError(ErrorType.Database, err));
-                    else cb()
-                })
-        });
-    }
-
-    addPackages(host: number, packages: string[]) {
-        let db = this.db;
-        return new Promise<{}>((cb, cbe) => {
-            let args: any[] = [];
-            for (let pkg of packages) {
-                args.push(host);
-                args.push(pkg);
-            }
-            db.run("REPLACE INTO `installedPackages` (`host`, `name`) VALUES " + packages.map(_ => "(?, ?)").join(", "), args,
-                (err) => {
-                    if (err) cbe(new SAError(ErrorType.Database, err));
-                    else cb()
-                })
-        });
-    }
-
     getAllObjects() {
         let db = this.db;
         return new Promise<{ id: number, type: number, name: string, catagory: string }[]>((cb, cbe) => {
