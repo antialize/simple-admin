@@ -2,8 +2,36 @@ import { IUpdateStatusAction, IAction, ACTION, IMessage, CONNECTION_STATUS} from
 import { IStatus, IStatuses, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import { Reducer, combineReducers } from 'redux';
 import { IPage, PAGE_TYPE, IObjectDigest, DEPLOYMENT_STATUS, IDeploymentObject, IObject2 } from '../../shared/state'
-import { IType, fillDefaults, typeId } from '../../shared/type'
+import { IType, typeId, TypePropType } from '../../shared/type'
 
+function fillDefaults(content:{[key:string]:any}, type: IType) {
+    if (type.hasVariables && !('variables' in content)) content['variables'] = [];
+    if (type.hasContains && !('contains' in content))content['contains'] = [];
+    if (type.hasSudoOn && !('sudoOn' in content)) content['sudoOn'] = [];
+    if (type.hasSudoOn && !('triggers' in content)) content['triggers'] = [];
+    if (type.hasDepends && !('depends' in content)) content['depends'] = [];
+    for (const item of type.content || []) {
+        switch (item.type) {
+        case TypePropType.bool:
+        case TypePropType.choice:
+        case TypePropType.text:
+            if (!(item.name in content)) content[item.name] = item.default;
+            break;
+        case TypePropType.document:
+            if (item.langName && !(item.langName in content)) content[item.langName] = "";
+            if (!(item.name in content)) content[item.name] = "";
+            break;
+        case TypePropType.password:
+            if (!(item.name in content))
+                content[item.name] = Array.from((window as any).crypto.getRandomValues(new Uint8Array(18)), (byte:number) => ('0' + (byte & 0xFF).toString(16)).slice(-2)).join('');
+            break;
+        case TypePropType.none:
+            break;
+        case TypePropType.typeContent:
+            if (!(item.name in content)) content[item.name] = [];
+        }
+    }
+}
 export interface IObjectState {
     current: IObject2<any> | null;
     versions: { [version: number]: IObject2<any> };

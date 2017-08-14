@@ -27,7 +27,7 @@ interface StateProps {
 
 function mapStateToProps(s:IMainState, p:IProps): StateProps {
     const o = s.deployment.objects[p.index];
-    const t = o && s.types[o.typeId];
+    const t = o && o.typeId !== null && s.types[o.typeId];
     return {o, t};
 }
 

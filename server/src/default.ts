@@ -1,6 +1,6 @@
 import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
     IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, IMonitorContentTypeProp,
-    rootInstanceId} from "../../shared/type"
+    rootInstanceId, monitorId} from "../../shared/type"
 
 export const userId = 4;
 export const groupId = 5;
@@ -9,7 +9,6 @@ export const collectionId = 7;
 export const complexCollectionId = 8;
 export const ufwAllowId = 9;
 export const packageId = 10;
-export const monitorId = 11;
 
 export const reloadServiceTriggerId = 50;
 export const restartServiceTriggerId = 51;

@@ -3,7 +3,7 @@ import {
 } from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
-import { typeId, rootInstanceId, rootId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains } from '../../shared/type'
+import { typeId, monitorId, rootInstanceId, rootId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains } from '../../shared/type'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'

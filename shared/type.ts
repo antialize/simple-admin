@@ -119,38 +119,9 @@ export interface IDepends {
 
 export type Host = IVariables & IContains;
 
-
-export function fillDefaults(content:{[key:string]:any}, type: IType) {
-    if (type.hasVariables && !('variables' in content)) content['variables'] = [];
-    if (type.hasContains && !('contains' in content))content['contains'] = [];
-    if (type.hasSudoOn && !('sudoOn' in content)) content['sudoOn'] = [];
-    if (type.hasSudoOn && !('triggers' in content)) content['triggers'] = [];
-    if (type.hasDepends && !('depends' in content)) content['depends'] = [];
-    for (const item of type.content || []) {
-        switch (item.type) {
-        case TypePropType.bool:
-        case TypePropType.choice:
-        case TypePropType.text:
-            if (!(item.name in content)) content[item.name] = item.default;
-            break;
-        case TypePropType.document:
-            if (item.langName && !(item.langName in content)) content[item.langName] = "";
-            if (!(item.name in content)) content[item.name] = "";
-            break;
-        case TypePropType.password:
-            if (!(item.name in content))
-                content[item.name] = Array.from((window as any).crypto.getRandomValues(new Uint8Array(18)), (byte:number) => ('0' + (byte & 0xFF).toString(16)).slice(-2)).join('');
-            break;
-        case TypePropType.none:
-            break;
-        case TypePropType.typeContent:
-            if (!(item.name in content)) content[item.name] = [];
-        }
-    }
-}
-
 export const typeId = 1;
 export const hostId = 2;
 export const rootId = 3;
+export const monitorId = 11;
 export const rootInstanceId = 100;
 
