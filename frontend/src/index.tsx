@@ -8,7 +8,7 @@ import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import * as injectTapEventPlugin from 'react-tap-event-plugin'
 import {Statuses} from './status'
 import * as State from '../../shared/state';
-import {IAction, ACTION, IFetchObject, IAlert} from '../../shared/actions'
+import {IAction, ACTION, IFetchObject, IAlert, CONNECTION_STATUS, ISetConnectionStatus} from '../../shared/actions'
 import * as $ from "jquery";
 import * as page from './page'
 
@@ -21,6 +21,7 @@ import {remoteHost} from './config';
 import {Deployment} from './deployment';
 import {DeploymentDetails} from './deploymentDetails';
 import {add, clear} from './deployment/log';
+import Dialog from 'material-ui/Dialog';
 
 injectTapEventPlugin();
 
@@ -132,40 +133,61 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
 }
     
 
-let store = createStore(mainReducer, applyMiddleware(handleRemote)) as Store<IMainState>;
+const store = createStore(mainReducer, applyMiddleware(handleRemote)) as Store<IMainState>;
 
-let socket = new WebSocket('wss://'+remoteHost+'/sysadmin');
+let socket: WebSocket;
+let reconnectTime = 1; 
 
-socket.onmessage = (data=>{
-    let d = JSON.parse(data.data) as IAction;
-    if (d.type in actionTargets) {
-        for (const t of actionTargets[d.type])
-            if (t.handle(d)) 
-                return;
+const setupSocket = () => {
+    if (reconnectTime < 1000*10) 
+        reconnectTime = reconnectTime * 2;
+    store.dispatch({type: ACTION.SetConnectionStatus, status: CONNECTION_STATUS.CONNECTING});
+    socket = new WebSocket('wss://'+remoteHost+'/sysadmin');
+    socket.onmessage = data=>{
+        const loaded = store.getState().loaded;
+        const d = JSON.parse(data.data) as IAction;
+        if (d.type in actionTargets) {
+            for (const t of actionTargets[d.type])
+                if (t.handle(d)) 
+                    return;
+        }
+
+        if (d.type == ACTION.ClearDeploymentLog) {
+            clear();
+            return;
+        }
+
+        if (d.type == ACTION.AddDeploymentLog) {
+            add(d.bytes);
+            return;
+        }
+
+        store.dispatch(d);
+        switch (d.type) {
+        case ACTION.SetInitialState:
+            reconnectTime = 1;
+            for (const b of (d.deploymentLog || []))
+                add(b);
+            if (!loaded)
+                store.dispatch({
+                    type: ACTION.SetPage,
+                    page: page.get()})
+            break
+        }
+    };
+
+    socket.onopen = () => {
+        store.dispatch({type: ACTION.SetConnectionStatus, status: CONNECTION_STATUS.CONNECTED});
     }
 
-    if (d.type == ACTION.ClearDeploymentLog) {
-        clear();
-        return;
-    }
+    socket.onclose = () => {
+        store.dispatch({type: ACTION.SetConnectionStatus, status: CONNECTION_STATUS.WAITING});
+        socket = null;
+        setTimeout(()=>setupSocket(), reconnectTime);
+    };
+};
 
-    if (d.type == ACTION.AddDeploymentLog) {
-        add(d.bytes);
-        return;
-    }
-
-    store.dispatch(d);
-    switch (d.type) {
-    case ACTION.SetInitialState:
-        console.log("Set initial state");
-        for (const b of (d.deploymentLog || []))
-            add(b);
-        store.dispatch({
-            type: ACTION.SetPage,
-            page: page.get()})
-        break
-    }
-});
+setupSocket();
 
 window.onpopstate = (e) => {
     let page = e.state as State.IPage;
@@ -176,25 +198,39 @@ window.onpopstate = (e) => {
 };
 
 interface PropsC {
+    status: CONNECTION_STATUS;
     loaded: boolean;
 }
 
-
 function ContentImpl(p:PropsC) {
-    if (!p.loaded) {
-        return <CircularProgress />
-    } else {
-        return (<div>
+    let dialog = null;
+    if (p.status != CONNECTION_STATUS.INITED) {
+        let text = "";
+        switch (p.status) {
+            case CONNECTION_STATUS.WAITING: text = p.loaded?"Waiting to reconnect":"Waiting to correct"; break;
+            case CONNECTION_STATUS.CONNECTING: text = "Connecting"; break;
+            case CONNECTION_STATUS.CONNECTED: text = "Waiting for initial state"; break;
+        }
+        dialog = (
+            <Dialog title={p.loaded?"Connection to server lost":"Connecting to server"} modal={true} open={true}>
+                <CircularProgress /> {text}
+            </Dialog>);
+    }
+    if (p.loaded) {
+        return (<div style={debugStyle()}>
             <Menu />
             <div style={{marginLeft: "300px"}}>
                 <MainPage />
             </div>
+            {dialog}
         </div>)
+    } else {
+        return dialog;
     }
 }
 
 function mapStateToPropsC(state:IMainState): PropsC {
-    return {loaded: state.loaded}
+    return {status: state.connectionStatus, loaded: state.loaded};
 }
 
 export let Content = connect(mapStateToPropsC)(ContentImpl);

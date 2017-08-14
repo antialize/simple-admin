@@ -96,7 +96,9 @@ export interface IStatus {
     up: boolean;
 }
 
-export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate) {
+export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate|null) {
+    if (!update) return;
+    
     if (status == null) {
         status = {
             uptime: {total: 0, idle: 0},

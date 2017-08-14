@@ -1,4 +1,4 @@
-import { IUpdateStatusAction, IAction, ACTION, IMessage } from '../../shared/actions'
+import { IUpdateStatusAction, IAction, ACTION, IMessage, CONNECTION_STATUS} from '../../shared/actions'
 import { IStatus, IStatuses, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import { Reducer, combineReducers } from 'redux';
 import { IPage, PAGE_TYPE, IObjectDigest, DEPLOYMENT_STATUS, IDeploymentObject, IObject2 } from '../../shared/state'
@@ -23,11 +23,12 @@ export interface IMainState {
     serviceListFilter: { [host: number]: string };
     objectDigests: { [type: number]: IObjectDigest[] };
     objects: { [id: number]: IObjectState };
-    loaded: boolean;
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
     messages: { [id: number]: IMessage };
     deployment: IDeploymentState;
     types: {[id:number]: IObject2<IType>};
+    connectionStatus: CONNECTION_STATUS;
+    loaded: boolean;
 };
 
 function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
@@ -76,14 +77,6 @@ function serviceListFilter(state: { [host: number]: string } = {}, action: IActi
     }
 }
 
-function loaded(state = false, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetInitialState:
-            return true;
-        default:
-            return state;
-    }
-}
 
 function objectDigests(state: { [type: number]: IObjectDigest[] } = {}, action: IAction) {
     switch (action.type) {
@@ -309,6 +302,21 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
     return state;
 }
 
+export function connectionStatus(state: CONNECTION_STATUS = CONNECTION_STATUS.WAITING, action: IAction) {
+    switch (action.type) {
+        case ACTION.SetConnectionStatus:
+            return action.status;
+        case ACTION.SetInitialState:
+            return CONNECTION_STATUS.INITED;
+    }
+    return state;
+}
+
+export function loaded(state = false, action: IAction) {
+    if (action.type == ACTION.SetInitialState) return true;
+    return state;
+}
+
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
@@ -317,11 +325,12 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         objectDigests: objectDigests(state ? state.objectDigests : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
         types: types(state ? state.types: undefined, action),
-        loaded: loaded(state ? state.loaded : undefined, action),
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         messages: messages(state ? state.messages : undefined, action),
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
         deployment: deployment(state ? state.deployment : undefined, action),
+        connectionStatus: connectionStatus(state ? state.connectionStatus: undefined, action),
+        loaded: loaded(state ? state.loaded: undefined, action)
     };
     changeCurrentObject(ns);
     return ns;

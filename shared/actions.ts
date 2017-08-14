@@ -8,7 +8,7 @@ export enum ACTION {
     AddMessage, SetMessageDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
-    StopDeployment, StartDeployment, CancelDeployment,
+    StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus
 }
 
 export interface IUpdateStatusAction {
@@ -224,10 +224,18 @@ export interface IAlert {
     title: string;
 }
 
+export enum CONNECTION_STATUS {WAITING, CONNECTING, CONNECTED, INITED};
+
+export interface ISetConnectionStatus {
+    type: ACTION.SetConnectionStatus;
+    status: CONNECTION_STATUS;
+}
+
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
     | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName 
     | ISetObjectComment | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
-    | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory;
+    | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory
+    | ISetConnectionStatus;
