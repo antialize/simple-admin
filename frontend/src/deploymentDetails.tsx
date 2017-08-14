@@ -67,14 +67,17 @@ function DeploymentDetailsImpl(props: StateProps) {
                 <InformationListRow name="Deploy Name">{props.o.name}</InformationListRow>
                 <InformationListRow name="Host">{props.o.hostName}</InformationListRow>
                 <InformationListRow name="Type">{props.o.typeName}</InformationListRow>
-                <InformationListRow name="Kind">{props.t.content.kind}</InformationListRow>
+                {props.o.typeId !== null? <InformationListRow name="Kind">{props.t.content.kind}</InformationListRow>: null}
             </InformationList>
-            <h1>Old</h1>
-            <CententInfo c={props.o.prevContent} t={props.t}/>
-            <h1>New</h1>
-            <CententInfo c={props.o.nextContent} t={props.t}/>
+            {props.o.typeId !== null?
+                <div>
+                    <h1>Old</h1>
+                    <CententInfo c={props.o.prevContent} t={props.t}/>
+                    <h1>New</h1>
+                    <CententInfo c={props.o.nextContent} t={props.t}/>
+                </div>: null}
             <h1>Script</h1>
-            <Editor setLang={(lang:string)=>{}} lang="Python" fixedLang={true} readOnly={true} setData={(data:string)=>{}} data={props.o.script} />
+            <Editor title="Script" setLang={(lang:string)=>{}} lang="Python" fixedLang={true} readOnly={true} setData={(data:string)=>{}} data={props.o.script} />
         </div>);
 }
 

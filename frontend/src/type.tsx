@@ -126,7 +126,7 @@ function TypeImpl(props: StateProps & DispactProps) {
                 </InformationListRow>);
             break;
         case TypePropType.document:
-            extra.push(<Editor key={ct.name} data={v==undefined?"":v} setData={(v:string) => props.setProp(ct.name, v)} lang={ct.lang || c[ct.langName]} fixedLang={ct.lang != ""} setLang={(v:string) => props.setProp(ct.langName, v)}/>);
+            extra.push(<Editor title={ct.title} key={ct.name} data={v==undefined?"":v} setData={(v:string) => props.setProp(ct.name, v)} lang={ct.lang || c[ct.langName]} fixedLang={ct.lang != ""} setLang={(v:string) => props.setProp(ct.langName, v)}/>);
             break;
         case TypePropType.typeContent:
             extra.push(<TypeContent content={v || []} onChange={v => props.setProp(ct.name, v)} />);

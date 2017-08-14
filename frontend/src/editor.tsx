@@ -6,6 +6,14 @@ import MenuItem from 'material-ui/MenuItem';
 import {Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarTitle} from 'material-ui/Toolbar';
 import DropDownMenu from 'material-ui/DropDownMenu';
 
+
+import 'codemirror/addon/dialog/dialog.js'
+import 'codemirror/addon/search/jump-to-line.js'
+import 'codemirror/addon/search/searchcursor.js'
+import 'codemirror/addon/search/search.js'
+import 'codemirror/addon/dialog/dialog.css'
+import 'codemirror/addon/edit/matchbrackets.js'
+import 'codemirror/addon/edit/trailingspace.js'    
 import 'codemirror/lib/codemirror.css'
 
 import 'codemirror/mode/apl/apl'
@@ -346,6 +354,7 @@ interface IProps {
     data: string;
     fixedLang: boolean;
     readOnly?: boolean;
+    title: string;
 }
 
 interface IState {
@@ -372,6 +381,7 @@ export default class Editor extends React.Component<IProps, IState> {
             <div>
                 <Toolbar>
                     <ToolbarGroup firstChild={true}>
+                        <b>{this.props.title}</b>&nbsp;&nbsp;
                         Language:
                         {this.props.fixedLang
                             ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
@@ -384,7 +394,7 @@ export default class Editor extends React.Component<IProps, IState> {
                         </DropDownMenu>
                     </ToolbarGroup>
                 </Toolbar>
-                <CodeMirror  value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly}} onChange={v => this.props.setData(v)} />
+                <CodeMirror  value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} onChange={v => this.props.setData(v)} />
             </div>
         )
     }
