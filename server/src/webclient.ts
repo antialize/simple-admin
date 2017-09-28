@@ -27,14 +27,15 @@ interface EWS extends express.Express {
 
 export class WebClient extends JobOwner {
     connection: WebSocket;
-
     logJobs: { [id: number]: Job } = {};
+    pingRecv: boolean = true;
 
     constructor(socket: WebSocket) {
         super()
         this.connection = socket;
         this.connection.on('close', () => this.onClose());
         this.connection.on('message', (msg) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
+        this.connection.on('ping', ()=>{this.pingRecv=true;});
     }
 
     onClose() {
@@ -151,7 +152,10 @@ export class WebClient extends JobOwner {
     }
 
     sendMessage(obj: IAction) {
-        this.connection.send(JSON.stringify(obj))
+        this.connection.send(JSON.stringify(obj), (err:Error)=> {
+            console.log("Error sending message to webClient", err);
+            this.connection.terminate();
+        })
     }
 }
 
@@ -204,7 +208,8 @@ export class WebClients {
     wss: WebSocket.Server;
     httpApp = express();
     httpServer: http.Server;
-
+    interval: NodeJS.Timer;
+    
     broadcast(act: IAction) {
         this.webclients.forEach(client => client.sendMessage(act));
     }
@@ -303,6 +308,17 @@ export class WebClients {
         this.httpsServer.listen(443, "0.0.0.0", function() {
             console.log("server running")
         });
+        this.interval = setInterval(()=>{
+            this.webclients.forEach((c)=> {
+                if (!c.pingRecv) {
+                    console.log("Webclient timeout");
+                    c.connection.terminate();
+                    return;
+                }
+                c.pingRecv = false;
+                c.connection.ping('', false, true);
+            });
+        }, 30000); 
     }
 }
 

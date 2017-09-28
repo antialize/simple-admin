@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import { IUpdateStatusAction, IHostDown, ACTION } from '../../shared/actions'
 import { IStatus, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
 import * as message from './messages'
-import * as WebSocket from 'ws';
 import * as tls from 'tls';
 import * as crypto from 'crypto';
 import { JobOwner } from './jobowner'
@@ -11,6 +10,8 @@ import { StatusJob } from './jobs/statusJob'
 import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
 import {errorHandler} from './error';
+import {log} from 'winston';
+
 
 function delay(time: number) {
     return new Promise<void>(resolve => {
@@ -40,6 +41,9 @@ export class HostClient extends JobOwner {
         this.socket = socket;
         this.socket.on('close', () => this.onClose());
         this.socket.on('data', (data: any) => this.onData(data as Buffer));
+        this.socket.on('error', (err: Error) => {
+            log('warning', "Client socket error", {hostname: this.hostname, error: err});
+        });
         this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);;
     }
 
@@ -55,7 +59,7 @@ export class HostClient extends JobOwner {
         this.pingTimer = null;
         msg.emit(this.id, "Host down", "Did not respond to ping within 20 seconds.");
         this.closeHandled = true;
-        console.log("Ping timeout", this.hostname);
+        log('warning', "Client ping timeout", {hostname: this.hostname});
         this.socket.end();
     }
 
@@ -75,7 +79,8 @@ export class HostClient extends JobOwner {
         if (!this.closeHandled)
             msg.emit(this.id, "Host down", "Connection closed.");
 
-        console.log("Client", this.hostname, "disconnected");
+        log('info', "Client disconnected", {hostname: this.hostname});
+            
         if (this.id in hostClients.hostClients)
             delete hostClients.hostClients[this.id];
 
@@ -95,7 +100,7 @@ export class HostClient extends JobOwner {
         if (this.auth === false) return;
         if (this.auth === null) {
             if (obj.type != "auth") {
-                console.log("Client from", this.socket.remoteAddress, this.socket.remotePort, "invalid auth", obj);
+                log('warning', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
                 this.socket.end();
                 this.auth = false;
                 return;
@@ -103,14 +108,14 @@ export class HostClient extends JobOwner {
 
             let [id, _] = await Promise.all<number, void>([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
-                console.log("Client", obj['hostname'], "connected from", this.socket.remoteAddress, this.socket.remotePort);
+                log('info', "Client authorized", {hostname: obj['hostname'], addresS: this.socket.remoteAddress, port: this.socket.remotePort});
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;
                 new StatusJob(this);
                 hostClients.hostClients[this.id] = this;
             } else {
-                console.log("Client from", this.socket.remoteAddress, this.socket.remotePort, "invalid auth", obj);
+                log('warning', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
                 this.socket.end();
                 this.auth = false;
             }
@@ -216,9 +221,18 @@ export class HostClients {
         const options = { key: privateKey, cert: certificate };
 
         this.hostServer = tls.createServer(options, socket => {
-            console.log("Client connected from", socket.remoteAddress, socket.remotePort);
+            log('info', "Client connected", {address: socket.remoteAddress, port: socket.remotePort});
             new HostClient(socket);
         });
+        this.hostServer.on('error', (err) => {
+            log('error', "Host server error", {err});
+        });
         this.hostServer.listen(8888, '0.0.0.0');
+        this.hostServer.on('listening' , () => {
+            log('info', "Host server started on port 8888");
+        });
+        this.hostServer.on('close' , () => {
+            log('info', "Host server stopped");
+        });
     }
 }
