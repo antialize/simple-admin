@@ -55,4 +55,4 @@ function MessagesImpl(p:StateProps) {
         </Box>
 }
 
-export let Messages = connect(makeMapStatToProps)(MessagesImpl);
+export let Messages = connect<StateProps, null, ExternProps>(makeMapStatToProps)(MessagesImpl);

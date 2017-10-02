@@ -134,7 +134,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
 }
     
 
-const store = createStore(mainReducer, applyMiddleware(handleRemote)) as Store<IMainState>;
+const store = createStore(mainReducer, applyMiddleware(handleRemote as any)) as Store<IMainState>;
 
 let socket: WebSocket;
 let reconnectTime = 1; 

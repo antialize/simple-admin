@@ -10,8 +10,15 @@ import {debugStyle} from './debug';
 import { createSelector } from 'reselect'
 import Avatar from 'material-ui/Avatar';
 
-interface Props {
-    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
+interface ExternProps {
+    id: number;
+}
+
+interface DispatchProps {
+    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;    
+}
+
+interface StateProps {
     name: string;
     id: number;
     up: boolean;
@@ -20,7 +27,7 @@ interface Props {
 
 const makeMapStatToProps = () => {
     const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
-    const getId = (_:IMainState, props: {id:number}) => props.id;
+    const getId = (_:IMainState, props: ExternProps) => props.id;
     const getHost = createSelector([getHosts, getId], (hosts, id) => {
         return hosts.find(host => host.id == id);
     });
@@ -52,7 +59,7 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
     }    
 }
 
-function HostMenuItemImpl(props:Props) {
+function HostMenuItemImpl(props:StateProps & DispatchProps) {
     return <ListItem 
             nestedLevel={1}
             primaryText={props.name}
@@ -63,4 +70,4 @@ function HostMenuItemImpl(props:Props) {
             href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}/>;
 }
 
-export let HostMenuItem = connect(makeMapStatToProps, mapDispatchToProps)(HostMenuItemImpl);
+export let HostMenuItem = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(HostMenuItemImpl);

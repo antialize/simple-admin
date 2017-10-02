@@ -12,10 +12,17 @@ import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {Status} from './status';
 
-interface StatusesProps {
+interface ExternProps {
+    id: number;
+}
+
+interface StateProps {
     name: string; 
     id: number;
     up: boolean;
+}
+
+interface DispatchProps {
     setPage: (e: React.MouseEvent<{}>, p: State.IPage) => void;
 }
 
@@ -23,7 +30,7 @@ const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
 const getStatuses = (state:IMainState) => state.status;
 
 const makeMapStatToProps = () => {
-    const getId = (_:IMainState, props: {id:number}) => props.id;
+    const getId = (_:IMainState, props: ExternProps) => props.id;
     const getUp = createSelector([getId, getStatuses], (id, status) => {
         return status[id] && status[id].up;
     });
@@ -41,7 +48,7 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
     }
 }
 
-function StatusesCardImpl(p: StatusesProps) {
+function StatusesCardImpl(p: StateProps & DispatchProps) {
     let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id:p.id, version: null };
     let elm;
     if (p.up)
@@ -59,4 +66,4 @@ function StatusesCardImpl(p: StatusesProps) {
         </Card>);
 }
 
-export let StatusesCard = connect(makeMapStatToProps, mapDispatchToProps)(StatusesCardImpl);
+export let StatusesCard = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(StatusesCardImpl);

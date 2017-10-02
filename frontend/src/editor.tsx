@@ -394,7 +394,7 @@ export default class Editor extends React.Component<IProps, IState> {
                         </DropDownMenu>
                     </ToolbarGroup>
                 </Toolbar>
-                <CodeMirror  value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} onChange={v => this.props.setData(v)} />
+                <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true} as any} onChange={v => this.props.setData(v)} />
             </div>
         )
     }

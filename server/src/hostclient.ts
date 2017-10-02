@@ -108,7 +108,7 @@ export class HostClient extends JobOwner {
 
             let [id, _] = await Promise.all<number, void>([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
-                log('info', "Client authorized", {hostname: obj['hostname'], addresS: this.socket.remoteAddress, port: this.socket.remotePort});
+                log('info', "Client authorized", {hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort});
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;

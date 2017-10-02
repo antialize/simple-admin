@@ -10,10 +10,13 @@ import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {HostMenuItem} from './hostMenuItem';
 
-interface Props {
-    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
+interface StateProps {
     name: string;
     hosts: {name: string, id:number}[];
+}
+
+interface DispatchProps {
+    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;    
 }
 
 const makeMapStatToProps = () => {
@@ -39,7 +42,7 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
     }    
 }
 
-function HostTypeMenuItemImpl(props:Props) {
+function HostTypeMenuItemImpl(props:StateProps & DispatchProps) {
     let nestedItems=[];
     for (const host of props.hosts) {
         nestedItems.push(<HostMenuItem id={host.id} key={host.id} />);
@@ -54,4 +57,4 @@ function HostTypeMenuItemImpl(props:Props) {
         nestedItems={nestedItems}/>;
 }
 
-export let HostTypeMenuItem = connect(makeMapStatToProps, mapDispatchToProps)(HostTypeMenuItemImpl);
+export let HostTypeMenuItem = connect<StateProps, DispatchProps, {}>(makeMapStatToProps, mapDispatchToProps)(HostTypeMenuItemImpl);

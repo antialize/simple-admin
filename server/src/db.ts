@@ -5,7 +5,7 @@ import { Host, hostId } from '../../shared/type'
 import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
 import { defaults, userId, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
-
+import {log} from 'winston';
 
 
 export class DB {
@@ -69,7 +69,8 @@ export class DB {
             let mv = await q("SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?", [d.id]);
             await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [mv['version'], d.id]);
         }
-        this.nextObjectId = Math.max((await q("SELECT max(`id`) as `id` FROM `objects`"))['id'], this.nextObjectId);
+        this.nextObjectId = Math.max((await q("SELECT max(`id`) as `id` FROM `objects`"))['id'] + 1, this.nextObjectId);
+        log("info", "Db inited", {nextObjectId: this.nextObjectId});
     }
 
     getDeployments(host: number) {

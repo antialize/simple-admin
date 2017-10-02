@@ -64,4 +64,4 @@ function MessageImpl(p:StateProps & DispatchProps) {
     return <tr style={debugStyle()} className={c} key={p.id}><td>{p.message.type}</td><td>{p.hostname}</td><td>{p.message.message}</td><td>{newDate.toUTCString()}</td><td>{action}</td></tr>;
 }
 
-export const Message = connect(makeMapStatToProps, mapDispatchToProps)(MessageImpl);
+export const Message = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(MessageImpl);

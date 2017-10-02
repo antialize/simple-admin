@@ -17,29 +17,15 @@ interface ExternProps {
 }
 
 interface IProps {
-    status: IStatus;
-}
-
-function mapStateToProps(state:IMainState, props:ExternProps): IProps {
-    return {status: state.status[props.id]}
-}
-
-export function SpecificStatusImpl(props:IProps) {
-    return <Status status={props.status}/>
-}
-
-export let SpecificStatus = connect(mapStateToProps)(SpecificStatusImpl);
-
-interface IProps2 {
     id: number;
     down: boolean;
 }
 
-function mapStateToProps2(state:IMainState, props:ExternProps): IProps2 {
+function mapStateToProps2(state:IMainState, props:ExternProps): IProps {
     return {id: props.id, down: state.status[props.id] == null || !state.status[props.id].up};
 }
 
-function HostExtraImpl(props:IProps2) {
+function HostExtraImpl(props:IProps) {
     let c: JSX.Element = null;
     if (!props.down) {
         c = (<div>
@@ -73,7 +59,7 @@ function HostExtraImpl(props:IProps2) {
                 <div>
                     <Messages host={props.id} />
                     <Box title="Status" collapsable={true} expanded={true}>
-                        <SpecificStatus id={props.id} />
+                        <Status id={props.id} />
                     </Box>
                 </div>: null}
             {c}

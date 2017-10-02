@@ -109,7 +109,7 @@ function TypeImpl(props: StateProps & DispactProps) {
             rows.push(<InformationListRow key={ct.name} name={ct.title}><Password value={v==undefined?"":v} onChange={value => props.setProp(ct.name,value)}/></InformationListRow>);
             break;
         case TypePropType.bool:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><Toggle alt={ct.description} toggled={v==undefined?ct.default:v} onToggle={(e:any, value:boolean) => props.setProp(ct.name,value)}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}><Toggle title={ct.description} toggled={v==undefined?ct.default:v} onToggle={(e:any, value:boolean) => props.setProp(ct.name,value)}/></InformationListRow>);
             break;
         case TypePropType.text:
             rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?ct.default:v} fullWidth={ct.lines && ct.lines > 0} multiLine={ct.lines && ct.lines > 1} rows={ct.lines || 1} onChange={(e: any, value: string) => props.setProp(ct.name,  value)}  hintText={ct.description}/></InformationListRow>);

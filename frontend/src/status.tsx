@@ -20,15 +20,18 @@ import { createSelector } from 'reselect';
 
 const getStatuses = (state:IMainState) => state.status;
 
-const makeMapStatToProps = () => {
-    const getId = (_:IMainState, props: {id:number}) => props.id;
-    return createSelector([getId, getStatuses], (id, statuses)=> {return {id, status: statuses[id]}} );
+interface ExternProps {
+    id: number;
 }
 
 interface Props {
     id: number;
     status: IStatus;
-};
+}
+const makeMapStatToProps: ()=>(sate: IMainState, props: ExternProps)=>Props = ()=> {
+    const getId = (_:IMainState, props: ExternProps) => props.id;
+    return createSelector([getId, getStatuses], (id, statuses)=> {return {id, status: statuses[id]}} );
+}
 
 function StatusImpl(props: Props) {
     const s = props.status;
@@ -194,4 +197,4 @@ function StatusImpl(props: Props) {
         </div>)
 };
 
-export const Status = connect(makeMapStatToProps)(StatusImpl);
+export const Status = connect<Props, null, ExternProps>(makeMapStatToProps)(StatusImpl);

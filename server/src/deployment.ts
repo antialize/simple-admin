@@ -332,10 +332,8 @@ export class Deployment {
                     if (type.content.hasDepends && 'depends' in obj.content)
                         handleDepends((obj.content as IDepends).depends);
 
-                    if ('depends' in type.content) {
-                        console.log("TYPE DEPENDS", (type.content as IDepends).depends);
+                    if ('depends' in type.content)
                         handleDepends((type.content as IDepends).depends);
-                    }
 
                     return { node, sentinal };
                 }

@@ -21,6 +21,7 @@ import { webClients, msg, hostClients, db, deployment } from './instances'
 import { errorHandler } from './error'
 import { IType, typeId, TypePropType } from '../../shared/type'
 import setup from './setup'
+import {log} from 'winston';
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -29,14 +30,15 @@ interface EWS extends express.Express {
 export class WebClient extends JobOwner {
     connection: WebSocket;
     logJobs: { [id: number]: Job } = {};
-    pingRecv: boolean = true;
 
     constructor(socket: WebSocket) {
         super()
         this.connection = socket;
         this.connection.on('close', () => this.onClose());
         this.connection.on('message', (msg) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
-        this.connection.on('ping', ()=>{this.pingRecv=true;});
+        this.connection.on('error', (err)=>{
+            log('waring', "Web client error", {err});
+        });
     }
 
     onClose() {
@@ -93,9 +95,7 @@ export class WebClient extends JobOwner {
                         if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
                         c[r.name] = await crypt.hash(c[r.name]);
                     }
-                    console.log("A");
                     let { id, version } = await db.changeObject(act.id, act.obj);
-                    console.log("B");
                     act.obj.version = version;
                     let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [act.obj] };
                     webClients.broadcast(res2);
@@ -123,7 +123,7 @@ export class WebClient extends JobOwner {
                         let res: IAlert = { type: ACTION.Alert, title: "Cannot delete object", message: "The object can not be delete as it is in use by:\n" + conflicts.join("\n") };
                         this.sendMessage(res);
                     } else {
-                        console.log("Delete object ", act.id);
+                        log('info', 'Web client delete object', {id: act.id});
                         await db.changeObject(act.id, null);
                         let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                         webClients.broadcast(res2);
@@ -148,14 +148,16 @@ export class WebClient extends JobOwner {
                 deployment.toggleObject(act.index, act.enabled);
                 break;
             default:
-                console.log(act);
+                log("warning", "Web client unknown message", {act});
         }
     }
 
     sendMessage(obj: IAction) {
         this.connection.send(JSON.stringify(obj), (err:Error)=> {
-            console.log("Error sending message to webClient", err);
-            this.connection.terminate();
+            if (err) {
+                log("warning", "Web client error sending message", {err});
+                this.connection.terminate();
+            }
         })
     }
 }
@@ -308,19 +310,11 @@ export class WebClients {
     startServer() {
         this.httpServer.listen(80, "0.0.0.0");
         this.httpsServer.listen(443, "0.0.0.0", function() {
-            console.log("server running")
+            log('info',"Web server started on port 443");
         });
-        this.interval = setInterval(()=>{
-            this.webclients.forEach((c)=> {
-                if (!c.pingRecv) {
-                    console.log("Webclient timeout");
-                    c.connection.terminate();
-                    return;
-                }
-                c.pingRecv = false;
-                c.connection.ping('', false, true);
-            });
-        }, 30000); 
+        this.httpsServer.on('close', () => {
+            log('info', "Web server stopped");
+        });
     }
 }
 
