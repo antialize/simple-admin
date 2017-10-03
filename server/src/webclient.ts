@@ -310,7 +310,7 @@ export class WebClients {
     startServer() {
         this.httpServer.listen(80, "0.0.0.0");
         this.httpsServer.listen(443, "0.0.0.0", function() {
-            log('info',"Web server started on port 443");
+            log('info', "Web server started on port 443");
         });
         this.httpsServer.on('close', () => {
             log('info', "Web server stopped");

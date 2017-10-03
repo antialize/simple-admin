@@ -4,7 +4,7 @@ import { Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import * as React from "react"
 import { IObject2, DEPLOYMENT_STATUS, PAGE_TYPE } from '../../shared/state'
-import { ACTION, IDiscardObject, ISaveObject, IDeployObject, ISetPageAction, IDeleteObject } from '../../shared/actions'
+import { ACTION, IDiscardObject, ISaveObject, IDeployObject, ISetPageAction, IDeleteObject, ICancelDeployment} from '../../shared/actions'
 import CircularProgress from 'material-ui/CircularProgress'
 import RaisedButton from 'material-ui/RaisedButton'
 import { HostExtra } from './hostextra'
@@ -24,6 +24,7 @@ interface StateProps {
     id: number;
     hasCurrent: boolean;
     canDeploy: boolean;
+    canCancel: boolean;
     touched: boolean;
     typeName: string;
     typeId: number;
@@ -31,10 +32,12 @@ interface StateProps {
     versions: number;
 }
 
+
+
 interface DispactProps {
     discard: () => void;
     save: () => void;
-    deploy: (redeploy:boolean) => void;
+    deploy: (cancel: boolean, redeploy:boolean) => void;
     delete: () => void;
 }
 
@@ -50,7 +53,8 @@ function mapStateToProps(s: IMainState, p: IProps): StateProps {
         typeId: p.type,
         id: p.id,
         hasCurrent: p.id in s.objects && s.objects[p.id].current != null,
-        canDeploy: s.deployment.status == DEPLOYMENT_STATUS.Done || s.deployment.status == DEPLOYMENT_STATUS.InvilidTree,
+        canDeploy: s.deployment.status == DEPLOYMENT_STATUS.Done || s.deployment.status == DEPLOYMENT_STATUS.InvilidTree || s.deployment.status == DEPLOYMENT_STATUS.BuildingTree || s.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || s.deployment.status == DEPLOYMENT_STATUS.ReviewChanges,
+        canCancel: s.deployment.status == DEPLOYMENT_STATUS.BuildingTree || s.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || s.deployment.status == DEPLOYMENT_STATUS.ReviewChanges,        
         touched: p.id in s.objects &&  s.objects[p.id].touched,
         version: p.version,
         versions: versions
@@ -73,7 +77,13 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>, p: IProps): DispactP
             };
             dispatch(a);
         },
-        deploy: (redeploy:boolean) => {
+        deploy: (cancle: boolean, redeploy:boolean) => {
+            if (cancle) {
+                const a: ICancelDeployment = {
+                    type: ACTION.CancelDeployment,
+                };
+                dispatch(a);
+            }
             const a: IDeployObject = {
                 type: ACTION.DeployObject,
                 id: p.id,
@@ -109,8 +119,8 @@ function ObjectImpl(p: DispactProps & StateProps) {
                 <div>{p.versions}</div>
                 <div>
                     <RaisedButton label="Save" primary={true} style={{ margin: 10 }} onClick={p.save} disabled={!p.touched}/>
-                    <RaisedButton label="Deploy" primary={true} style={{margin:10}} onClick={()=>p.deploy(false)} disabled={!p.canDeploy}/>
-                    <RaisedButton label="Redeploy" primary={true} style={{margin:10}} onClick={()=>p.deploy(true)} disabled={!p.canDeploy}/>
+                    <RaisedButton label={p.canCancel?"Deploy (cancel current)":"Deploy"} primary={true} style={{margin:10}} onClick={()=>p.deploy(p.canCancel, false)} disabled={!p.canDeploy}/>
+                    <RaisedButton label={p.canCancel?"Redeploy (cancel current)":"Redeploy"} primary={true} style={{margin:10}} onClick={()=>p.deploy(p.canCancel, true)} disabled={!p.canDeploy}/>
                     <RaisedButton label="Discard" secondary={true} style={{ margin: 10 }} onClick={p.discard} disabled={!p.touched} />
                     <RaisedButton label="Delete" secondary={true} style={{ margin: 10 }} onClick={p.delete} disabled={!p.canDeploy /*|| p.class == 'root'*/}/>
                 </div>

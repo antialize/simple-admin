@@ -1,6 +1,7 @@
 import {webClients} from './instances';
 import {WebClient} from './webclient'
 import {IAlert, ACTION} from '../../shared/actions';
+import {log} from 'winston';
 
 export enum ErrorType {Database, Unknown, SyntaxError}
 
@@ -46,9 +47,7 @@ export function descript(err:any) {
 export function errorHandler(place: string, webclient?: WebClient | false) {
     return (err:any) => {
         let d = descript(err);
-        console.log("An error occured in "+place);
-        console.log(d.typeName + " " + d.description);
-        console.log(err);
+        log('error', "An error occured in "+place, {typename: d.typeName, description: d.description, err});
         let res:IAlert = {type: ACTION.Alert, title: "Error: " + d.typeName , message: "A " + d.type + " error occurned "+place+": \n"+d.description };
         if (webclient === false) {}
         else if (webclient)
