@@ -28,16 +28,16 @@ export class Msg {
                 });
     }
 
-    setDismissed(id: number, dismissed: boolean) {
+    setDismissed(ids: number[], dismissed: boolean) {
         const time = dismissed? +new Date() / 1000 : null;
 
-        db.db.run("UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id`=?", [dismissed, time, id], (err)=>{
+        db.db.run("UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN ("+ids.join(",")+")", [dismissed, time], (err)=>{
             if (err == null) return;
             errorHandler("Msg::setDismissed", false)(new SAError(ErrorType.Database, err));
         });
-        const act: actions.ISetMessageDismissed = {
-            type: actions.ACTION.SetMessageDismissed,
-            id: id,
+        const act: actions.ISetMessagesDismissed = {
+            type: actions.ACTION.SetMessagesDismissed,
+            ids: ids,
             dismissed: dismissed,
             source: "server"
         };

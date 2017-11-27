@@ -81,8 +81,8 @@ export class WebClient extends JobOwner {
                 if (act.id in this.logJobs)
                     this.logJobs[act.id].kill();
                 break;
-            case ACTION.SetMessageDismissed:
-                msg.setDismissed(act.id, act.dismissed);
+            case ACTION.SetMessagesDismissed:
+                msg.setDismissed(act.ids, act.dismissed);
                 break;
             case ACTION.SaveObject:
                 {

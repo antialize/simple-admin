@@ -120,7 +120,7 @@ const handleRemote = (store:Store<IMainState>) => (next:(a:IAction)=>any) => (ac
             return;
         }
         break;
-    case ACTION.SetMessageDismissed:
+    case ACTION.SetMessagesDismissed:
         if (action.source == "webclient") {
             sendMessage(action);
             return;

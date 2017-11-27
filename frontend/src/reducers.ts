@@ -53,6 +53,8 @@ export interface IMainState {
     objects: { [id: number]: IObjectState };
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
     messages: { [id: number]: IMessage };
+    messageExpanded: {[id:number]: boolean};
+    messageGroupExpanded: {[id:number]: boolean};
     deployment: IDeploymentState;
     types: {[id:number]: IObject2<IType>};
     connectionStatus: CONNECTION_STATUS;
@@ -67,10 +69,12 @@ function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
                 messages[msg.id] = msg;
             return messages;
         }
-        case ACTION.SetMessageDismissed: {
+        case ACTION.SetMessagesDismissed: {
             const messages = Object.assign({}, state);
-            messages[action.id] = Object.assign({}, messages[action.id]);
-            messages[action.id].dismissed = action.dismissed;
+            for (const id of action.ids) {
+                messages[id] = Object.assign({}, messages[id]);
+                messages[id].dismissed = action.dismissed;
+            }
             return messages;
         }
         case ACTION.AddMessage: {
@@ -345,6 +349,23 @@ export function loaded(state = false, action: IAction) {
     return state;
 }
 
+export function messageExpanded(state: {[id:number]: boolean}  = {}, action: IAction) {
+    if (action.type == ACTION.SetMessageExpanded) {
+        let ans = {...state};
+        ans[action.id] = action.expanded;
+        return ans;
+    }
+    return state;
+}
+
+export function messageGroupExpanded(state: {[id:number]: boolean}  = {}, action: IAction) {
+    if (action.type == ACTION.SetMessageGroupExpanded) {
+        let ans = {...state};
+        ans[action.id] = action.expanded;
+        return ans;
+    }
+    return state;
+}
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
@@ -358,7 +379,9 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
         deployment: deployment(state ? state.deployment : undefined, action),
         connectionStatus: connectionStatus(state ? state.connectionStatus: undefined, action),
-        loaded: loaded(state ? state.loaded: undefined, action)
+        loaded: loaded(state ? state.loaded: undefined, action),
+        messageExpanded: messageExpanded(state ? state.messageExpanded: undefined, action),
+        messageGroupExpanded: messageGroupExpanded(state ? state.messageGroupExpanded: undefined, action),        
     };
     changeCurrentObject(ns);
     return ns;

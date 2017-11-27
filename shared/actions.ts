@@ -5,7 +5,7 @@ import { IType } from './type'
 export enum ACTION {
     UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
     SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
-    AddMessage, SetMessageDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
+    AddMessage, SetMessagesDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
     StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus, SetMessageExpanded, SetMessageGroupExpanded
@@ -109,10 +109,10 @@ export interface IAddMessage {
     message: IMessage;
 }
 
-export interface ISetMessageDismissed {
-    type: ACTION.SetMessageDismissed,
-    id: number,
-    dismissed: boolean
+export interface ISetMessagesDismissed {
+    type: ACTION.SetMessagesDismissed;
+    ids: number[];
+    dismissed: boolean;
     source: "server" | "webclient";
 }
 
@@ -231,11 +231,23 @@ export interface ISetConnectionStatus {
     status: CONNECTION_STATUS;
 }
 
+export interface ISetMessageExpanded {
+    type: ACTION.SetMessageExpanded;
+    id: number;
+    expanded: boolean;
+}
+
+export interface ISetMessageGroupExpanded {
+    type: ACTION.SetMessageGroupExpanded;
+    id: number;
+    expanded: boolean;
+}
+
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
-    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessageDismissed | ISetObjectName 
+    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessagesDismissed | ISetObjectName 
     | ISetObjectComment | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
     | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory
-    | ISetConnectionStatus;
+    | ISetConnectionStatus | ISetMessageExpanded | ISetMessageGroupExpanded;

@@ -1,6 +1,6 @@
 import * as React from "react";
 import {IMainState} from './reducers';
-import {ISetMessageDismissed, ACTION, IMessage} from '../../shared/actions'
+import {ISetMessagesDismissed, ISetMessageExpanded, ACTION, IMessage} from '../../shared/actions'
 import {hostId} from '../../shared/type'
 import {connect, Dispatch } from 'react-redux';
 import {debugStyle} from './debug';
@@ -9,16 +9,20 @@ import RaisedButton from 'material-ui/RaisedButton';
 
 interface ExternProps {
     id: number;
+    inGroup?: boolean;
 }
 
 interface StateProps {
     message: IMessage;
     hostname: string;
     id: number;
+    inGroup: boolean;
+    expanded: boolean;
 }
 
 interface DispatchProps {
-    setDismissed(id:number, dismissed:boolean): void;
+    setDismissed(dismissed:boolean): void;
+    setExpanded(dismissed:boolean): void;    
 }
 
 const getMessages = (state:IMainState) => state.messages;
@@ -31,19 +35,29 @@ const getHostNames = createSelector([getHosts], (hosts) => {
 
 const makeMapStatToProps = () => {
     const getId = (_:IMainState, p: ExternProps) => p.id;
-    return createSelector([getId, getMessages, getHostNames], (id, messages, hostNames)=> {
-        return {message: messages[id], hostname:hostNames[messages[id].host], id};
+    const getInGroup = (_:IMainState, p: ExternProps) => p.inGroup;
+    const getExpanded = (state:IMainState, p:ExternProps) => state.messageExpanded[p.id];
+    return createSelector([getId, getInGroup, getExpanded, getMessages, getHostNames], (id, inGroup, expanded, messages, hostNames)=> {
+        return {message: messages[id], hostname:hostNames[messages[id].host], id, inGroup, expanded};
     });
 };
 
 function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:ExternProps): DispatchProps {
     return {
-        setDismissed: (id:number, dismissed: boolean) => {
-            const p:ISetMessageDismissed = {
-                type: ACTION.SetMessageDismissed,
-                id: id,
-                dismissed: dismissed,
+        setDismissed: (dismissed: boolean) => {
+            const p:ISetMessagesDismissed = {
+                type: ACTION.SetMessagesDismissed,
+                ids: [o.id],
+                dismissed,
                 source: "webclient"
+            };
+            dispatch(p);
+        },
+        setExpanded: (expanded: boolean) => {
+            const p:ISetMessageExpanded = {
+                type: ACTION.SetMessageExpanded,
+                id: o.id,
+                expanded,
             };
             dispatch(p);
         },
@@ -52,16 +66,28 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:ExternProps): Dispa
 
 function MessageImpl(p:StateProps & DispatchProps) {
     const newDate = new Date(p.message.time * 1000);
-    let action;
+    let actions = [];
     let c;
+
+
     if (p.message.dismissed) {
-        action = <RaisedButton label="Undismiss" primary={true} onClick={()=>p.setDismissed(p.id, false)}/>;
+        actions.push(<RaisedButton key="undismiss" label="Undismiss" primary={true} onClick={()=>p.setDismissed(false)}/>);
         c = "message_good";
     } else {
-        action = <RaisedButton label="Dismiss" primary={true} onClick={()=>p.setDismissed(p.id, true)}/>;
+        actions.push(<RaisedButton key="dismiss" label="Dismiss" primary={true} onClick={()=>p.setDismissed(true)}/>);
         c = "message_bad";
     }
-    return <tr style={debugStyle()} className={c} key={p.id}><td>{p.message.type}</td><td>{p.hostname}</td><td>{p.message.message}</td><td>{newDate.toUTCString()}</td><td>{action}</td></tr>;
+
+    let msg = p.message.message;
+    if (msg && msg.length > 1000) {
+        if (!p.expanded) {
+            msg = msg.substr(0,1000)+"...";
+            actions.push(<RaisedButton key="expand" label="Full text" primary={true} onClick={()=>p.setExpanded(true)}/>);
+        } else {
+            actions.push(<RaisedButton key="contract" label="Partial text" primary={true} onClick={()=>p.setExpanded(false)}/>);
+        }
+    }    
+    return <tr style={debugStyle()} className={c} key={p.id}>{p.inGroup?<td colSpan={2} />:<td>{p.message.type}</td>}{p.inGroup?null:<td>{p.hostname}</td>}<td>{msg}</td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>;
 }
 
 export const Message = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(MessageImpl);

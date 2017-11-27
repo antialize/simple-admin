@@ -1,6 +1,5 @@
 import * as React from "react";
 import {IMainState} from './reducers';
-import {ISetMessageDismissed, ACTION, IMessage} from '../../shared/actions'
 import {hostId} from '../../shared/type'
 import {connect, Dispatch } from 'react-redux';
 import RaisedButton from 'material-ui/RaisedButton';
@@ -9,13 +8,22 @@ import {Box} from './box';
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {Message} from './message';
+import {MessageGroup} from './messageGroup';
 
 interface ExternProps {
     host?: number;
 }
 
+interface MGroup {
+    ids : number[];
+    start : number;
+    end : number;
+    dismissed: number;
+}
+
+
 interface StateProps {
-    messages: {id:number, time:number}[]; 
+    messageGroups: MGroup[];
     count: number;
 }
 
@@ -35,7 +43,25 @@ const makeMapStatToProps = () => {
         messages.sort((l,r)=>{
             return r.time - l.time;
         });
-        return {messages, count};
+
+        let messageGroups: MGroup[] = [];
+        for (const m of messages) {
+            const t = msgs[m.id];            
+            if (messageGroups.length == 0) {
+                messageGroups.push({ids:[m.id], start: m.time, end:m.time, dismissed: t.dismissed?1:0});
+                continue;
+            }
+            const g = messageGroups[messageGroups.length-1];
+            const o = msgs[g.ids[0]];
+            if (o.host != t.host || o.type != t.type || o.subtype != t.subtype) {
+                messageGroups.push({ids:[m.id], start: m.time, end:m.time, dismissed: t.dismissed?1:0});
+            } else {
+                g.end = m.time;
+                if (t.dismissed) g.dismissed += 1;
+                g.ids.push(m.id);
+            }
+        }
+        return {messageGroups, count};
     });
 };
 
@@ -45,13 +71,21 @@ function MessagesImpl(p:StateProps) {
         title = <span style={{color: "green"}}>Messages</span>;
     else        
         title = <span style={{color: "red"}}>Messages ({p.count})</span>;
-
+    let messages = [];
+    for (const group of p.messageGroups) {
+        let id = group.ids[0];
+        if (group.ids.length == 1) {
+            messages.push(<Message id={id} key={id} />);
+        } else {
+            messages.push(<MessageGroup key={id} ids={group.ids} start={group.start} end={group.end} dismissed={group.dismissed}/>)
+        }
+    }
     return <Box title={title} expanded={p.count != 0} collapsable={true}>
             <table className="message_table" style={debugStyle()}>
                 <thead>
                     <tr><th>Type</th><th>Host</th><th>Message</th><th>Time</th><th>Action</th></tr>
                 </thead>
-                <tbody>{p.messages.map(m => <Message id={m.id} key={m.id}/>)}</tbody></table>
+                <tbody>{messages}</tbody></table>
         </Box>
 }
 
