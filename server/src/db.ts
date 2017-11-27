@@ -57,7 +57,11 @@ export class DB {
         await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
-
+        await r("CREATE TABLE IF NOT EXISTS `host_monitor` (`host` INTEGER PRIMARY KEY, `script` TEXT, `content` TEXT, `time` INTEGER)");
+        await r("CREATE TABLE IF NOT EXISTS `stats` (`key` INTEGER NOT NULL, `time` INTEGER NOT NULL, `value` NUMERIC, PRIMARY KEY(`key`, `time`) ) WITHOUT ROWID");
+        await r("CREATE TABLE IF NOT EXISTS `stats_keys` (`id` INTEGER PRIMARY KEY, `host` INTEGER NOT NULL, `name` STRING NOT NULL, `interval` INTEGER NOT NULL)");
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `stats_keys_index` ON `stats_keys` (`host`, `name`, `interval`)");
+       
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }
@@ -73,7 +77,30 @@ export class DB {
         log("info", "Db inited", {nextObjectId: this.nextObjectId});
     }
 
-    getDeployments(host: number) {
+    getHostMonitor(host: number) {
+        let db = this.db;
+        return new Promise<{ host: number, script: string, content: string } | null>((cb, cbe) => {
+            db.get("SELECT `host`, `script`, `content` FROM `host_monitor` WHERE `host`=?", [host],
+                (err, row) => {
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else
+                        cb(row)
+                });
+        }); 
+    }
+     setHostMonitor(host: number, script: string, content:string) {
+        let db = this.db;
+        return new Promise<{}[]>((cb, cbe) => {
+            db.run("REPLACE INTO `host_monitor` (`host`, `script`, `content`, `time`) VALUES (?, ?, ?, datetime('now'))", [host, script, content], (err) => {
+                if (err)
+                    cbe(new SAError(ErrorType.Database, err));
+                else
+                    cb();
+            });
+        });
+    }
+      getDeployments(host: number) {
         let db = this.db;
         return new Promise<{ name: string, type: number, title: string, content: string }[]>((cb, cbe) => {
             db.all("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],

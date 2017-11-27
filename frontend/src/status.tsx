@@ -179,13 +179,13 @@ function StatusImpl(props: Props) {
         <div style={debugStyle({ display: 'flex', flexDirection: 'row' })}>
             <div style={{ width: "250px" }}>
                 <InformationList>
-                    <InformationListRow name="Hostname">{s.uname.nodename}</InformationListRow>
-                    <InformationListRow name="Kernel">{s.uname.release}</InformationListRow>
-                    <InformationListRow name="Dist">{s.lsb_release.id} {s.lsb_release.release} {s.lsb_release.codename}</InformationListRow>
-                    <InformationListRow name="Uptime"><Time seconds={s.uptime.total} /></InformationListRow>
-                    <InformationListRow name="Loadavg">{s.loadavg.minute}</InformationListRow>
+                    <InformationListRow name="Hostname">{s.uname?s.uname.nodename:"unknown"}</InformationListRow>
+                    <InformationListRow name="Kernel">{s.uname?s.uname.release:"unknown"}</InformationListRow>
+                    <InformationListRow name="Dist">{s.lsb_release?s.lsb_release.id+" "+s.lsb_release.release+" "+s.lsb_release.codename:"unknown"}</InformationListRow>
+                    <InformationListRow name="Uptime"><Time seconds={s.uptime?s.uptime.total:0} /></InformationListRow>
+                    <InformationListRow name="Loadavg">{s.loadavg?s.loadavg.minute:"unknown"}</InformationListRow>
                     <InformationListRow name="Memory">
-                        <Size size={s.meminfo.total - s.meminfo.free} /><span> of </span><Size size={s.meminfo.total} /><br />
+                        <Size size={s.meminfo?s.meminfo.total - s.meminfo.free:0} /><span> of </span><Size size={s.meminfo?s.meminfo.total:0} /><br />
                     </InformationListRow>
                     <InformationListRow name="Swap">{swap}</InformationListRow>
                     {lst}

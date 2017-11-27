@@ -121,7 +121,7 @@ export class Deployment {
                                 break;
                             }
                         case TypePropType.monitorContent:
-                            //TODO
+                            content[item.name] = objContent[item.name];
                             break;
                         case TypePropType.none:
                         case TypePropType.typeContent:
@@ -450,6 +450,58 @@ export class Deployment {
                     //});
                 }
 
+
+                  // Handle monitor
+                if (rootInstanceId in objects && hostFull) {
+                    let monitorContent = "";
+                    let content: {[key:string]: Object} = {};
+
+                    for (let o of hostDeploymentObjects) {
+                        if (o.typeId != monitorId) continue;
+                        monitorContent += o.nextContent.script + "\n\n";
+                        content[o.nextContent.name] = o.nextContent.content;
+                    }
+
+                    let monitor = objects[rootInstanceId].content.monitor;
+
+                    let script = "";
+                    try {
+                        script = Mustache.render(monitor, {...rootVariable, monitorContent});
+                    } catch (err) {
+                        errors.push("Template error in monitor: "+err);
+                        console.log(err);
+                    }
+
+                    const o: IDeploymentObject = {
+                        index: 0,
+                        enabled: true,
+                        status: DEPLOYMENT_OBJECT_STATUS.Normal,
+                        action: DEPLOYMENT_OBJECT_ACTION.Monitor,
+                        hostName: hostObject.name,
+                        title: "Monitor",
+                        name: "monitor",
+                        script: script,
+                        prevScript: "",
+                        nextContent: content,
+                        prevContent: null,
+                        host: hostId,
+                        triggers: [],
+                        typeName: "monitor",
+                        id: null,
+                        typeId: null,
+                        deploymentOrder: 123456
+                    };
+
+                    let mon = await db.getHostMonitor(hostId);
+                    if (mon) {
+                        o.prevScript = mon.script;
+                        o.prevContent = JSON.parse(mon.content);
+                    }
+                    hostDeploymentObjects.push(o);                
+                }
+
+                hostDeploymentObjects = hostDeploymentObjects.filter(o => o.typeId != monitorId);
+
                 // Filter away stuff that has not changed
                 hostDeploymentObjects = hostDeploymentObjects.filter(o => {
                     let a = JSON.stringify(o.nextContent);
@@ -602,7 +654,6 @@ export class Deployment {
         for (let i = 0; i < this.deploymentObjects.length; ++i) {
             let o = this.deploymentObjects[i];
             if (!o.enabled) continue;
-            let type = types[o.typeId];
 
             if (badHosts.has(o.host)) {
                 this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
@@ -628,6 +679,13 @@ export class Deployment {
                 this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
                 continue;
             }
+
+            if (o.action == DEPLOYMENT_OBJECT_ACTION.Monitor) {
+                hostClient.setMonitor(o.script, o.nextContent);
+                continue;
+            }
+
+            let type = types[o.typeId];
 
             if (type.content.kind == "sum") {
                 let j = i;

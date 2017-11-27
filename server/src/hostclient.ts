@@ -6,12 +6,12 @@ import * as message from './messages'
 import * as tls from 'tls';
 import * as crypto from 'crypto';
 import { JobOwner } from './jobowner'
-import { StatusJob } from './jobs/statusJob'
+import { MonitorJob } from './jobs/monitorJob'
 import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
 import {errorHandler} from './error';
 import {log} from 'winston';
-
+import {Job} from './job';
 
 function delay(time: number) {
     return new Promise<void>(resolve => {
@@ -35,6 +35,9 @@ export class HostClient extends JobOwner {
     pingTimer: NodeJS.Timer = null;
     pingStart: number = null;
     closeHandled = false;
+    private monitorScript: string = null;
+    private monitorJob: MonitorJob = null;
+    private monitorContent: any = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -86,8 +89,39 @@ export class HostClient extends JobOwner {
 
         let act: IHostDown = { type: ACTION.HostDown, id: this.id };
         webClients.broadcast(act);
+        this.monitorJob = null;
         this.kill();
     }
+
+    removeJob(job:Job, m: message.Failure|message.Success|null) {
+        if (job == this.monitorJob) {
+            log('warning', "Monitor job died", {error: this.monitorJob});
+            msg.emit(this.id, "Monitor job died", this.monitorJob.error);
+            this.monitorJob = null;
+            setTimeout(()=> {
+                if (this.monitorJob != null) return;
+                log('info', "Restart monitor joxb", {hostname: this.hostname});
+                this.monitorJob = new MonitorJob(this, this.monitorScript);                
+            }, 1000);
+        }
+        super.removeJob(job, m);
+    }
+
+    monitorChanged(script:string, content:Object) {
+        let md = this.monitorJob;
+        this.monitorJob = null;
+        if (md) md.kill();
+        log('info', "New monitor", {hostname: this.hostname, content});
+        this.monitorContent = content;
+        this.monitorScript = script;
+        this.monitorJob = new MonitorJob(this, script);
+    }
+
+    async setMonitor(script: string, content:Object) {
+        await db.setHostMonitor(this.id, script, JSON.stringify(content));
+        this.monitorChanged(script, content);
+    }
+
 
     async validateAuth(obj: message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
@@ -112,8 +146,12 @@ export class HostClient extends JobOwner {
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;
-                new StatusJob(this);
                 hostClients.hostClients[this.id] = this;
+                const res = await db.getHostMonitor(id);
+                if (res)
+                    this.monitorChanged(res.script, JSON.parse(res.content));
+                else
+                    this.monitorChanged(null, null);
             } else {
                 log('warning', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
                 this.socket.end();
@@ -122,16 +160,16 @@ export class HostClient extends JobOwner {
             return;
         }
         switch (obj.type) {
-            case "auth":
-                this.socket.end();
-                break;
-            case "pong":
-                this.onPingResponce(obj.id);
-                break;
-            default:
-                const id = obj.id;
-                if (id in this.jobs)
-                    this.jobs[id].handleMessage(obj);
+        case "auth":
+            this.socket.end();
+            break;
+        case "pong":
+            this.onPingResponce(obj.id);
+            break;
+        default:
+            const id = obj.id;
+            if (id in this.jobs)
+                this.jobs[id].handleMessage(obj);
         }
     }
 

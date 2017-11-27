@@ -1,5 +1,5 @@
 export enum MonitorPropType {
-    none, string, aOfB, number, uptime, distribution, sumAndCount, sum
+    none, string, aOfB, number, up, distribution, sumAndCount, sum
 }
 
 export enum MonitorUnit {
@@ -9,47 +9,41 @@ export enum MonitorUnit {
 export interface IStringMonitorProp {
     type: MonitorPropType.string;
     identifier: string;
-    collection:boolean;
 }
 
 export interface IAOfBMonitorProp {
     type: MonitorPropType.aOfB;
     identifier: string;
     unit: MonitorUnit;
-    collection:boolean;
 }
 
 export interface INumberMonitorProp {
     type: MonitorPropType.number;
     identifier: string;
     unit: MonitorUnit;
-    collection:boolean;
 }
 
-export interface IUptimeMonitorProp {
-    type: MonitorPropType.uptime;
+export interface IUpMonitorProp {
+    type: MonitorPropType.up;
     identifier: string;
-    collection:boolean;
 }
 
 export interface IDistributionMonitorProp {
     type: MonitorPropType.distribution;
     identifier: string;
     unit: MonitorUnit;
-    collection:boolean;
 }
 export interface ISumAndCountMonitorProp {
     type: MonitorPropType.sumAndCount;
     identifier: string;
     unit: MonitorUnit;
-    collection:boolean;
 }
 
 export interface INoneMonitorProp {
     type: MonitorPropType.none;
 }
 
-export type IMonitorProp = IStringMonitorProp | IAOfBMonitorProp | INumberMonitorProp | IUptimeMonitorProp | IDistributionMonitorProp | ISumAndCountMonitorProp | INoneMonitorProp;
+export type IMonitorProp = IStringMonitorProp | IAOfBMonitorProp | INumberMonitorProp | IUpMonitorProp | IDistributionMonitorProp | ISumAndCountMonitorProp | INoneMonitorProp;
 
 export interface IMonitor {
     content?: IMonitorProp[];

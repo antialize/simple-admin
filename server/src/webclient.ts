@@ -21,7 +21,7 @@ import { webClients, msg, hostClients, db, deployment } from './instances'
 import { errorHandler } from './error'
 import { IType, typeId, TypePropType } from '../../shared/type'
 import setup from './setup'
-import {log} from 'winston';
+import { log } from 'winston';
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -36,8 +36,8 @@ export class WebClient extends JobOwner {
         this.connection = socket;
         this.connection.on('close', () => this.onClose());
         this.connection.on('message', (msg) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
-        this.connection.on('error', (err)=>{
-            log('waring', "Web client error", {err});
+        this.connection.on('error', (err) => {
+            log('waring', "Web client error", { err });
         });
     }
 
@@ -123,7 +123,7 @@ export class WebClient extends JobOwner {
                         let res: IAlert = { type: ACTION.Alert, title: "Cannot delete object", message: "The object can not be delete as it is in use by:\n" + conflicts.join("\n") };
                         this.sendMessage(res);
                     } else {
-                        log('info', 'Web client delete object', {id: act.id});
+                        log('info', 'Web client delete object', { id: act.id });
                         await db.changeObject(act.id, null);
                         let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                         webClients.broadcast(res2);
@@ -148,14 +148,14 @@ export class WebClient extends JobOwner {
                 deployment.toggleObject(act.index, act.enabled);
                 break;
             default:
-                log("warning", "Web client unknown message", {act});
+                log("warning", "Web client unknown message", { act });
         }
     }
 
     sendMessage(obj: IAction) {
-        this.connection.send(JSON.stringify(obj), (err:Error)=> {
+        this.connection.send(JSON.stringify(obj), (err: Error) => {
             if (err) {
-                log("warning", "Web client error sending message", {err});
+                log("warning", "Web client error sending message", { err });
                 this.connection.terminate();
             }
         })
@@ -301,7 +301,7 @@ export class WebClients {
 
         this.httpApp.use(helmet())
         this.httpServer = http.createServer(this.httpApp);
-        this.httpApp.use('/.well-known/acme-challenge', express.static("/var/www/challenges"));
+        this.httpApp.use('/.well-known/acme-challenge', express.static("/opt/acme-tiny/challenges/"));
         this.httpApp.get("*", function(req, res, next) {
             res.redirect("https://" + req.headers.host + "/" + req.path);
         })

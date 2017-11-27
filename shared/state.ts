@@ -48,7 +48,7 @@ export interface IObject2<T> {
 export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }
 
 export enum DEPLOYMENT_OBJECT_STATUS { Normal, Deplying, Success, Failure }
-export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove, Trigger }
+export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove, Trigger, Monitor }
 
 
 export interface IDeploymentTrigger {

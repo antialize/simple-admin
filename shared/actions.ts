@@ -8,7 +8,7 @@ export enum ACTION {
     AddMessage, SetMessageDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
-    StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus
+    StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus, SetMessageExpanded, SetMessageGroupExpanded
 }
 
 export interface IUpdateStatusAction {
