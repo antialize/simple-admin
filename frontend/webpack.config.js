@@ -5,8 +5,8 @@ var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlug
 module.exports = function (options) {
     return {
         entry: {
-            vendor: ['react', 'react-dom', 'material-ui', 'react-tap-event-plugin', 
-                     'xterm/dist/xterm.css', 'codemirror','react-redux', 'redux', 'react-chartjs-2', 'jquery',
+            vendor: ['react', 'react-dom', 'material-ui', 
+                     'xterm/dist/xterm.css', 'codemirror', 'redux', 'react-chartjs-2', 'jquery', 'react-codemirror', 'chart.js',
                      'codemirror/lib/codemirror.css', 'codemirror/mode/apl/apl', 'codemirror/mode/asciiarmor/asciiarmor', 'codemirror/mode/asn.1/asn.1', 'codemirror/mode/asterisk/asterisk', 'codemirror/mode/brainfuck/brainfuck', 
                      'codemirror/mode/clike/clike', 'codemirror/mode/clojure/clojure', 'codemirror/mode/cmake/cmake', 'codemirror/mode/cobol/cobol', 'codemirror/mode/coffeescript/coffeescript', 'codemirror/mode/commonlisp/commonlisp', 
                      'codemirror/mode/crystal/crystal', 'codemirror/mode/css/css', 'codemirror/mode/cypher/cypher', 'codemirror/mode/d/d', 'codemirror/mode/dart/dart', 'codemirror/mode/diff/diff', 'codemirror/mode/django/django', 

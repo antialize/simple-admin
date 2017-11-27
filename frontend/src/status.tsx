@@ -17,6 +17,8 @@ import GridTile from 'material-ui/GridList/GridTile';
 import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/Card';
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
+import {ChartOptions, LinearTickOptions} from 'chart.js'
+
 
 const getStatuses = (state:IMainState) => state.status;
 
@@ -128,7 +130,29 @@ function StatusImpl(props: Props) {
         ]
     };
 
-    const options = {
+    const cpuTicks: LinearTickOptions = {
+        beginAtZero: true,
+        suggestedMax: 100.0,
+        callback: function(label: number, index: number, labels: any) {
+            return label + '%';
+        }
+    }
+
+    const ioTicks: LinearTickOptions = {
+        beginAtZero: true,
+        suggestedMax: 1024.0,
+        callback: function(label: number, index: number, labels: any) {
+            if (label < 1024)
+                return label.toFixed(0) + "B/s";
+            if (label < 1024 * 1024)
+                return (label / 1024).toFixed(0) + "kB/s";
+            if (label < 1024 * 1024 * 1024)
+                return (label / 1024 / 1024).toFixed(0) + "MB/s";
+            return (label / 1024 / 1024 / 1024).toFixed(0) + "GB/s";
+        }
+    }
+
+    const options: ChartOptions = {
         animation: false,
         maintainAspectRatio: false,
         scales: {
@@ -139,35 +163,18 @@ function StatusImpl(props: Props) {
                 {
                     id: 'cpu',
                     gridLines: { display: false },
-                    ticks: {
-                        beginAtZero: true,
-                        suggestedMax: 100.0,
-                        callback: function(label: number, index: number, labels: any) {
-                            return label + '%';
-                        }
-                    }
+                    ticks: cpuTicks
                 },
                 {
                     id: 'io',
                     gridLines: { display: false },
-                    ticks: {
-                        beginAtZero: true,
-                        suggestedMax: 1024.0,
-                        callback: function(label: number, index: number, labels: any) {
-                            if (label < 1024)
-                                return label.toFixed(0) + "B/s";
-                            if (label < 1024 * 1024)
-                                return (label / 1024).toFixed(0) + "kB/s";
-                            if (label < 1024 * 1024 * 1024)
-                                return (label / 1024 / 1024).toFixed(0) + "MB/s";
-                            return (label / 1024 / 1024 / 1024).toFixed(0) + "GB/s";
-                        }
-                    },
-                    position: 'right',
-                },
+                    ticks: ioTicks,
+                    position: 'right'
+                }
             ]
         }
     };
+
     let swap = (s.meminfo.swap_total == 0)
         ? <span>None</span>
         : (<span>
@@ -192,7 +199,7 @@ function StatusImpl(props: Props) {
                 </InformationList>
             </div>
             <div style={{ flex: 1, marginLeft: 20, minHeight: '270px' }}>
-                <Line data={data} options={options} />
+                <Line data={data as any} options={options} />
             </div>
         </div>)
 };

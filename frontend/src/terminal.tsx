@@ -87,7 +87,7 @@ interface State {
 export class HostTerminals extends React.Component<Props, State> {
     outerDiv: HTMLDivElement;
     termContainerDiv: HTMLDivElement;
-    interval: number;
+    interval: any;
     state: State = {current: null, names: {}}
     info: HostInfo;
     mounted: boolean = false;
