@@ -8,7 +8,8 @@ export enum ACTION {
     AddMessage, SetMessagesDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
-    StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus, SetMessageExpanded, SetMessageGroupExpanded
+    StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus, SetMessageExpanded, SetMessageGroupExpanded, QueryStats, QueryStatsAnswer, MessageTextReq, MessageTextRep,
+    AuthStatus, Login, Logout, RequestAuthStatus, SetLoginUsername, SetLoginPassword, SetLoginOtp, RequestInitialState
 }
 
 export interface IUpdateStatusAction {
@@ -45,6 +46,7 @@ export interface IMessage {
     type: string;
     subtype: string | null;
     message: string;
+    fullMessage: boolean;
     time: number;
     url: string;
     dismissed: boolean;
@@ -96,6 +98,17 @@ export interface IAddLogLines {
     id: number;
     lines: string[];
 }
+
+export interface IMessageTextReqAction {
+    type: ACTION.MessageTextReq;
+    id: number;
+};
+
+export interface IMessageTextRepAction {
+    type: ACTION.MessageTextRep;
+    id: number;
+    message: string;
+};
 
 export interface ISetServiceLogVisibilty {
     type: ACTION.SetServiceLogVisibility;
@@ -224,7 +237,8 @@ export interface IAlert {
     title: string;
 }
 
-export enum CONNECTION_STATUS {WAITING, CONNECTING, CONNECTED, INITED};
+export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
+    
 
 export interface ISetConnectionStatus {
     type: ACTION.SetConnectionStatus;
@@ -243,6 +257,63 @@ export interface ISetMessageGroupExpanded {
     expanded: boolean;
 }
 
+export interface IQueryStats {
+    type: ACTION.QueryStats;
+    qs: {
+        start: number;
+        step: number;
+        values: {qid:number, name:string}[];
+    }[];
+}
+
+export interface IQueryStatsAnswer {
+    type: ACTION.QueryStatsAnswer;
+    answers: {id:number, values:number[]}[];
+};
+
+export interface IRequestAuthStatus {
+    type: ACTION.RequestAuthStatus;
+    session: string;
+}
+
+export interface IAuthStatus {
+    type: ACTION.AuthStatus;
+    session: string | null;
+    user: string;
+    pwd: boolean;
+    otp: boolean;
+    message: string;
+};
+
+export interface ILogin {
+    type: ACTION.Login;
+    user: string;
+    pwd: string;
+    otp: string;
+}
+
+export interface ILogout {
+    type: ACTION.Logout;
+    forgetPwd: string;
+    forgetOtp: string;
+}
+
+export interface ISetLoginUsername {
+    type: ACTION.SetLoginUsername;
+    value: string;
+}
+export interface ISetLoginPassword {
+    type: ACTION.SetLoginPassword;
+    value: string;    
+}
+export interface ISetLoginOtp {
+    type: ACTION.SetLoginOtp;
+    value: string;
+}
+
+export interface IRequestInitialState {
+    type: ACTION.RequestInitialState;
+}
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
     | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessagesDismissed | ISetObjectName 
@@ -250,4 +321,6 @@ export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilte
     | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
     | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
     | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory
-    | ISetConnectionStatus | ISetMessageExpanded | ISetMessageGroupExpanded;
+    | ISetConnectionStatus | ISetMessageExpanded | ISetMessageGroupExpanded | IQueryStats | IQueryStatsAnswer
+    | IMessageTextReqAction | IMessageTextRepAction | IAuthStatus | IRequestAuthStatus | ILogin | ILogout
+    | ISetLoginUsername | ISetLoginPassword | ISetLoginOtp | IRequestInitialState;

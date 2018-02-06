@@ -66,8 +66,7 @@ class SystemdMonitor:
         
     def load(self, *arg, **kargs):
         self.changed = True
-        for ser in self.services:
-            del ser
+        del self.services[:]
 
         for unit in self.manager.ListUnits():
             if not unit[0].endswith(".service"): continue

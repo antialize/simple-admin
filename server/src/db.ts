@@ -1,12 +1,12 @@
-import * as sqlite from 'sqlite3'
+import { normalize } from 'path';
+import * as sqlite from 'sqlite3';
 import { IObject2 } from '../../shared/state'
-import { Host, hostId } from '../../shared/type'
+import { Host, hostId, userId } from '../../shared/type'
 
 import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
-import { defaults, userId, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
-import {log} from 'winston';
-
+import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
+import { log } from 'winston';
 
 export class DB {
     db: sqlite.Database = null
@@ -58,10 +58,12 @@ export class DB {
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
         await r("CREATE TABLE IF NOT EXISTS `host_monitor` (`host` INTEGER PRIMARY KEY, `script` TEXT, `content` TEXT, `time` INTEGER)");
-        await r("CREATE TABLE IF NOT EXISTS `stats` (`key` INTEGER NOT NULL, `time` INTEGER NOT NULL, `value` NUMERIC, PRIMARY KEY(`key`, `time`) ) WITHOUT ROWID");
+        await r("CREATE TABLE IF NOT EXISTS `stats` (`key` INTEGER NOT NULL, `time` INTEGER NOT NULL, `value` NUMERIC, `count` NUMERIC, PRIMARY KEY(`key`, `time`) ) WITHOUT ROWID");
         await r("CREATE TABLE IF NOT EXISTS `stats_keys` (`id` INTEGER PRIMARY KEY, `host` INTEGER NOT NULL, `name` STRING NOT NULL, `interval` INTEGER NOT NULL)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `stats_keys_index` ON `stats_keys` (`host`, `name`, `interval`)");
-       
+        await r("CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)");
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
+
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }
@@ -74,7 +76,61 @@ export class DB {
             await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [mv['version'], d.id]);
         }
         this.nextObjectId = Math.max((await q("SELECT max(`id`) as `id` FROM `objects`"))['id'] + 1, this.nextObjectId);
-        log("info", "Db inited", {nextObjectId: this.nextObjectId});
+
+        log("info", "Db inited", { nextObjectId: this.nextObjectId });
+    }
+
+
+    all(sql: string, ...params: any[]) {
+        let db = this.db;
+        return new Promise<any[]>((cb, cbe) => {
+            db.all(sql, params,
+                (err, rows) => {
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else
+                        cb(rows);
+                }
+            )
+        });
+    }
+
+    get(sql: string, ...params: any[]) {
+        let db = this.db;
+        return new Promise<any>((cb, cbe) => {
+            db.get(sql, params,
+                (err, row) => {
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else
+                        cb(row);
+                }
+            )
+        });
+    }
+
+    insert(sql: string, ...params: any[]) {
+        let db = this.db;
+        return new Promise<number>((cb, cbe) => {
+            db.run(sql, params, function(err) {
+                if (err)
+                    cbe(new SAError(ErrorType.Database, err));
+                else
+                    cb(this.lastID);
+            });
+        });
+    }
+
+    run(sql: string, ...params: any[]) {
+        let db = this.db;
+        return new Promise<void>((cb, cbe) => {
+            db.run(sql, params, function(err) {
+                if (err)
+                    cbe(new SAError(ErrorType.Database, err));
+                else
+                    cb();
+            });
+        });
     }
 
     getHostMonitor(host: number) {
@@ -87,9 +143,9 @@ export class DB {
                     else
                         cb(row)
                 });
-        }); 
+        });
     }
-     setHostMonitor(host: number, script: string, content:string) {
+    setHostMonitor(host: number, script: string, content: string) {
         let db = this.db;
         return new Promise<{}[]>((cb, cbe) => {
             db.run("REPLACE INTO `host_monitor` (`host`, `script`, `content`, `time`) VALUES (?, ?, ?, datetime('now'))", [host, script, content], (err) => {
@@ -100,7 +156,7 @@ export class DB {
             });
         });
     }
-      getDeployments(host: number) {
+    getDeployments(host: number) {
         let db = this.db;
         return new Promise<{ name: string, type: number, title: string, content: string }[]>((cb, cbe) => {
             db.all("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],
@@ -251,7 +307,7 @@ export class DB {
 
     getHostContentByName(hostname: string) {
         let db = this.db;
-        return new Promise<{ id: number, content: Host, version: number, type:number, name: string, catagory:string, comment: string }>((cb, cbe) => {
+        return new Promise<{ id: number, content: Host, version: number, type: number, name: string, catagory: string, comment: string }>((cb, cbe) => {
             db.get("SELECT `id`, `content`, `version`, `name`, `catagory`, `comment` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
                 (err, row) => {
                     if (err)

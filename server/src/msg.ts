@@ -4,28 +4,24 @@ import * as actions from '../../shared/actions'
 import {errorHandler, ErrorType, SAError} from './error'
 
 export class Msg {
-    emit(host:number, type:string, message:string, subtype:string = null, url:string=null) {
+    async emit(host:number, type:string, message:string, subtype:string = null, url:string=null) {
         const time = +new Date() / 1000;
-        db.db.run("INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)",
-                [host, type, subtype, message, url, time],  function (err) {
-                    if (err != null) {
-                        errorHandler("Msg::emit", false)(new SAError(ErrorType.Database, err));
-                        return;
-                    }
-                    const act: actions.IAddMessage = {
-                    type: actions.ACTION.AddMessage,
-                    message: {
-                        id: this.lastId,
-                        host,
-                        type,
-                        message,
-                        subtype,
-                        time,
-                        url,
-                        dismissed: false
-                    }};
-                    webClients.broadcast(act);
-                });
+        const id = await db.insert("INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)", [host, type, subtype, message, url, time])
+        if (!message) message="";
+        const act: actions.IAddMessage = {
+        type: actions.ACTION.AddMessage,
+        message: {
+            id,
+            host,
+            type,
+            message: message.substr(0, 1000),
+            fullMessage: message.length < 1000,
+            subtype,
+            time,
+            url,
+            dismissed: false
+        }};
+        webClients.broadcast(act);
     }
 
     setDismissed(ids: number[], dismissed: boolean) {
@@ -57,12 +53,14 @@ export class Msg {
                         }
                         const res: actions.IMessage[] = [];
                         for (const row of rows) {
+                            const msg: string = row['message'] || "";
                             res.push({
                                 id: row['id'], 
                                 host: row['host'], 
                                 type: row['type'], 
                                 subtype: row['subtype'], 
-                                message: row['message'],
+                                message: msg.substr(0, 1000),
+                                fullMessage: msg.length < 1000,
                                 url: row['url'],
                                 time: row['time'],
                                 dismissed: row['dismissed'] == 1});
@@ -71,6 +69,9 @@ export class Msg {
                     })});
     }
 
+    getFullText(id:number) {
+        return db.get("SELECT `message` FROM `messages` WHERE `id`=?", [id]) as Promise<{message:string}>;
+    }
 
     getAll() {
         return new Promise<actions.IMessage[]>(
@@ -88,7 +89,8 @@ export class Msg {
                                 host: row['host'], 
                                 type: row['type'], 
                                 subtype: row['subtype'], 
-                                message: row['message'],
+                                message: (row['message'] as string).substr(0, 1000),
+                                fullMessage: (row['message'] as string).length < 1000,
                                 url: row['url'],
                                 time: row['time'],
                                 dismissed: row['dismissed'] == 1});

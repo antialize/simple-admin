@@ -1,8 +1,7 @@
 import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
-    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, IMonitorContentTypeProp,
+    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, userId, IMonitorContentTypeProp,
     rootInstanceId, monitorId} from "../../shared/type"
 
-export const userId = 4;
 export const groupId = 5;
 export const fileId = 6;
 export const collectionId = 7;

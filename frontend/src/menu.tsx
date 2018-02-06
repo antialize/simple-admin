@@ -14,9 +14,12 @@ import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {TypeMenuItem} from './typeMenuItem';
 import {HostTypeMenuItem} from './hostTypeMenuItem';
+import RaisedButton from 'material-ui/RaisedButton';
+
 
 interface Props {
     setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
+    logout(full:boolean): void;
     types: {id:number, name:string}[];
 }
 
@@ -43,12 +46,17 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
     return {
         setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
             page.onClick(e, p, dispatch);
+        },
+        logout: (full:boolean) => {
+            dispatch({type:Actions.ACTION.Logout, forgetPwd: true, forgetOtp: full});
         }
     }    
 }
 
 function MenuImpl(props:Props) {
     return (<Drawer open={true} style={debugStyle()}>
+        <RaisedButton label="Logout" onClick={()=>props.logout(false)}/>
+        <RaisedButton label="Full logout" onClick={()=>props.logout(true)} />
         <List style={debugStyle()}>
             <ListItem primaryText={<ObjectFinder />} />
             <Divider/>

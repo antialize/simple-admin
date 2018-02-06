@@ -1,6 +1,6 @@
 import * as React from "react";
 import {IMainState} from './reducers';
-import {ISetMessagesDismissed, ISetMessageExpanded, ACTION, IMessage} from '../../shared/actions'
+import {ISetMessagesDismissed, ISetMessageExpanded, ACTION, IMessage, IMessageTextReqAction} from '../../shared/actions'
 import {hostId} from '../../shared/type'
 import {connect, Dispatch } from 'react-redux';
 import {debugStyle} from './debug';
@@ -22,7 +22,7 @@ interface StateProps {
 
 interface DispatchProps {
     setDismissed(dismissed:boolean): void;
-    setExpanded(dismissed:boolean): void;    
+    setExpanded(expanded:boolean, fetch:boolean): void;
 }
 
 const getMessages = (state:IMainState) => state.messages;
@@ -53,7 +53,14 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:ExternProps): Dispa
             };
             dispatch(p);
         },
-        setExpanded: (expanded: boolean) => {
+        setExpanded: (expanded: boolean, fetch:boolean) => {
+            if (fetch) {
+                const p:IMessageTextReqAction = {
+                    type: ACTION.MessageTextReq,
+                    id: o.id,
+                };
+                dispatch(p);
+            }
             const p:ISetMessageExpanded = {
                 type: ACTION.SetMessageExpanded,
                 id: o.id,
@@ -79,12 +86,12 @@ function MessageImpl(p:StateProps & DispatchProps) {
     }
 
     let msg = p.message.message;
-    if (msg && msg.length > 1000) {
+    if (msg && msg.length > 999) {
         if (!p.expanded) {
-            msg = msg.substr(0,1000)+"...";
-            actions.push(<RaisedButton key="expand" label="Full text" primary={true} onClick={()=>p.setExpanded(true)}/>);
+            msg = msg.substr(0,999)+"...";
+            actions.push(<RaisedButton key="expand" label="Full text" primary={true} onClick={()=>p.setExpanded(true, !p.message.fullMessage)}/>);
         } else {
-            actions.push(<RaisedButton key="contract" label="Partial text" primary={true} onClick={()=>p.setExpanded(false)}/>);
+            actions.push(<RaisedButton key="contract" label="Partial text" primary={true} onClick={()=>p.setExpanded(false, false)}/>);
         }
     }    
     return <tr style={debugStyle()} className={c} key={p.id}>{p.inGroup?<td colSpan={2} />:<td>{p.message.type}</td>}{p.inGroup?null:<td>{p.hostname}</td>}<td>{msg}</td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>;

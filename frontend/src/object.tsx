@@ -11,8 +11,8 @@ import { HostExtra } from './hostextra'
 import { Box } from './box'
 import {setPage} from './page'
 import {Type} from './type'
-import {IType, hostId} from '../../shared/type'
-
+import {IType, hostId, userId} from '../../shared/type'
+import { UserExtra } from './userextra';
 
 interface IProps {
     type: number;
@@ -111,6 +111,9 @@ function ObjectImpl(p: DispactProps & StateProps) {
     let extra = null;
     if (p.typeId == hostId) {
         extra = <HostExtra id={p.id} />;
+    }
+    if (p.typeId == userId) {
+        extra = <UserExtra id={p.id} />
     }
     return (
         <div>
