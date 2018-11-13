@@ -3,7 +3,7 @@ import {
 } from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
-import { typeId, monitorId, rootInstanceId, rootId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains } from '../../shared/type'
+import { typeId, monitorId, rootInstanceId, rootId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains, packageId } from '../../shared/type'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'
@@ -11,6 +11,7 @@ import { errorHandler, descript } from './error'
 
 //Type only import
 import { HostClient } from './hostclient'
+import { IMonitor, IMonitorProp } from '../../shared/monitor';
 
 interface IDeployContent {
     script: string;
@@ -450,25 +451,29 @@ export class Deployment {
                     //});
                 }
 
-
-                  // Handle monitor
+                // Handle monitor
                 if (rootInstanceId in objects && hostFull) {
                     let monitorContent = "";
-                    let content: {[key:string]: Object} = {};
+                    let content: IMonitor[] = [];
 
                     for (let o of hostDeploymentObjects) {
                         if (o.typeId != monitorId) continue;
                         monitorContent += o.nextContent.script + "\n\n";
-                        content[o.nextContent.name] = o.nextContent.content;
+
+                        content.push({
+                            name: o.nextContent.name,
+                            interval: o.nextContent.interval,
+                            content: o.nextContent.content
+                        });
                     }
 
                     let monitor = objects[rootInstanceId].content.monitor;
 
                     let script = "";
                     try {
-                        script = Mustache.render(monitor, {...rootVariable, monitorContent});
+                        script = Mustache.render(monitor, { ...rootVariable, monitorContent });
                     } catch (err) {
-                        errors.push("Template error in monitor: "+err);
+                        errors.push("Template error in monitor: " + err);
                         console.log(err);
                     }
 
@@ -497,10 +502,13 @@ export class Deployment {
                         o.prevScript = mon.script;
                         o.prevContent = JSON.parse(mon.content);
                     }
-                    hostDeploymentObjects.push(o);                
+                    hostDeploymentObjects.push(o);
                 }
 
                 hostDeploymentObjects = hostDeploymentObjects.filter(o => o.typeId != monitorId);
+                if ('debPackages' in hostObject.content && !hostObject.content['debPackages'])
+                    hostDeploymentObjects = hostDeploymentObjects.filter(o => o.typeId != packageId);
+
 
                 // Filter away stuff that has not changed
                 hostDeploymentObjects = hostDeploymentObjects.filter(o => {
@@ -681,7 +689,7 @@ export class Deployment {
             }
 
             if (o.action == DEPLOYMENT_OBJECT_ACTION.Monitor) {
-                hostClient.setMonitor(o.script, o.nextContent);
+                hostClient.setMonitor(o.script, o.nextContent as IMonitor[]);
                 continue;
             }
 
