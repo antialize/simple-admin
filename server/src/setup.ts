@@ -41,9 +41,11 @@ export default async (req: Request, res: Response) => {
 
     let script = "#!/bin/bash\n";
     script += "set -e\n";
+    script += "which add-apt-repository || apt-get install -y software-properties-common\n";
     script += "add-apt-repository universe\n";
     script += "apt update\n";
-    script += "apt install -y python3 python3-dbus git smartmontools\n";
+    // smartmontools recommends mailx which depends on some mail-transport-agent. Install ssmtp instead of postfix.
+    script += "apt install -y python3 python3-dbus git smartmontools postfix- ssmtp\n";
     script += "echo '{\"password\": \""+npw+"\", \"server_host\": \""+config.hostname+"\", \"hostname\": \""+host+"\"}' > /etc/simpleadmin_client.json\n";
     script += "rm -rf /opt/simple-admin\n";
     script += "mkdir -p /opt/simple-admin\n";
