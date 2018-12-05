@@ -286,7 +286,7 @@ export class HostClient extends JobOwner {
         }
 
         if (this.status && update.smart) {
-            const importantSmart = new Set([5, 103, 171, 172, 175, 176, 181, 182, 184, 187, 188, 191, 197, 198, 200, 221]);
+            const importantSmart = new Set([5, 103, 171, 172, 175, 176, 181, 182, 184, 187, 188, 197, 198, 200, 221]);
             for (const dev in update.smart) {
                 const oldSmart = this.status.smart[dev];
                 const newSmart = update.smart[dev];
