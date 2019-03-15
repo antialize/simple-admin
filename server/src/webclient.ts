@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as https from 'https';
-import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert } from '../../shared/actions'
+import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert, IStatBucket } from '../../shared/actions'
 import * as express from 'express';
 import { IObject2, PAGE_TYPE } from '../../shared/state'
 import * as message from './messages'
@@ -13,7 +13,6 @@ import { ShellJob } from './jobs/shellJob'
 import { LogJob } from './jobs/logJob'
 import { PokeServiceJob } from './jobs/pokeServiceJob'
 import * as fs from 'fs';
-import * as basicAuth from 'basic-auth'
 import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment } from './instances'
@@ -24,6 +23,7 @@ import { log } from 'winston';
 import * as crypto from 'crypto';
 import { config } from './config'
 import * as speakeasy from 'speakeasy';
+import * as stat from './stat';
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -61,7 +61,7 @@ export class WebClient extends JobOwner {
         this.connection = socket;
         this.host = host;
         this.connection.on('close', () => this.onClose());
-        this.connection.on('message', (msg) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
+        this.connection.on('message', (msg: string) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
         this.connection.on('error', (err) => {
             log('waring', "Web client error", { err });
         });
@@ -70,6 +70,7 @@ export class WebClient extends JobOwner {
     onClose() {
         this.kill();
         webClients.webclients.delete(this);
+        stat.subscribe(this, null);
     }
 
     async sendAuthStatus(sid: string) {
@@ -91,6 +92,27 @@ export class WebClient extends JobOwner {
         }
 
         switch (act.type) {
+            case ACTION.RequestStatBucket:
+                let bucket = await stat.get(act.host, act.name, act.level, act.index);
+                let a: IStatBucket = {
+                    type: ACTION.StatBucket,
+                    target: act.target,
+                    host: act.host,
+                    name: act.name,
+                    level: act.level,
+                    index: act.index,
+                    values: null
+                };
+                if (bucket) {
+                    a.values = [];
+                    for (let i = 0; i < 1024; ++i)
+                        a.values[i] = bucket.values.readFloatBE(i * 4);
+                }
+                this.sendMessage(a);
+                break;
+            case ACTION.SubscribeStatValues:
+                stat.subscribe(this, act);
+                break;
             case ACTION.RequestAuthStatus:
                 log('info', "AuthStatus", this.host, this.session, this.user);
                 this.sendAuthStatus(act.session);
@@ -145,15 +167,12 @@ export class WebClient extends JobOwner {
                 } else {
                     const now = Date.now() / 1000 | 0;
                     if (session && newOtp) {
-                        await db.run("UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?", [now, now, session]);
-                        log('info', "Update session", { session, pwd: now, opt: now });
+                        await db.run("UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?", now, now, session);
                     } else if (session) {
-                        await db.run("UPDATE `sessions` SET `pwd`=? WHERE `sid`=?", [now, session]);
-                        log('info', "Update session", { session, pwd: now });
+                        let eff = await db.run("UPDATE `sessions` SET `pwd`=? WHERE `sid`=?", now, session);
                     } else {
                         session = crypto.randomBytes(64).toString('hex');
                         await db.run("INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)", act.user, this.host, now, now, session);
-                        log('info', "New session", { session, pwd: now, opt: now, user: act.user, host: this.host });
                     }
 
                     this.sendMessage({ type: ACTION.AuthStatus, pwd: true, otp, session: session, user: act.user, message: null });
@@ -360,9 +379,12 @@ export class WebClients {
     httpApp = express();
     httpServer: http.Server;
     interval: NodeJS.Timer;
-    
+
     broadcast(act: IAction) {
-        this.webclients.forEach(client => client.sendMessage(act));
+        this.webclients.forEach(client => {
+            if (client.auth)
+                client.sendMessage(act)
+        });
     }
 
     constructor() {
@@ -377,11 +399,13 @@ export class WebClients {
                 const wc = new WebClient(ws, request.socket.address()['address']);
                 this.webclients.add(wc);
             } else if (u.pathname == '/terminal') {
-                const server = u.query.server as number;
-                const cols = u.query.cols as number;
-                const rows = u.query.rows as number;
-                const session = u.query.session;
-                getAuth(request.socket.address()['address'], session).then((a) => {
+                const server = +u.query.server;
+                const cols = +u.query.cols;
+                const rows = +u.query.rows;
+                const session = u.query.session as string;
+                const addresses = request.socket.address()['address'];
+                const address = Array.isArray(addresses) ? address[0] as string : addresses;
+                getAuth(address, session).then((a: any) => {
                     if (a.auth && server in hostClients.hostClients)
                         new ShellJob(hostClients.hostClients[server], ws, cols, rows);
                     else

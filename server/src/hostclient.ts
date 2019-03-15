@@ -13,6 +13,7 @@ import {errorHandler} from './error';
 import {log} from 'winston';
 import {Job} from './job';
 import {IMonitor, IMonitorProp, MonitorPropType, MonitorUnit} from '../../shared/monitor'
+import * as stat from './stat';
 
 enum Interval {
     instante=0,
@@ -45,7 +46,7 @@ export class HostClient extends JobOwner {
     closeHandled = false;
     private monitorScript: string = null;
     private monitorJob: MonitorJob = null;
-    private monitorContent: any = null;
+    private monitorContent: IMonitor[] = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -121,7 +122,7 @@ export class HostClient extends JobOwner {
         super.removeJob(job, m);
     }
 
-    monitorChanged(script:string, content:Object) {
+    monitorChanged(script:string, content:IMonitor[]) {
         let md = this.monitorJob;
         this.monitorJob = null;
         log('info', "New monitor", {hostname: this.hostname, /*content*/});
@@ -136,7 +137,7 @@ export class HostClient extends JobOwner {
         }
     }
 
-    async setMonitor(script: string, content:Object) {
+    async setMonitor(script: string, content:IMonitor[]) {
         await db.setHostMonitor(this.id, script, JSON.stringify(content));
         this.monitorChanged(script, content);
     }
@@ -215,76 +216,40 @@ export class HostClient extends JobOwner {
         this.socket.write(JSON.stringify(obj) + '\x1e');
     }
 
-
-    async registerNumericStat(name:string, value:number, time:number, count:number) {
-        let has=[false,false,false];
-        let rows = await db.all("SELECT `id`, `interval` FROM `stats_keys` WHERE `host`=? AND `name`=?", this.hostname, name) as {id:number, interval:Interval}[];
-        for (let {id, interval} of rows)
-            has[interval] = true;
-        for (let interval of [Interval.instante, Interval.five_minutes, Interval.hour]) {
-            if (has[interval]) continue;
-            let id = await db.insert("INSERT INTO `stats_keys` (`interval`, `host`, `name`) VALUES (?, ?, ?)", interval, this.hostname, name);
-            rows.push({id, interval});
-        }
-        let d = new Date(time);
-        for (const {id, interval} of rows) {
-            let d2: Date = null;
-            switch (interval) {
-            case Interval.instante:
-                d2 = d;
-                break;
-            case Interval.five_minutes:
-                d2 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), Math.floor(d.getMinutes() / 5)*5);
-                break;
-            case Interval.hour:
-                d2 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours());
-                break;
-            } 
-            let t2 = Math.floor(d2.getTime()/1000);
-            let r = await db.get("SELECT `value`, `count` FROM `stats` WHERE `key`=? AND `time`=?", id, t2) as {value:number, count:number} | null;
-            if (r) {
-                await db.run("UPDATE `stats` SET `value`=?, `count`=? WHERE `key`=? AND `time`=?", value+r.value, count+r.count, id, t2);
-            } else {
-                await db.run("INSERT INTO `stats` (`key`, `time`, `value`, `count`) VALUES (?, ?, ?, ?)", id, t2, value, count);
-            }            
-        }
-    }
-
     async updateStatus(update: IStatusUpdate) {
         if (!update) return;
 
         if (this.hostname == "cccg") {
-            //log("info", "Status update", JSON.stringify(update));
-            let time = Date.now();
-            await this.registerNumericStat("up", 1, time, 1);            
-            for (const id in this.monitorContent) {
-                if (!(id in update)) continue;
-                let c = (update as any)[id];
-                const props = this.monitorContent[id] as IMonitorProp[];
-                for (const prop of props) {
+            await stat.register(this.id, "up", update.time, 1, 1);
+            for (const {name, interval, content} of this.monitorContent) {
+                if (!(name in update)) continue;
+                let c = (update as any)[name];
+                await stat.register(this.id, name+".count", update.time, interval, 1);
+
+                for (const prop of content) {
                     if (prop.type == MonitorPropType.none) continue;
                     let v = c[prop.identifier];                    
-
                     switch (prop.type) {
                     case MonitorPropType.string:
-                    case MonitorPropType.up:
+                   /* case MonitorPropType.up:
                         console.log(id,  prop.type, prop.identifier, v);
-                        break;
+                        break;*/
                     case MonitorPropType.aOfB:
-                        await this.registerNumericStat(id+"."+prop.identifier+".a", v[0], time, 1);
-                        await this.registerNumericStat(id+"."+prop.identifier+".b", v[1], time, 1);
+                        await stat.register(this.id, name+"."+prop.identifier+".a", update.time, interval, v[0]);
+                        await stat.register(this.id, name+"."+prop.identifier+".b", update.time, interval, v[1]);
                         break;
                     case MonitorPropType.sumAndCount:
-                        await this.registerNumericStat(id+"."+prop.identifier, v[0], time, v[1]);
+                        await stat.register(this.id, name+"."+prop.identifier+".sum", update.time, interval, v[0]);
+                        await stat.register(this.id, name+"."+prop.identifier+".count", update.time, interval, v[1]);
                         break
                     default:
-                        await this.registerNumericStat(id+"."+prop.identifier, v, time, 1);
+                        await stat.register(this.id, name+"."+prop.identifier, update.time, interval, v);
                         break;
                     }
                 }
             }
         }
-
+        
         if (this.status && update.smart) {
             const importantSmart = new Set([5, 103, 171, 172, 175, 176, 181, 182, 184, 187, 188, 197, 198, 200, 221]);
             for (const dev in update.smart) {

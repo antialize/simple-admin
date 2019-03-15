@@ -123,6 +123,7 @@ export const typeId = 1;
 export const hostId = 2;
 export const rootId = 3;
 export const userId = 4;
+export const packageId = 10;
 export const monitorId = 11;
 export const rootInstanceId = 100;
 

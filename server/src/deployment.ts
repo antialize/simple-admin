@@ -406,6 +406,7 @@ export class Deployment {
                         if (next.inCount == 0)
                             pq.enq(next);
                     }
+
                     if (node.id == null || node.type == NodeType.sentinal) continue;
                     const obj = objects[node.id];
                     if (!obj) continue;

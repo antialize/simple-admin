@@ -47,20 +47,25 @@ export class DB {
             })
         };
 
+        await r("PRAGMA journal_mode=WAL");
         await r("CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)");
         await i("ALTER TABLE `objects` ADD COLUMN `catagory` TEXT");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
         await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
-        await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
+        //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)");
         await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
         await r("CREATE TABLE IF NOT EXISTS `host_monitor` (`host` INTEGER PRIMARY KEY, `script` TEXT, `content` TEXT, `time` INTEGER)");
-        await r("CREATE TABLE IF NOT EXISTS `stats` (`key` INTEGER NOT NULL, `time` INTEGER NOT NULL, `value` NUMERIC, `count` NUMERIC, PRIMARY KEY(`key`, `time`) ) WITHOUT ROWID");
-        await r("CREATE TABLE IF NOT EXISTS `stats_keys` (`id` INTEGER PRIMARY KEY, `host` INTEGER NOT NULL, `name` STRING NOT NULL, `interval` INTEGER NOT NULL)");
-        await r("CREATE UNIQUE INDEX IF NOT EXISTS `stats_keys_index` ON `stats_keys` (`host`, `name`, `interval`)");
+
+        //await r("DROP TABLE `stats`");
+        //await r("DROP INDEX IF EXISTS `stats_index`");
+
+        await r("CREATE TABLE IF NOT EXISTS `stats` (`id` INTEGER PRIMARY KEY, `host` INTEGER NOT NULL, `name` TEXT NOT NULL, `index` INTEGER NOT NULL, `level` INTEGER NOT NULL, `values` BLOB)");
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `stats_index` ON `stats` (`host`, `name`, `index`, `level`)");
+
         await r("CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
@@ -121,16 +126,42 @@ export class DB {
         });
     }
 
+    insertPrepared(stmt: sqlite.Statement, ...params: any[]) {
+        return new Promise<number>((cb, cbe) => {
+            stmt.run(params, function(err) {
+                if (err)
+                    cbe(new SAError(ErrorType.Database, err));
+                else
+                    cb(this.lastID);
+            });
+        });
+    }
+
     run(sql: string, ...params: any[]) {
         let db = this.db;
-        return new Promise<void>((cb, cbe) => {
+        return new Promise<number|undefined>((cb, cbe) => {
             db.run(sql, params, function(err) {
+                if (err)
+                    cbe(new SAError(ErrorType.Database, err));
+                else
+                    cb(this.changes);
+            });
+        });
+    }
+
+    runPrepared(stmt: sqlite.Statement, ...params: any[]) {
+        return new Promise<void>((cb, cbe) => {
+            stmt.run(params, function(err) {
                 if (err)
                     cbe(new SAError(ErrorType.Database, err));
                 else
                     cb();
             });
         });
+    }
+
+    prepare(sql:string) {
+        return this.db.prepare(sql);
     }
 
     getHostMonitor(host: number) {

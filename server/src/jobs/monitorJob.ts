@@ -27,8 +27,7 @@ export class MonitorJob extends Job {
         switch(obj.type) {
         case 'data':
             if (obj.source == 'stdout') {
-                let p = this.client.updateStatus(obj.data as IStatusUpdate);
-                p.catch( (err) => {
+                this.client.updateStatus(obj.data as IStatusUpdate).catch( (err) => {
                     console.log("Error updating stats", err);
                 });
             }

@@ -9,7 +9,8 @@ export enum ACTION {
     HostDown, Alert,
     DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
     StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus, SetMessageExpanded, SetMessageGroupExpanded, QueryStats, QueryStatsAnswer, MessageTextReq, MessageTextRep,
-    AuthStatus, Login, Logout, RequestAuthStatus, SetLoginUsername, SetLoginPassword, SetLoginOtp, RequestInitialState
+    AuthStatus, Login, Logout, RequestAuthStatus, SetLoginUsername, SetLoginPassword, SetLoginOtp, RequestInitialState,
+    RequestStatBucket, StatBucket, SubscribeStatValues, StatValueChanges
 }
 
 export interface IUpdateStatusAction {
@@ -314,6 +315,43 @@ export interface ISetLoginOtp {
 export interface IRequestInitialState {
     type: ACTION.RequestInitialState;
 }
+
+export interface IRequestStatBucket {
+    type: ACTION.RequestStatBucket;
+    target: number;
+    host: number;
+    name: string;
+    index: number;
+    level: number;
+}
+
+export interface IStatBucket {
+    type: ACTION.StatBucket;
+    target: number;
+    host: number;
+    name: string;
+    index: number;
+    level: number;
+    values: number[];
+}
+
+export interface ISubscribeStatValues {
+    type: ACTION.SubscribeStatValues;
+    target: number;
+    host: number;
+    values: string[];
+};
+
+export interface IStatValueChanges {
+    type: ACTION.StatValueChanges;
+    target: number;
+    host: number;
+    name: string;
+    value: number;
+    level: number;
+    index: number;
+};
+
 export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
     | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
     | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessagesDismissed | ISetObjectName 
@@ -323,4 +361,4 @@ export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilte
     | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory
     | ISetConnectionStatus | ISetMessageExpanded | ISetMessageGroupExpanded | IQueryStats | IQueryStatsAnswer
     | IMessageTextReqAction | IMessageTextRepAction | IAuthStatus | IRequestAuthStatus | ILogin | ILogout
-    | ISetLoginUsername | ISetLoginPassword | ISetLoginOtp | IRequestInitialState;
+    | ISetLoginUsername | ISetLoginPassword | ISetLoginOtp | IRequestInitialState | IRequestStatBucket | IStatBucket | ISubscribeStatValues | IStatValueChanges;

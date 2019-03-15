@@ -17,7 +17,9 @@ import GridTile from 'material-ui/GridList/GridTile';
 import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/Card';
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
-import {ChartOptions, LinearTickOptions} from 'chart.js'
+import {Chart} from './chart';
+
+//import {ChartOptions, LinearTickOptions} from 'chart.js'
 
 
 const getStatuses = (state:IMainState) => state.status;
@@ -72,7 +74,7 @@ function StatusImpl(props: Props) {
         diskwrite.push((s.diskwrite[i + 1] - s.diskwrite[i]) / 5.0);
         labels.push(new Date(s.time[i + 1] * 1000));
     }
-
+/*
     const data = {
         labels: labels,
         datasets: [
@@ -174,7 +176,7 @@ function StatusImpl(props: Props) {
             ]
         }
     };
-
+*/
     let swap = (s.meminfo.swap_total == 0)
         ? <span>None</span>
         : (<span>
@@ -198,9 +200,7 @@ function StatusImpl(props: Props) {
                     {lst}
                 </InformationList>
             </div>
-            <div style={{ flex: 1, marginLeft: 20, minHeight: '270px' }}>
-                <Line data={data as any} options={options} />
-            </div>
+            <Chart initialZoom={20} style={{flex:1, marginLeft: 20, marginRight: 10, minHeight: '270px'}} host={props.id}/>
         </div>)
 };
 

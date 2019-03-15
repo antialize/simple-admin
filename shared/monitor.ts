@@ -46,5 +46,7 @@ export interface INoneMonitorProp {
 export type IMonitorProp = IStringMonitorProp | IAOfBMonitorProp | INumberMonitorProp | IUpMonitorProp | IDistributionMonitorProp | ISumAndCountMonitorProp | INoneMonitorProp;
 
 export interface IMonitor {
-    content?: IMonitorProp[];
+    name: string;
+    interval: number;
+    content: IMonitorProp[];
 }

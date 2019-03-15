@@ -25,6 +25,7 @@ import Dialog from 'material-ui/Dialog';
 import { debugStyle } from './debug'
 import * as Cookies from 'js-cookie';
 import { Login } from './login';
+import * as chart from './chart';
 
 injectTapEventPlugin();
 
@@ -88,8 +89,14 @@ export function sendMessage(action: IAction) {
     socket.send(JSON.stringify(action));
 }
 
+chart.setSend(sendMessage);
+
 const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) => (action: IAction) => {
     switch (action.type) {
+        case ACTION.StatBucket:
+        case ACTION.StatValueChanges:
+            chart.handleAction(action);
+            return;
         case ACTION.SetPage:
             switch (action.page.type) {
                 case State.PAGE_TYPE.Object:
