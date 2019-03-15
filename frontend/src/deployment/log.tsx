@@ -1,4 +1,7 @@
 import * as React from "react";
+import { Terminal } from 'xterm';
+import * as fit from 'xterm/lib/addons/fit/fit';
+Terminal.applyAddon(fit);
 
 let theTerm = new Terminal({cursorBlink: false, scrollback: 100000});
 let oldCount: number = 0;
@@ -17,7 +20,7 @@ export class Log extends React.Component<{}, {}> {
 
     componentDidMount() {
         theTerm.open(this.div);
-        theTerm.fit();
+        (theTerm as any).fit();
     }
 
     render() {

@@ -5,9 +5,16 @@ import Chip from 'material-ui/Chip';
 import RaisedButton from 'material-ui/RaisedButton';
 import { remoteHost } from './config';
 import * as Cookies from 'js-cookie';
+import { Terminal } from 'xterm';
+
+import * as fit from 'xterm/lib/addons/fit/fit';
+import * as fullscreen from 'xterm/lib/addons/fullscreen/fullscreen';
+
+Terminal.applyAddon(fit);
+Terminal.applyAddon(fullscreen);
 
 declare global {
-    const Terminal: any;
+    const Terminal: Terminal;
 }
 
 interface Props {
@@ -15,12 +22,16 @@ interface Props {
 }
 
 class Connection {
-    constructor(hostId: number, public connectionId: number, nameChanged: (id: number, name: string) => void) {
+    connected = false;
+
+    constructor(public hostId: number, public connectionId: number, public nameChanged: (id: number, name: string) => void) {
         this.term = new Terminal({ cursorBlink: true, scrollback: 10000 });
-        this.termDiv = document.createElement('div');
-        this.termDiv.style.height = "100%";
-        this.term.open(this.termDiv);
-        this.socket = new WebSocket('wss://' + remoteHost + '/terminal?server=' + hostId + '&cols=80&rows=150&session=' + Cookies.get("simple-admin-session"));
+    }
+
+    connect() {
+        if (this.connected) return;
+        this.connected = true;
+        this.socket = new WebSocket('wss://' + remoteHost + '/terminal?server=' + this.hostId + '&cols=80&rows=150&session=' + Cookies.get("simple-admin-session"));
         let buffer: string[] = [];
 
         this.socket.onmessage = (msg) => {
@@ -47,10 +58,10 @@ class Connection {
 
         this.term.on('title', (title: string) => {
             this.name = title;
-            nameChanged(connectionId, title);
+            this.nameChanged(this.connectionId, title);
         });
         this.term.on('resize', (size: any) => {
-            if (this.oldsize[9] == size.rows && this.oldsize[1] == size.cols) return;
+            if (this.oldsize[0] == size.rows && this.oldsize[1] == size.cols) return;
             this.oldsize = [size.rows, size.cols];
             send('r' + size.rows + "," + size.cols + '\0');
         });
@@ -60,7 +71,6 @@ class Connection {
         this.socket.close();
         delete this.socket;
         delete this.term;
-        delete this.termDiv;
     }
 
     reset() {
@@ -68,7 +78,7 @@ class Connection {
     }
 
     oldsize: [number, number] = [0, 0]
-    term?: any;
+    term?: Terminal;
     termDiv?: HTMLDivElement;
     socket?: WebSocket;
     name: string;
@@ -134,8 +144,8 @@ export class HostTerminals extends React.Component<Props, State> {
     setCurrent(id: number) {
         if (this.state.current !== null) {
             const conn = this.info.connections[this.state.current];
-            if (conn && conn.termDiv.parentNode === this.outerDiv) {
-                this.outerDiv.removeChild(conn.termDiv);
+            if (conn/* && conn.termDiv === this.outerDiv*/) {
+                //this.outerDiv.removeChild(conn.termDiv);
                 clearInterval(this.interval);
             }
         }
@@ -148,13 +158,15 @@ export class HostTerminals extends React.Component<Props, State> {
                 })
             const conn = this.info.connections[id];
             conn.name = "Terminal " + id;
-            this.outerDiv.appendChild(conn.termDiv);
-            conn.term.fit();
+            conn.term.open(this.outerDiv);
+            conn.connect();
 
             $(window).resize(() => {
-                conn.term.fit();
+                (conn.term as any).fit();
             });
-            this.interval = setInterval(() => conn.term.fit(), 2000);
+            this.interval = setInterval(() => {
+                (conn.term as any).fit();
+            }, 2000);
         }
         if (id != this.state.current)
             this.setState({ current: id })
@@ -209,7 +221,7 @@ export class HostTerminals extends React.Component<Props, State> {
             if (id == this.state.current)
                 style.backgroundColor = 'rgb(0, 188, 212)';
 
-            return <Chip key={id} style={style} onTouchTap={() => this.setCurrent(id)} onRequestDelete={() => this.closeTerminal(id)}>{this.state.names[id]}</Chip>
+            return <Chip key={id} style={style} onClick={() => this.setCurrent(id)} onRequestDelete={() => this.closeTerminal(id)}>{this.state.names[id]}</Chip>
         });
 
         return (
@@ -217,7 +229,7 @@ export class HostTerminals extends React.Component<Props, State> {
                 <div ref={(div) => this.outerDiv = div} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap' }}>
                         {terms}
-                        <Chip onTouchTap={() => this.newTerminal()} style={{ margin: 4 }}>+</Chip>
+                        <Chip onClick={() => this.newTerminal()} style={{ margin: 4 }}>+</Chip>
                         <div style={{ marginLeft: 'auto' }} />
                         <RaisedButton onClick={() => this.reset()} label="Reset" style={{ margin: 4, alignSelf: 'flex-end' }} />
                         <RaisedButton onClick={() => this.toggleFullScreen()} label="Full screen" style={{ margin: 4, alignSelf: 'flex-end' }} />

@@ -9,7 +9,6 @@ import { hostId } from '../../shared/type';
 import * as State from '../../shared/state';
 import { InformationList, InformationListRow } from './information_list';
 import * as page from './page'
-import { Line } from 'react-chartjs-2'
 import { Box } from './box'
 import RaisedButton from 'material-ui/RaisedButton';
 import GridList from 'material-ui/GridList/GridList';

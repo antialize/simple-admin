@@ -5,7 +5,6 @@ import { Provider, connect } from 'react-redux';
 import { mainReducer, IMainState } from './reducers'
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 import getMuiTheme from 'material-ui/styles/getMuiTheme';
-import * as injectTapEventPlugin from 'react-tap-event-plugin'
 import { Statuses } from './statuses'
 import * as State from '../../shared/state';
 import { IAction, ACTION, IFetchObject, IAlert, CONNECTION_STATUS, ISetConnectionStatus, IRequestAuthStatus } from '../../shared/actions'
@@ -26,8 +25,6 @@ import { debugStyle } from './debug'
 import * as Cookies from 'js-cookie';
 import { Login } from './login';
 import * as chart from './chart';
-
-injectTapEventPlugin();
 
 interface Props {
     page: State.IPage;
