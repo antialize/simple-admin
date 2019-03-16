@@ -50,5 +50,6 @@ module.exports = {
 
     devServer: {
         contentBase: "./public",
+        https: true,
     }
 };

@@ -2,68 +2,81 @@ import * as React from "react";
 import Dialog from 'material-ui/Dialog';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
-import {connect} from 'react-redux'
-import { createSelector } from 'reselect';
-import {IMainState, ILogin} from './reducers';
-import {Dispatch} from 'redux'
-import * as State from '../../shared/state'
-import {CONNECTION_STATUS, IAuthStatus, ACTION} from '../../shared/actions';
+import {CONNECTION_STATUS, ILogin, ACTION, ILogout} from '../../shared/actions';
 import CircularProgress from 'material-ui/CircularProgress';
+import { observable, action } from "mobx";
+import state from "./state";
+import { observer } from "mobx-react";
+import Cookies = require("js-cookie");
 
-interface IProps {
-    connection: CONNECTION_STATUS;
-    auth: IAuthStatus;
-    login: ILogin;
-    setUsername: (value:string) => void;
-    setPwd: (value:string) => void;
-    setOtp: (value:string) => void;
-    doLogin: (user: string, pwd:string, otp:string) => void;
-}
+export class LoginState {
+    @observable
+    user: string;
+    @observable
+    pwd: string;
+    @observable
+    otp: string;
 
-const getConnectionStatus = (state:IMainState) => state.connectionStatus;
-const getAuthStatus = (state:IMainState) => state.authStatus;
-const getLogin = (state:IMainState) => state.login;
+    @action
+    login() {
+        const l: ILogin  = {
+            type: ACTION.Login,
+            user: this.user,
+            pwd: this.pwd,
+            otp: this.otp
+        }
+        state.sendMessage(l);
+        state.connectionStatus = CONNECTION_STATUS.AUTHENTICATING;
+        this.user = "";
+        this.pwd = "";
+        this.otp = "";
+    }
 
+    @action
+    logout(forgetOtp: boolean) {
+        const l: ILogout = {
+            type: ACTION.Logout,
+            forgetPwd : true,
+            forgetOtp
+        };
+        state.sendMessage(l);
 
-const mapStateToProps = createSelector([getConnectionStatus, getAuthStatus, getLogin], (connection, auth, login) => {
-    return {connection, auth, login};
-});
-
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
-    return {
-        setUsername: (value:string) => {dispatch({type: ACTION.SetLoginUsername, value})},
-        setPwd: (value:string) => {dispatch({type: ACTION.SetLoginPassword, value})},
-        setOtp: (value:string) => {dispatch({type: ACTION.SetLoginOtp, value})},
-        doLogin: (user: string, pwd:string, otp:string) => {dispatch({type: ACTION.Login, user, pwd, otp});}
+        state.loaded = false;
+        if (forgetOtp) {
+            this.user = "";
+            this.pwd = "";
+            this.otp = "";
+            Cookies.remove("simple-admin-session");
+        }
     }
 };
 
-function LoginImpl(props:IProps) {
+export const Login = observer(()=>{
+    const l = state.login;
     let message="";
-    switch (props.connection) {
+    switch (state.connectionStatus) {
     case CONNECTION_STATUS.AUTHENTICATING: message = "Authenticating"; break;
     case CONNECTION_STATUS.CONNECTED: message = "Connected"; break;
     case CONNECTION_STATUS.CONNECTING: message = "Connecting"; break;
     case CONNECTION_STATUS.INITING: message = "Loading initial state"; break;
-    case CONNECTION_STATUS.LOGIN: message = props.auth.message; break;
+    case CONNECTION_STATUS.LOGIN: message = state.authMessage; break;
     case CONNECTION_STATUS.WAITING: message = "Waiting"; break;
     }
     let progress = null;
-    if (props.connection != CONNECTION_STATUS.LOGIN) progress = <CircularProgress />;
+    if (state.connectionStatus != CONNECTION_STATUS.LOGIN) progress = <CircularProgress />;
 
-    const dis = props.connection != CONNECTION_STATUS.LOGIN;
-    const o = (props.auth && props.auth.user == props.login.user && props.auth.otp);
-    const dlog = dis || !props.login.user || !props.login.pwd || (!props.login.otp && !o);
+    const dis = state.connectionStatus != CONNECTION_STATUS.LOGIN;
+    const o = (state.authUser == l.user && state.authOtp);
+    const dlog = dis || !l.user || !l.pwd || (!l.otp && !o);
 
     return (<Dialog title="Login" modal={true} open={true}>
         {progress} {message} <br />
-        <form onSubmit={(e)=>{if (!dlog) props.doLogin(props.login.user, props.login.pwd, props.login.otp); e.preventDefault()}}>
-            <TextField name="user" hintText="User" floatingLabelText="User" disabled={dis} value={props.login.user} onChange={(_,value)=>props.setUsername(value)} errorText={(dis || props.login.user)?null:"Required"}/><br />
-            <TextField name="pwd" hintText="Password" floatingLabelText="Password" type="password" disabled={dis} value={props.login.pwd} onChange={(_,value)=>props.setPwd(value)} errorText={(dis || props.login.pwd)?null:"Required"}/><br />
-            <TextField name="otp" hintText="One Time Password" floatingLabelText="One Time Password" disabled={dis || o} value={props.login.otp} onChange={(_,value)=>props.setOtp(value)} errorText={(dis || props.login.otp || o)?null:"Required"} /> <br/>
+        <form onSubmit={(e)=>{if (!dlog) l.login(); e.preventDefault()}}>
+            <TextField name="user" hintText="User" floatingLabelText="User" disabled={dis} value={l.user} onChange={(_,value)=>l.user=value} errorText={(dis || l.user)?null:"Required"}/><br />
+            <TextField name="pwd" hintText="Password" floatingLabelText="Password" type="password" disabled={dis} value={l.pwd} onChange={(_,value)=>l.pwd = value} errorText={(dis || l.pwd)?null:"Required"}/><br />
+            <TextField name="otp" hintText="One Time Password" floatingLabelText="One Time Password" disabled={dis || o} value={l.otp} onChange={(_,value)=>l.otp = value} errorText={(dis || l.otp || o)?null:"Required"} /> <br/>
             <RaisedButton label="Login" primary={true} type="submit" disabled={dlog}/>
         </form>
     </Dialog>);
-}
+});
 
-export let Login = connect(mapStateToProps, mapDispatchToProps)(LoginImpl);

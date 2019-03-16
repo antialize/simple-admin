@@ -25,6 +25,10 @@ import { debugStyle } from './debug'
 import * as Cookies from 'js-cookie';
 import { Login } from './login';
 import * as chart from './chart';
+import state from "./state";
+import {observer} from "mobx-react";
+import setupState from './setupState';
+import {action, runInAction} from "mobx";
 
 interface Props {
     page: State.IPage;
@@ -88,20 +92,36 @@ export function sendMessage(action: IAction) {
 
 chart.setSend(sendMessage);
 
-const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) => (action: IAction) => {
-    switch (action.type) {
+const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) => (act: IAction) => {
+    switch (act.type) {
+        case ACTION.SetConnectionStatus:
+            state.connectionStatus = act.status;
+            return;
+        case ACTION.AuthStatus:
+            runInAction(()=> {
+                if (act.pwd && act.otp)
+                    state.connectionStatus = CONNECTION_STATUS.INITING;
+                else
+                    state.connectionStatus = CONNECTION_STATUS.LOGIN;
+                if (act.user)
+                    state.login.user = act.user;
+                state.authMessage = act.message;
+                state.authOtp = act.otp;
+                state.authUser = act.user;
+            });
+            return;
         case ACTION.StatBucket:
         case ACTION.StatValueChanges:
-            chart.handleAction(action);
+            chart.handleAction(act);
             return;
         case ACTION.SetPage:
-            switch (action.page.type) {
+            switch (act.page.type) {
                 case State.PAGE_TYPE.Object:
                     const objects = store.getState().objects;
-                    if (!(action.page.id in objects) || !(1 in objects[action.page.id].versions)) {
+                    if (!(act.page.id in objects) || !(1 in objects[act.page.id].versions)) {
                         let a: IFetchObject = {
                             type: ACTION.FetchObject,
-                            id: action.page.id
+                            id: act.page.id
                         };
                         sendMessage(a);
                     }
@@ -109,8 +129,8 @@ const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) =
             }
             break;
         case ACTION.SaveObject:
-            action.obj = store.getState().objects[action.id].current;
-            sendMessage(action);
+            act.obj = store.getState().objects[act.id].current;
+            sendMessage(act);
             break;
         case ACTION.DeployObject:
         case ACTION.DeleteObject:
@@ -119,35 +139,36 @@ const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) =
         case ACTION.CancelDeployment:
         case ACTION.PokeService:
         case ACTION.MessageTextReq:
-            sendMessage(action);
+            sendMessage(act);
             return;
         case ACTION.ToggleDeploymentObject:
-            if (action.source == "webclient") {
-                sendMessage(action);
+            if (act.source == "webclient") {
+                sendMessage(act);
                 return;
             }
             break;
         case ACTION.SetMessagesDismissed:
-            if (action.source == "webclient") {
-                sendMessage(action);
+            if (act.source == "webclient") {
+                sendMessage(act);
                 return;
             }
             break;
-        case ACTION.Login:
-            sendMessage(action);
-            break;
-        case ACTION.Logout:
-            sendMessage(action);
-            if (action.forgetOtp) Cookies.remove("simple-admin-session");
-            break;
         case ACTION.Alert:
-            alert(action.message);
+            alert(act.message);
             return;
+        case ACTION.SetInitialState:
+            runInAction(() => {
+                state.connectionStatus = CONNECTION_STATUS.INITED;
+                state.loaded = true;
+            });
+            break;
     }
-    return next(action);
+    return next(act);
 }
 
 
+setupState();
+state.sendMessage = sendMessage;
 const store = createStore(mainReducer, applyMiddleware(handleRemote as any)) as Store<IMainState>;
 
 let socket: WebSocket;
@@ -159,7 +180,7 @@ const setupSocket = () => {
     store.dispatch({ type: ACTION.SetConnectionStatus, status: CONNECTION_STATUS.CONNECTING });
     socket = new WebSocket('wss://' + remoteHost + '/sysadmin');
     socket.onmessage = data => {
-        const loaded = store.getState().loaded;
+        const loaded = state.loaded;
         const d = JSON.parse(data.data) as IAction;
         if (d.type in actionTargets) {
             for (const t of actionTargets[d.type])
@@ -183,7 +204,7 @@ const setupSocket = () => {
                 if (d.session !== null)
                     Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });
                 if (d.otp && d.pwd) {
-                    sendMessage({ type: ACTION.RequestInitialState });
+                    state.sendMessage({ type: ACTION.RequestInitialState });
                 }
                 break;
             case ACTION.SetInitialState:
@@ -222,18 +243,14 @@ window.onpopstate = (e) => {
     });
 };
 
-interface PropsC {
-    status: CONNECTION_STATUS;
-    loaded: boolean;
-}
 
-function ContentImpl(p: PropsC) {
+const Content = observer(()=>{
     let dialog: JSX.Element = null;
-    if (p.status != CONNECTION_STATUS.INITED) {
+    if (state.connectionStatus != CONNECTION_STATUS.INITED) {
         dialog = <Login />;
 
     }
-    if (p.loaded) {
+    if (state.loaded) {
         return (<div style={debugStyle()}>
             <Menu />
             <div style={{ marginLeft: "300px" }}>
@@ -244,13 +261,7 @@ function ContentImpl(p: PropsC) {
     } else {
         return dialog;
     }
-}
-
-function mapStateToPropsC(state: IMainState): PropsC {
-    return { status: state.connectionStatus, loaded: state.loaded };
-}
-
-export let Content = connect(mapStateToPropsC)(ContentImpl);
+});
 
 ReactDOM.render(
     <div>

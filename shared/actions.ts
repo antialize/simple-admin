@@ -295,21 +295,8 @@ export interface ILogin {
 
 export interface ILogout {
     type: ACTION.Logout;
-    forgetPwd: string;
-    forgetOtp: string;
-}
-
-export interface ISetLoginUsername {
-    type: ACTION.SetLoginUsername;
-    value: string;
-}
-export interface ISetLoginPassword {
-    type: ACTION.SetLoginPassword;
-    value: string;    
-}
-export interface ISetLoginOtp {
-    type: ACTION.SetLoginOtp;
-    value: string;
+    forgetPwd: boolean;
+    forgetOtp: boolean;
 }
 
 export interface IRequestInitialState {
@@ -361,4 +348,4 @@ export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilte
     | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory
     | ISetConnectionStatus | ISetMessageExpanded | ISetMessageGroupExpanded | IQueryStats | IQueryStatsAnswer
     | IMessageTextReqAction | IMessageTextRepAction | IAuthStatus | IRequestAuthStatus | ILogin | ILogout
-    | ISetLoginUsername | ISetLoginPassword | ISetLoginOtp | IRequestInitialState | IRequestStatBucket | IStatBucket | ISubscribeStatValues | IStatValueChanges;
+    | IRequestInitialState | IRequestStatBucket | IStatBucket | ISubscribeStatValues | IStatValueChanges;

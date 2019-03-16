@@ -1,6 +1,5 @@
-import { IUpdateStatusAction, IAction, ACTION, IMessage, CONNECTION_STATUS, IAuthStatus} from '../../shared/actions'
-import { IStatus, IStatuses, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
-import { Reducer, combineReducers } from 'redux';
+import {  IAction, ACTION, IMessage} from '../../shared/actions'
+import {  IStatuses,  applyStatusUpdate } from '../../shared/status'
 import { IPage, PAGE_TYPE, IObjectDigest, DEPLOYMENT_STATUS, IDeploymentObject, IObject2 } from '../../shared/state'
 import { IType, typeId, TypePropType } from '../../shared/type'
 
@@ -44,12 +43,6 @@ export interface IDeploymentState {
     message: string;
 }
 
-export interface ILogin {
-    user: string;
-    pwd: string;
-    otp: string;
-}
-
 export interface IMainState {
     status: IStatuses;
     page: IPage;
@@ -63,10 +56,6 @@ export interface IMainState {
     messageGroupExpanded: {[id:number]: boolean};
     deployment: IDeploymentState;
     types: {[id:number]: IObject2<IType>};
-    connectionStatus: CONNECTION_STATUS;
-    loaded: boolean;
-    authStatus: IAuthStatus | null;
-    login: ILogin;
 };
 
 function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
@@ -342,27 +331,6 @@ export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS
     return state;
 }
 
-export function connectionStatus(state: CONNECTION_STATUS = CONNECTION_STATUS.WAITING, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetConnectionStatus:
-            return action.status;
-        case ACTION.SetInitialState:
-            return CONNECTION_STATUS.INITED;
-        case ACTION.AuthStatus:
-            if (action.pwd && action.otp) 
-                return CONNECTION_STATUS.INITING;
-            return CONNECTION_STATUS.LOGIN;
-        case ACTION.Login:
-            return CONNECTION_STATUS.AUTHENTICATING;
-    }
-    return state;
-}
-
-export function loaded(state = false, action: IAction) {
-    if (action.type == ACTION.SetInitialState) return true;
-    if (action.type == ACTION.Logout) return false;
-    return state;
-}
 
 export function messageExpanded(state: {[id:number]: boolean}  = {}, action: IAction) {
     if (action.type == ACTION.SetMessageExpanded) {
@@ -382,29 +350,6 @@ export function messageGroupExpanded(state: {[id:number]: boolean}  = {}, action
     return state;
 }
 
-export function authStatus(state: IAuthStatus | null, action: IAction) {
-    if (action.type == ACTION.AuthStatus) {
-        return action;
-    }
-    return state;
-}
-
-export function login(state: ILogin = {user: "", pwd: "", otp: ""}, action: IAction) {
-    switch (action.type) {
-    case ACTION.SetLoginUsername: return {...state, user: action.value};
-    case ACTION.SetLoginPassword: return {...state, pwd: action.value};
-    case ACTION.SetLoginOtp: return {...state, otp: action.value};   
-    case ACTION.Login: return {...state, otp: "", pwd: ""};
-    case ACTION.Logout: 
-        if (action.forgetOtp) return {user: "", pwd: "", otp: ""};
-        break;
-    case ACTION.AuthStatus: 
-        if (action.user) return {...state, user: action.user};
-        break;
-    }
-    return state;
-}
-
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
@@ -417,13 +362,9 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         messages: messages(state ? state.messages : undefined, action),
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
         deployment: deployment(state ? state.deployment : undefined, action),
-        connectionStatus: connectionStatus(state ? state.connectionStatus: undefined, action),
-        loaded: loaded(state ? state.loaded: undefined, action),
         messageExpanded: messageExpanded(state ? state.messageExpanded: undefined, action),
         messageGroupExpanded: messageGroupExpanded(state ? state.messageGroupExpanded: undefined, action),
-        authStatus: authStatus(state ? state.authStatus: undefined, action),     
-        login: login(state ? state.login: undefined, action),     
-    };
+    }
     changeCurrentObject(ns);
     return ns;
 }
