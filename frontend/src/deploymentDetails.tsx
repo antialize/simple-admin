@@ -1,39 +1,12 @@
 import * as React from "react";
-import {IMainState} from './reducers';
 import * as State from '../../shared/state'
 import {IType, TypePropType} from '../../shared/type'
-
-import * as Actions from '../../shared/actions'
-import {Dispatch} from 'redux'
-import {connect} from 'react-redux'
-import TextField from 'material-ui/TextField';
-import RaisedButton from 'material-ui/RaisedButton';
-import Checkbox from 'material-ui/Checkbox';
-
-import Editor from './editor'
-
-import * as page from './page'
-import CircularProgress from 'material-ui/CircularProgress';
 import {InformationList, InformationListRow} from './information_list'
+import state from "./state";
+import { observer } from "mobx-react";
 
 interface IProps {
     index: number;
-}
-
-interface StateProps {
-    o: State.IDeploymentObject;
-    t: State.IObject2<IType>;
-}
-
-function mapStateToProps(s:IMainState, p:IProps): StateProps {
-    const o = s.deployment.objects[p.index];
-    const t = o && o.typeId !== null && s.types[o.typeId];
-    return {o, t};
-}
-
-interface StateProps {
-    o: State.IDeploymentObject;
-    t: State.IObject2<IType>;
 }
 
 function CententInfo(p: {c:{[key:string]:any}, t: State.IObject2<IType>}) {
@@ -58,9 +31,12 @@ function CententInfo(p: {c:{[key:string]:any}, t: State.IObject2<IType>}) {
         </InformationList>);
 }
 
-function DeploymentDetailsImpl(props: StateProps) {
-    return (
-        <div>
+export default observer((p:IProps) => {
+    const o = state.deployment.objects[p.index];
+    return <div>nop</div>;
+    //TODO fixme once we are done
+    /*const t = o && o.typeId !== null && state.types[o.typeId];
+    return <div>
             <h1>Information</h1>
             <InformationList>
                 <InformationListRow name="Title">{props.o.title}</InformationListRow>
@@ -78,7 +54,6 @@ function DeploymentDetailsImpl(props: StateProps) {
                 </div>: null}
             <h1>Script</h1>
             <Editor title="Script" setLang={(lang:string)=>{}} lang="Python" fixedLang={true} readOnly={true} setData={(data:string)=>{}} data={props.o.script} />
-        </div>);
-}
+        </div>*/
+});
 
-export const DeploymentDetails = connect(mapStateToProps)(DeploymentDetailsImpl);

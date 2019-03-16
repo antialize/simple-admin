@@ -11,6 +11,7 @@ import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {Status} from './status';
+import state from "./state";
 
 interface ExternProps {
     id: number;
@@ -20,10 +21,6 @@ interface StateProps {
     name: string; 
     id: number;
     up: boolean;
-}
-
-interface DispatchProps {
-    setPage: (e: React.MouseEvent<{}>, p: State.IPage) => void;
 }
 
 const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
@@ -40,15 +37,7 @@ const makeMapStatToProps = () => {
     return createSelector([getId, getUp, getName], (id, up, name)=> {return {id, up, name}} );
 }
 
-function mapDispatchToProps(dispatch: Dispatch<IMainState>) {
-    return {
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
-            page.onClick(e, p, dispatch);
-        }
-    }
-}
-
-function StatusesCardImpl(p: StateProps & DispatchProps) {
+function StatusesCardImpl(p: StateProps) {
     let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id:p.id, version: null };
     let elm;
     if (p.up)
@@ -61,9 +50,9 @@ function StatusesCardImpl(p: StateProps & DispatchProps) {
             <CardTitle title={p.name} />
             <CardText>{elm}</CardText>
             <CardActions>
-                <RaisedButton onClick={(e) => p.setPage(e, a)} label="Details" href={page.link(a)} />
+                <RaisedButton onClick={(e) => state.page.onClick(e, a)} label="Details" href={state.page.link(a)} />
             </CardActions>
         </Card>);
 }
 
-export let StatusesCard = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(StatusesCardImpl);
+export let StatusesCard = connect<StateProps, {}, ExternProps>(makeMapStatToProps)(StatusesCardImpl);

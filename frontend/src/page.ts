@@ -4,83 +4,106 @@ import * as Actions from '../../shared/actions'
 import {Dispatch} from 'redux'
 import {IMainState} from './reducers';
 import * as $ from 'jquery'
+import { action, observable } from "mobx";
 
-let nextNewObjectId=-2;
+
 
 function never(n:never, message:string) {
     console.error(message);
 }
 
-export function setPage(page: State.IPage, dispatch:Dispatch<IMainState>) {
-    let pg = Object.assign({}, page);
-    if (pg.type == State.PAGE_TYPE.Object && pg.id === null) {
-        pg.id = nextNewObjectId;
-        --nextNewObjectId;
+
+export class PageState {
+    @observable
+    nextNewObjectId:number = -2;
+
+    @observable
+    current: State.IPage = { type: State.PAGE_TYPE.Dashbord };
+
+    onClick(e: React.MouseEvent<{}>, page: State.IPage) {
+        if (e.metaKey || e.ctrlKey || e.button === 2) return;
+        e.preventDefault();
+        this.set(page);
     }
-    history.pushState(page, null, link(pg));
-    let p:Actions.ISetPageAction = {
-        type: Actions.ACTION.SetPage,
-        page: pg
-    };
-    dispatch(p);
-}
 
-export function onClick(e: React.MouseEvent<{}>, page: State.IPage,dispatch:Dispatch<IMainState>) {
-    if (e.metaKey || e.ctrlKey || e.button === 2) return;
-    e.preventDefault();
-    setPage(page, dispatch);
-}
+    @action
+    set(page: State.IPage) {
+        let pg = Object.assign({}, page);
+        if (pg.type == State.PAGE_TYPE.Object && pg.id === null) {
+            pg.id = this.nextNewObjectId;
+            --this.nextNewObjectId;
+        }
+        history.pushState(page, null, this.link(pg));
 
-export function link(page: State.IPage) {
-    var o: {[string:string]:string} = {}
-    switch(page.type) {
-    case State.PAGE_TYPE.Deployment:
-        o['page'] = 'deployment';
-        break;
-    case State.PAGE_TYPE.Dashbord:
-        o['page'] = 'dashbord';
-        break;
-    case State.PAGE_TYPE.ObjectList:
-        o['page'] = 'objectlist';
-        o['type'] = ""+page.objectType;
-        break;
-    case State.PAGE_TYPE.Object:
-        o['page'] = 'object';
-        o['type'] = ""+page.objectType;
-        if (page.id !== null) o['id'] = ""+page.id;
-        else o['id'] == '-1';
-        if (page.version !== null) o['version'] = ""+page.version;
-        break;
-    case State.PAGE_TYPE.DeploymentDetails:
-        o['page'] = 'deploymentDetails'
-        o['index'] = ""+page.index;
-        break;
-    default:
-        never(page, "Unhandled page");
+        this.current = page;
     }
-    return "?"+$.param(o)
-}
 
-function getUrlParameter(name:string) {
-    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-    var results = regex.exec(location.search);
-    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    link(page: State.IPage): string {
+        var o: {[string:string]:string} = {}
+        switch(page.type) {
+        case State.PAGE_TYPE.Deployment:
+            o['page'] = 'deployment';
+            break;
+        case State.PAGE_TYPE.Dashbord:
+            o['page'] = 'dashbord';
+            break;
+        case State.PAGE_TYPE.ObjectList:
+            o['page'] = 'objectlist';
+            o['type'] = ""+page.objectType;
+            break;
+        case State.PAGE_TYPE.Object:
+            o['page'] = 'object';
+            o['type'] = ""+page.objectType;
+            if (page.id !== null) o['id'] = ""+page.id;
+            else o['id'] == '-1';
+            if (page.version !== null) o['version'] = ""+page.version;
+            break;
+        case State.PAGE_TYPE.DeploymentDetails:
+            o['page'] = 'deploymentDetails'
+            o['index'] = ""+page.index;
+            break;
+        default:
+            never(page, "Unhandled page");
+        }
+        return "?"+$.param(o)
+    }
+    
+    @action
+    setFromUrl() {
+        const getUrlParameter = (name:string) => {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        };
+
+        let p = getUrlParameter('page');
+        switch (p) {
+        default:
+            this.current = {type: State.PAGE_TYPE.Dashbord};
+            break;
+        case 'deployment':
+            this.current = {type: State.PAGE_TYPE.Deployment};
+            break;
+        case 'objectlist':
+            this.current = {type: State.PAGE_TYPE.ObjectList, objectType: +getUrlParameter('type')};
+            break;
+        case 'object':
+            let v=getUrlParameter('version');
+            this.current = {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
+            break;
+        case 'deploymentDetails':
+            this.current = {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};
+            break;
+        }
+    }
+    
 };
 
-export function get(): State.IPage {
-    let p = getUrlParameter('page');
-    switch (p) {
-    default:
-        return {type: State.PAGE_TYPE.Dashbord};
-    case 'deployment':
-        return {type: State.PAGE_TYPE.Deployment};
-    case 'objectlist':
-        return {type: State.PAGE_TYPE.ObjectList, objectType: +getUrlParameter('type')};
-    case 'object':
-        let v=getUrlParameter('version');
-        return {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
-    case 'deploymentDetails':
-        return {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};
-    }
-}
+
+
+
+
+
+
+

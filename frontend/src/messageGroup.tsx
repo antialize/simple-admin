@@ -1,4 +1,3 @@
-import { onClick } from './page';
 import * as React from 'react';
 import {IMainState} from './reducers';
 import {ISetMessageGroupExpanded, ISetMessagesDismissed, ACTION, IMessage} from '../../shared/actions'

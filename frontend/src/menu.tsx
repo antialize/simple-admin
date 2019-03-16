@@ -19,7 +19,6 @@ import state from "./state";
 
 
 interface Props {
-    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
     types: {id:number, name:string}[];
 }
 
@@ -42,13 +41,6 @@ const mapStateToProps = createSelector([getTypes], (types) => {
     return {types: ans};
 });
 
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
-    return {
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
-            page.onClick(e, p, dispatch);
-        },
-    }    
-}
 
 function MenuImpl(props:Props) {
     return (<Drawer open={true} style={debugStyle()}>
@@ -57,13 +49,13 @@ function MenuImpl(props:Props) {
         <List style={debugStyle()}>
             <ListItem primaryText={<ObjectFinder />} />
             <Divider/>
-            <ListItem primaryText="Dashbord" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Dashbord})} href={page.link({type:State.PAGE_TYPE.Dashbord})}></ListItem>
+            <ListItem primaryText="Dashbord" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}></ListItem>
             <Divider/>
-            <ListItem primaryText="Deployment" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}/>
+            <ListItem primaryText="Deployment" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}/>
             <Divider/>
             {props.types.map(t => t.id==hostId?<HostTypeMenuItem key={t.id}/>: <TypeMenuItem key={t.id} id={t.id} />)}
         </List>
     </Drawer>);
 }
 
-export let Menu = connect(mapStateToProps, mapDispatchToProps)(MenuImpl);
+export let Menu = connect(mapStateToProps)(MenuImpl);

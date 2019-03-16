@@ -9,14 +9,11 @@ import {IType, hostId, typeId, rootInstanceId, rootId} from '../../shared/type'
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {HostMenuItem} from './hostMenuItem';
+import state from "./state";
 
 interface StateProps {
     name: string;
     hosts: {name: string, id:number}[];
-}
-
-interface DispatchProps {
-    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;    
 }
 
 const makeMapStatToProps = () => {
@@ -34,15 +31,7 @@ const makeMapStatToProps = () => {
     return createSelector([getType, getOrderedHosts], (type, hosts)=> {return {name: type.content.plural, hosts}} );
 }
 
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
-    return {
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
-            page.onClick(e, p, dispatch);
-        }
-    }    
-}
-
-function HostTypeMenuItemImpl(props:StateProps & DispatchProps) {
+function HostTypeMenuItemImpl(props:StateProps) {
     let nestedItems=[];
     for (const host of props.hosts) {
         nestedItems.push(<HostMenuItem id={host.id} key={host.id} />);
@@ -51,10 +40,10 @@ function HostTypeMenuItemImpl(props:StateProps & DispatchProps) {
         style={debugStyle()} 
         key={hostId} 
         primaryText={props.name} 
-        onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, objectType:hostId})}
-        href={page.link({type:State.PAGE_TYPE.ObjectList, objectType:hostId})} 
+        onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ObjectList, objectType:hostId})}
+        href={state.page.link({type:State.PAGE_TYPE.ObjectList, objectType:hostId})}
         initiallyOpen={true}
         nestedItems={nestedItems}/>;
 }
 
-export let HostTypeMenuItem = connect<StateProps, DispatchProps, {}>(makeMapStatToProps, mapDispatchToProps)(HostTypeMenuItemImpl);
+export let HostTypeMenuItem = connect<StateProps, {}, {}>(makeMapStatToProps)(HostTypeMenuItemImpl);

@@ -1,6 +1,6 @@
 import {  IAction, ACTION, IMessage} from '../../shared/actions'
 import {  IStatuses,  applyStatusUpdate } from '../../shared/status'
-import { IPage, PAGE_TYPE, IObjectDigest, DEPLOYMENT_STATUS, IDeploymentObject, IObject2 } from '../../shared/state'
+import { IObjectDigest,  IObject2 } from '../../shared/state'
 import { IType, typeId, TypePropType } from '../../shared/type'
 
 function fillDefaults(content:{[key:string]:any}, type: IType) {
@@ -37,15 +37,10 @@ export interface IObjectState {
     touched: boolean;
 }
 
-export interface IDeploymentState {
-    status: DEPLOYMENT_STATUS;
-    objects: IDeploymentObject[];
-    message: string;
-}
+
 
 export interface IMainState {
     status: IStatuses;
-    page: IPage;
     objectListFilter: { [type: number]: string };
     serviceListFilter: { [host: number]: string };
     objectDigests: { [type: number]: IObjectDigest[] };
@@ -54,7 +49,6 @@ export interface IMainState {
     messages: { [id: number]: IMessage };
     messageExpanded: {[id:number]: boolean};
     messageGroupExpanded: {[id:number]: boolean};
-    deployment: IDeploymentState;
     types: {[id:number]: IObject2<IType>};
 };
 
@@ -261,17 +255,10 @@ function status(state: IStatuses = {}, action: IAction) {
     }
 }
 
-function page(state: IPage = { type: PAGE_TYPE.Dashbord }, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetPage:
-            return action.page;
-        default:
-            return state;
-    }
-}
 
 function changeCurrentObject(state: IMainState) {
-    if (state.page.type != PAGE_TYPE.Object) return; // We are not viewing an object
+    //TODO FIX THIS
+    /*if (state.page.type != PAGE_TYPE.Object) return; // We are not viewing an object
     let id = state.page.id;
     let current: IObject2<any> = null;
     if (id >= 0) { // We are modifying an existing object
@@ -299,36 +286,7 @@ function changeCurrentObject(state: IMainState) {
     if (id in state.objects)
         state.objects[id] = Object.assign({}, state.objects[id], { current: current });
     else
-        state.objects[id] = { touched: false, current: current, versions: {} }
-}
-
-export function deployment(state: IDeploymentState = { status: DEPLOYMENT_STATUS.Done, objects: [], message: "" }, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetDeploymentStatus:
-            return Object.assign({}, state, { status: action.status });
-        case ACTION.SetDeploymentMessage:
-            return Object.assign({}, state, { message: action.message });
-        case ACTION.SetDeploymentObjects:
-            return Object.assign({}, state, { objects: action.objects });
-        case ACTION.SetDeploymentObjectStatus:
-            let x = state.objects.slice(0);
-            x[action.index] = Object.assign({}, x[action.index], { status: action.status });
-            return Object.assign({}, state, { objects: x });
-        case ACTION.ToggleDeploymentObject:
-            let y = state.objects.slice(0);
-            if (action.index === null) {
-                for (let o of y) {
-                    if (o.enabled == action.enabled) continue;
-                    y[o.index] = Object.assign({}, o, { enabled: action.enabled })
-                }
-            } else {
-                y[action.index] = Object.assign({}, y[action.index], { enabled: action.enabled });
-            }
-            return Object.assign({}, state, { objects: y });
-        case ACTION.SetInitialState:
-            return { status: action.deploymentStatus, /*log: action.deploymentLog ? action.deploymentLog : [],*/ objects: action.deploymentObjects, message: action.deploymentMessage, logClearCount: 0 };
-    }
-    return state;
+        state.objects[id] = { touched: false, current: current, versions: {} }*/
 }
 
 
@@ -353,7 +311,6 @@ export function messageGroupExpanded(state: {[id:number]: boolean}  = {}, action
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
-        page: page(state ? state.page : undefined, action),
         objectListFilter: objectListFilter(state ? state.objectListFilter : undefined, action),
         objectDigests: objectDigests(state ? state.objectDigests : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
@@ -361,7 +318,6 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         messages: messages(state ? state.messages : undefined, action),
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
-        deployment: deployment(state ? state.deployment : undefined, action),
         messageExpanded: messageExpanded(state ? state.messageExpanded: undefined, action),
         messageGroupExpanded: messageGroupExpanded(state ? state.messageGroupExpanded: undefined, action),
     }

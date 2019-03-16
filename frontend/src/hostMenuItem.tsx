@@ -9,13 +9,10 @@ import {IType, hostId, typeId, rootInstanceId, rootId} from '../../shared/type'
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect'
 import Avatar from 'material-ui/Avatar';
+import state from "./state";
 
 interface ExternProps {
     id: number;
-}
-
-interface DispatchProps {
-    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;    
 }
 
 interface StateProps {
@@ -51,23 +48,17 @@ const makeMapStatToProps = () => {
     });
 }
 
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
-    return {
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
-            page.onClick(e, p, dispatch);
-        }
-    }    
-}
 
-function HostMenuItemImpl(props:StateProps & DispatchProps) {
+
+function HostMenuItemImpl(props:StateProps) {
     return <ListItem 
             nestedLevel={1}
             primaryText={props.name}
             style={debugStyle({color:props.up?"black":"red"})}
             key={props.id}
-            onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}
+            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}
             rightAvatar={props.messages?(<Avatar color="black" backgroundColor="red">{props.messages}</Avatar>):null}
-            href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}/>;
+            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}/>;
 }
 
-export let HostMenuItem = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(HostMenuItemImpl);
+export let HostMenuItem = connect<StateProps, {}, ExternProps>(makeMapStatToProps)(HostMenuItemImpl);

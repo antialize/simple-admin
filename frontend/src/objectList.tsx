@@ -8,6 +8,7 @@ import {connect} from 'react-redux'
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import * as page from './page'
+import state from "./state";
 
 interface IProps {
     type: number;
@@ -18,7 +19,6 @@ interface Props {
     filter: string;
     type: number;
     setFilter(filter:string):void;
-    setPage(e: React.MouseEvent<{}>, p: State.IPage):void;
 }
 
 function mapStateToProps(s:IMainState, o:IProps) {
@@ -43,9 +43,7 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:IProps) {
             };
             dispatch(p);
         },
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
-            page.onClick(e, p, dispatch);
-        }
+
     }
 }
 
@@ -54,9 +52,9 @@ function ObjectListImpl(props:Props) {
             <div>
                 <TextField floatingLabelText="Filter" onChange={(a, v)=>{props.setFilter(v);}} value={props.filter}/>
                 <List>
-                    {props.objects.map(v => <ListItem primaryText={v.name} key={v.id} onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: props.type, id: v.id, version:null})} href={page.link({type:State.PAGE_TYPE.Object, objectType: props.type, id: v.id, version:null})}/>)}
+                    {props.objects.map(v => <ListItem primaryText={v.name} key={v.id} onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: props.type, id: v.id, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: props.type, id: v.id, version:null})}/>)}
                 </List>
-                <RaisedButton label="Add new" onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: props.type, id: null, version:null})} href={page.link({type:State.PAGE_TYPE.Object, objectType: props.type, id: null, version:null})} />
+                <RaisedButton label="Add new" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: props.type, id: null, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: props.type, id: null, version:null})} />
             </div>
         );
 }

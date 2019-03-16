@@ -8,6 +8,7 @@ import {Dispatch} from 'redux'
 import * as State from '../../shared/state'
 import * as Actions from '../../shared/actions'
 import * as page from './page'
+import state from "./state";
 
 
 interface StateProps {
@@ -15,27 +16,13 @@ interface StateProps {
     types: {[id:number]:IObject2<IType>};
 }
 
-interface DispatchProps {
-    displayObject(id:number, type:number):void;
-}
-
 function mapStateToProps(s:IMainState, p: {}): StateProps {
     return {objectDigests: s.objectDigests, types: s.types};
 }
 
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
-    return {
-        displayObject: (id: number, type:number) => {
-            page.setPage({
-                type: State.PAGE_TYPE.Object,
-                objectType: type,
-                id
-            }, dispatch);
-        }
-    }    
-}
 
-export function ObjectFinderImpl(props:StateProps & DispatchProps) {
+
+export function ObjectFinderImpl(props:StateProps) {
     type Item = {label:string, key:number, type:number};
     let all: Item[] = [];
     for (let type_ in props.objectDigests) {
@@ -54,9 +41,15 @@ export function ObjectFinderImpl(props:StateProps & DispatchProps) {
                 hintText="Search"
                 dataSource={all}
                 dataSourceConfig={{text:"label",value:"key"}}
-                onNewRequest={(item:Item)=>{props.displayObject(item.key, item.type)}}
+                onNewRequest={(item:Item)=>{
+                    state.page.set({
+                        type: State.PAGE_TYPE.Object,
+                        objectType: item.type,
+                        id: item.key
+                    })
+                }}
                 />
     )
 }
 
-export const ObjectFinder = connect(mapStateToProps, mapDispatchToProps)(ObjectFinderImpl);
+export const ObjectFinder = connect(mapStateToProps)(ObjectFinderImpl);

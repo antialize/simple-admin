@@ -1,27 +1,14 @@
 import * as React from "react";
-import {IMainState} from '../reducers';
 import * as State from '../../../shared/state'
-import {connect} from 'react-redux'
-
-import * as page from '../page'
 import CircularProgress from 'material-ui/CircularProgress';
-import Buttons from '../deployment/buttons';
+import { observer } from "mobx-react";
+import state from "../state";
 
-interface IProps {}
-
-interface StateProps {
-    status: State.DEPLOYMENT_STATUS;
-}
-
-function mapStateToProps(s:IMainState, {}): StateProps {
-    return {status: s.deployment.status}
-}
-
-function HeaderImpl(props:StateProps) {
+export default observer(()=>{
     let spin = false;
     let status = "";
 
-    switch (props.status) {
+    switch (state.deployment.status) {
     case State.DEPLOYMENT_STATUS.BuildingTree:
         status = " - Building tree";
         spin = true;
@@ -52,7 +39,4 @@ function HeaderImpl(props:StateProps) {
             {spin?<CircularProgress />:null} Deployment{status}
         </h1>
         );
-}
-
-export const Header = connect(mapStateToProps)(HeaderImpl);
-export default Header;
+});

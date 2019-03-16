@@ -2,15 +2,14 @@ import * as React from "react";
 import {List, ListItem} from 'material-ui/List';
 import {IMainState} from './reducers';
 import * as State from '../../shared/state'
-import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import * as page from './page'
 import {IType, hostId, typeId, rootInstanceId, rootId} from '../../shared/type'
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect'
+import state from "./state";
 
 interface Props {
-    setPage(e: React.MouseEvent<{}>, page:State.IPage):void;
     id: number;
     name: string;
 }
@@ -23,13 +22,6 @@ const makeMapStatToProps = () => {
     return createSelector([getType], (type)=> {return {id: type.id, name: type.content.plural}} );
 }
 
-function mapDispatchToProps(dispatch:Dispatch<IMainState>) {
-    return {
-        setPage: (e: React.MouseEvent<{}>, p: State.IPage) => {
-            page.onClick(e, p, dispatch);
-        }
-    }    
-}
 
 function TypeMenuItemImpl(props:Props) {
     if (props.id == rootId) {
@@ -37,16 +29,16 @@ function TypeMenuItemImpl(props:Props) {
             style={debugStyle()} 
             primaryText={props.name}
             key={rootInstanceId}
-            onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
-            href={page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}/>;
+            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
+            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}/>;
     }
 
     return <ListItem 
         style={debugStyle()} 
         key={props.id} 
         primaryText={props.name} 
-        onClick={(e)=>props.setPage(e, {type:State.PAGE_TYPE.ObjectList, objectType:props.id})}
-        href={page.link({type:State.PAGE_TYPE.ObjectList, objectType:props.id})} />;
+        onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ObjectList, objectType:props.id})}
+        href={state.page.link({type:State.PAGE_TYPE.ObjectList, objectType:props.id})} />;
 }
 
-export let TypeMenuItem = connect(makeMapStatToProps, mapDispatchToProps)(TypeMenuItemImpl);
+export let TypeMenuItem = connect(makeMapStatToProps)(TypeMenuItemImpl);

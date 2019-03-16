@@ -18,7 +18,6 @@ import CircularProgress from 'material-ui/CircularProgress';
 import { Messages } from './messages';
 import { remoteHost } from './config';
 import { Deployment } from './deployment';
-import { DeploymentDetails } from './deploymentDetails';
 import { add, clear } from './deployment/log';
 import Dialog from 'material-ui/Dialog';
 import { debugStyle } from './debug'
@@ -29,26 +28,18 @@ import state from "./state";
 import {observer} from "mobx-react";
 import setupState from './setupState';
 import {action, runInAction} from "mobx";
-
-interface Props {
-    page: State.IPage;
-    type?: string;
-}
+import DeploymentDetails from './deploymentDetails';
 
 function never(n: never, message: string) {
     console.error(message);
 }
 
-
-function mapStateToProps(s: IMainState) {
-    let ans: Props = { page: s.page };
-    if (ans.page.type == State.PAGE_TYPE.ObjectList)
-        ans.type = s.types[ans.page.objectType].content.plural;
-    return ans;
-}
-
-function MainPageImpl(props: Props) {
-    const p = props.page;
+export const MainPage = observer(()=>{
+    const p = state.page.current;
+    // TODO(jakob)
+    /*if (p.type == State.PAGE_TYPE.ObjectList)
+        type = s.types[p.objectType].content.plural;*/
+    const type="TODO;"
     switch (p.type) {
         case State.PAGE_TYPE.Dashbord:
             return <div style={debugStyle()}>
@@ -57,7 +48,7 @@ function MainPageImpl(props: Props) {
                 <Statuses />
             </div>;
         case State.PAGE_TYPE.ObjectList:
-            return <div style={debugStyle()}><h1>List of {props.type}</h1><ObjectList type={p.objectType} /></div>
+            return <div style={debugStyle()}><h1>List of {type}</h1><ObjectList type={p.objectType} /></div>
         case State.PAGE_TYPE.Object:
             return <div style={debugStyle()}><Object type={p.objectType} id={p.id} version={p.version} /> </div>
         case State.PAGE_TYPE.Deployment:
@@ -67,9 +58,8 @@ function MainPageImpl(props: Props) {
         default:
             never(p, "Unhandled page type");
     }
-}
+});
 
-export let MainPage = connect(mapStateToProps)(MainPageImpl);
 
 export interface ActionTarget {
     handle: (action: IAction) => boolean;
@@ -208,15 +198,35 @@ const setupSocket = () => {
                 }
                 break;
             case ACTION.SetInitialState:
+                state.deployment.status = d.deploymentStatus;
+
                 reconnectTime = 1;
                 for (const b of (d.deploymentLog || []))
                     add(b);
                 if (!loaded)
-                    store.dispatch({
-                        type: ACTION.SetPage,
-                        page: page.get()
-                    })
-                break
+                    state.page.setFromUrl();
+                break;
+            case ACTION.SetDeploymentStatus:
+                state.deployment.status = d.status;
+                break;
+            case ACTION.SetDeploymentMessage:
+                state.deployment.message = d.message;
+                break;
+            case ACTION.SetDeploymentObjects:
+                state.deployment.objects = d.objects;
+                break;
+            case ACTION.SetDeploymentObjectStatus:
+                state.deployment.objects[d.index].status = d.status;
+                break;
+            case ACTION.ToggleDeploymentObject:
+                runInAction(()=>{
+                    if (d.index === null)
+                        for (let o of state.deployment.objects)
+                            o.enabled = d.enabled;
+                    else
+                        state.deployment.objects[d.index].enabled = d.enabled;
+                });
+                break;
         }
     };
 
