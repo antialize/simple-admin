@@ -9,7 +9,7 @@ import {Services} from './services'
 import {HostTerminals} from './terminal'
 import {Log} from './log'
 import {Smart} from './smart'
-import {Messages} from './messages'
+import Messages from './messages'
 import {Setup} from './setup'
 
 interface ExternProps {

@@ -17,7 +17,6 @@ interface ExternProps {
 interface StateProps {
     id: number;
     up: boolean;
-    messages: number;
 }
 
 const makeMapStatToProps = () => {
@@ -27,30 +26,24 @@ const makeMapStatToProps = () => {
         return status[id];
     });
     const getUp = createSelector([getStatus], (status) => status && status.up);
-    const getMessages = (state:IMainState) => state.messages || {};
-    const getMessageCount = createSelector([getMessages, getId], (messages, id) => {
-        let cnt = 0;
-        for (const i in messages) {
-            const message = messages[i];
-            if (message.dismissed || message.host != id) continue;
-            cnt++;
-        }
-        return cnt;
-    });
-    return createSelector([getId, getUp, getMessageCount], (id:number, up: boolean, messages: number) => {
-        return {id, up, messages}
+    return createSelector([getId, getUp], (id:number, up: boolean) => {
+        return {id, up}
     });
 }
 
 const HostMenuItemImpl = observer((props:StateProps) => {
     const name = state.objectDigests.get(hostId).get(props.id).name;
+    let messages = 0;
+    for (let [id, msg] of state.messages)
+        if (!msg.dismissed && msg.host == props.id)
+            ++messages;
     return <ListItem 
             nestedLevel={1}
             primaryText={name}
             style={debugStyle({color:props.up?"black":"red"})}
             key={props.id}
             onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}
-            rightAvatar={props.messages?(<Avatar color="black" backgroundColor="red">{props.messages}</Avatar>):null}
+            rightAvatar={messages?(<Avatar color="black" backgroundColor="red">{messages}</Avatar>):null}
             href={state.page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: props.id, version:null})}/>;
 });
 

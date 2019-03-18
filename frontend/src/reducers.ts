@@ -37,42 +37,12 @@ export interface IObjectState {
     touched: boolean;
 }
 
-
-
 export interface IMainState {
     status: IStatuses;
     serviceListFilter: { [host: number]: string };
     objects: { [id: number]: IObjectState };
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
-    messages: { [id: number]: IMessage };
-    messageExpanded: {[id:number]: boolean};
-    messageGroupExpanded: {[id:number]: boolean};
 };
-
-function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetInitialState: {
-            const messages: { [id: number]: IMessage } = {};
-            for (const msg of action.messages)
-                messages[msg.id] = msg;
-            return messages;
-        }
-        case ACTION.SetMessagesDismissed: {
-            const messages = Object.assign({}, state);
-            for (const id of action.ids) {
-                messages[id] = Object.assign({}, messages[id]);
-                messages[id].dismissed = action.dismissed;
-            }
-            return messages;
-        }
-        case ACTION.AddMessage: {
-            const messages = Object.assign({}, state);
-            messages[action.message.id] = action.message;
-            return messages;
-        }
-    }
-    return state;
-}
 
 function serviceLogVisibility(state: { [host: number]: { [name: string]: boolean } } = {}, action: IAction) {
     switch (action.type) {
@@ -96,9 +66,6 @@ function serviceListFilter(state: { [host: number]: string } = {}, action: IActi
             return state;
     }
 }
-
-
-
 
 function objects(state: { [id: number]: IObjectState } = {}, action: IAction): { [id: number]: IObjectState } {
     switch (action.type) {
@@ -222,33 +189,12 @@ function changeCurrentObject(state: IMainState) {
 }
 
 
-export function messageExpanded(state: {[id:number]: boolean}  = {}, action: IAction) {
-    if (action.type == ACTION.SetMessageExpanded) {
-        let ans = {...state};
-        ans[action.id] = action.expanded;
-        return ans;
-    }
-    return state;
-}
-
-export function messageGroupExpanded(state: {[id:number]: boolean}  = {}, action: IAction) {
-    if (action.type == ACTION.SetMessageGroupExpanded) {
-        let ans = {...state};
-        ans[action.id] = action.expanded;
-        return ans;
-    }
-    return state;
-}
-
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
-        messages: messages(state ? state.messages : undefined, action),
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
-        messageExpanded: messageExpanded(state ? state.messageExpanded: undefined, action),
-        messageGroupExpanded: messageGroupExpanded(state ? state.messageGroupExpanded: undefined, action),
     }
     changeCurrentObject(ns);
     return ns;

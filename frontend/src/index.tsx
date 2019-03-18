@@ -15,7 +15,7 @@ import { Object } from './object'
 import Menu from './menu'
 import ObjectList from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
-import { Messages } from './messages';
+import Messages from './messages';
 import { remoteHost } from './config';
 import { Deployment } from './deployment';
 import { add, clear } from './deployment/log';
@@ -30,7 +30,6 @@ import setupState from './setupState';
 import {action, runInAction} from "mobx";
 import DeploymentDetails from './deploymentDetails';
 import { typeId } from "../../shared/type";
-import { number } from "prop-types";
 
 function never(n: never, message: string) {
     console.error(message);
@@ -215,8 +214,23 @@ const setupSocket = () => {
                             m.set(ent.id, ent);
                         state.objectDigests.set(+id, m);
                     }
+
+                    for (let msg of d.messages)
+                        state.messages.set(msg.id, msg);
+
                 });
                 break;
+            case ACTION.SetMessagesDismissed:
+                runInAction(()=>{
+                    for (let id of d.ids)
+                        state.messages.get(id).dismissed = d.dismissed
+                });
+                break;
+            case ACTION.AddMessage:
+                runInAction(()=>{
+                    state.messages.set(d.message.id, d.message);
+                });
+                break;;
             case ACTION.ObjectChanged:
                 if (d.object.length == 0) {
                     state.types.delete(d.id);

@@ -10,4 +10,7 @@ export default () => {
     state.types = new Map;
     state.objectDigests = new Map;
     state.objectListFilter = new Map;
+    state.messages = new Map;
+    state.messageExpanded = new Map;
+    state.messageGroupExpanded = new Map;
 };

@@ -1,5 +1,5 @@
 import {observable, computed} from "mobx";
-import {CONNECTION_STATUS, IAction}  from "../../shared/actions";
+import {CONNECTION_STATUS, IAction, IMessage}  from "../../shared/actions";
 import {LoginState} from "./login"
 import { DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentTrigger, IDeploymentObject, IObject2, IObjectDigest } from "../../shared/state";
 import { DeploymentState } from "./deployment";
@@ -63,6 +63,15 @@ class State {
 
     @observable
     objectListFilter: Map<number, string>;
+
+    @observable
+    messages: Map<number, IMessage>;
+
+    @observable
+    messageExpanded: Map<number, boolean>;
+
+    @observable
+    messageGroupExpanded: Map<number, boolean>;
 
     sendMessage: (act:IAction)=>void = null;
 };
