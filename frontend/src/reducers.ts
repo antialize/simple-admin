@@ -49,7 +49,6 @@ export interface IMainState {
     messages: { [id: number]: IMessage };
     messageExpanded: {[id:number]: boolean};
     messageGroupExpanded: {[id:number]: boolean};
-    types: {[id:number]: IObject2<IType>};
 };
 
 function messages(state: { [id: number]: IMessage } = {}, action: IAction) {
@@ -131,29 +130,6 @@ function objectDigests(state: { [type: number]: IObjectDigest[] } = {}, action: 
             return s2;
         default:
             return state;
-    }
-}
-
-function types(state: {[id:number]:IObject2<IType>} = {}, action: IAction) {
-    switch (action.type) {
-    case ACTION.SetInitialState:
-        return action.types;
-    case ACTION.ObjectChanged:
-        if (action.object.length == 0) {
-            if (action.id in state) {
-                let a = Object.assign({}, state);
-                delete a[action.id];
-                return a;
-            }
-        } else if (action.object[action.object.length -1].type == typeId) {
-            let x = action.object[action.object.length -1];
-            let a = Object.assign({}, state);
-            a[x.id] = x;
-            return a;
-        }
-        return state;
-    default:
-        return state;
     }
 }
 
@@ -314,7 +290,6 @@ export function mainReducer(state: IMainState = null, action: IAction) {
         objectListFilter: objectListFilter(state ? state.objectListFilter : undefined, action),
         objectDigests: objectDigests(state ? state.objectDigests : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
-        types: types(state ? state.types: undefined, action),
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         messages: messages(state ? state.messages : undefined, action),
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),

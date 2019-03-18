@@ -9,25 +9,23 @@ import * as State from '../../shared/state'
 import * as Actions from '../../shared/actions'
 import * as page from './page'
 import state from "./state";
+import { observer } from "mobx-react";
 
 
 interface StateProps {
     objectDigests: {[type:number]:IObjectDigest[]};
-    types: {[id:number]:IObject2<IType>};
 }
 
 function mapStateToProps(s:IMainState, p: {}): StateProps {
-    return {objectDigests: s.objectDigests, types: s.types};
+    return {objectDigests: s.objectDigests};
 }
 
-
-
-export function ObjectFinderImpl(props:StateProps) {
+const ObjectFinderImpl = observer((props:StateProps) => {
     type Item = {label:string, key:number, type:number};
     let all: Item[] = [];
     for (let type_ in props.objectDigests) {
         let type = +type_;
-        let ti = props.types[type];
+        let ti = state.types.get(type);
         let ps = props.objectDigests[type_];
         for (let p of ps) {
             if (!ti) continue;
@@ -50,6 +48,6 @@ export function ObjectFinderImpl(props:StateProps) {
                 }}
                 />
     )
-}
+});
 
 export const ObjectFinder = connect(mapStateToProps)(ObjectFinderImpl);

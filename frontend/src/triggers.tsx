@@ -1,49 +1,22 @@
 import * as React from "react";
-import {Card, CardActions, CardHeader, CardMedia, CardTitle, CardText} from 'material-ui/Card';
 import TextField from 'material-ui/TextField';
 import SelectField from 'material-ui/SelectField';
 import MenuItem from 'material-ui/MenuItem';
+import {TypePropType, ITrigger} from '../../shared/type'
+import { observer } from "mobx-react";
+import state from "./state";
 
-import {IObject2} from '../../shared/state'
-import {IType, TypePropType, ITrigger, ITriggers} from '../../shared/type'
-import {connect} from 'react-redux'
-import {IMainState} from './reducers';
-
-
-interface IProps {
-    triggers: ITrigger[];
-    setTriggers(triggers: ITrigger[]):void;
-}
-
-interface StateProps {
-    triggers:IObject2<IType>[];
-    p: IProps;
-}
-
-function mapStateToProps(s:IMainState, p: IProps): StateProps {
-    let triggers:IObject2<IType>[] = [];
-    for(const key in s.types) {
-        const type = s.types[key];
-        if (type.content.kind != "trigger") continue;
-        triggers.push(type);
-    }
-    triggers.sort( (l,r) => {
-        return l.name < r.name ? -1: 1;
-    });
-    return {triggers, p}
-}
-
-export function TriggersImpl(props:StateProps) {
-	let triggers = props.p.triggers.slice(0);
+export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigger[])=>void}) => {
+	let triggers = p.triggers.slice(0);
 	let rows: JSX.Element[] =[];
 	let setTriggers = () => {
-		props.p.setTriggers(triggers.filter(t => t.id != 0));
+		p.setTriggers(triggers.filter(t => t.id != 0));
 	}
 	
     for (let i=0; i <= triggers.length; ++i) {
 		const v = i < triggers.length && triggers[i];
 
-        const t = v ? props.triggers.find(t => t.id == v.id) : null;
+        const t = v ? state.triggers.find(t => t.id == v.id) : null;
         let fields: JSX.Element[] = [];
         if (v && t && t.content && t.content.content) {
             for (let item of t.content.content) {
@@ -68,7 +41,7 @@ export function TriggersImpl(props:StateProps) {
                             setTriggers();
                         }}>
                         <MenuItem value={0} primaryText="None" />
-                        {props.triggers.map(t => <MenuItem key={t.name} value={t.id} primaryText={t.name} />)}
+                        {state.triggers.map(t => <MenuItem key={t.name} value={t.id} primaryText={t.name} />)}
                     </SelectField>
 				</td><td>
                     {fields}
@@ -86,6 +59,5 @@ export function TriggersImpl(props:StateProps) {
             </tbody>
         </table>
     )
-}
+});
 
-export const Triggers = connect(mapStateToProps)(TriggersImpl);

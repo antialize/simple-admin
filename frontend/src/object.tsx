@@ -3,7 +3,7 @@ import { IMainState } from './reducers'
 import { Dispatch } from 'redux'
 import { connect } from 'react-redux'
 import * as React from "react"
-import {  PAGE_TYPE } from '../../shared/state'
+import {  PAGE_TYPE, DEPLOYMENT_STATUS } from '../../shared/state'
 import { ACTION, IDiscardObject, ISaveObject, IDeployObject,  IDeleteObject} from '../../shared/actions'
 import CircularProgress from 'material-ui/CircularProgress'
 import RaisedButton from 'material-ui/RaisedButton'
@@ -49,12 +49,12 @@ function mapStateToProps(s: IMainState, p: IProps): StateProps {
     }
    
     return {
-        typeName: s.types[p.type].name,
+        typeName: state.types.get(p.type).name, //TODO this does not realy work, until everything is mobx
         typeId: p.type,
         id: p.id,
         hasCurrent: p.id in s.objects && s.objects[p.id].current != null,
-        canDeploy: true,  // s.deployment.status == DEPLOYMENT_STATUS.Done || s.deployment.status == DEPLOYMENT_STATUS.InvilidTree || s.deployment.status == DEPLOYMENT_STATUS.BuildingTree || s.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || s.deployment.status == DEPLOYMENT_STATUS.ReviewChanges,
-        canCancel: true, //s.deployment.status == DEPLOYMENT_STATUS.BuildingTree || s.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || s.deployment.status == DEPLOYMENT_STATUS.ReviewChanges,
+        canDeploy: state.deployment.status == DEPLOYMENT_STATUS.Done || state.deployment.status == DEPLOYMENT_STATUS.InvilidTree || state.deployment.status == DEPLOYMENT_STATUS.BuildingTree || state.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || state.deployment.status == DEPLOYMENT_STATUS.ReviewChanges,
+        canCancel: state.deployment.status == DEPLOYMENT_STATUS.BuildingTree || state.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || state.deployment.status == DEPLOYMENT_STATUS.ReviewChanges,
         touched: p.id in s.objects &&  s.objects[p.id].touched,
         version: p.version,
         versions: versions

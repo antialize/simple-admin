@@ -14,13 +14,15 @@ import {ObjectSelector} from './object_selector'
 import {Variables} from './variables'
 import {Catagory} from './catagory'
 import {Password} from './password'
-import {Triggers} from './triggers';
+import Triggers from './triggers';
 import Editor from './editor'
 import TypeContent from './typeContent'
 import MonitorContent from './monitorContent'
 
 
 import {IType, ITypeProp, TypePropType, hostId, typeId, rootId} from '../../shared/type'
+import state from "./state";
+import { observer } from "mobx-react";
 
 interface IProps {
     id: number;
@@ -30,9 +32,7 @@ interface IProps {
 interface StateProps {
     current: IObject2<any>;
     id: number;
-    type: IType;
     typeId: number;
-    triggers:IObject2<IType>[];
 }
 
 interface DispactProps {
@@ -43,14 +43,7 @@ interface DispactProps {
 }
 
 function mapStateToProps(s:IMainState, p: IProps): StateProps {
-    let triggers:IObject2<IType>[] = [];
-    for(const key in s.types) {
-        const type = s.types[key];
-        if (type.content.kind != "trigger") continue;
-        triggers.push(type);
-    }
-
-    return {current: s.objects[p.id].current, id: p.id, type: s.types && s.types[p.typeId] && s.types[p.typeId].content, typeId: p.typeId, triggers};
+    return {current: s.objects[p.id].current, id: p.id,  typeId: p.typeId};
 }
 
 function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactProps {
@@ -91,13 +84,13 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, p: IProps): DispactPr
     }
 }
 
-function TypeImpl(props: StateProps & DispactProps) {
-    if (!props.type)
+const TypeImpl = observer((props: StateProps & DispactProps) => {
+    const type = state.types && state.types.has(props.typeId) && state.types.get(props.typeId).content;
+    if (!type)
         return <div>Missing type</div>;
     if (!props.current)
         return <div>Missing content</div>;
 
-    const type = props.type;
     const c = props.current.content as {[key:string]:any};
     let rows = [];
     let extra = [];
@@ -152,6 +145,6 @@ function TypeImpl(props: StateProps & DispactProps) {
             </InformationList>
             {extra}
         </div>)
-}
+});
 
 export const Type = connect(mapStateToProps, mapDispatchToProps)(TypeImpl);

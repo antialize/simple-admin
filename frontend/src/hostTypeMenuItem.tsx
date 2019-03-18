@@ -17,8 +17,8 @@ interface StateProps {
 }
 
 const makeMapStatToProps = () => {
-    const getTypes = (state:IMainState) => state.types;
-    const getType = createSelector([getTypes], (types)=>types[hostId]);
+    const getTypes = (_:IMainState) => state.types;
+    const getType = createSelector([getTypes], (types)=>types.get(hostId));
     const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
     const getOrderedHosts = createSelector([getHosts], (hosts)=> {
         let p: {name: string, id:number}[] = [];

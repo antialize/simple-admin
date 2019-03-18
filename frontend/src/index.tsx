@@ -12,7 +12,7 @@ import * as $ from "jquery";
 import * as page from './page'
 
 import { Object } from './object'
-import { Menu } from './menu'
+import Menu from './menu'
 import { ObjectList } from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
 import { Messages } from './messages';
@@ -29,6 +29,7 @@ import {observer} from "mobx-react";
 import setupState from './setupState';
 import {action, runInAction} from "mobx";
 import DeploymentDetails from './deploymentDetails';
+import { typeId } from "../../shared/type";
 
 function never(n: never, message: string) {
     console.error(message);
@@ -146,12 +147,6 @@ const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) =
         case ACTION.Alert:
             alert(act.message);
             return;
-        case ACTION.SetInitialState:
-            runInAction(() => {
-                state.connectionStatus = CONNECTION_STATUS.INITED;
-                state.loaded = true;
-            });
-            break;
     }
     return next(act);
 }
@@ -191,20 +186,37 @@ const setupSocket = () => {
         store.dispatch(d);
         switch (d.type) {
             case ACTION.AuthStatus:
-                if (d.session !== null)
+                if (d.session !== null) {
                     Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });
+                }
                 if (d.otp && d.pwd) {
                     state.sendMessage({ type: ACTION.RequestInitialState });
                 }
                 break;
             case ACTION.SetInitialState:
-                state.deployment.status = d.deploymentStatus;
+                runInAction(() => {
+                    state.deployment.status = d.deploymentStatus;
+                    reconnectTime = 1;
+                    for (const b of (d.deploymentLog || []))
+                        add(b);
+                    if (!loaded)
+                        state.page.setFromUrl();
 
-                reconnectTime = 1;
-                for (const b of (d.deploymentLog || []))
-                    add(b);
-                if (!loaded)
-                    state.page.setFromUrl();
+
+                    state.connectionStatus = CONNECTION_STATUS.INITED;
+                    state.loaded = true;
+
+                    for (let id in d.types) {
+                        state.types.set(+id, d.types[id]);
+                    }
+                });
+                break;
+            case ACTION.ObjectChanged:
+                if (d.object.length == 0)
+                    state.types.delete(d.id);
+                else if (d.object[d.object.length -1].type == typeId) {
+                    state.types.set(d.object[d.object.length -1].id, d.object[d.object.length -1]);
+                }
                 break;
             case ACTION.SetDeploymentStatus:
                 state.deployment.status = d.status;
