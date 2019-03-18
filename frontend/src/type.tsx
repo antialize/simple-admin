@@ -10,9 +10,9 @@ import {IMainState} from './reducers';
 import {Dispatch} from 'redux'
 import {connect} from 'react-redux'
 import {ACTION, ISetObjectName, ISetObjectComment, ISetObjectContentParam, ISetObjectCatagory} from '../../shared/actions'
-import {ObjectSelector} from './object_selector'
+import ObjectSelector from './object_selector'
 import {Variables} from './variables'
-import {Catagory} from './catagory'
+import Catagory from './catagory'
 import {Password} from './password'
 import Triggers from './triggers';
 import Editor from './editor'

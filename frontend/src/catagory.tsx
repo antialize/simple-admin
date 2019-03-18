@@ -1,32 +1,22 @@
 import * as React from "react";
 import AutoComplete from 'material-ui/AutoComplete';
-import {IMainState} from './reducers';
-import {connect} from 'react-redux'
+import { observer } from "mobx-react";
+import state from "./state";
 
-interface IProps {
-    catagory: string;
-    type: number;
-    setCatagory(catagory:string): void;
-}
+export default observer(({catagory, type, setCatagory}:{catagory:string, type:number, setCatagory: (catagory:string) => void}) => {
+    let catagories = new Set();
+    if (state.objectDigests.has(type))
+        for (const [key, val] of state.objectDigests.get(type))
+            catagories.add(val.catagory);
+    let cat2 = [];
+    for (const cat of catagories)
+        cat2.push(cat);
 
-interface StateProps {
-    p: IProps;
-    catagories: string[];
-}
-
-function mapStateToProps(s:IMainState, p: IProps): StateProps {
-    return {p, catagories: (s.objectDigests[p.type] || []).map(x=>x.catagory)}
-}
-
-function CatagoryImpl(props: StateProps) {
     return <AutoComplete
-                searchText={props.p.catagory || ""}
-                filter={AutoComplete.caseInsensitiveFilter}
-                onUpdateInput={props.p.setCatagory}
-                hintText="Catagory"
-                dataSource={props.catagories}
-                />;
-}
-
-export const Catagory = connect(mapStateToProps)(CatagoryImpl);
-
+            searchText={catagory || ""}
+            filter={AutoComplete.caseInsensitiveFilter}
+            onUpdateInput={setCatagory}
+            hintText="Catagory"
+            dataSource={cat2}
+            />;
+});

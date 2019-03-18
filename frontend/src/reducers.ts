@@ -41,9 +41,7 @@ export interface IObjectState {
 
 export interface IMainState {
     status: IStatuses;
-    objectListFilter: { [type: number]: string };
     serviceListFilter: { [host: number]: string };
-    objectDigests: { [type: number]: IObjectDigest[] };
     objects: { [id: number]: IObjectState };
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
     messages: { [id: number]: IMessage };
@@ -100,38 +98,7 @@ function serviceListFilter(state: { [host: number]: string } = {}, action: IActi
 }
 
 
-function objectDigests(state: { [type: number]: IObjectDigest[] } = {}, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetInitialState:
-            return action.objectNamesAndIds;
-        case ACTION.ObjectChanged:
-            const s2 = Object.assign({}, state);
-            if (action.object.length == 0) {
-               for (let cls in s2) {
-                    if (s2[cls].findIndex(v => v.id == action.id) == -1) continue;
-                    s2[cls] = s2[cls].filter(v=> v.id != action.id);
-               }
-            } else {
-                let version = -1;
-                let name = "";
-                let catagory = "";
-                let type = -1;
-                for (const ob of action.object) {
-                    if (ob.version < version) continue;
-                    version = ob.version;
-                    name = ob.name;
-                    type = ob.type;
-                    catagory = ob.catagory;
-                }
-                if (!(type in s2)) s2[type] = [];
-                else s2[type] = s2[type].filter((v) => v.id != action.id);
-                s2[type].push({ id: action.id, name, catagory, type});
-            }
-            return s2;
-        default:
-            return state;
-    }
-}
+
 
 function objects(state: { [id: number]: IObjectState } = {}, action: IAction): { [id: number]: IObjectState } {
     switch (action.type) {
@@ -192,17 +159,6 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
             ret6[action.id].current.catagory = action.catagory;
             ret6[action.id].touched = true;
             return ret6;
-        default:
-            return state;
-    }
-}
-
-function objectListFilter(state: { [type: number]: string } = {}, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetObjectListFilter:
-            let x: { [type: number]: string } = {};
-            x[action.objectType] = action.filter;
-            return Object.assign({}, state, x);
         default:
             return state;
     }
@@ -287,8 +243,6 @@ export function messageGroupExpanded(state: {[id:number]: boolean}  = {}, action
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
-        objectListFilter: objectListFilter(state ? state.objectListFilter : undefined, action),
-        objectDigests: objectDigests(state ? state.objectDigests : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
         serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         messages: messages(state ? state.messages : undefined, action),

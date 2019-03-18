@@ -3,11 +3,11 @@ import {List, ListItem} from 'material-ui/List';
 import Drawer from 'material-ui/Drawer';
 import Divider from 'material-ui/Divider';
 import * as State from '../../shared/state'
-import {ObjectFinder} from './object_finder'
+import ObjectFinder from './object_finder'
 import { hostId} from '../../shared/type'
 import {debugStyle} from './debug';
 import TypeMenuItem from './typeMenuItem';
-import {HostTypeMenuItem} from './hostTypeMenuItem';
+import HostTypeMenuItem from './hostTypeMenuItem';
 import RaisedButton from 'material-ui/RaisedButton';
 import state from "./state";
 import { observer } from "mobx-react";

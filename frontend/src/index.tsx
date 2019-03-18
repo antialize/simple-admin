@@ -5,7 +5,7 @@ import { Provider, connect } from 'react-redux';
 import { mainReducer, IMainState } from './reducers'
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 import getMuiTheme from 'material-ui/styles/getMuiTheme';
-import { Statuses } from './statuses'
+import Statuses from './statuses'
 import * as State from '../../shared/state';
 import { IAction, ACTION, IFetchObject, IAlert, CONNECTION_STATUS, ISetConnectionStatus, IRequestAuthStatus } from '../../shared/actions'
 import * as $ from "jquery";
@@ -13,7 +13,7 @@ import * as page from './page'
 
 import { Object } from './object'
 import Menu from './menu'
-import { ObjectList } from './objectList'
+import ObjectList from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
 import { Messages } from './messages';
 import { remoteHost } from './config';
@@ -30,6 +30,7 @@ import setupState from './setupState';
 import {action, runInAction} from "mobx";
 import DeploymentDetails from './deploymentDetails';
 import { typeId } from "../../shared/type";
+import { number } from "prop-types";
 
 function never(n: never, message: string) {
     console.error(message);
@@ -202,20 +203,33 @@ const setupSocket = () => {
                     if (!loaded)
                         state.page.setFromUrl();
 
-
                     state.connectionStatus = CONNECTION_STATUS.INITED;
                     state.loaded = true;
 
-                    for (let id in d.types) {
+                    for (let id in d.types)
                         state.types.set(+id, d.types[id]);
+
+                    for (let id in d.objectNamesAndIds) {
+                        let m = new Map<number, State.IObjectDigest>();
+                        for (let ent of d.objectNamesAndIds[id])
+                            m.set(ent.id, ent);
+                        state.objectDigests.set(+id, m);
                     }
                 });
                 break;
             case ACTION.ObjectChanged:
-                if (d.object.length == 0)
+                if (d.object.length == 0) {
                     state.types.delete(d.id);
-                else if (d.object[d.object.length -1].type == typeId) {
-                    state.types.set(d.object[d.object.length -1].id, d.object[d.object.length -1]);
+                    for (const [key, values] of state.objectDigests)
+                        values.delete(d.id);
+                } else {
+                    const last = d.object[d.object.length -1];
+                    if (!state.objectDigests.has(last.type))
+                        state.objectDigests.set(last.type, new Map());
+                    state.objectDigests.get(last.type).set(d.id, {id: d.id, name: last.name, type: last.type, catagory: last.catagory});
+
+                    if (last.type == typeId)
+                        state.types.set(last.id, last);
                 }
                 break;
             case ACTION.SetDeploymentStatus:

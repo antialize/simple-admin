@@ -1,39 +1,29 @@
 import * as React from "react";
-import { connect, Dispatch } from 'react-redux';
-import { IMainState } from './reducers';
-import { IStatus, IStatuses } from '../../shared/status';
 import { hostId } from '../../shared/type';
-import * as State from '../../shared/state';
-import * as page from './page'
 import {debugStyle} from './debug';
-import {createSelector } from 'reselect';
 import {StatusesCard} from './statusesCard';
+import state from "./state";
+import { observer } from "mobx-react";
 
-interface StatusesProps {
-    catagories: {name: string, hosts: number[]}[];
-}
-
-const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
-
-const mapStateToProps = createSelector([getHosts], (hosts) => {
+export default observer(()=>{
     const catagories: { [key: string]: {id: number, name: string}[] } = {};
-    for (const host of hosts) {
+    const hosts = state.objectDigests.get(hostId);
+    if (!hosts) return null;
+    for (const [id, host] of hosts) {
         const cat = host.catagory || "Other";
         if (!(cat in catagories)) catagories[cat] = [];
         catagories[cat].push({id: host.id, name: host.name});
     }
     let cats = Object.keys(catagories);
     cats.sort();
-    return {catagories: cats.map(cat => {
+    let cats2 =  cats.map(cat => {
         const hosts = catagories[cat];
         hosts.sort((a, b) => a.name < b.name ? -1 : 1);
         return {name: cat, hosts: hosts.map(h=>h.id)};
-    })};
-});
+    });
 
-function StatusesImpl(p: StatusesProps) {
     let chunks = [];
-    for (const cat of p.catagories) {
+    for (const cat of cats2) {
         let hosts = cat.hosts;
         chunks.push(
             <div key={cat.name} style={debugStyle()}>
@@ -46,6 +36,4 @@ function StatusesImpl(p: StatusesProps) {
             </div>);
     }
     return <div style={debugStyle()}>{chunks}</div>;
-}
-
-export let Statuses = connect(mapStateToProps)(StatusesImpl);
+});

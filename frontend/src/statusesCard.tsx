@@ -12,18 +12,17 @@ import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import {Status} from './status';
 import state from "./state";
+import { observer } from "mobx-react";
 
 interface ExternProps {
     id: number;
 }
 
 interface StateProps {
-    name: string; 
     id: number;
     up: boolean;
 }
 
-const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
 const getStatuses = (state:IMainState) => state.status;
 
 const makeMapStatToProps = () => {
@@ -31,13 +30,13 @@ const makeMapStatToProps = () => {
     const getUp = createSelector([getId, getStatuses], (id, status) => {
         return status[id] && status[id].up;
     });
-    const getName = createSelector([getId, getHosts], (id, hosts) => {
-        return hosts.find(h=>h.id == id).name;
-    });
-    return createSelector([getId, getUp, getName], (id, up, name)=> {return {id, up, name}} );
+    return createSelector([getId, getUp], (id, up)=> {return {id, up}} );
 }
 
-function StatusesCardImpl(p: StateProps) {
+const StatusesCardImpl = observer((p: StateProps) => {
+    let hosts = state.objectDigests.get(hostId);
+    let name = hosts && hosts.has(p.id) && hosts.get(p.id).name;
+
     let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id:p.id, version: null };
     let elm;
     if (p.up)
@@ -47,12 +46,12 @@ function StatusesCardImpl(p: StateProps) {
 
     return (
         <Card key={p.id} style={{ margin: '5px' }}>
-            <CardTitle title={p.name} />
+            <CardTitle title={name} />
             <CardText>{elm}</CardText>
             <CardActions>
                 <RaisedButton onClick={(e) => state.page.onClick(e, a)} label="Details" href={state.page.link(a)} />
             </CardActions>
         </Card>);
-}
+});
 
 export let StatusesCard = connect<StateProps, {}, ExternProps>(makeMapStatToProps)(StatusesCardImpl);

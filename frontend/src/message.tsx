@@ -6,6 +6,8 @@ import {connect, Dispatch } from 'react-redux';
 import {debugStyle} from './debug';
 import { createSelector } from 'reselect';
 import RaisedButton from 'material-ui/RaisedButton';
+import { observer } from "mobx-react";
+import state from "./state";
 
 interface ExternProps {
     id: number;
@@ -14,7 +16,6 @@ interface ExternProps {
 
 interface StateProps {
     message: IMessage;
-    hostname: string;
     id: number;
     inGroup: boolean;
     expanded: boolean;
@@ -26,19 +27,13 @@ interface DispatchProps {
 }
 
 const getMessages = (state:IMainState) => state.messages;
-const getHosts = (state:IMainState) => state.objectDigests[hostId] || [];
-const getHostNames = createSelector([getHosts], (hosts) => {
-    const hostNames: {[id:number]: string} = {}
-    for (const p of hosts) hostNames[p.id] = p.name;
-    return hostNames;
-});
 
 const makeMapStatToProps = () => {
     const getId = (_:IMainState, p: ExternProps) => p.id;
     const getInGroup = (_:IMainState, p: ExternProps) => p.inGroup;
     const getExpanded = (state:IMainState, p:ExternProps) => state.messageExpanded[p.id];
-    return createSelector([getId, getInGroup, getExpanded, getMessages, getHostNames], (id, inGroup, expanded, messages, hostNames)=> {
-        return {message: messages[id], hostname:hostNames[messages[id].host], id, inGroup, expanded};
+    return createSelector([getId, getInGroup, getExpanded, getMessages], (id, inGroup, expanded, messages)=> {
+        return {message: messages[id], id, inGroup, expanded};
     });
 };
 
@@ -71,7 +66,8 @@ function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:ExternProps): Dispa
     }
 }
 
-function MessageImpl(p:StateProps & DispatchProps) {
+const MessageImpl=observer((p:StateProps & DispatchProps) => {
+    const hostname = state.objectDigests.get(hostId).get(p.message.id).name;
     const newDate = new Date(p.message.time * 1000);
     let actions = [];
     let c;
@@ -94,7 +90,7 @@ function MessageImpl(p:StateProps & DispatchProps) {
             actions.push(<RaisedButton key="contract" label="Partial text" primary={true} onClick={()=>p.setExpanded(false, false)}/>);
         }
     }    
-    return <tr style={debugStyle()} className={c} key={p.id}>{p.inGroup?<td colSpan={2} />:<td>{p.message.type}</td>}{p.inGroup?null:<td>{p.hostname}</td>}<td>{msg}</td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>;
-}
+    return <tr style={debugStyle()} className={c} key={p.id}>{p.inGroup?<td colSpan={2} />:<td>{p.message.type}</td>}{p.inGroup?null:<td>{hostname}</td>}<td>{msg}</td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>;
+});
 
 export const Message = connect<StateProps, DispatchProps, ExternProps>(makeMapStatToProps, mapDispatchToProps)(MessageImpl);
