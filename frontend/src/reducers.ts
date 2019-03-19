@@ -31,18 +31,12 @@ function fillDefaults(content:{[key:string]:any}, type: IType) {
         }
     }
 }
-export interface IObjectState {
-    current: IObject2<any> | null;
-    versions: { [version: number]: IObject2<any> };
-    touched: boolean;
-}
 
 export interface IMainState {
     status: IStatuses;
-    objects: { [id: number]: IObjectState };
 };
 
-
+/*
 function objects(state: { [id: number]: IObjectState } = {}, action: IAction): { [id: number]: IObjectState } {
     switch (action.type) {
         case ACTION.ObjectChanged:
@@ -59,53 +53,13 @@ function objects(state: { [id: number]: IObjectState } = {}, action: IAction): {
                     ret[action.id].versions[obj.version] = obj;
             }
             return ret;
-        case ACTION.DiscardObject:
-            if (!(action.id in state)) return state;
-            let ret2 = Object.assign({}, state);
-            ret2[action.id] = { current: null, versions: state[action.id].versions, touched: false };
-            return ret2;
-        case ACTION.SetObjectName:
-            if (!(action.id in state)) return state;
-            let ret3 = Object.assign({}, state);
-            ret3[action.id] = Object.assign({}, ret3[action.id]);
-            ret3[action.id].current = Object.assign({}, ret3[action.id].current);
-            ret3[action.id].current.name = action.name;
-            ret3[action.id].touched = true;
-            return ret3;
-        case ACTION.SetObjectComment:
-            if (!(action.id in state)) return state;
-            let ret7 = Object.assign({}, state);
-            ret7[action.id] = Object.assign({}, ret7[action.id]);
-            ret7[action.id].current = Object.assign({}, ret7[action.id].current);
-            ret7[action.id].current.comment = action.comment;
-            ret7[action.id].touched = true;
-            return ret7;
-        case ACTION.SetObjectContentParam:
-            if (!(action.id in state)) return state;
-            let ret4 = Object.assign({}, state);
-            ret4[action.id] = Object.assign({}, ret4[action.id]);
-            ret4[action.id].current = Object.assign({}, ret4[action.id].current);
-            ret4[action.id].current.content = Object.assign({}, ret4[action.id].current.content);
-            (ret4[action.id].current.content as { [key: string]: any })[action.param] = action.value;
-            ret4[action.id].touched = true;
-            return ret4;
-        case ACTION.SaveObject:
-            if (!(action.id in state)) return state;
-            let ret5 = Object.assign({}, state);
-            ret5[action.id] = Object.assign({}, ret5[action.id], {touched: false});
-            return ret5;
-        case ACTION.SetObjectCatagory:
-            if (!(action.id in state)) return state;
-            let ret6 = Object.assign({}, state);
-            ret6[action.id] = Object.assign({}, ret6[action.id]);
-            ret6[action.id].current = Object.assign({}, ret6[action.id].current);
-            ret6[action.id].current.catagory = action.catagory;
-            ret6[action.id].touched = true;
-            return ret6;
+ 
+
         default:
             return state;
     }
 }
+*/
 
 function status(state: IStatuses = {}, action: IAction) {
     switch (action.type) {
@@ -168,7 +122,6 @@ function changeCurrentObject(state: IMainState) {
 export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
-        objects: objects(state ? state.objects : undefined, action),
     }
     changeCurrentObject(ns);
     return ns;

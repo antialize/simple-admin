@@ -11,7 +11,7 @@ import { IAction, ACTION, IFetchObject, IAlert, CONNECTION_STATUS, ISetConnectio
 import * as $ from "jquery";
 import * as page from './page'
 
-import { Object } from './object'
+import Object from './object'
 import Menu from './menu'
 import ObjectList from './objectList'
 import CircularProgress from 'material-ui/CircularProgress';
@@ -105,26 +105,6 @@ const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) =
         case ACTION.StatValueChanges:
             chart.handleAction(act);
             return;
-        case ACTION.SetPage:
-            switch (act.page.type) {
-                case State.PAGE_TYPE.Object:
-                    const objects = store.getState().objects;
-                    if (!(act.page.id in objects) || !(1 in objects[act.page.id].versions)) {
-                        let a: IFetchObject = {
-                            type: ACTION.FetchObject,
-                            id: act.page.id
-                        };
-                        sendMessage(a);
-                    }
-                    break;
-            }
-            break;
-        case ACTION.SaveObject:
-            act.obj = store.getState().objects[act.id].current;
-            sendMessage(act);
-            break;
-        case ACTION.DeployObject:
-        case ACTION.DeleteObject:
         case ACTION.StopDeployment:
         case ACTION.StartDeployment:
         case ACTION.CancelDeployment:

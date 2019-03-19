@@ -1,10 +1,64 @@
-import {observable, computed} from "mobx";
-import {CONNECTION_STATUS, IAction, IMessage}  from "../../shared/actions";
+import {observable, computed, action} from "mobx";
+import {CONNECTION_STATUS, IAction, IMessage, IDeleteObject, ACTION, IDeployObject, ISaveObject}  from "../../shared/actions";
 import {LoginState} from "./login"
-import { DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentTrigger, IDeploymentObject, IObject2, IObjectDigest } from "../../shared/state";
+import {  IObject2, IObjectDigest, PAGE_TYPE } from "../../shared/state";
 import { DeploymentState } from "./deployment";
 import { PageState } from "./page";
 import { IType, hostId, typeId } from "../../shared/type";
+
+class ObjectState {
+    id: number;
+    
+    @observable
+    current: IObject2<any> | null;
+    
+    @observable
+    versions: Map<number,IObject2<any>>;
+
+    @observable
+    touched: boolean;
+
+    @action
+    save() {
+        const a: ISaveObject = {
+            type: ACTION.SaveObject,
+            id: this.id,
+            obj: this.current
+        };
+        state.sendMessage(a);
+        this.touched = true;
+    }
+
+    @action
+    discard() {
+        this.current = null;
+        this.touched = false;
+    }
+
+    @action
+    deploy(cancel:boolean, redeploy:boolean) {
+        state.page.set({type: PAGE_TYPE.Deployment});
+        if (cancel) 
+            state.deployment.cancel();
+        
+        const a: IDeployObject = {
+            type: ACTION.DeployObject,
+            id: this.id,
+            redeploy
+        };
+        state.sendMessage(a);
+    }
+
+    @action
+    delete() {
+        const a: IDeleteObject = {
+            type: ACTION.DeleteObject,
+            id: this.id
+        };
+        state.sendMessage(a);
+    }
+
+};
 
 
 class State {
@@ -78,6 +132,9 @@ class State {
 
     @observable
     serviceLogVisibility: Map<number, Map<string, boolean>>;
+
+    @observable
+    objects: Map<number, ObjectState>;
 
     sendMessage: (act:IAction)=>void = null;
 };

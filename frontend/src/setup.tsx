@@ -1,27 +1,11 @@
 import * as React from "react";
-import {IStatus} from '../../shared/status';
-import {IMainState} from './reducers';
-import { connect } from 'react-redux';
+import { observer } from "mobx-react";
+import state from "./state";
 
-interface ExternProps {
-    host: number;
-}
-
-interface StateProps {
-    name: string;
-    password: string;
-}
-
-function mapStateToProps(state:IMainState, props:ExternProps): StateProps {
-    let c = state.objects[props.host].current;
-    return {name: c.name, password: c.content.password}
-}
-
-function SetupImpl(p:StateProps ) {
+export default observer(({hostid}:{hostid:number}) => {
+    let c = state.objects.get(hostid).current;
     let host = window.location.hostname;
-    let name = encodeURIComponent(p.name);
-    let pwd = encodeURIComponent(p.password);
+    let name = encodeURIComponent(c.name);
+    let pwd = encodeURIComponent(c.content.password);
     return <pre>wget -q "https://{host}/setup.sh?host={name}&token={pwd}"  -O - | sudo bash</pre>
-}
-
-export let Setup = connect(mapStateToProps)(SetupImpl);
+});

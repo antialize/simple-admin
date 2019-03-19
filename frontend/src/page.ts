@@ -5,6 +5,7 @@ import {Dispatch} from 'redux'
 import {IMainState} from './reducers';
 import * as $ from 'jquery'
 import { action, observable } from "mobx";
+import state from "./state";
 
 
 
@@ -36,6 +37,14 @@ export class PageState {
         history.pushState(page, null, this.link(pg));
 
         this.current = page;
+
+        if (page.type == State.PAGE_TYPE.Object && (!state.objects.has(page.id) || !state.objects.get(page.id).versions.has(1))) {
+            let a: Actions.IFetchObject = {
+                type: Actions.ACTION.FetchObject,
+                id: page.id
+            };
+            state.sendMessage(a);
+        }
     }
 
     link(page: State.IPage): string {
