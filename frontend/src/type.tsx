@@ -19,7 +19,7 @@ export default observer(({typeId, id}:{typeId:number, id:number}) => {
     const type = state.types && state.types.has(typeId) && state.types.get(typeId).content;
     if (!type)
         return <div>Missing type</div>;
-    if (!current)
+    if (!current || !current.content)
         return <div>Missing content</div>;
 
     const c = current.content as {[key:string]:any};

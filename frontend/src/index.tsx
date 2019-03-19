@@ -24,7 +24,7 @@ import { debugStyle } from './debug'
 import * as Cookies from 'js-cookie';
 import { Login } from './login';
 import * as chart from './chart';
-import state from "./state";
+import state, { ObjectState } from "./state";
 import {observer} from "mobx-react";
 import setupState from './setupState';
 import {action, runInAction} from "mobx";
@@ -212,19 +212,30 @@ const setupSocket = () => {
                 });
                 break;;
             case ACTION.ObjectChanged:
-                if (d.object.length == 0) {
-                    state.types.delete(d.id);
-                    for (const [key, values] of state.objectDigests)
-                        values.delete(d.id);
-                } else {
-                    const last = d.object[d.object.length -1];
-                    if (!state.objectDigests.has(last.type))
-                        state.objectDigests.set(last.type, new Map());
-                    state.objectDigests.get(last.type).set(d.id, {id: d.id, name: last.name, type: last.type, catagory: last.catagory});
+                runInAction(()=>{
+                    if (d.object.length == 0) {
+                        state.types.delete(d.id);
+                        for (const [key, values] of state.objectDigests)
+                            values.delete(d.id);
+                        state.objects.delete(d.id);
+                    } else {
+                        const last = d.object[d.object.length -1];
+                        if (!state.objectDigests.has(last.type))
+                            state.objectDigests.set(last.type, new Map());
+                        state.objectDigests.get(last.type).set(d.id, {id: d.id, name: last.name, type: last.type, catagory: last.catagory});
 
-                    if (last.type == typeId)
-                        state.types.set(last.id, last);
-                }
+                        if (last.type == typeId)
+                            state.types.set(last.id, last);
+
+                        if (!state.objects.has(d.id))
+                            state.objects.set(d.id, new ObjectState(d.id));
+                        const o = state.objects.get(d.id);
+                        for (const obj of d.object)
+                            o.versions.set(obj.version, obj);
+                        o.loadStatus = "loaded";
+                        o.loadCurrent();
+                    }
+                });
                 break;
             case ACTION.SetDeploymentStatus:
                 state.deployment.status = d.status;

@@ -5,7 +5,7 @@ import {Dispatch} from 'redux'
 import {IMainState} from './reducers';
 import * as $ from 'jquery'
 import { action, observable } from "mobx";
-import state from "./state";
+import state, { ObjectState } from "./state";
 
 
 
@@ -38,12 +38,10 @@ export class PageState {
 
         this.current = page;
 
-        if (page.type == State.PAGE_TYPE.Object && (!state.objects.has(page.id) || !state.objects.get(page.id).versions.has(1))) {
-            let a: Actions.IFetchObject = {
-                type: Actions.ACTION.FetchObject,
-                id: page.id
-            };
-            state.sendMessage(a);
+        if (page.type == State.PAGE_TYPE.Object) {
+            if (!state.objects.has(page.id))
+                state.objects.set(page.id, new ObjectState(page.id));
+            state.objects.get(page.id).loadCurrent();
         }
     }
 
@@ -100,6 +98,9 @@ export class PageState {
         case 'object':
             let v=getUrlParameter('version');
             this.current = {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
+            if (!state.objects.has(this.current.id))
+                state.objects.set(this.current.id, new ObjectState(this.current.id));
+            state.objects.get(this.current.id).loadCurrent();
             break;
         case 'deploymentDetails':
             this.current = {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};
