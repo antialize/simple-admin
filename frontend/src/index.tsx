@@ -37,10 +37,6 @@ function never(n: never, message: string) {
 
 export const MainPage = observer(()=>{
     const p = state.page.current;
-    // TODO(jakob)
-    /*if (p.type == State.PAGE_TYPE.ObjectList)
-        type = s.types[p.objectType].content.plural;*/
-    const type="TODO;"
     switch (p.type) {
         case State.PAGE_TYPE.Dashbord:
             return <div style={debugStyle()}>
@@ -49,7 +45,7 @@ export const MainPage = observer(()=>{
                 <Statuses />
             </div>;
         case State.PAGE_TYPE.ObjectList:
-            return <div style={debugStyle()}><h1>List of {type}</h1><ObjectList type={p.objectType} /></div>
+            return <div style={debugStyle()}><h1>List of {state.types.get(p.objectType).content.plural}</h1><ObjectList type={p.objectType} /></div>
         case State.PAGE_TYPE.Object:
             return <div style={debugStyle()}><Object type={p.objectType} id={p.id} version={p.version} /> </div>
         case State.PAGE_TYPE.Deployment:
@@ -83,58 +79,9 @@ export function sendMessage(action: IAction) {
 
 chart.setSend(sendMessage);
 
-const handleRemote = (store: Store<IMainState>) => (next: (a: IAction) => any) => (act: IAction) => {
-    switch (act.type) {
-        case ACTION.SetConnectionStatus:
-            state.connectionStatus = act.status;
-            return;
-        case ACTION.AuthStatus:
-            runInAction(()=> {
-                if (act.pwd && act.otp)
-                    state.connectionStatus = CONNECTION_STATUS.INITING;
-                else
-                    state.connectionStatus = CONNECTION_STATUS.LOGIN;
-                if (act.user)
-                    state.login.user = act.user;
-                state.authMessage = act.message;
-                state.authOtp = act.otp;
-                state.authUser = act.user;
-            });
-            return;
-        case ACTION.StatBucket:
-        case ACTION.StatValueChanges:
-            chart.handleAction(act);
-            return;
-        case ACTION.StopDeployment:
-        case ACTION.StartDeployment:
-        case ACTION.CancelDeployment:
-        case ACTION.PokeService:
-        case ACTION.MessageTextReq:
-            sendMessage(act);
-            return;
-        case ACTION.ToggleDeploymentObject:
-            if (act.source == "webclient") {
-                sendMessage(act);
-                return;
-            }
-            break;
-        case ACTION.SetMessagesDismissed:
-            if (act.source == "webclient") {
-                sendMessage(act);
-                return;
-            }
-            break;
-        case ACTION.Alert:
-            alert(act.message);
-            return;
-    }
-    return next(act);
-}
-
-
 setupState();
 state.sendMessage = sendMessage;
-const store = createStore(mainReducer, applyMiddleware(handleRemote as any)) as Store<IMainState>;
+const store = createStore(mainReducer) as Store<IMainState>;
 
 let socket: WebSocket;
 let reconnectTime = 1;
@@ -165,6 +112,29 @@ const setupSocket = () => {
 
         store.dispatch(d);
         switch (d.type) {
+            case ACTION.Alert:
+                alert(d.message);
+                return;
+            case ACTION.SetConnectionStatus:
+                state.connectionStatus = d.status;
+                return;
+            case ACTION.StatBucket:
+            case ACTION.StatValueChanges:
+                chart.handleAction(d);
+                return;
+            case ACTION.AuthStatus:
+                runInAction(()=> {
+                    if (d.pwd && d.otp)
+                        state.connectionStatus = CONNECTION_STATUS.INITING;
+                    else
+                        state.connectionStatus = CONNECTION_STATUS.LOGIN;
+                    if (d.user)
+                        state.login.user = d.user;
+                    state.authMessage = d.message;
+                    state.authOtp = d.otp;
+                    state.authUser = d.user;
+                });
+                return;
             case ACTION.AuthStatus:
                 if (d.session !== null) {
                     Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });

@@ -7,7 +7,7 @@ interface IProps {
     setVariables(vars: {key:string, value:string}[]):void;
 }
 
-export function Variables(props:IProps) {
+export default function Variables(props:IProps) {
 	let vars=props.variables.slice(0);
 	let rows=[];
 	let setVars = () => {
