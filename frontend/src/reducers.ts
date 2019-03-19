@@ -39,7 +39,6 @@ export interface IObjectState {
 
 export interface IMainState {
     status: IStatuses;
-    serviceListFilter: { [host: number]: string };
     objects: { [id: number]: IObjectState };
     serviceLogVisibility: { [host: number]: { [name: string]: boolean } }
 };
@@ -51,17 +50,6 @@ function serviceLogVisibility(state: { [host: number]: { [name: string]: boolean
             s2[action.host] = Object.assign({}, s2[action.host] || {});
             s2[action.host][action.service] = action.visibility;
             return s2;
-        default:
-            return state;
-    }
-}
-
-function serviceListFilter(state: { [host: number]: string } = {}, action: IAction) {
-    switch (action.type) {
-        case ACTION.SetServiceListFilter:
-            const ns = Object.assign({}, state);
-            ns[action.host] = action.filter;
-            return ns;
         default:
             return state;
     }
@@ -193,7 +181,6 @@ export function mainReducer(state: IMainState = null, action: IAction) {
     let ns: IMainState = {
         status: status(state ? state.status : undefined, action),
         objects: objects(state ? state.objects : undefined, action),
-        serviceListFilter: serviceListFilter(state ? state.serviceListFilter : undefined, action),
         serviceLogVisibility: serviceLogVisibility(state ? state.serviceLogVisibility : undefined, action),
     }
     changeCurrentObject(ns);

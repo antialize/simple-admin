@@ -6,6 +6,8 @@ import { connect, Dispatch } from 'react-redux';
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import { Log } from './log'
+import { observer } from "mobx-react";
+import state from "./state";
 
 interface ExternProps {
     id: number;
@@ -14,8 +16,7 @@ interface ExternProps {
 interface StateProps {
     id: number;
     name: string;
-    services: IService[];
-    filter: string;
+    services: {[name:string]:IService};
     logVisibility: { [service: string]: boolean };
 }
 
@@ -68,11 +69,8 @@ let boring = new Set(
 
 
 function mapStateToProps(state: IMainState, props: ExternProps): StateProps {
-    const filter = state.serviceListFilter[props.id];
     const services = state.status[props.id].services;
-    const lst = Object.keys(services).filter((x) => (((!filter || filter == "") && !boring.has(x) && !x.startsWith("ifup@")) || x.indexOf(filter) != -1));
-    lst.sort();
-    return { id: props.id, name: name, services: lst.map((name: string) => services[name]), filter: filter, logVisibility: state.serviceLogVisibility[props.id] || {} }
+    return { id: props.id, name: name, services, logVisibility: state.serviceLogVisibility[props.id] || {} }
 }
 
 function mapDispatchToProps(dispatch: Dispatch<IMainState>, o: ExternProps): DispatchProps {
@@ -138,10 +136,14 @@ function ServiceLog({ host, service }: { host: number, service: string }) {
     </tr>)
 }
 
+const ServicesImpl = observer((p: StateProps & DispatchProps) => {
+    const filter = state.serviceListFilter.get(p.id) || "";
+    const lst = Object.keys(p.services).filter((x) => (((!filter || filter == "") && !boring.has(x) && !x.startsWith("ifup@")) || x.indexOf(filter) != -1));
+    lst.sort();
+    const services = lst.map((name: string) => p.services[name])
 
-function ServicesImpl(p: StateProps & DispatchProps) {
     let rows: JSX.Element[] = [];
-    for (const service of p.services) {
+    for (const service of services) {
         const lv = p.logVisibility[service.name];
         rows.push(<Service key={"service_" + service.name} service={service} poke={p.pokeService} logVisible={lv} setLogVisibility={p.setLogVisibility} />);
         if (lv)
@@ -149,7 +151,7 @@ function ServicesImpl(p: StateProps & DispatchProps) {
     }
     return (
         <div>
-            <TextField floatingLabelText="Filter" onChange={(a, v) => { p.setFilter(v); }} value={p.filter} />
+            <TextField floatingLabelText="Filter" onChange={(a, v) => state.serviceListFilter.set(p.id, v)} value={filter} />
             <table className="services_table">
                 <thead>
                     <tr>
@@ -161,6 +163,6 @@ function ServicesImpl(p: StateProps & DispatchProps) {
                 </tbody>
             </table>
         </div>)
-}
+});
 
 export let Services = connect(mapStateToProps, mapDispatchToProps)(ServicesImpl);

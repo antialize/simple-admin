@@ -73,6 +73,9 @@ class State {
     @observable
     messageGroupExpanded: Map<number, boolean>;
 
+    @observable
+    serviceListFilter: Map<number, string>;
+
     sendMessage: (act:IAction)=>void = null;
 };
 
