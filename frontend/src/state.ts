@@ -76,6 +76,9 @@ class State {
     @observable
     serviceListFilter: Map<number, string>;
 
+    @observable
+    serviceLogVisibility: Map<number, Map<string, boolean>>;
+
     sendMessage: (act:IAction)=>void = null;
 };
 

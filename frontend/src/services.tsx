@@ -17,13 +17,11 @@ interface StateProps {
     id: number;
     name: string;
     services: {[name:string]:IService};
-    logVisibility: { [service: string]: boolean };
 }
 
 interface DispatchProps {
     setFilter(filter: string): void;
     pokeService(name: string, poke: SERVICE_POKE): void;
-    setLogVisibility(name: string, visibility: boolean): void;
 }
 
 let boring = new Set(
@@ -70,7 +68,7 @@ let boring = new Set(
 
 function mapStateToProps(state: IMainState, props: ExternProps): StateProps {
     const services = state.status[props.id].services;
-    return { id: props.id, name: name, services, logVisibility: state.serviceLogVisibility[props.id] || {} }
+    return { id: props.id, name: name, services }
 }
 
 function mapDispatchToProps(dispatch: Dispatch<IMainState>, o: ExternProps): DispatchProps {
@@ -92,19 +90,10 @@ function mapDispatchToProps(dispatch: Dispatch<IMainState>, o: ExternProps): Dis
             };
             dispatch(p);
         },
-        setLogVisibility: (name: string, visible: boolean) => {
-            const p: ISetServiceLogVisibilty = {
-                type: ACTION.SetServiceLogVisibility,
-                host: o.id,
-                service: name,
-                visibility: visible
-            };
-            dispatch(p);
-        }
     }
 }
 
-function Service({ service, poke, logVisible, setLogVisibility }: { service: IService, poke: (name: string, poke: SERVICE_POKE) => void, logVisible: boolean, setLogVisibility: (name: string, visibility: boolean) => void }) {
+function Service({ service, poke, logVisible, setLogVisibility }: { service: IService, poke: (name: string, poke: SERVICE_POKE) => void, logVisible: boolean, setLogVisibility: (visibility: boolean) => void }) {
     let actions = [];
     if (service.activeState == "active") {
         actions.push(<RaisedButton key="stop" label="Stop" secondary={true} onClick={() => { if (confirm("Stop service " + service.name + "?")) poke(service.name, SERVICE_POKE.Stop); }} style={{ marginRight: "5px" }} />);
@@ -115,9 +104,9 @@ function Service({ service, poke, logVisible, setLogVisibility }: { service: ISe
         actions.push(<RaisedButton key="start" label="Start" primary={true} onClick={() => { poke(service.name, SERVICE_POKE.Start); }} style={{ marginRight: "5px" }} />);
     }
     if (logVisible)
-        actions.push(<RaisedButton key="log" label="Hide log" primary={true} onClick={() => setLogVisibility(service.name, false)} style={{ marginRight: "5px" }} />);
+        actions.push(<RaisedButton key="log" label="Hide log" primary={true} onClick={() => setLogVisibility(false)} style={{ marginRight: "5px" }} />);
     else
-        actions.push(<RaisedButton key="log" label="Show log" primary={true} onClick={() => setLogVisibility(service.name, true)} style={{ marginRight: "5px" }} />);
+        actions.push(<RaisedButton key="log" label="Show log" primary={true} onClick={() => setLogVisibility(true)} style={{ marginRight: "5px" }} />);
     return (
         <tr key={service.name}>
             <td>{service.name}</td>
@@ -138,14 +127,17 @@ function ServiceLog({ host, service }: { host: number, service: string }) {
 
 const ServicesImpl = observer((p: StateProps & DispatchProps) => {
     const filter = state.serviceListFilter.get(p.id) || "";
+    const lvs = state.serviceLogVisibility.get(p.id);
+    if (lvs === undefined) state.serviceLogVisibility.set(p.id, new Map());
+
     const lst = Object.keys(p.services).filter((x) => (((!filter || filter == "") && !boring.has(x) && !x.startsWith("ifup@")) || x.indexOf(filter) != -1));
     lst.sort();
     const services = lst.map((name: string) => p.services[name])
 
     let rows: JSX.Element[] = [];
     for (const service of services) {
-        const lv = p.logVisibility[service.name];
-        rows.push(<Service key={"service_" + service.name} service={service} poke={p.pokeService} logVisible={lv} setLogVisibility={p.setLogVisibility} />);
+        const lv = lvs.get(service.name)
+        rows.push(<Service key={"service_" + service.name} service={service} poke={p.pokeService} logVisible={lv} setLogVisibility={(b:boolean)=>lvs.set(service.name, b)} />);
         if (lv)
             rows.push(<ServiceLog key={"log_" + service.name} host={p.id} service={service.name} />);
     }

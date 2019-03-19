@@ -14,4 +14,5 @@ export default () => {
     state.messageExpanded = new Map;
     state.messageGroupExpanded = new Map;
     state.serviceListFilter = new Map;
+    state.serviceLogVisibility = new Map;
 };
