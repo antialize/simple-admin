@@ -133,8 +133,6 @@ const setupSocket = () => {
                 state.authOtp = d.otp;
                 state.authUser = d.user;
             });
-            break;
-        case ACTION.AuthStatus:
             if (d.session !== null) {
                 Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });
             }

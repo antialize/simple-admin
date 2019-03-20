@@ -9,7 +9,7 @@ import { observer } from "mobx-react";
 
 export default observer(({id}: {id:number}) => {
     const name = state.objectDigests.get(hostId).get(id).name;
-    const up = state.status.get(id).up;
+    const up = state.status.has(id) && state.status.get(id).up;
     let messages = 0;
     for (let [id, msg] of state.messages)
         if (!msg.dismissed && msg.host == id)
