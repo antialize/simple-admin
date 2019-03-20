@@ -1,18 +1,12 @@
 import * as React from "react";
 import * as State from '../../shared/state'
-import * as Actions from '../../shared/actions'
-import {Dispatch} from 'redux'
-import {IMainState} from './reducers';
 import * as $ from 'jquery'
 import { action, observable } from "mobx";
 import state, { ObjectState } from "./state";
 
-
-
 function never(n:never, message:string) {
     console.error(message);
 }
-
 
 export class PageState {
     @observable

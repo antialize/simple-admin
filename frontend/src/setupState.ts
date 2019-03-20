@@ -16,4 +16,5 @@ export default () => {
     state.serviceListFilter = new Map;
     state.serviceLogVisibility = new Map;
     state.objects = new Map;
+    state.status = new Map;
 };

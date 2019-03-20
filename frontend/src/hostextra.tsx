@@ -1,71 +1,55 @@
 import * as React from "react";
-import {Status} from "./status"
-import {IStatus, IService} from '../../shared/status';
-import {IMainState} from './reducers';
-import {ISetServiceListFilter, IPokeService, SERVICE_POKE, ACTION} from '../../shared/actions'
-import { connect, Dispatch } from 'react-redux';
+import Status from "./status"
 import {Box} from './box'
-import {Services} from './services'
+import Services from './services'
 import {HostTerminals} from './terminal'
 import {Log} from './log'
-import {Smart} from './smart'
+import Smart from './smart'
 import Messages from './messages'
 import Setup from './setup'
+import { observer } from "mobx-react";
+import state from "./state";
 
-interface ExternProps {
-    id: number;
-}
-
-interface IProps {
-    id: number;
-    down: boolean;
-}
-
-function mapStateToProps2(state:IMainState, props:ExternProps): IProps {
-    return {id: props.id, down: state.status[props.id] == null || !state.status[props.id].up};
-}
-
-function HostExtraImpl(props:IProps) {
+export default observer(({id}:{id:number}) => {
+    const up = state.status.has(id) && state.status.get(id).up;
     let c: JSX.Element = null;
-    if (!props.down) {
+    if (up) {
         c = (<div>
                 <Box title="Smart" collapsable={true}>
-                    <Smart host={props.id}/>
+                    <Smart host={id}/>
                 </Box>
                 <Box title="Services" collapsable={true}>
-                    <Services id={props.id}/>
+                    <Services id={id}/>
                 </Box>
                 <Box title="Terminal" collapsable={true}>
-                    <HostTerminals id={props.id} />
+                    <HostTerminals id={id} />
                 </Box>
                 <Box title="Journal" collapsable={true}>
-                    <Log type="journal" host={props.id} />
+                    <Log type="journal" host={id} />
                 </Box>
                 <Box title="Dmesg" collapsable={true}>
-                    <Log type="dmesg" host={props.id} />
+                    <Log type="dmesg" host={id} />
                 </Box>
             </div>
         )
-    } else if (props.id > 0) {
+    } else if (id > 0) {
         c = (
             <Box title="Setup" collapsable={false} expanded={true}>
-               <Setup hostid={props.id} />
+               <Setup hostid={id} />
             </Box>);
     }
 
     return (
         <div>
-            {props.id > 0 ? 
+            {id > 0 ? 
                 <div>
-                    <Messages host={props.id} />
+                    <Messages host={id} />
                     <Box title="Status" collapsable={true} expanded={true}>
-                        <Status id={props.id} />
+                        <Status id={id} />
                     </Box>
                 </div>: null}
             {c}
         </div>)
-}
-
-export let HostExtra = connect(mapStateToProps2)(HostExtraImpl);
+});
 
 

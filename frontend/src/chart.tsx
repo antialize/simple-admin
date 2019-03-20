@@ -1,33 +1,31 @@
 import * as React from "react";
-import * as $ from 'jquery'
-import {connect, Dispatch } from 'react-redux';
-import {IMainState} from './reducers';
-import { createSelector } from 'reselect';
 import { IStatBucket, ACTION, IAction, IRequestStatBucket, ISubscribeStatValues, IStatValueChanges} from '../../shared/actions'
 import { MyDate } from './MyDate'
+import { observer } from "mobx-react";
+import state from "./state";
 
-const charts: {[key:number]: ChartInner} = {};
-let sendMessage: (act:IAction)=>void = null;
+const charts: {[key:number]: Chart} = {};
 const epoc = 1514764800;
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-
-interface InnerState {
+interface State {
 
 }
 
-interface InnerProps {
+interface Props {
     style?: React.CSSProperties;
-    zoom: number;
+    initialZoom: number;
     host: number;
 }
 
 const preScale = 2;
 
-class ChartInner extends React.Component<InnerProps, InnerState> {
+
+@observer
+class Chart extends React.Component<Props, State> {
     static cntr = 0;
     target: number;
-    state: InnerState = {};
+    state: State = {};
     canvas: HTMLCanvasElement;
     zoom: number;
     host: number;
@@ -39,12 +37,12 @@ class ChartInner extends React.Component<InnerProps, InnerState> {
     leftSpace: number = null;
     rightSpace: number = null;
 
-    constructor(props: InnerProps) {
+    constructor(props: Props) {
         super(props);
-        this.target = ChartInner.cntr;
+        this.target = Chart.cntr;
         this.host = props.host;
-        this.zoom = props.zoom;
-        ++ChartInner.cntr;
+        this.zoom = props.initialZoom;
+        ++Chart.cntr;
         charts[this.target] = this;
         this.endTime = (+new Date() / 1000);
         this.setSnap(true);
@@ -86,7 +84,7 @@ class ChartInner extends React.Component<InnerProps, InnerState> {
                             level,
                             index
                         }
-                        sendMessage(a);
+                        state.sendMessage(a);
                     }
             }
             start = start >> 1;
@@ -102,7 +100,7 @@ class ChartInner extends React.Component<InnerProps, InnerState> {
             host: this.host,
             values: this.values
         };
-        sendMessage(a);
+        state.sendMessage(a);
         this.updateCanvas();
     }
     componentDidUpdate() {
@@ -120,7 +118,7 @@ class ChartInner extends React.Component<InnerProps, InnerState> {
             host: this.host,
             values: null
         };
-        sendMessage(a);
+        state.sendMessage(a);
     }
 
 
@@ -559,42 +557,4 @@ export function handleAction(a:IStatBucket|IStatValueChanges) {
 
     }
 };
-
-
-export function setSend(s: (act:IAction)=>void ) {
-    sendMessage = s;
-}
-
-interface ExternProps {
-    style?: React.CSSProperties;
-    allowZoom?: boolean;
-    allowPan?: boolean;
-    initialZoom: number;
-    host: number;
-}
-
-interface StateProps {
-    style?: React.CSSProperties;
-    zoom: number;
-    host: number;
-}
-
-interface DispatchProps {
-
-}
-
-const makeMapStateToProps = () => {
-    const getStyle = (_:IMainState, p: ExternProps) => p.style;
-    const getZoom = (_:IMainState, p: ExternProps) => p.initialZoom;
-    const getHost = (_:IMainState, p: ExternProps) => p.host;
-    return createSelector([getStyle, getZoom, getHost], (style:React.CSSProperties, zoom:number, host:number)=> {return {style, zoom, host}});
-};
-
-function mapDispatchToProps(dispatch:Dispatch<IMainState>, o:ExternProps): DispatchProps {
-    return {}
-}
-
-function ChartImpl(p:StateProps & DispatchProps) {
-    return <ChartInner style={p.style} zoom={p.zoom} host={p.host}/>;
-}
-export const Chart = connect<StateProps, DispatchProps, ExternProps>(makeMapStateToProps, mapDispatchToProps)(ChartImpl);
+export default Chart;

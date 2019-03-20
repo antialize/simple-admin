@@ -1,7 +1,7 @@
 import * as React from "react";
 import { hostId } from '../../shared/type';
 import {debugStyle} from './debug';
-import {StatusesCard} from './statusesCard';
+import StatusesCard from './statusesCard';
 import state from "./state";
 import { observer } from "mobx-react";
 

@@ -3,7 +3,7 @@ import {ListItem} from 'material-ui/List';
 import * as State from '../../shared/state'
 import {hostId} from '../../shared/type'
 import {debugStyle} from './debug';
-import {HostMenuItem} from './hostMenuItem';
+import HostMenuItem from './hostMenuItem';
 import state from "./state";
 import { observer } from "mobx-react";
 

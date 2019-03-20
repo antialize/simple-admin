@@ -1,27 +1,14 @@
 import * as React from "react";
-import {IStatus, ISmartStatus} from '../../shared/status';
-import {IMainState} from './reducers';
-import { connect } from 'react-redux';
+import { observer } from "mobx-react";
+import state from "./state";
 
-interface ExternProps {
-    host: number;
-}
-
-interface StateProps {
-    smart: {[dev:string]:ISmartStatus[]};
-}
-
-function mapStateToProps(state:IMainState, props:ExternProps): StateProps {
-    return {smart: state.status[props.host].smart};
-}
-
-
-function SmartImpl(p:StateProps ) {
+export default observer(({host}:{host:number})=>{
     let rows: JSX.Element[] = [];
     const importantSmart = new Set([5,103,171,172,175,176,181,182,184,187,188,191,197,198,200,221]);
-    for (const dev in p.smart) {
+    const smart = state.status.get(host).smart;
+    for (const [dev, values] of smart) {
         rows.push(<tr className="smart_device"><td colSpan={3}>{dev}</td></tr>);
-        for (const status of p.smart[dev]) {
+        for (const status of values) {
             let className=importantSmart.has(status.id)?(status.raw_value == 0?"smart_good":"smart_bad"):"smart_normal";
             rows.push(<tr className={className}><td>{status.id}</td><td>{status.name}</td><td>{status.raw_value}</td></tr>)
         }
@@ -39,6 +26,5 @@ function SmartImpl(p:StateProps ) {
                 </tbody>
             </table>
         </div>)
-}
+});
 
-export let Smart = connect(mapStateToProps)(SmartImpl);

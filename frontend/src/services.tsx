@@ -1,28 +1,11 @@
 import * as React from "react";
-import { IStatus, IService } from '../../shared/status';
-import { IMainState } from './reducers';
-import { ISetServiceListFilter, IPokeService, ISetServiceLogVisibilty, SERVICE_POKE, ACTION } from '../../shared/actions'
-import { connect, Dispatch } from 'react-redux';
+import {  IService } from '../../shared/status';
+import { IPokeService, SERVICE_POKE, ACTION } from '../../shared/actions'
 import TextField from 'material-ui/TextField';
 import RaisedButton from 'material-ui/RaisedButton';
 import { Log } from './log'
 import { observer } from "mobx-react";
 import state from "./state";
-
-interface ExternProps {
-    id: number;
-}
-
-interface StateProps {
-    id: number;
-    name: string;
-    services: {[name:string]:IService};
-}
-
-interface DispatchProps {
-    setFilter(filter: string): void;
-    pokeService(name: string, poke: SERVICE_POKE): void;
-}
 
 let boring = new Set(
     ["ModemManager.service", "NetworkManager-wait-online.service", "accounts-daemon.service",
@@ -65,34 +48,6 @@ let boring = new Set(
      "systemd-machined.service", "systemd-sysusers.service", "systemd-update-done.service",
      "systemd-vconsole-setup.service", "polkit.service", "ldconfig.service"]);
 
-
-function mapStateToProps(state: IMainState, props: ExternProps): StateProps {
-    const services = state.status[props.id].services;
-    return { id: props.id, name: name, services }
-}
-
-function mapDispatchToProps(dispatch: Dispatch<IMainState>, o: ExternProps): DispatchProps {
-    return {
-        setFilter: (filter: string) => {
-            const p: ISetServiceListFilter = {
-                type: ACTION.SetServiceListFilter,
-                filter: filter,
-                host: o.id
-            };
-            dispatch(p);
-        },
-        pokeService: (name: string, poke: SERVICE_POKE) => {
-            const p: IPokeService = {
-                type: ACTION.PokeService,
-                host: o.id,
-                service: name,
-                poke: poke
-            };
-            dispatch(p);
-        },
-    }
-}
-
 function Service({ service, poke, logVisible, setLogVisibility }: { service: IService, poke: (name: string, poke: SERVICE_POKE) => void, logVisible: boolean, setLogVisibility: (visibility: boolean) => void }) {
     let actions = [];
     if (service.activeState == "active") {
@@ -125,25 +80,41 @@ function ServiceLog({ host, service }: { host: number, service: string }) {
     </tr>)
 }
 
-const ServicesImpl = observer((p: StateProps & DispatchProps) => {
-    const filter = state.serviceListFilter.get(p.id) || "";
-    const lvs = state.serviceLogVisibility.get(p.id);
-    if (lvs === undefined) state.serviceLogVisibility.set(p.id, new Map());
+export default observer(({id}: {id:number}) => {
+    if (!state.status.has(id)) return null;
+    const filter = state.serviceListFilter.get(id) || "";
+    const lvs = state.serviceLogVisibility.get(id);
+    if (lvs === undefined) state.serviceLogVisibility.set(id, new Map());
 
-    const lst = Object.keys(p.services).filter((x) => (((!filter || filter == "") && !boring.has(x) && !x.startsWith("ifup@")) || x.indexOf(filter) != -1));
-    lst.sort();
-    const services = lst.map((name: string) => p.services[name])
+    const services = state.status.get(id).services;
+    const serviceNames = [];
+    for (let [key, _] of services) {
+        if (((!filter || filter == "") && !boring.has(key) && !key.startsWith("ifup@")) || key.indexOf(filter) != -1)
+            serviceNames.push(key);
+    }
+    serviceNames.sort();
+
+    const pokeService =  (name: string, poke: SERVICE_POKE) => {
+        const p: IPokeService = {
+            type: ACTION.PokeService,
+            host: id,
+            service: name,
+            poke: poke
+        };
+        state.sendMessage(p);
+    };
 
     let rows: JSX.Element[] = [];
-    for (const service of services) {
+    for (const key of serviceNames) {
+        const service = services.get(key);
         const lv = lvs.get(service.name)
-        rows.push(<Service key={"service_" + service.name} service={service} poke={p.pokeService} logVisible={lv} setLogVisibility={(b:boolean)=>lvs.set(service.name, b)} />);
+        rows.push(<Service key={"service_" + service.name} service={service} poke={pokeService} logVisible={lv} setLogVisibility={(b:boolean)=>lvs.set(service.name, b)} />);
         if (lv)
-            rows.push(<ServiceLog key={"log_" + service.name} host={p.id} service={service.name} />);
+            rows.push(<ServiceLog key={"log_" + service.name} host={id} service={service.name} />);
     }
     return (
         <div>
-            <TextField floatingLabelText="Filter" onChange={(a, v) => state.serviceListFilter.set(p.id, v)} value={filter} />
+            <TextField floatingLabelText="Filter" onChange={(a, v) => state.serviceListFilter.set(id, v)} value={filter} />
             <table className="services_table">
                 <thead>
                     <tr>
@@ -156,5 +127,3 @@ const ServicesImpl = observer((p: StateProps & DispatchProps) => {
             </table>
         </div>)
 });
-
-export let Services = connect(mapStateToProps, mapDispatchToProps)(ServicesImpl);

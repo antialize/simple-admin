@@ -1,9 +1,9 @@
-interface IStatusUptime {
+export interface IStatusUptime {
     idle: number;
     total: number;
 }
 
-interface IStatusMeminfo {
+export interface IStatusMeminfo {
     avail: number;
     total: number;
     free: number;
@@ -11,14 +11,14 @@ interface IStatusMeminfo {
     swap_free: number;
 }
 
-interface IStatusLBSRelease {
+export interface IStatusLBSRelease {
     release: string;
     codename: string;
     id: string;
     description: string;
 }
 
-interface IStatusUname {
+export interface IStatusUname {
     release: string;
     sysname: string;
     machine: string;
@@ -26,7 +26,7 @@ interface IStatusUname {
     nodename: string;
 }
 
-interface IStatusLoadAVG {
+export interface IStatusLoadAVG {
     five_minute: number; 
     active_processes: number; 
     ten_minute: number; 
@@ -34,7 +34,7 @@ interface IStatusLoadAVG {
     total_processes: number;
 }
 
-interface IStatusMount {
+export interface IStatusMount {
     files: number;
     free_files: number;
     avail_files: number;

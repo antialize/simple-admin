@@ -3,7 +3,7 @@ import * as React from "react"
 import {  DEPLOYMENT_STATUS } from '../../shared/state'
 import CircularProgress from 'material-ui/CircularProgress'
 import RaisedButton from 'material-ui/RaisedButton'
-import { HostExtra } from './hostextra'
+import HostExtra from './hostextra'
 import { Box } from './box'
 import Type from './type'
 import { hostId, userId} from '../../shared/type'

@@ -1,9 +1,7 @@
 import * as React from "react";
-import { connect, Dispatch } from 'react-redux';
 import LinearProgress from 'material-ui/LinearProgress';
 import { Size } from './size';
 import { Time } from './time';
-import { IMainState } from './reducers';
 import { IStatus, IStatuses } from '../../shared/status';
 import { hostId } from '../../shared/type';
 import * as State from '../../shared/state';
@@ -15,35 +13,19 @@ import GridList from 'material-ui/GridList/GridList';
 import GridTile from 'material-ui/GridList/GridTile';
 import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/Card';
 import {debugStyle} from './debug';
-import { createSelector } from 'reselect';
-import {Chart} from './chart';
+import Chart from './chart';
+import { observer } from "mobx-react";
+import state from "./state";
 
 //import {ChartOptions, LinearTickOptions} from 'chart.js'
 
-
-const getStatuses = (state:IMainState) => state.status;
-
-interface ExternProps {
-    id: number;
-}
-
-interface Props {
-    id: number;
-    status: IStatus;
-}
-const makeMapStatToProps: ()=>(sate: IMainState, props: ExternProps)=>Props = ()=> {
-    const getId = (_:IMainState, props: ExternProps) => props.id;
-    return createSelector([getId, getStatuses], (id, statuses)=> {return {id, status: statuses[id]}} );
-}
-
-function StatusImpl(props: Props) {
-    const s = props.status;
+export default observer(({id}:{id:number}) => {
+    const s = state.status.get(id);
     if (s == null || !s.up)
         return <div>Down</div>;
 
     let lst: JSX.Element[] = [];
-    for (const target in s.mounts) {
-        const mount = s.mounts[target];
+    for (const [target, mount] of s.mounts) {
         const block_size = 512;
         lst.push(
             <InformationListRow key={mount.src} name={mount.src + " at " + mount.target}>
@@ -199,8 +181,6 @@ function StatusImpl(props: Props) {
                     {lst}
                 </InformationList>
             </div>
-            <Chart initialZoom={20} style={{flex:1, marginLeft: 20, marginRight: 10, minHeight: '270px'}} host={props.id}/>
+            <Chart initialZoom={20} style={{flex:1, marginLeft: 20, marginRight: 10, minHeight: '270px'}} host={id}/>
         </div>)
-};
-
-export const Status = connect<Props, null, ExternProps>(makeMapStatToProps)(StatusImpl);
+});
