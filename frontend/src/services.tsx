@@ -1,11 +1,11 @@
 import * as React from "react";
 import {  IService } from '../../shared/status';
 import { IPokeService, SERVICE_POKE, ACTION } from '../../shared/actions'
-import TextField from 'material-ui/TextField';
-import RaisedButton from 'material-ui/RaisedButton';
 import { Log } from './log'
 import { observer } from "mobx-react";
 import state from "./state";
+import Button from "@material-ui/core/Button";
+import TextField from "@material-ui/core/TextField";
 
 let boring = new Set(
     ["ModemManager.service", "NetworkManager-wait-online.service", "accounts-daemon.service",
@@ -51,17 +51,17 @@ let boring = new Set(
 function Service({ service, poke, logVisible, setLogVisibility }: { service: IService, poke: (name: string, poke: SERVICE_POKE) => void, logVisible: boolean, setLogVisibility: (visibility: boolean) => void }) {
     let actions = [];
     if (service.activeState == "active") {
-        actions.push(<RaisedButton key="stop" label="Stop" secondary={true} onClick={() => { if (confirm("Stop service " + service.name + "?")) poke(service.name, SERVICE_POKE.Stop); }} style={{ marginRight: "5px" }} />);
-        actions.push(<RaisedButton key="kill" label="Kill" secondary={true} onClick={() => { if (confirm("Kill service " + service.name + "?")) poke(service.name, SERVICE_POKE.Kill); }} style={{ marginRight: "5px" }} />);
-        actions.push(<RaisedButton key="restart" label="Restart" secondary={true} onClick={() => { if (confirm("Restart service " + service.name + "?")) poke(service.name, SERVICE_POKE.Stop); }} style={{ marginRight: "5px" }} />);
-        actions.push(<RaisedButton key="reload" label="Reload" primary={true} onClick={() => { poke(service.name, SERVICE_POKE.Reload); }} style={{ marginRight: "5px" }} />);
+        actions.push(<Button variant="contained" color="secondary" key="stop" onClick={() => { if (confirm("Stop service " + service.name + "?")) poke(service.name, SERVICE_POKE.Stop); }} style={{ marginRight: "5px" }}>Stop</Button>);
+        actions.push(<Button variant="contained" color="secondary" key="kill" onClick={() => { if (confirm("Kill service " + service.name + "?")) poke(service.name, SERVICE_POKE.Kill); }} style={{ marginRight: "5px" }}>Kill</Button>);
+        actions.push(<Button variant="contained" color="secondary" key="restart" onClick={() => { if (confirm("Restart service " + service.name + "?")) poke(service.name, SERVICE_POKE.Stop); }} style={{ marginRight: "5px" }}>Restart</Button>);
+        actions.push(<Button variant="contained" color="primary" key="reload" onClick={() => { poke(service.name, SERVICE_POKE.Reload); }} style={{ marginRight: "5px" }}>Reload</Button>);
     } else {
-        actions.push(<RaisedButton key="start" label="Start" primary={true} onClick={() => { poke(service.name, SERVICE_POKE.Start); }} style={{ marginRight: "5px" }} />);
+        actions.push(<Button variant="contained" color="primary"  key="start" onClick={() => { poke(service.name, SERVICE_POKE.Start); }} style={{ marginRight: "5px" }}>Start</Button>);
     }
     if (logVisible)
-        actions.push(<RaisedButton key="log" label="Hide log" primary={true} onClick={() => setLogVisibility(false)} style={{ marginRight: "5px" }} />);
+        actions.push(<Button variant="contained" color="primary"  key="log" onClick={() => setLogVisibility(false)} style={{ marginRight: "5px" }}>Hide log</Button>);
     else
-        actions.push(<RaisedButton key="log" label="Show log" primary={true} onClick={() => setLogVisibility(true)} style={{ marginRight: "5px" }} />);
+        actions.push(<Button variant="contained" color="primary"  key="log" onClick={() => setLogVisibility(true)} style={{ marginRight: "5px" }}>Show log</Button>);
     return (
         <tr key={service.name}>
             <td>{service.name}</td>
@@ -120,7 +120,7 @@ export default observer(({id}: {id:number}) => {
     }
     return (
         <div>
-            <TextField floatingLabelText="Filter" onChange={(a, v) => state.serviceListFilter.set(id, v)} value={filter} />
+            <TextField placeholder="Filter" onChange={(e) => state.serviceListFilter.set(id, e.target.value)} value={filter} />
             <table className="services_table">
                 <thead>
                     <tr>

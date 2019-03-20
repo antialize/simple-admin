@@ -1,8 +1,8 @@
 import * as React from "react";
 import * as State from '../../../shared/state'
-import RaisedButton from 'material-ui/RaisedButton';
 import { observer } from "mobx-react";
 import state from "../state";
+import Button from '@material-ui/core/Button';
 
 export default observer(()=>{
     const p = state.deployment;
@@ -43,13 +43,13 @@ export default observer(()=>{
 
     return (
         <div className="deployment_buttons">
-            <RaisedButton label="Start" disabled={!start} onClick={(e)=>p.start()} />
-            <RaisedButton label="Stop" disabled={!stop} onClick={(e)=>p.stop()} />
-            <RaisedButton label="Cancel" disabled={!cancel} onClick={(e)=>p.cancel()} />
-            <RaisedButton label="Deploy all" disabled={!deployAll} onClick={(e)=>p.deployAll(false)} />
-            <RaisedButton label="Redeploy all" disabled={!deployAll} onClick={(e)=>p.deployAll(true)} />
-            <RaisedButton label="Enable all" disabled={!canSelect || !hasDisabled} onClick={(e)=>p.toggle(null, true)} />
-            <RaisedButton label="Disable all" disabled={!canSelect || !hasEnabled} onClick={(e)=>p.toggle(null, false)} />
+            <Button variant="contained" disabled={!start} onClick={(e)=>p.start()}>Start</Button>
+            <Button variant="contained" disabled={!stop} onClick={(e)=>p.stop()}>Stop</Button>
+            <Button variant="contained" disabled={!cancel} onClick={(e)=>p.cancel()}>Cancel</Button>
+            <Button variant="contained" disabled={!deployAll} onClick={(e)=>p.deployAll(false)}>Deploy All</Button>
+            <Button variant="contained" disabled={!deployAll} onClick={(e)=>p.deployAll(true)}>Redeploy All</Button>
+            <Button variant="contained" disabled={!canSelect || !hasDisabled} onClick={(e)=>p.toggle(null, true)}>Enable all</Button>
+            <Button variant="contained" disabled={!canSelect || !hasEnabled} onClick={(e)=>p.toggle(null, false)}>Disable all</Button>
         </div>
         );
     });

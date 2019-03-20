@@ -1,7 +1,6 @@
 import * as React from "react";
 import * as State from '../../shared/state'
 import {hostId} from '../../shared/type'
-import {debugStyle} from './debug';
 import HostMenuItem from './hostMenuItem';
 import state from "./state";
 import { observer } from "mobx-react";

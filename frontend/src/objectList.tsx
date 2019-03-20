@@ -1,10 +1,11 @@
 import * as React from "react";
-import {List, ListItem} from 'material-ui/List';
 import * as State from '../../shared/state'
-import TextField from 'material-ui/TextField';
-import RaisedButton from 'material-ui/RaisedButton';
 import state from "./state";
 import { observer } from "mobx-react";
+import TextField from "@material-ui/core/TextField";
+import List from "@material-ui/core/List";
+import ListItem from "@material-ui/core/ListItem";
+import Button from "@material-ui/core/Button";
 
 export default observer(({type}:{type:number}) => {
     let filter = (state.objectListFilter.get(type) || "");
@@ -18,11 +19,17 @@ export default observer(({type}:{type:number}) => {
     }
     return (
             <div>
-                <TextField floatingLabelText="Filter" onChange={(a, v)=>{state.objectListFilter.set(type,v);}} value={filter}/>
+                <TextField placeholder="Filter" onChange={(e)=>{state.objectListFilter.set(type,e.target.value);}} value={filter}/>
                 <List>
-                    {lst.map(v => <ListItem primaryText={v.name} key={v.id} onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}/>)}
+                    {lst.map(v => 
+                        <ListItem
+                            key={v.id}
+                            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}
+                            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}>
+                            {v.name}
+                        </ListItem>)}
                 </List>
-                <RaisedButton label="Add new" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})} />
+                <Button variant="contained" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}>Add new</Button>
             </div>
         );
 });

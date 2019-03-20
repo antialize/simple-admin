@@ -1,11 +1,8 @@
 import * as React from "react";
-import Toggle from 'material-ui/Toggle';
-import SelectField from 'material-ui/SelectField';
-import MenuItem from 'material-ui/MenuItem';
-import TextField from 'material-ui/TextField';
-
-import {IMonitor, IMonitorProp, MonitorPropType, MonitorUnit} from '../../shared/monitor'
-
+import {IMonitorProp, MonitorPropType, MonitorUnit} from '../../shared/monitor'
+import TextField from "@material-ui/core/TextField";
+import Select from "@material-ui/core/Select";
+import MenuItem from "@material-ui/core/MenuItem";
 
 export function MonitorContent(p: {content: IMonitorProp[], onChange: (v: IMonitorProp[])=>void}) {
     let rows = [];
@@ -37,26 +34,26 @@ export function MonitorContent(p: {content: IMonitorProp[], onChange: (v: IMonit
         rows.push(
             <tr key={i}>
                 <td>
-                    <SelectField value={r.type} onChange={(a, b, value) => changeType(value)}>
-                        <MenuItem value={MonitorPropType.aOfB} primaryText="A of b" />
-                        <MenuItem value={MonitorPropType.distribution} primaryText="Distribution" />
-                        <MenuItem value={MonitorPropType.number} primaryText="Number" />
-                        <MenuItem value={MonitorPropType.sum} primaryText="Sum" />
-                        <MenuItem value={MonitorPropType.string} primaryText="String" />
-                        <MenuItem value={MonitorPropType.sumAndCount} primaryText="Sum and count" />
-                        <MenuItem value={MonitorPropType.up} primaryText="Up" />
-                        <MenuItem value={MonitorPropType.none} primaryText="Nothing" />
-                    </SelectField>
+                    <Select value={r.type} onChange={(e) => changeType(+e.target.value)}>
+                        <MenuItem value={MonitorPropType.aOfB}>A of b</MenuItem>
+                        <MenuItem value={MonitorPropType.distribution}>Distribution</MenuItem>
+                        <MenuItem value={MonitorPropType.number}>Number</MenuItem>
+                        <MenuItem value={MonitorPropType.sum}>Sum</MenuItem>
+                        <MenuItem value={MonitorPropType.string}>String</MenuItem>
+                        <MenuItem value={MonitorPropType.sumAndCount}>Sum and count</MenuItem>
+                        <MenuItem value={MonitorPropType.up}>Up</MenuItem>
+                        <MenuItem value={MonitorPropType.none}>Nothing</MenuItem>
+                    </Select>
                 </td>
-                <td><TextField value={r.type != MonitorPropType.none && r.identifier || ""} disabled={r.type == MonitorPropType.none} onChange={(a, value) => change({identifier: value})}/></td>
+                <td><TextField value={r.type != MonitorPropType.none && r.identifier || ""} disabled={r.type == MonitorPropType.none} onChange={(e) => change({identifier: e.target.value})}/></td>
                 <td>
-                    <SelectField value={unit} disabled={!hasUnit} onChange={(a, b, value) => change({unit: value})}>
-                        <MenuItem value={MonitorUnit.count} disabled={r.type == MonitorPropType.sumAndCount} primaryText="Count" />
-                        <MenuItem value={MonitorUnit.bytes} primaryText="Bytes" />
-                        <MenuItem value={MonitorUnit.fraction} primaryText="Fraction" />
-                        <MenuItem value={MonitorUnit.seconds} primaryText="Seconds" />
-                        <MenuItem value={MonitorUnit.area}  primaryText="Area" />
-                    </SelectField>
+                    <Select value={unit} disabled={!hasUnit} onChange={(e) => change({unit: +e.target.value})}>
+                        <MenuItem value={MonitorUnit.count} disabled={r.type == MonitorPropType.sumAndCount}>Count</MenuItem>
+                        <MenuItem value={MonitorUnit.bytes}>Bytes</MenuItem>
+                        <MenuItem value={MonitorUnit.fraction}>Fraction</MenuItem>
+                        <MenuItem value={MonitorUnit.seconds}>Seconds</MenuItem>
+                        <MenuItem value={MonitorUnit.area}>Area</MenuItem>
+                    </Select>
                 </td>
             </tr>);
     }

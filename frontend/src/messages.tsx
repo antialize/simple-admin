@@ -1,6 +1,5 @@
 import * as React from "react";
 import {Box} from './box';
-import {debugStyle} from './debug';
 import Message from './message';
 import MessageGroup from './messageGroup';
 import { observer } from "mobx-react";
@@ -57,7 +56,7 @@ export default observer(({host}: {host?:number}) => {
         }
     }
     return <Box title={title} expanded={count != 0} collapsable={true}>
-            <table className="message_table" style={debugStyle()}>
+            <table className="message_table">
                 <thead>
                     <tr><th>Type</th><th>Host</th><th>Message</th><th>Time</th><th>Action</th></tr>
                 </thead>

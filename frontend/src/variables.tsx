@@ -1,6 +1,5 @@
 import * as React from "react";
-import {Card, CardActions, CardHeader, CardMedia, CardTitle, CardText} from 'material-ui/Card';
-import TextField from 'material-ui/TextField';
+import TextField from "@material-ui/core/TextField";
 
 interface IProps {
     variables: {key:string, value:string}[];
@@ -19,9 +18,9 @@ export default function Variables(props:IProps) {
 		rows.push(
 			<tr key={i}>
 				<td>
-					<TextField value={v.key} onChange={(e:any, value:string) => {vars[i].key = value; setVars();}} />
+					<TextField value={v.key} onChange={(e) => {vars[i].key = e.target.value; setVars();}} />
 				</td><td>
-					<TextField value={v.value} onChange={(e:any, value:string) => {vars[i].value = value; setVars();}} />
+					<TextField value={v.value} onChange={(e) => {vars[i].value = e.target.value; setVars();}} />
 				</td>
 		   </tr>);
     }
@@ -30,9 +29,9 @@ export default function Variables(props:IProps) {
 	rows.push(
 		<tr key={vars.length}>
 			<td>
-				<TextField value="" onChange={(e:any, value:string) => {vars.push({key:value, value:""}); setVars();}} />
+				<TextField value="" onChange={(e) => {vars.push({key:e.target.value, value:""}); setVars();}} />
 			</td><td>
-				<TextField value="" onChange={(e:any, value:string) => {vars.push({key:"", value:value}); setVars();}} />
+				<TextField value="" onChange={(e) => {vars.push({key:"", value:e.target.value}); setVars();}} />
 			</td>
 		</tr>);
 				

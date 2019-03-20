@@ -1,7 +1,6 @@
 /*import * as CodeMirror from 'react-codemirror'*/
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import SelectField from 'material-ui/SelectField';
 import MenuItem from 'material-ui/MenuItem';
 import {Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarTitle} from 'material-ui/Toolbar';
 import DropDownMenu from 'material-ui/DropDownMenu';

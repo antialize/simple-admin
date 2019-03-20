@@ -1,12 +1,11 @@
 import * as React from "react";
 import * as State from '../../shared/state'
 import { hostId} from '../../shared/type'
-import {debugStyle} from './debug';
-import Avatar from 'material-ui/Avatar';
 import state from "./state";
 import { observer } from "mobx-react";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemText from "@material-ui/core/ListItemText";
+import Avatar from "@material-ui/core/Avatar";
 
 export default observer(({id}: {id:number}) => {
     const name = state.objectDigests.get(hostId).get(id).name;
@@ -22,7 +21,7 @@ export default observer(({id}: {id:number}) => {
             onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: id, version:null})}
             href={state.page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: id, version:null})}>
                 <ListItemText>{name}</ListItemText>
-                {messages?<Avatar color="black" backgroundColor="red">{messages}</Avatar>:null}
+                {messages?<Avatar style={{color:"black", backgroundColor:"red"}}>{messages}</Avatar>:null}
             </ListItem>;
 });
 

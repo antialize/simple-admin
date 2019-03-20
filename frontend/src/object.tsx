@@ -1,8 +1,6 @@
 
 import * as React from "react"
 import {  DEPLOYMENT_STATUS } from '../../shared/state'
-import CircularProgress from 'material-ui/CircularProgress'
-import RaisedButton from 'material-ui/RaisedButton'
 import HostExtra from './hostextra'
 import { Box } from './box'
 import Type from './type'
@@ -10,6 +8,8 @@ import { hostId, userId} from '../../shared/type'
 import UserExtra from './userextra';
 import state from './state';
 import { observer } from 'mobx-react';
+import CircularProgress from "@material-ui/core/CircularProgress";
+import Button from "@material-ui/core/Button";
 
 export default observer(({type, id, version}:{type:number, id:number, version?:number})=>{
     if (!state.objects.has(id) || !state.objects.get(id).current)
@@ -38,13 +38,13 @@ export default observer(({type, id, version}:{type:number, id:number, version?:n
                 <div><Type id={id} typeId={type}/></div>
                 <div>{versions}</div>
                 <div>
-                    <RaisedButton label="Save" primary={true} style={{ margin: 10 }} onClick={()=>o.save()} disabled={!touched}/>
-                    <RaisedButton label={canCancel?"Deploy (cancel current)":"Deploy"} primary={true} style={{margin:10}} onClick={()=>o.deploy(canCancel, false)} disabled={!canDeploy}/>
-                    <RaisedButton label={canCancel?"Redeploy (cancel current)":"Redeploy"} primary={true} style={{margin:10}} onClick={()=>o.deploy(canCancel, true)} disabled={!canDeploy}/>
-                    <RaisedButton label="Discard" secondary={true} style={{ margin: 10 }} onClick={()=>o.discard()} disabled={!touched} />
-                    <RaisedButton label="Delete" secondary={true} style={{ margin: 10 }} onClick={()=>{
+                    <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>o.save()} disabled={!touched}>Save</Button>
+                    <Button variant="contained" color="primary" style={{margin:10}} onClick={()=>o.deploy(canCancel, false)} disabled={!canDeploy}>{canCancel?"Deploy (cancel current)":"Deploy"}</Button>
+                    <Button variant="contained" color="primary" style={{margin:10}} onClick={()=>o.deploy(canCancel, true)} disabled={!canDeploy}>{canCancel?"Redeploy (cancel current)":"Redeploy"}</Button>
+                    <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>o.discard()} disabled={!touched}>Discard</Button>
+                    <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>{
                         if (confirm("Are you sure you want to delete the object?")) o.delete();}}
-                        disabled={!canDeploy /*|| p.class == 'root'*/}/>
+                        disabled={!canDeploy /*|| p.class == 'root'*/}>Delete</Button>
                 </div>
             </Box>
             <div>

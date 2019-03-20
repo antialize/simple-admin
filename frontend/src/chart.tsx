@@ -1,5 +1,5 @@
 import * as React from "react";
-import { IStatBucket, ACTION, IAction, IRequestStatBucket, ISubscribeStatValues, IStatValueChanges} from '../../shared/actions'
+import { IStatBucket, ACTION, IRequestStatBucket, ISubscribeStatValues, IStatValueChanges} from '../../shared/actions'
 import { MyDate } from './MyDate'
 import { observer } from "mobx-react";
 import state from "./state";
@@ -7,10 +7,6 @@ import state from "./state";
 const charts: {[key:number]: Chart} = {};
 const epoc = 1514764800;
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-interface State {
-
-}
 
 interface Props {
     style?: React.CSSProperties;
@@ -20,12 +16,10 @@ interface Props {
 
 const preScale = 2;
 
-
 @observer
-class Chart extends React.Component<Props, State> {
+class Chart extends React.Component<Props, {}> {
     static cntr = 0;
     target: number;
-    state: State = {};
     canvas: HTMLCanvasElement;
     zoom: number;
     host: number;

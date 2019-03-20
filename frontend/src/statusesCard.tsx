@@ -1,12 +1,14 @@
 import * as React from "react";
 import { hostId } from '../../shared/type';
 import * as State from '../../shared/state';
-import * as page from './page'
-import RaisedButton from 'material-ui/RaisedButton';
-import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/Card';
 import Status from './status';
 import state from "./state";
 import { observer } from "mobx-react";
+import Card from "@material-ui/core/Card";
+import CardHeader from "@material-ui/core/CardHeader";
+import CardContent from "@material-ui/core/CardContent";
+import CardActions from "@material-ui/core/CardActions";
+import Button from "@material-ui/core/Button";
 
 export default observer(({id}: {id:number}) => {
     let hosts = state.objectDigests.get(hostId);
@@ -22,10 +24,10 @@ export default observer(({id}: {id:number}) => {
 
     return (
         <Card key={id} style={{ margin: '5px' }}>
-            <CardTitle title={name} />
-            <CardText>{elm}</CardText>
+            <CardHeader title={name} />
+            <CardContent>{elm}</CardContent>
             <CardActions>
-                <RaisedButton onClick={(e) => state.page.onClick(e, a)} label="Details" href={state.page.link(a)} />
+                <Button variant="contained" onClick={(e) => state.page.onClick(e, a)} href={state.page.link(a)}>Details</Button>
             </CardActions>
         </Card>);
 });

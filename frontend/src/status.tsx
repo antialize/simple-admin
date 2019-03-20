@@ -1,21 +1,12 @@
 import * as React from "react";
-import LinearProgress from 'material-ui/LinearProgress';
 import { Size } from './size';
 import { Time } from './time';
-import { IStatus, IStatuses } from '../../shared/status';
-import { hostId } from '../../shared/type';
-import * as State from '../../shared/state';
+
 import { InformationList, InformationListRow } from './information_list';
-import * as page from './page'
-import { Box } from './box'
-import RaisedButton from 'material-ui/RaisedButton';
-import GridList from 'material-ui/GridList/GridList';
-import GridTile from 'material-ui/GridList/GridTile';
-import { Card, CardActions, CardHeader, CardTitle, CardText } from 'material-ui/Card';
-import {debugStyle} from './debug';
 import Chart from './chart';
 import { observer } from "mobx-react";
 import state from "./state";
+import LinearProgress from "@material-ui/core/LinearProgress";
 
 //import {ChartOptions, LinearTickOptions} from 'chart.js'
 
@@ -32,7 +23,7 @@ export default observer(({id}:{id:number}) => {
                 <Size size={(mount.blocks - mount.free_blocks) * mount.block_size} />
                 <span> of </span>
                 <Size size={mount.blocks * mount.block_size} /><br />
-                <LinearProgress mode="determinate" value={mount.blocks - mount.free_blocks} max={mount.blocks} />
+                <LinearProgress variant="determinate" value={(mount.blocks - mount.free_blocks)*100/mount.blocks} />
             </InformationListRow>);
     }
 
@@ -162,11 +153,11 @@ export default observer(({id}:{id:number}) => {
         ? <span>None</span>
         : (<span>
             <Size size={s.meminfo.swap_total - s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
-            <LinearProgress mode="determinate" value={s.meminfo.swap_total - s.meminfo.swap_free} max={s.meminfo.swap_total} />
+            <LinearProgress variant="determinate" value={(s.meminfo.swap_total - s.meminfo.swap_free)*100/s.meminfo.swap_total} />
         </span>);
 
     return (
-        <div style={debugStyle({ display: 'flex', flexDirection: 'row' })}>
+        <div style={{ display: 'flex', flexDirection: 'row' }}>
             <div style={{ width: "250px" }}>
                 <InformationList>
                     <InformationListRow name="Hostname">{s.uname?s.uname.nodename:"unknown"}</InformationListRow>

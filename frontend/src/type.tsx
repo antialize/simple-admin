@@ -1,11 +1,7 @@
 import * as React from "react";
 import {InformationList, InformationListRow} from './information_list'
-import TextField from 'material-ui/TextField';
-import Toggle from 'material-ui/Toggle';
-import SelectField from 'material-ui/SelectField';
-import MenuItem from 'material-ui/MenuItem';
 import Catagory from './catagory'
-import {Password} from './password'
+import Password from './password'
 import Editor from './editor'
 import TypeContent from './typeContent'
 import MonitorContent from './monitorContent'
@@ -15,6 +11,11 @@ import { observer } from "mobx-react";
 import ObjectSelector from "./object_selector"
 import Triggers from './triggers'
 import Variables from './variables'
+import Select from "@material-ui/core/Select";
+import Tooltip from "@material-ui/core/Tooltip";
+import Switch from "@material-ui/core/Switch";
+import TextField from "@material-ui/core/TextField";
+import MenuItem from "@material-ui/core/MenuItem";
 
 export default observer(({typeId, id}:{typeId:number, id:number}) => {
     const obj = state.objects.get(id);
@@ -41,20 +42,30 @@ export default observer(({typeId, id}:{typeId:number, id:number}) => {
             rows.push(<InformationListRow key={ct.name} name={ct.title}><Password value={v==undefined?"":v} onChange={value => c[ct.name] = setProp(ct.name,value)}/></InformationListRow>);
             break;
         case TypePropType.bool:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><Toggle title={ct.description} toggled={v==undefined?ct.default:v} onToggle={(e:any, value:boolean) => setProp(ct.name,value)}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}><Switch title={ct.description} checked={v==undefined?ct.default:v} onChange={(e) => setProp(ct.name,e.target.value)}/></InformationListRow>);
             break;
         case TypePropType.text:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?ct.default:v} fullWidth={ct.lines && ct.lines > 0} multiLine={ct.lines && ct.lines > 1} rows={ct.lines || 1} onChange={(e: any, value: string) => setProp(ct.name,  value)}  hintText={ct.description}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}>
+                    <Tooltip title={ct.description}>
+                        <TextField value={v==undefined?ct.default:v} fullWidth={ct.lines && ct.lines > 0} multiline={ct.lines && ct.lines > 1} rows={ct.lines || 1} onChange={(e) => setProp(ct.name, e.target.value)}/>
+                    </Tooltip>
+                </InformationListRow>);
             break;
         case TypePropType.number:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><TextField value={v==undefined?""+ct.default:""+v} onChange={(e: any, value: string) => setProp(ct.name,  +value)}  hintText={ct.description}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}>
+                    <Tooltip title={ct.description}>
+                        <TextField value={v==undefined?""+ct.default:""+v} onChange={(e) => setProp(ct.name, +e.target.value)}/>
+                    </Tooltip>
+                </InformationListRow>);
             break;
         case TypePropType.choice:
             rows.push(
                 <InformationListRow key={ct.name} name={ct.title}>
-                    <SelectField value={v==undefined?ct.default:v} onChange={(a: any, b: any, value:string) => setProp(ct.name,  value)} hintText={ct.description}>
-                        {ct.choices.map(n =><MenuItem value={n} primaryText={n} />)}
-                    </SelectField>
+                    <Tooltip title="ct.description">
+                        <Select value={v==undefined?ct.default:v} onChange={(e) => setProp(ct.name, e.target.value)}>
+                            {ct.choices.map(n =><MenuItem value={n}>{n}</MenuItem>)}
+                        </Select>
+                    </Tooltip>
                 </InformationListRow>);
             break;
         case TypePropType.document:
@@ -72,8 +83,8 @@ export default observer(({typeId, id}:{typeId:number, id:number}) => {
     return (
         <div>
             <InformationList key={id + current.version}>
-                <InformationListRow name="Name"><TextField key="name" value={current.name} onChange={(e:any, value:string) => {current.name = value; obj.touched = true;}} /></InformationListRow>
-                <InformationListRow name="Comment"><TextField key="comment" fullWidth={true} multiLine={true} value={current.comment} onChange={(e:any, value:string) => {current.comment = value; obj.touched = true;}}/></InformationListRow>
+                <InformationListRow name="Name"><TextField key="name" value={current.name} onChange={(e) => {current.name = e.target.value; obj.touched = true;}} /></InformationListRow>
+                <InformationListRow name="Comment"><TextField key="comment" fullWidth multiline value={current.comment} onChange={(e) => {current.comment = e.target.value; obj.touched = true;}}/></InformationListRow>
                 {type.hasCatagory?<InformationListRow name="Catagory"><Catagory type={typeId} catagory={current.catagory} setCatagory={(cat:string) => {current.catagory = cat; obj.touched=true}} /></InformationListRow>:null}
                 {rows}
                 {type.hasTriggers?<InformationListRow name="Triggers" long={true}><Triggers triggers={c.triggers || []} setTriggers={triggers => setProp("triggers", triggers)} /></InformationListRow>:null}
