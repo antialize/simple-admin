@@ -134,15 +134,15 @@ export class ObjectState {
 };
 
 export class StatusState {
-    @observable
+    @observable.shallow
     uptime: IStatusUptime = {total: 0, idle: 0};
-    @observable
+    @observable.shallow
     meminfo: IStatusMeminfo = {avail: 0, total: 0, free: 0, swap_free: 0, swap_total: 0};
-    @observable
+    @observable.shallow
     lsb_release: IStatusLBSRelease = {release: "", codename: "", id: "", description: ""};
-    @observable
+    @observable.shallow
     uname: IStatusUname = {release: "", sysname: "", machine: "", version: "", nodename: ""};
-    @observable
+    @observable.shallow
     loadavg: IStatusLoadAVG = {five_minute: 0, active_processes: 0, ten_minute: 0, minute: 0, total_processes: 0}
     @observable
     mounts: Map<string, IStatusMount> = new Map;

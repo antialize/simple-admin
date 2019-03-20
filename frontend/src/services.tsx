@@ -83,14 +83,20 @@ function ServiceLog({ host, service }: { host: number, service: string }) {
 export default observer(({id}: {id:number}) => {
     if (!state.status.has(id)) return null;
     const filter = state.serviceListFilter.get(id) || "";
-    const lvs = state.serviceLogVisibility.get(id);
-    if (lvs === undefined) state.serviceLogVisibility.set(id, new Map());
-
+    let lvs = state.serviceLogVisibility.get(id);
+    if (lvs === undefined) {
+        lvs = new Map();
+        state.serviceLogVisibility.set(id, lvs);
+    }
+    
     const services = state.status.get(id).services;
     const serviceNames = [];
     for (let [key, _] of services) {
-        if (((!filter || filter == "") && !boring.has(key) && !key.startsWith("ifup@")) || key.indexOf(filter) != -1)
-            serviceNames.push(key);
+        if (filter == "" 
+            ? (!boring.has(key) && !key.startsWith("ifup@")) 
+            : key.indexOf(filter) == -1)
+             continue;
+        serviceNames.push(key);
     }
     serviceNames.sort();
 
