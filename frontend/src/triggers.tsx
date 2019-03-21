@@ -1,10 +1,10 @@
 import * as React from "react";
-import TextField from 'material-ui/TextField';
-import SelectField from 'material-ui/SelectField';
-import MenuItem from 'material-ui/MenuItem';
 import {TypePropType, ITrigger} from '../../shared/type'
 import { observer } from "mobx-react";
 import state from "./state";
+import TextField from "@material-ui/core/TextField";
+import Select from "@material-ui/core/Select";
+import MenuItem from "@material-ui/core/MenuItem";
 
 export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigger[])=>void}) => {
 	let triggers = p.triggers.slice(0);
@@ -22,8 +22,8 @@ export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigge
             for (let item of t.content.content) {
                 switch (item.type) {
                 case TypePropType.text: {
-                    let itt = item;
-                    fields.push(<TextField key={item.name} value={(v && v.values && v.values[item.name]) || item.default} disabled={!v} onChange={(e:any, value:string) => {triggers[i].values = Object.assign({}, triggers[i].values); triggers[i].values[itt.name] = value; setTriggers();}} hintText={item.title}/>);
+                    let itt = item; //hintText={item.title}
+                    fields.push(<TextField key={item.name} value={(v && v.values && v.values[item.name]) || item.default} disabled={!v} onChange={(e) => {triggers[i].values = Object.assign({}, triggers[i].values); triggers[i].values[itt.name] = e.target.value; setTriggers();}}/>);
                 }
                 }
             }
@@ -31,18 +31,18 @@ export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigge
 		rows.push(
 			<tr key={i}>
 				<td>
-                    <SelectField
+                    <Select
                         value={v.id || 0}
-                        onChange={(e:any, idx:number, value:number) => {
+                        onChange={(e) => {
                             if (v)
-                                triggers[i] = {id:value, values: []}; 
+                                triggers[i] = {id:+e.target.value, values: []};
                             else
-                                triggers.push({id:value, values:[]});
+                                triggers.push({id:+e.target.value, values:[]});
                             setTriggers();
                         }}>
-                        <MenuItem value={0} primaryText="None" />
-                        {state.triggers.map(t => <MenuItem key={t.name} value={t.id} primaryText={t.name} />)}
-                    </SelectField>
+                        <MenuItem value={0}>None</MenuItem>
+                        {state.triggers.map(t => <MenuItem key={t.name} value={t.id}>{t.name}</MenuItem>)}
+                    </Select>
 				</td><td>
                     {fields}
 				</td>

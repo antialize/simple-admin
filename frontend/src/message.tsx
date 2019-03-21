@@ -1,7 +1,6 @@
 import * as React from "react";
 import {ISetMessagesDismissed, ACTION, IMessageTextReqAction} from '../../shared/actions'
 import {hostId} from '../../shared/type'
-import {debugStyle} from './debug';
 import { observer } from "mobx-react";
 import state from "./state";
 import Button from "@material-ui/core/Button";
@@ -52,6 +51,6 @@ export default observer(({id, inGroup}: {id:number, inGroup:boolean}) => {
             actions.push(<Button key="contract" color="primary" variant="contained" onClick={()=>setExpanded(false, false)}>Partial text</Button>);
         }
     }    
-    return <tr style={debugStyle()} className={c} key={id}>{inGroup?<td colSpan={2} />:<td>{message.type}</td>}{inGroup?null:<td>{hostname}</td>}<td>{msg}</td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>;
+    return <tr  className={c} key={id}>{inGroup?<td colSpan={2} />:<td>{message.type}</td>}{inGroup?null:<td>{hostname}</td>}<td>{msg}</td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>;
 });
 

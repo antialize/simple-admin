@@ -1,8 +1,8 @@
 import * as React from "react";
-import Chip from 'material-ui/Chip';
 import {ClearAutoComplete} from './clear_auto_complete';
 import { observer } from "mobx-react";
 import state from "./state";
+import Chip from "@material-ui/core/Chip";
 
 interface IProps {
     selected: number[];
@@ -29,9 +29,9 @@ export default observer((p:IProps) => {
         <div>
             <div style={{display: 'flex', flexWrap: 'wrap'}}>
                 {selected.map((o)=>{
-                    return <Chip key={o.key} style={{margin:4}} onRequestDelete={()=>{
+                    return <Chip key={o.key} style={{margin:4}} onDelete={()=>{
                         p.setSelected(p.selected.filter((id)=>id != o.key))
-                        }}>{o.label}</Chip>
+                        }} label={o.label}/>
                 })}
             </div>
             <ClearAutoComplete

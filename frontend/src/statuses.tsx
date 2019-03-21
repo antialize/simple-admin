@@ -1,6 +1,5 @@
 import * as React from "react";
 import { hostId } from '../../shared/type';
-import {debugStyle} from './debug';
 import StatusesCard from './statusesCard';
 import state from "./state";
 import { observer } from "mobx-react";
@@ -26,7 +25,7 @@ export default observer(()=>{
     for (const cat of cats2) {
         let hosts = cat.hosts;
         chunks.push(
-            <div key={cat.name} style={debugStyle()}>
+            <div key={cat.name}>
                 <h2>{cat.name}</h2>
                 <div style={{
                     display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
@@ -35,5 +34,5 @@ export default observer(()=>{
                 </div>
             </div>);
     }
-    return <div style={debugStyle()}>{chunks}</div>;
+    return <div>{chunks}</div>;
 });

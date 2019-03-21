@@ -42,7 +42,7 @@ export default observer(({typeId, id}:{typeId:number, id:number}) => {
             rows.push(<InformationListRow key={ct.name} name={ct.title}><Password value={v==undefined?"":v} onChange={value => c[ct.name] = setProp(ct.name,value)}/></InformationListRow>);
             break;
         case TypePropType.bool:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><Switch title={ct.description} checked={v==undefined?ct.default:v} onChange={(e) => setProp(ct.name,e.target.value)}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}><Switch title={ct.description} checked={v==undefined?ct.default:v} onChange={(e) => setProp(ct.name,e.target.checked)}/></InformationListRow>);
             break;
         case TypePropType.text:
             rows.push(<InformationListRow key={ct.name} name={ct.title}>

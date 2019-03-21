@@ -1,6 +1,6 @@
 import * as React from "react";
 import {addActionTarget, removeActionTarget, sendMessage, ActionTarget} from './index'
-import {IAction, ACTION, IAddLogLines, IStartLog, IEndLog} from '../../shared/actions'
+import {IAction, ACTION, IStartLog, IEndLog} from '../../shared/actions'
 
 interface Props {
     type: 'dmesg' | 'file' | 'journal';

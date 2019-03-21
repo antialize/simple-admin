@@ -1,13 +1,15 @@
 import * as React from "react";
-import Dialog from 'material-ui/Dialog';
-import TextField from 'material-ui/TextField';
-import RaisedButton from 'material-ui/RaisedButton';
 import {CONNECTION_STATUS, ILogin, ACTION, ILogout} from '../../shared/actions';
-import CircularProgress from 'material-ui/CircularProgress';
 import { observable, action } from "mobx";
 import state from "./state";
 import { observer } from "mobx-react";
 import Cookies = require("js-cookie");
+import CircularProgress from "@material-ui/core/CircularProgress";
+import Dialog from "@material-ui/core/Dialog";
+import TextField from "@material-ui/core/TextField";
+import Button from "@material-ui/core/Button";
+import DialogTitle from "@material-ui/core/DialogTitle";
+import DialogContent from "@material-ui/core/DialogContent";
 
 export class LoginState {
     @observable
@@ -69,14 +71,17 @@ export const Login = observer(()=>{
     const o = (state.authUser == l.user && state.authOtp);
     const dlog = dis || !l.user || !l.pwd || (!l.otp && !o);
 
-    return (<Dialog title="Login" modal={true} open={true}>
-        {progress} {message} <br />
-        <form onSubmit={(e)=>{if (!dlog) l.login(); e.preventDefault()}}>
-            <TextField name="user" hintText="User" floatingLabelText="User" disabled={dis} value={l.user} onChange={(_,value)=>l.user=value} errorText={(dis || l.user)?null:"Required"}/><br />
-            <TextField name="pwd" hintText="Password" floatingLabelText="Password" type="password" disabled={dis} value={l.pwd} onChange={(_,value)=>l.pwd = value} errorText={(dis || l.pwd)?null:"Required"}/><br />
-            <TextField name="otp" hintText="One Time Password" floatingLabelText="One Time Password" disabled={dis || o} value={l.otp} onChange={(_,value)=>l.otp = value} errorText={(dis || l.otp || o)?null:"Required"} /> <br/>
-            <RaisedButton label="Login" primary={true} type="submit" disabled={dlog}/>
-        </form>
+    return (<Dialog open={true} fullWidth={true}>
+        <DialogTitle>Login</DialogTitle>
+        <DialogContent>
+            {progress} {message} <br />
+            <form onSubmit={(e)=>{if (!dlog) l.login(); e.preventDefault()}}>
+                <TextField name="user" helperText="User" disabled={dis} value={l.user} onChange={(e)=>l.user=e.target.value} error={!(dis || l.user)}/><br />
+                <TextField name="pwd" helperText="Password" type="password" disabled={dis} value={l.pwd} onChange={(e)=>l.pwd = e.target.value} error={!(dis || l.pwd)}/><br />
+                <TextField name="otp" helperText="One Time Password" disabled={dis || o} value={l.otp} onChange={(e)=>l.otp = e.target.value} error={!(dis || l.otp || o)} /> <br/>
+                <Button variant="contained" color="primary" type="submit" disabled={dlog}>Login</Button>
+            </form>
+        </DialogContent>
     </Dialog>);
 });
 

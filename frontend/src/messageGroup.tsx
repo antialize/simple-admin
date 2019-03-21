@@ -1,8 +1,6 @@
 import * as React from 'react';
-import { ISetMessagesDismissed, ACTION, IMessage} from '../../shared/actions'
+import { ISetMessagesDismissed, ACTION} from '../../shared/actions'
 import {hostId} from '../../shared/type'
-import {debugStyle} from './debug';
-import RaisedButton from 'material-ui/RaisedButton';
 import Message from './message';
 import { observer } from 'mobx-react';
 import state from './state';
@@ -40,7 +38,7 @@ export default observer(({ids, start, end, dismissed}: {ids:number[], start:numb
     else
         actions.push(<Button color="primary" variant="contained" key="expand" onClick={()=> state.messageGroupExpanded.set(id, false)}>Expand</Button>);
     
-    let rows = [<tr style={debugStyle()} className={c} key={ids[0]+"_root"}><td>{message.type} ({ids.length})</td><td>{hostname}</td><td></td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>];
+    let rows = [<tr className={c} key={ids[0]+"_root"}><td>{message.type} ({ids.length})</td><td>{hostname}</td><td></td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>];
     if (expanded) {
         for (const id of ids) {
             rows.push(<Message key={id} inGroup={true} id={id}/>);

@@ -1,14 +1,14 @@
 import * as React from "react";
 import 'xterm/dist/xterm.css';
 import * as $ from 'jquery'
-import Chip from 'material-ui/Chip';
-import RaisedButton from 'material-ui/RaisedButton';
 import { remoteHost } from './config';
 import * as Cookies from 'js-cookie';
 import { Terminal } from 'xterm';
 
 import * as fit from 'xterm/lib/addons/fit/fit';
 import * as fullscreen from 'xterm/lib/addons/fullscreen/fullscreen';
+import Chip from "@material-ui/core/Chip";
+import Button from "@material-ui/core/Button";
 
 Terminal.applyAddon(fit);
 Terminal.applyAddon(fullscreen);
@@ -221,7 +221,7 @@ export class HostTerminals extends React.Component<Props, State> {
             if (id == this.state.current)
                 style.backgroundColor = 'rgb(0, 188, 212)';
 
-            return <Chip key={id} style={style} onClick={() => this.setCurrent(id)} onRequestDelete={() => this.closeTerminal(id)}>{this.state.names[id]}</Chip>
+            return <Chip key={id} style={style} onClick={() => this.setCurrent(id)} onDelete={() => this.closeTerminal(id)}>{this.state.names[id]}</Chip>
         });
 
         return (
@@ -231,8 +231,8 @@ export class HostTerminals extends React.Component<Props, State> {
                         {terms}
                         <Chip onClick={() => this.newTerminal()} style={{ margin: 4 }}>+</Chip>
                         <div style={{ marginLeft: 'auto' }} />
-                        <RaisedButton onClick={() => this.reset()} label="Reset" style={{ margin: 4, alignSelf: 'flex-end' }} />
-                        <RaisedButton onClick={() => this.toggleFullScreen()} label="Full screen" style={{ margin: 4, alignSelf: 'flex-end' }} />
+                        <Button variant="contained" onClick={() => this.reset()} style={{ margin: 4, alignSelf: 'flex-end' }}>Reset</Button>
+                        <Button variant="contained" onClick={() => this.toggleFullScreen()} style={{ margin: 4, alignSelf: 'flex-end' }}>Full screen</Button>
                     </div>
                     <div ref={(div) => this.termContainerDiv = div} style={{ flex: 1 }} />
                 </div>

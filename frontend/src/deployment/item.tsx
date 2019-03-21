@@ -1,10 +1,9 @@
 import * as React from "react";
 import * as State from '../../../shared/state'
-import RaisedButton from 'material-ui/RaisedButton';
-import Checkbox from 'material-ui/Checkbox';
-import * as page from '../page'
 import { observer } from "mobx-react";
 import state from "../state";
+import Button from "@material-ui/core/Button";
+import Checkbox from "@material-ui/core/Checkbox";
 
 interface IProps {
     index: number;
@@ -32,10 +31,10 @@ export default observer((p:IProps)=>{
         <td>{o.title}</td>
         <td>{o.typeName}</td>
         <td>{act}</td>
-        <td><Checkbox checked={o.enabled} disabled={!canSelect} onCheck={(e, checked)=>state.deployment.toggle(o.index, checked)}/></td>
-        <td><RaisedButton label="Details" onClick={(e)=>{
+        <td><Checkbox checked={o.enabled} disabled={!canSelect} onChange={(e)=>state.deployment.toggle(o.index, e.target.checked)}/></td>
+        <td><Button variant="contained" onClick={(e)=>{
             state.page.onClick(e, {type:State.PAGE_TYPE.DeploymentDetails, index: o.index})}}
-            href={state.page.link({type:State.PAGE_TYPE.DeploymentDetails, index: o.index})} /></td>
+            href={state.page.link({type:State.PAGE_TYPE.DeploymentDetails, index: o.index})}>Details</Button></td>
         </tr>
     );
 });

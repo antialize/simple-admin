@@ -1,9 +1,10 @@
 import * as React from "react";
-import Toggle from 'material-ui/Toggle';
-import SelectField from 'material-ui/SelectField';
-import MenuItem from 'material-ui/MenuItem';
-import TextField from 'material-ui/TextField';
 import {IType, ITypeProp, TypePropType, hostId, typeId, rootId} from '../../shared/type'
+import TextField from "@material-ui/core/TextField";
+import Select from "@material-ui/core/Select";
+import MenuItem from "@material-ui/core/MenuItem";
+import Switch from "@material-ui/core/Switch";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
 
 export function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void}) {
     let rows = [];
@@ -29,72 +30,77 @@ export function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])
             def = <TextField value="" disabled={true}/>;
         else if (r.type == TypePropType.bool) {
             def = (
-                <SelectField value={!!r.default} onChange={(a, b, value) => change({default: value})}>
-                    <MenuItem value={true} primaryText="On" />
-                    <MenuItem value={false} primaryText="Off" />
-                </SelectField>
+                <Select value={r.default?1:0} onChange={(e) => change({default: e.target.value?true:false})}>
+                    <MenuItem value={1}>On</MenuItem>
+                    <MenuItem value={0}>Off</MenuItem>
+                </Select>
             );
         } else if (r.type == TypePropType.choice) {
             def = (
-                <SelectField value={r.default || ""} onChange={(a, b, value) => change({default: value})} disabled={!r.choices || r.choices.length == 0}>
-                    {(r.choices || [""]).map(v=> <MenuItem value={v} primaryText={v} key={v}/> )}
-                </SelectField>
+                <Select value={r.default || ""} onChange={(e) => change({default: e.target.value})} disabled={!r.choices || r.choices.length == 0}>
+                    {(r.choices || [""]).map(v=> <MenuItem value={v} key={v}>{v}</MenuItem> )}
+                </Select>
             );
         } else {
-            def = <TextField value={r.default} onChange={(a,value)=>change({default: value})}/>;
+            def = <TextField value={r.default} onChange={(e)=>change({default: e.target.value})}/>;
         }
         let temp;
         if (r.type == TypePropType.text || r.type == TypePropType.document) 
-            temp = <Toggle key="template" toggled={r.template} onToggle={(a,value)=>change({template: value})}/>;
+            temp = <Switch key="template" checked={r.template} onChange={(e)=>change({template: e.target.value})}/>;
         else
-            temp = <Toggle key="template" toggled={false} disabled={true}/>;
+            temp = <Switch key="template" checked={false} disabled={true}/>;
         let var_;
         if (r.type == TypePropType.text || r.type == TypePropType.choice || r.type == TypePropType.bool || r.type == TypePropType.document)
-            var_ = <TextField key="var" value={r.variable} onChange={(a, value) => change({variable: value})}/>;
+            var_ = <TextField key="var" value={r.variable} onChange={(e) => change({variable: e.target.value})}/>;
         else
             var_ = <TextField key="var" value="" disabled={true} />;
         let extra = null;
         if (r.type == TypePropType.choice)
-            extra = <TextField hintText="Choices" value={((r.choices) || []).join(", ").trim()} onChange={(a, value) => change({choices: value.split(",").map(v=>v.trim())})}/>;
+            extra = <TextField value={((r.choices) || []).join(", ").trim()} onChange={(e) => change({choices: e.target.value.split(",").map(v=>v.trim())})}/>; //hintText="Choices"
         else if (r.type == TypePropType.document)
             extra = <span>
-                <TextField key="langname" hintText="LangName" value={r.langName || ""} onChange={(a, value) => change({langName: value})}/>
-                <TextField key="lang" hintText="Lang" value={r.lang || ""} onChange={(a, value) => change({lang: value})}/>
+                <TextField key="langname" value={r.langName || ""} onChange={(e) => change({langName: e.target.value})}/> // hintText="LangName"
+                <TextField key="lang" value={r.lang || ""} onChange={(e) => change({lang: e.target.value})}/> //hintText="Lang"
                 </span>;
         else if (r.type == TypePropType.text)
             extra = (
                 <span style={{verticalAlign:"middle"}}>
-                    <SelectField hintText="Size" value={r.lines || 0} onChange={(a,b,value) => change({lines: value})} style={{width:"120px", display:'inline-block', verticalAlign:"middle"}}>
-                        <MenuItem key={0} value={0} primaryText="Normal" />
-                        <MenuItem key={1} value={1} primaryText="1 Line" />
-                        <MenuItem key={2} value={2} primaryText="2 Lines" />
-                        <MenuItem key={3} value={3} primaryText="3 Lines" />
-                        <MenuItem key={4} value={4} primaryText="4 Lines" />
-                        <MenuItem key={5} value={5} primaryText="5 Lines" />
-                    </SelectField>
-                    <Toggle key="deploytitle" toggled={r.deployTitle} onToggle={(a,value)=>change({deployTitle: value})} label="Deploy title" labelPosition="right" style={{width:"120px", display:'inline-block', verticalAlign:"middle"}} />
+                    <Select value={r.lines || 0} onChange={(e) => change({lines: +e.target.value})} style={{width:"120px", display:'inline-block', verticalAlign:"middle"}}> // hintText="Size"
+                        <MenuItem key={0} value={0}>Normal</MenuItem>
+                        <MenuItem key={1} value={1}>1 Line</MenuItem>
+                        <MenuItem key={2} value={2}>2 Lines</MenuItem>
+                        <MenuItem key={3} value={3}>3 Lines</MenuItem>
+                        <MenuItem key={4} value={4}>4 Lines</MenuItem>
+                        <MenuItem key={5} value={5}>5 Lines</MenuItem>
+                    </Select>
+                    <FormControlLabel
+                        label="Deploy title"
+                        labelPlacement="end"
+                        control={
+                            <Switch key="deploytitle" checked={r.deployTitle} onChange={(e)=>change({deployTitle: e.target.checked})} style={{width:"120px", display:'inline-block', verticalAlign:"middle"}} />
+                        }/>
                 </span>)
 
         rows.push(
             <tr key={i}>
                 <td>
-                    <SelectField value={r.type} onChange={(a, b, value) => changeType(value)}>
-                        <MenuItem value={TypePropType.bool} primaryText="Bool" />
-                        <MenuItem value={TypePropType.text} primaryText="Text" />
-                        <MenuItem value={TypePropType.password} primaryText="Password" />
-                        <MenuItem value={TypePropType.document} primaryText="Document" />
-                        <MenuItem value={TypePropType.choice} primaryText="Choice" />
-                        <MenuItem value={TypePropType.typeContent} primaryText="Type Content" />
-                        <MenuItem value={TypePropType.monitorContent} primaryText="Monitor Content" />
-                        <MenuItem value={TypePropType.none} primaryText="Nothing" />
-                    </SelectField>
+                    <Select value={r.type} onChange={(e) => changeType(+e.target.value)}>
+                        <MenuItem value={TypePropType.bool}>Bool</MenuItem>
+                        <MenuItem value={TypePropType.text}>Text</MenuItem>
+                        <MenuItem value={TypePropType.password}>Password</MenuItem>
+                        <MenuItem value={TypePropType.document}>Document</MenuItem>
+                        <MenuItem value={TypePropType.choice}>Choice</MenuItem>
+                        <MenuItem value={TypePropType.typeContent}>Type Content</MenuItem>
+                        <MenuItem value={TypePropType.monitorContent}>Monitor Content</MenuItem>
+                        <MenuItem value={TypePropType.none}>Nothing</MenuItem>
+                    </Select>
                 </td>
-                <td><TextField value={r.type != TypePropType.none && r.name || ""} disabled={r.type == TypePropType.none} onChange={(a, value) => change({name: value})}/></td>
-                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent && r.title || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(a, value) => change({title: value})}/></td>
+                <td><TextField value={r.type != TypePropType.none && r.name || ""} disabled={r.type == TypePropType.none} onChange={(e) => change({name: e.target.value})}/></td>
+                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent && r.title || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({title: e.target.value})}/></td>
                 <td>{def}</td>
                 <td>{temp}</td>
                 <td>{var_}</td>
-                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent  && r.description || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(a, value) => change({description: value})}/></td>
+                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent  && r.description || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({description: e.target.value})}/></td>
                 <td>{extra}</td>
             </tr>);
     }

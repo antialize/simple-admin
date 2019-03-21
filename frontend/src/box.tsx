@@ -1,13 +1,15 @@
 import * as React from "react";
-import {Card, CardActions, CardHeader, CardMedia, CardTitle, CardText} from 'material-ui/Card';
+import ExpansionPanel from "@material-ui/core/ExpansionPanel";
+import ExpansionPanelSummary from "@material-ui/core/ExpansionPanelSummary";
+import ExpansionPanelDetails from "@material-ui/core/ExpansionPanelDetails";
 
 export function Box( {title, collapsable, expanded, children}:{title:React.ReactNode, collapsable?:boolean, expanded?:boolean, children?:JSX.Element|JSX.Element[]}) {
     return (
-        <Card initiallyExpanded={!collapsable || expanded} style={{marginBottom:"20px"}}>
-            <CardHeader style={{backgroundColor:"lightgray"}} titleStyle={{fontWeight:"bold", fontSize:"130%"}} title={title} actAsExpander={collapsable} showExpandableButton={collapsable}/>                         
-            <CardText expandable={collapsable}>
+        <ExpansionPanel defaultExpanded={!collapsable || expanded} style={{marginBottom:"20px"}}>
+            <ExpansionPanelSummary>{title}</ExpansionPanelSummary>
+            <ExpansionPanelDetails style={{display:"block"}}>
                 {children}
-            </CardText>
-        </Card>
+            </ExpansionPanelDetails>
+        </ExpansionPanel>
     )
 }

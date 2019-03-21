@@ -2,12 +2,10 @@ import {observable, computed, action} from "mobx";
 import {CONNECTION_STATUS, IAction, IMessage, IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject}  from "../../shared/actions";
 import {LoginState} from "./login"
 import {  IObject2, IObjectDigest, PAGE_TYPE } from "../../shared/state";
-import {ISmartStatus, IStatusUptime, IStatusMeminfo, IStatusLBSRelease, IStatusUname, IStatusLoadAVG, IStatusMount, IService, IStatus, applyStatusUpdate, IStatusUpdate} from "../../shared/status"
+import {ISmartStatus, IStatusUptime, IStatusMeminfo, IStatusLBSRelease, IStatusUname, IStatusLoadAVG, IStatusMount, IService, IStatus, IStatusUpdate} from "../../shared/status"
 import { DeploymentState } from "./deployment";
 import { PageState } from "./page";
 import { IType, hostId, typeId, TypePropType } from "../../shared/type";
-import { loadavg } from "os";
-import { unstable_batchedUpdates } from "react-dom";
 
 export class ObjectState {
     
@@ -44,6 +42,7 @@ export class ObjectState {
     discard() {
         this.current = null;
         this.touched = false;
+        this.loadCurrent();
     }
 
     @action.bound

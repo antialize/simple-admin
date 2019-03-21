@@ -12,7 +12,6 @@ import Messages from './messages';
 import { remoteHost } from './config';
 import { Deployment } from './deployment';
 import { add, clear } from './deployment/log';
-import { debugStyle } from './debug'
 import * as Cookies from 'js-cookie';
 import { Login } from './login';
 import * as chart from './chart';
@@ -31,19 +30,19 @@ export const MainPage = observer(()=>{
     const p = state.page.current;
     switch (p.type) {
         case State.PAGE_TYPE.Dashbord:
-            return <div style={debugStyle()}>
+            return <div>
                 <h1>Dashboard</h1>
                 <Messages />
                 <Statuses />
             </div>;
         case State.PAGE_TYPE.ObjectList:
-            return <div style={debugStyle()}><h1>List of {state.types.get(p.objectType).content.plural}</h1><ObjectList type={p.objectType} /></div>
+            return <div><h1>List of {state.types.get(p.objectType).content.plural}</h1><ObjectList type={p.objectType} /></div>
         case State.PAGE_TYPE.Object:
-            return <div style={debugStyle()}><Object type={p.objectType} id={p.id} version={p.version} /> </div>
+            return <div><Object type={p.objectType} id={p.id} version={p.version} /> </div>
         case State.PAGE_TYPE.Deployment:
-            return <div style={debugStyle()}><Deployment /></div>
+            return <div><Deployment /></div>
         case State.PAGE_TYPE.DeploymentDetails:
-            return <div style={debugStyle()}><DeploymentDetails index={p.index} /></div>
+            return <div><DeploymentDetails index={p.index} /></div>
         default:
             never(p, "Unhandled page type");
     }
@@ -260,7 +259,7 @@ const Content = observer(()=>{
 
     }
     if (state.loaded) {
-        return (<div style={debugStyle()}>
+        return (<div>
             <Menu />
             <div style={{ marginLeft: "300px" }}>
                 <MainPage />

@@ -1,9 +1,4 @@
-/*import * as CodeMirror from 'react-codemirror'*/
 import * as React from "react";
-import * as ReactDOM from "react-dom";
-import MenuItem from 'material-ui/MenuItem';
-import {Toolbar, ToolbarGroup, ToolbarSeparator, ToolbarTitle} from 'material-ui/Toolbar';
-import DropDownMenu from 'material-ui/DropDownMenu';
 import {UnControlled as CodeMirror} from 'react-codemirror2';
 
 import 'codemirror/lib/codemirror.css';
@@ -44,7 +39,9 @@ import 'codemirror/mode/gfm/gfm';
 import 'codemirror/theme/night.css';
 import 'codemirror/theme/neo.css';
 import 'codemirror/theme/ambiance.css';
-
+import MenuItem from "@material-ui/core/MenuItem";
+import Toolbar from "@material-ui/core/Toolbar";
+import Select from "@material-ui/core/Select";
 
 const modeInfo = [
     {name: "C", mime: "text/x-csrc", mode: "clike", ext: ["c", "h"]},
@@ -116,8 +113,8 @@ export default class Editor extends React.Component<IProps, IState> {
     }
 
     render() {
-        const te = themes.map(name => <MenuItem key={name} value={name} primaryText={name} />);
-        const lang = modeInfo.map(i => <MenuItem key={i.name} value={i.name} primaryText={i.name} />);
+        const te = themes.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>);
+        const lang = modeInfo.map(i => <MenuItem key={i.name} value={i.name}>{i.name}</MenuItem>);
         let mode = null;
         for (var i of modeInfo)
             if (i.name == this.props.lang)
@@ -125,19 +122,17 @@ export default class Editor extends React.Component<IProps, IState> {
         return (
             <div>
                 <Toolbar>
-                    <ToolbarGroup firstChild={true}>
-                        <b>{this.props.title}</b>&nbsp;&nbsp;
-                        Language:
-                        {this.props.fixedLang
-                            ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
-                            : <DropDownMenu value={this.props.lang} onChange={(e, i, v) => this.props.setLang(v)}>
-                                {lang}
-                            </DropDownMenu>}
-                        Theme:
-                        <DropDownMenu value={this.state.theme} onChange={(e, i, v) => this.setState({theme: v})}>
-                            {te}
-                        </DropDownMenu>
-                    </ToolbarGroup>
+                    <b>{this.props.title}</b>&nbsp;&nbsp;
+                    Language:
+                    {this.props.fixedLang
+                        ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
+                        : <Select value={this.props.lang} onChange={(e) => this.props.setLang(e.target.value)}>
+                            {lang}
+                        </Select>}
+                    Theme:
+                    <Select value={this.state.theme} onChange={(e) => this.setState({theme: e.target.value})}>
+                        {te}
+                    </Select>
                 </Toolbar>
                 <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} onChange={(e,d,v) => this.props.setData(v)} />
 

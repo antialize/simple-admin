@@ -1,8 +1,8 @@
 import * as React from "react";
 import * as State from '../../../shared/state'
-import CircularProgress from 'material-ui/CircularProgress';
 import { observer } from "mobx-react";
 import state from "../state";
+import CircularProgress from "@material-ui/core/CircularProgress";
 
 export default observer(()=>{
     let spin = false;
