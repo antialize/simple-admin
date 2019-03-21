@@ -10,6 +10,8 @@ import TextField from "@material-ui/core/TextField";
 import Button from "@material-ui/core/Button";
 import DialogTitle from "@material-ui/core/DialogTitle";
 import DialogContent from "@material-ui/core/DialogContent";
+import DialogActions from "@material-ui/core/DialogActions";
+import DialogContentText from "@material-ui/core/DialogContentText";
 
 export class LoginState {
     @observable
@@ -71,17 +73,20 @@ export const Login = observer(()=>{
     const o = (state.authUser == l.user && state.authOtp);
     const dlog = dis || !l.user || !l.pwd || (!l.otp && !o);
 
-    return (<Dialog open={true} fullWidth={true}>
+    return (<Dialog open fullWidth >
         <DialogTitle>Login</DialogTitle>
-        <DialogContent>
-            {progress} {message} <br />
-            <form onSubmit={(e)=>{if (!dlog) l.login(); e.preventDefault()}}>
-                <TextField name="user" helperText="User" disabled={dis} value={l.user} onChange={(e)=>l.user=e.target.value} error={!(dis || l.user)}/><br />
-                <TextField name="pwd" helperText="Password" type="password" disabled={dis} value={l.pwd} onChange={(e)=>l.pwd = e.target.value} error={!(dis || l.pwd)}/><br />
-                <TextField name="otp" helperText="One Time Password" disabled={dis || o} value={l.otp} onChange={(e)=>l.otp = e.target.value} error={!(dis || l.otp || o)} /> <br/>
+        <form onSubmit={(e)=>{if (!dlog) l.login(); e.preventDefault()}}>
+            <DialogContent>
+                {progress}
+                <DialogContentText>{message}</DialogContentText>
+                <TextField fullWidth name="user" helperText="User" disabled={dis} value={l.user} onChange={(e)=>l.user=e.target.value} error={!(dis || l.user)}/><br />
+                <TextField fullWidth name="pwd" helperText="Password" type="password" disabled={dis} value={l.pwd} onChange={(e)=>l.pwd = e.target.value} error={!(dis || l.pwd)}/><br />
+                <TextField fullWidth name="otp" helperText="One Time Password" disabled={dis || o} value={l.otp} onChange={(e)=>l.otp = e.target.value} error={!(dis || l.otp || o)} />
+            </DialogContent>
+            <DialogActions>
                 <Button variant="contained" color="primary" type="submit" disabled={dlog}>Login</Button>
-            </form>
-        </DialogContent>
+            </DialogActions>
+        </form>
     </Dialog>);
 });
 

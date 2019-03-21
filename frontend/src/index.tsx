@@ -1,7 +1,5 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
-import getMuiTheme from 'material-ui/styles/getMuiTheme';
 import Statuses from './statuses'
 import * as State from '../../shared/state';
 import { IAction, ACTION, CONNECTION_STATUS, IRequestAuthStatus } from '../../shared/actions'
@@ -21,6 +19,8 @@ import setupState from './setupState';
 import {runInAction} from "mobx";
 import DeploymentDetails from './deploymentDetails';
 import { typeId } from "../../shared/type";
+
+import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'; 
 
 function never(n: never, message: string) {
     console.error(message);
@@ -271,9 +271,22 @@ const Content = observer(()=>{
     }
 });
 
+const theme = createMuiTheme({
+    overrides: {
+        MuiDialogActions: {
+            root:  {
+                margin: 20
+            }
+        }
+    },
+    palette: {
+        type: "dark",
+      },
+   });
+
 ReactDOM.render(
     <div>
-        <MuiThemeProvider>
+        <MuiThemeProvider theme={theme}>
             <Content />
         </MuiThemeProvider>
     </div>, document.getElementById("main"));

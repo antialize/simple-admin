@@ -21,6 +21,7 @@ export class ClearAutoComplete extends React.Component<Props<any>, State> {
     }
 
     render() {
+        return null;
         return <AutoComplete
                     filter={AutoComplete.caseInsensitiveFilter}
                     searchText={this.state.value}
