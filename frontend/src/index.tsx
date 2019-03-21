@@ -259,13 +259,10 @@ const Content = observer(()=>{
 
     }
     if (state.loaded) {
-        return (<div>
-            <Menu />
-            <div style={{ marginLeft: "300px" }}>
-                <MainPage />
-            </div>
-            {dialog}
-        </div>)
+        return (<>
+            <Menu/>
+            <MainPage />
+         </>)
     } else {
         return dialog;
     }
