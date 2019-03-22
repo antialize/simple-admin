@@ -1,5 +1,6 @@
 import * as React from "react";
 import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
 
 interface IProps {
     variables: {key:string, value:string}[];
@@ -36,14 +37,14 @@ export default function Variables(props:IProps) {
 		</tr>);
 				
     return (
-		<table>
-		<thead>
-		<tr><th>Key</th><th>Value</th><th></th></tr>
-		</thead>
-		<tbody>
-		{rows}
-		</tbody>
-		</table>
+			<table>
+				<thead>
+					<tr><th><Typography>Key</Typography></th><th><Typography>Value</Typography></th><th></th></tr>
+				</thead>
+				<tbody>
+					{rows}
+				</tbody>
+			</table>
     )
 }
 

@@ -1,6 +1,7 @@
 import * as React from "react";
 import {addActionTarget, removeActionTarget, sendMessage, ActionTarget} from './index'
 import {IAction, ACTION, IStartLog, IEndLog} from '../../shared/actions'
+import Typography from "@material-ui/core/Typography";
 
 interface Props {
     type: 'dmesg' | 'file' | 'journal';
@@ -63,6 +64,6 @@ export class Log extends React.Component<Props, {}> implements ActionTarget {
     }
 
     render() {
-        return <ul ref={(ul)=>this.ul = ul} style={{margin:0, listStyleType: 'none', overflowY: 'scroll', overflowX: 'auto', maxHeight: '500px', padding: 0}}/>;
+        return <Typography><ul ref={(ul)=>this.ul = ul} style={{margin:0, listStyleType: 'none', overflowY: 'scroll', overflowX: 'auto', maxHeight: '500px', padding: 0}}/></Typography>;
     }
 }

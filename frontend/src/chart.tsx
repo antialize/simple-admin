@@ -3,8 +3,10 @@ import { IStatBucket, ACTION, IRequestStatBucket, ISubscribeStatValues, IStatVal
 import { MyDate } from './MyDate'
 import { observer } from "mobx-react";
 import state from "./state";
+import { withTheme } from "@material-ui/core/styles";
+import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 
-const charts: {[key:number]: Chart} = {};
+const charts: {[key:number]: ChartImpl} = {};
 const epoc = 1514764800;
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -17,7 +19,7 @@ interface Props {
 const preScale = 2;
 
 @observer
-class Chart extends React.Component<Props, {}> {
+class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
     static cntr = 0;
     target: number;
     canvas: HTMLCanvasElement;
@@ -31,12 +33,12 @@ class Chart extends React.Component<Props, {}> {
     leftSpace: number = null;
     rightSpace: number = null;
 
-    constructor(props: Props) {
+    constructor(props: Props & ThemedComponentProps) {
         super(props);
-        this.target = Chart.cntr;
+        this.target = ChartImpl.cntr;
         this.host = props.host;
         this.zoom = props.initialZoom;
-        ++Chart.cntr;
+        ++ChartImpl.cntr;
         charts[this.target] = this;
         this.endTime = (+new Date() / 1000);
         this.setSnap(true);
@@ -171,7 +173,8 @@ class Chart extends React.Component<Props, {}> {
             let timeHeight = 28;
             let tpp = 100 * (this.endTime - startTime) / contentWidth;
             ctx.save();
-            ctx.strokeStyle = "black";
+            ctx.strokeStyle = this.props.theme.palette.text.primary;
+            ctx.fillStyle =  this.props.theme.palette.text.primary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(leftSpace-2, h - bottomSpace);
@@ -325,6 +328,8 @@ class Chart extends React.Component<Props, {}> {
         const renderAxisY = (maxValue: number, unit: "%" | "" | "bs", right: boolean = false) => {
             ctx.save();
             ctx.font = '14px serif';
+            ctx.fillStyle = this.props.theme.palette.text.primary;
+            ctx.strokeStyle = this.props.theme.palette.text.primary;
 
             const labels: {text:string, value:number}[] = [];
             let time = "";
@@ -393,7 +398,7 @@ class Chart extends React.Component<Props, {}> {
                 ctx.textAlign="right"; 
             }
             
-            ctx.strokeStyle = "black;"
+            ctx.strokeStyle = "white;"
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(lineY, topSpace);
@@ -551,4 +556,6 @@ export function handleAction(a:IStatBucket|IStatValueChanges) {
 
     }
 };
+
+const Chart = withTheme()(ChartImpl);
 export default Chart;

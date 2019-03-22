@@ -9,6 +9,7 @@ import CardHeader from "@material-ui/core/CardHeader";
 import CardContent from "@material-ui/core/CardContent";
 import CardActions from "@material-ui/core/CardActions";
 import Button from "@material-ui/core/Button";
+import Typography from "@material-ui/core/Typography";
 
 export default observer(({id}: {id:number}) => {
     let hosts = state.objectDigests.get(hostId);
@@ -20,14 +21,14 @@ export default observer(({id}: {id:number}) => {
     if (up)
         elm = <Status id={id} />;
     else
-        elm = <div>Down</div>;
+        elm = <Typography color="error" variant="body1">Down</Typography>;
 
     return (
         <Card key={id} style={{ margin: '5px' }}>
             <CardHeader title={name} />
             <CardContent>{elm}</CardContent>
             <CardActions>
-                <Button variant="contained" onClick={(e) => state.page.onClick(e, a)} href={state.page.link(a)}>Details</Button>
+                <Button onClick={(e) => state.page.onClick(e, a)} href={state.page.link(a)}>Details</Button>
             </CardActions>
         </Card>);
 });

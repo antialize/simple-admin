@@ -3,6 +3,7 @@ import { hostId } from '../../shared/type';
 import StatusesCard from './statusesCard';
 import state from "./state";
 import { observer } from "mobx-react";
+import Typography from "@material-ui/core/Typography";
 
 export default observer(()=>{
     const catagories: { [key: string]: {id: number, name: string}[] } = {};
@@ -26,7 +27,7 @@ export default observer(()=>{
         let hosts = cat.hosts;
         chunks.push(
             <div key={cat.name}>
-                <h2>{cat.name}</h2>
+                <Typography variant="h6" component="span">{cat.name}</Typography>
                 <div style={{
                     display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
                 }}>

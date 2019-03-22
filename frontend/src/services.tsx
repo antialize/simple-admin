@@ -6,6 +6,20 @@ import { observer } from "mobx-react";
 import state from "./state";
 import Button from "@material-ui/core/Button";
 import TextField from "@material-ui/core/TextField";
+import Typography from "@material-ui/core/Typography";
+import { withStyles, Theme, createStyles } from "@material-ui/core";
+import { StyleRules, StyledComponentProps } from "@material-ui/core/styles/withStyles";
+
+const styles = (theme:Theme) : StyleRules => {
+    return createStyles({
+        th: {
+            color: theme.palette.text.primary
+        },
+        tr: {
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary
+        }});
+}
 
 let boring = new Set(
     ["ModemManager.service", "NetworkManager-wait-online.service", "accounts-daemon.service",
@@ -48,7 +62,8 @@ let boring = new Set(
      "systemd-machined.service", "systemd-sysusers.service", "systemd-update-done.service",
      "systemd-vconsole-setup.service", "polkit.service", "ldconfig.service"]);
 
-function Service({ service, poke, logVisible, setLogVisibility }: { service: IService, poke: (name: string, poke: SERVICE_POKE) => void, logVisible: boolean, setLogVisibility: (visibility: boolean) => void }) {
+    
+function ServiceImpl({ service, poke, logVisible, setLogVisibility, classes }: { service: IService, poke: (name: string, poke: SERVICE_POKE) => void, logVisible: boolean, setLogVisibility: (visibility: boolean) => void } & StyledComponentProps) {
     let actions = [];
     if (service.activeState == "active") {
         actions.push(<Button variant="contained" color="secondary" key="stop" onClick={() => { if (confirm("Stop service " + service.name + "?")) poke(service.name, SERVICE_POKE.Stop); }} style={{ marginRight: "5px" }}>Stop</Button>);
@@ -63,7 +78,7 @@ function Service({ service, poke, logVisible, setLogVisibility }: { service: ISe
     else
         actions.push(<Button variant="contained" color="primary"  key="log" onClick={() => setLogVisibility(true)} style={{ marginRight: "5px" }}>Show log</Button>);
     return (
-        <tr key={service.name}>
+        <tr key={service.name} className={classes.tr}>
             <td>{service.name}</td>
             <td>{service.activeState}</td>
             <td>{service.StatusText}</td>
@@ -71,6 +86,8 @@ function Service({ service, poke, logVisible, setLogVisibility }: { service: ISe
         </tr>
     )
 }
+
+const Service = withStyles(styles)(ServiceImpl);
 
 function ServiceLog({ host, service }: { host: number, service: string }) {
     return (<tr key={"hat_" + service}>
@@ -80,7 +97,9 @@ function ServiceLog({ host, service }: { host: number, service: string }) {
     </tr>)
 }
 
-export default observer(({id}: {id:number}) => {
+
+
+const ServicesImpl = observer(({id, classes}: {id:number} & StyledComponentProps) => {
     if (!state.status.has(id)) return null;
     const filter = state.serviceListFilter.get(id) || "";
     let lvs = state.serviceLogVisibility.get(id);
@@ -111,6 +130,7 @@ export default observer(({id}: {id:number}) => {
     };
 
     let rows: JSX.Element[] = [];
+    console.log(classes);
     for (const key of serviceNames) {
         const service = services.get(key);
         const lv = lvs.get(service.name)
@@ -121,10 +141,10 @@ export default observer(({id}: {id:number}) => {
     return (
         <div>
             <TextField placeholder="Filter" onChange={(e) => state.serviceListFilter.set(id, e.target.value)} value={filter} />
-            <table className="services_table">
+            <table>
                 <thead>
-                    <tr>
-                        <th>Name</th><th>Status</th><th>Message</th><th>Actions</th>
+                    <tr className={classes.tr}>
+                        <th className={classes.th}>Name</th><th className={classes.th}>Status</th><th className={classes.th}>Message</th><th className={classes.th}>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -133,3 +153,6 @@ export default observer(({id}: {id:number}) => {
             </table>
         </div>)
 });
+
+const Services = withStyles(styles)(ServicesImpl);
+export default Services;

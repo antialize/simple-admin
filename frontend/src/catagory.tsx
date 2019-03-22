@@ -1,5 +1,5 @@
 import * as React from "react";
-import AutoComplete from 'material-ui/AutoComplete';
+//import AutoComplete from 'material-ui/AutoComplete';
 import { observer } from "mobx-react";
 import state from "./state";
 
@@ -11,12 +11,12 @@ export default observer(({catagory, type, setCatagory}:{catagory:string, type:nu
     let cat2 = [];
     for (const cat of catagories)
         cat2.push(cat);
-
-    return <AutoComplete
+    return <div />;
+   /* return <AutoComplete
             searchText={catagory || ""}
             filter={AutoComplete.caseInsensitiveFilter}
             onUpdateInput={setCatagory}
             hintText="Catagory"
             dataSource={cat2}
-            />;
+            />;*/
 });

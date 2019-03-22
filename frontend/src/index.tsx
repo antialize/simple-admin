@@ -19,8 +19,12 @@ import setupState from './setupState';
 import {runInAction} from "mobx";
 import DeploymentDetails from './deploymentDetails';
 import { typeId } from "../../shared/type";
-
+import { withStyles } from '@material-ui/core/styles';
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'; 
+import Typography from "@material-ui/core/Typography";
+import { withTheme } from '@material-ui/core/styles';
+import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
+import {HotKeys} from 'react-hotkeys';
 
 function never(n: never, message: string) {
     console.error(message);
@@ -30,17 +34,19 @@ export const MainPage = observer(()=>{
     const p = state.page.current;
     switch (p.type) {
         case State.PAGE_TYPE.Dashbord:
-            return <div>
-                <h1>Dashboard</h1>
+            return <>
+                <Typography variant="h4" component="h3">
+                    Dashbord
+                </Typography>
                 <Messages />
                 <Statuses />
-            </div>;
+            </>;
         case State.PAGE_TYPE.ObjectList:
-            return <div><h1>List of {state.types.get(p.objectType).content.plural}</h1><ObjectList type={p.objectType} /></div>
+            return <ObjectList type={p.objectType} />;
         case State.PAGE_TYPE.Object:
             return <div><Object type={p.objectType} id={p.id} version={p.version} /> </div>
         case State.PAGE_TYPE.Deployment:
-            return <div><Deployment /></div>
+            return <Deployment />
         case State.PAGE_TYPE.DeploymentDetails:
             return <div><DeploymentDetails index={p.index} /></div>
         default:
@@ -261,7 +267,9 @@ const Content = observer(()=>{
     if (state.loaded) {
         return (<>
             <Menu/>
-            <MainPage />
+            <main>
+                <MainPage />
+            </main>
          </>)
     } else {
         return dialog;
@@ -274,6 +282,11 @@ const theme = createMuiTheme({
             root:  {
                 margin: 20
             }
+        },
+        MuiMenu: {
+            paper: {
+                minWidth: 250,
+            }
         }
     },
     palette: {
@@ -281,9 +294,10 @@ const theme = createMuiTheme({
       },
    });
 
+document.body.style.backgroundColor = theme.palette.background.default;
+
 ReactDOM.render(
-    <div>
-        <MuiThemeProvider theme={theme}>
-            <Content />
-        </MuiThemeProvider>
-    </div>, document.getElementById("main"));
+    <MuiThemeProvider theme={theme}>
+        <Content />
+    </MuiThemeProvider>
+    , document.getElementById("main"));

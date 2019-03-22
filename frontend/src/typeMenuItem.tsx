@@ -15,6 +15,7 @@ import MenuList from "@material-ui/core/MenuList";
 import MenuItem from "@material-ui/core/MenuItem";
 
 import Menu from '@material-ui/core/Menu';
+import Divider from "@material-ui/core/Divider";
 
 
 function DropDown({title, children}:{title:string, children:any}) {
@@ -34,7 +35,7 @@ function DropDown({title, children}:{title:string, children:any}) {
     </>;
 }
 
-const ObjectMenuList = observer(({type}:{type:number})=>{
+export const ObjectMenuList = observer(({type}:{type:number})=>{
     let lst = [];
     if (state.objectDigests.has(type)) {
         for (let [i, v] of state.objectDigests.get(type)) {
@@ -42,9 +43,21 @@ const ObjectMenuList = observer(({type}:{type:number})=>{
         }
         lst.sort((l,r)=>{return l.name < r.name ? -1 : 1;});
     }
-    console.log("HI", lst.length);
     return (
         <>
+            <MenuItem
+                key="new"
+                onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}
+                href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}>
+                new
+            </MenuItem>
+            <MenuItem
+                key="list"
+                onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ObjectList, objectType: type})}
+                href={state.page.link({type:State.PAGE_TYPE.ObjectList, objectType: type})}>
+                list
+            </MenuItem>
+            <Divider/>
             {lst.map(v=>
              <MenuItem
                 key={v.id}

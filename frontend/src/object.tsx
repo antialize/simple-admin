@@ -10,6 +10,7 @@ import state from './state';
 import { observer } from 'mobx-react';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Button from "@material-ui/core/Button";
+import Typography from "@material-ui/core/Typography";
 
 export default observer(({type, id, version}:{type:number, id:number, version?:number})=>{
     if (!state.objects.has(id) || !state.objects.get(id).current)
@@ -36,7 +37,7 @@ export default observer(({type, id, version}:{type:number, id:number, version?:n
         <div>
             <Box title={typeName} expanded={true} collapsable={true}>
                 <div><Type id={id} typeId={type}/></div>
-                <div>{versions}</div>
+                <div><Typography>{versions}</Typography></div>
                 <div>
                     <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>o.save()} disabled={!touched}>Save</Button>
                     <Button variant="contained" color="primary" style={{margin:10}} onClick={()=>o.deploy(canCancel, false)} disabled={!canDeploy}>{canCancel?"Deploy (cancel current)":"Deploy"}</Button>

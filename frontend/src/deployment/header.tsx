@@ -3,6 +3,7 @@ import * as State from '../../../shared/state'
 import { observer } from "mobx-react";
 import state from "../state";
 import CircularProgress from "@material-ui/core/CircularProgress";
+import Typography from "@material-ui/core/Typography";
 
 export default observer(()=>{
     let spin = false;
@@ -33,10 +34,9 @@ export default observer(()=>{
         status = " - Review changes";
         spin = false;
     }
-
     return (
-        <h1 className="deployment_header">
+        <Typography variant="h5" component="h3">
             {spin?<CircularProgress />:null} Deployment{status}
-        </h1>
+        </Typography>
         );
 });

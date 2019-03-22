@@ -7,23 +7,26 @@ import Chart from './chart';
 import { observer } from "mobx-react";
 import state from "./state";
 import LinearProgress from "@material-ui/core/LinearProgress";
+import { Typography } from "@material-ui/core";
 
 //import {ChartOptions, LinearTickOptions} from 'chart.js'
 
 export default observer(({id}:{id:number}) => {
     const s = state.status.get(id);
     if (s == null || !s.up)
-        return <div>Down</div>;
+        return <Typography color="error">Down</Typography>;
 
     let lst: JSX.Element[] = [];
     for (const [target, mount] of s.mounts) {
         const block_size = 512;
         lst.push(
             <InformationListRow key={mount.src} name={mount.src + " at " + mount.target}>
-                <Size size={(mount.blocks - mount.free_blocks) * mount.block_size} />
-                <span> of </span>
-                <Size size={mount.blocks * mount.block_size} /><br />
-                <LinearProgress variant="determinate" value={(mount.blocks - mount.free_blocks)*100/mount.blocks} />
+                <Typography>
+                    <Size size={(mount.blocks - mount.free_blocks) * mount.block_size} />
+                    <span> of </span>
+                    <Size size={mount.blocks * mount.block_size} /><br />
+                    <LinearProgress variant="determinate" value={(mount.blocks - mount.free_blocks)*100/mount.blocks} />
+                </Typography>
             </InformationListRow>);
     }
 
@@ -160,15 +163,15 @@ export default observer(({id}:{id:number}) => {
         <div style={{ display: 'flex', flexDirection: 'row' }}>
             <div style={{ width: "250px" }}>
                 <InformationList>
-                    <InformationListRow name="Hostname">{s.uname?s.uname.nodename:"unknown"}</InformationListRow>
-                    <InformationListRow name="Kernel">{s.uname?s.uname.release:"unknown"}</InformationListRow>
-                    <InformationListRow name="Dist">{s.lsb_release?s.lsb_release.id+" "+s.lsb_release.release+" "+s.lsb_release.codename:"unknown"}</InformationListRow>
-                    <InformationListRow name="Uptime"><Time seconds={s.uptime?s.uptime.total:0} /></InformationListRow>
-                    <InformationListRow name="Loadavg">{s.loadavg?s.loadavg.minute:"unknown"}</InformationListRow>
-                    <InformationListRow name="Memory">
-                        <Size size={s.meminfo?s.meminfo.total - s.meminfo.free:0} /><span> of </span><Size size={s.meminfo?s.meminfo.total:0} /><br />
+                    <InformationListRow name="Hostname"><Typography>{s.uname?s.uname.nodename:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Kernel"><Typography>{s.uname?s.uname.release:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Dist"><Typography>{s.lsb_release?s.lsb_release.id+" "+s.lsb_release.release+" "+s.lsb_release.codename:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Uptime"><Typography><Time seconds={s.uptime?s.uptime.total:0} /></Typography></InformationListRow>
+                    <InformationListRow name="Loadavg"><Typography>{s.loadavg?s.loadavg.minute:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Memory"><Typography>
+                        <Size size={s.meminfo?s.meminfo.total - s.meminfo.free:0} /><span> of </span><Size size={s.meminfo?s.meminfo.total:0} /><br /></Typography>
                     </InformationListRow>
-                    <InformationListRow name="Swap">{swap}</InformationListRow>
+                    <InformationListRow name="Swap"><Typography>{swap}</Typography></InformationListRow>
                     {lst}
                 </InformationList>
             </div>

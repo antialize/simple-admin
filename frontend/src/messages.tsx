@@ -4,6 +4,7 @@ import Message from './message';
 import MessageGroup from './messageGroup';
 import { observer } from "mobx-react";
 import state from "./state";
+import Typography from "@material-ui/core/Typography";
 
 interface MGroup {
     ids : number[];
@@ -43,7 +44,7 @@ export default observer(({host}: {host?:number}) => {
 
     let title;
     if (count == 0)
-        title = <span style={{color: "green"}}>Messages</span>;
+        title = <span style={{color: "#00CC00"}}>Messages</span>;
     else        
         title = <span style={{color: "red"}}>Messages ({count})</span>;
     let messageItems = [];
@@ -58,9 +59,15 @@ export default observer(({host}: {host?:number}) => {
     return <Box title={title} expanded={count != 0} collapsable={true}>
             <table className="message_table">
                 <thead>
-                    <tr><th>Type</th><th>Host</th><th>Message</th><th>Time</th><th>Action</th></tr>
+                    <tr>
+                        <th><Typography variant="body1" component="span">Type</Typography></th>
+                        <th><Typography variant="body1" component="span">Host</Typography></th>
+                        <th><Typography variant="title" component="span">Message</Typography></th>
+                        <th><Typography variant="title" component="span">Time</Typography></th>
+                        <th><Typography variant="title" component="span">Action</Typography></th></tr>
                 </thead>
-                <tbody>{messageItems}</tbody></table>
+                <tbody>{messageItems}</tbody>
+            </table>
         </Box>
 });
 

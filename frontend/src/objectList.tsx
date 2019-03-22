@@ -6,6 +6,9 @@ import TextField from "@material-ui/core/TextField";
 import List from "@material-ui/core/List";
 import ListItem from "@material-ui/core/ListItem";
 import Button from "@material-ui/core/Button";
+import Paper from "@material-ui/core/Paper";
+import Typography from '@material-ui/core/Typography';
+import Link from "@material-ui/core/Link";
 
 export default observer(({type}:{type:number}) => {
     let filter = (state.objectListFilter.get(type) || "");
@@ -17,20 +20,21 @@ export default observer(({type}:{type:number}) => {
         }
         lst.sort((l,r)=>{return l.name < r.name ? -1 : 1;});
     }
-    return (
-            <div>
-                <TextField placeholder="Filter" onChange={(e)=>{state.objectListFilter.set(type,e.target.value);}} value={filter}/>
-                <List>
-                    {lst.map(v => 
-                        <ListItem
-                            key={v.id}
-                            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}
-                            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}>
-                            {v.name}
-                        </ListItem>)}
-                </List>
-                <Button variant="contained" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}>Add new</Button>
-            </div>
-        );
+    return <>
+            <Typography variant="h5" component="h3">
+                List of {state.types.get(type).content.plural}
+            </Typography>
+            <TextField placeholder="Filter" onChange={(e)=>{state.objectListFilter.set(type,e.target.value);}} value={filter}/>
+            <List>
+                {lst.map(v => 
+                    <ListItem
+                        key={v.id}
+                        onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}
+                        href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}>
+                        <Link color={"textPrimary" as any}>{v.name}</Link>
+                    </ListItem>)}
+            </List>
+            <Button variant="contained" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}>Add new</Button>
+        </>;
 });
 
