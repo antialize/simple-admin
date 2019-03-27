@@ -2,6 +2,9 @@ body {
     margin: 0;
 }
 
+main {
+    margin: 20px
+}
 
 th {
     text-align: left;
@@ -60,42 +63,6 @@ tr:nth-child(even).smart_bad, tr:nth-child(even).message_bad {
 
 tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
     background-color: #EE3333;
-}
-
-table.deployment {
-    border-collapse: collapse;
-    border: 1px solid #EEEEEE;
-    width: 100%;
-}
-
-table.deployment th {
-    border: 1px solid #EEEEEE;
-    padding: 4px;
-}
-
-table.deployment td {
-    border: 1px solid #EEEEEE;
-    padding: 4px;
-}
-
-tr.deployment_active td {
-    background-color: yellow;
-}
-
-tr.deployment_failure td {
-    background-color: #FF7777;
-}
-
-tr.deployment_success td {
-    background-color: #77FF77;
-}
-
-tr.deployment_normal td {
-    background-color: white;
-}
- 
-tr.deployment_disabled td {
-    background-color: #CCCCCC;
 }
 
 @media (max-width: 1500px) {

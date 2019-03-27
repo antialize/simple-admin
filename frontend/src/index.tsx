@@ -24,7 +24,6 @@ import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import Typography from "@material-ui/core/Typography";
 import { withTheme } from '@material-ui/core/styles';
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
-import {HotKeys} from 'react-hotkeys';
 
 function never(n: never, message: string) {
     console.error(message);
@@ -147,6 +146,8 @@ const setupSocket = () => {
             break;
         case ACTION.SetInitialState:
             runInAction(() => {
+                state.deployment.objects = d.deploymentObjects;
+                state.deployment.message = d.deploymentMessage;
                 state.deployment.status = d.deploymentStatus;
                 reconnectTime = 1;
                 for (const b of (d.deploymentLog || []))
@@ -277,6 +278,9 @@ const Content = observer(()=>{
 });
 
 const theme = createMuiTheme({
+    typography: {
+        useNextVariants: true,
+      },
     overrides: {
         MuiDialogActions: {
             root:  {
@@ -287,10 +291,16 @@ const theme = createMuiTheme({
             paper: {
                 minWidth: 250,
             }
+        },
+        MuiTypography: {
+            h4: {
+                marginTop: 20,
+                margitBottom: 5
+            }
         }
     },
     palette: {
-        type: "dark",
+        type: "dark"
       },
    });
 

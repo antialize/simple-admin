@@ -5,8 +5,28 @@ import state from "./state";
 import TextField from "@material-ui/core/TextField";
 import Select from "@material-ui/core/Select";
 import MenuItem from "@material-ui/core/MenuItem";
+import { Theme, StyleRules, createStyles, withStyles, StyledComponentProps } from "@material-ui/core/styles";
 
-export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigger[])=>void}) => {
+interface TriggersProps {
+    triggers:ITrigger[];
+    setTriggers: (triggers: ITrigger[])=>void;
+}
+
+const styles = (theme:Theme) : StyleRules => {
+    return createStyles({
+        th: {
+            color: theme.palette.text.primary
+        },
+        td: {
+            color: theme.palette.text.primary
+        },
+        tr: {
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary
+        }});
+}
+
+const TriggersImpl = observer((p:TriggersProps & StyledComponentProps) => {
 	let triggers = p.triggers.slice(0);
 	let rows: JSX.Element[] =[];
 	let setTriggers = () => {
@@ -52,7 +72,7 @@ export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigge
     return (
         <table>
             <thead>
-            <tr><th>Type</th><th>Content</th><th></th></tr>
+            <tr><th className={p.classes.th}>Type</th><th className={p.classes.th}>Content</th><th className={p.classes.th}></th></tr>
             </thead>
             <tbody>
             {rows}
@@ -60,4 +80,12 @@ export default observer((p:{triggers:ITrigger[], setTriggers: (triggers: ITrigge
         </table>
     )
 });
+
+function TriggersI(p:TriggersProps & StyledComponentProps) {
+    return <TriggersImpl setTriggers={p.setTriggers} triggers={p.triggers} classes={p.classes}/>;
+}
+
+const Triggers = withStyles(styles)(TriggersI);
+
+export default Triggers;
 

@@ -42,6 +42,8 @@ import 'codemirror/theme/ambiance.css';
 import MenuItem from "@material-ui/core/MenuItem";
 import Toolbar from "@material-ui/core/Toolbar";
 import Select from "@material-ui/core/Select";
+import Typography from "@material-ui/core/Typography";
+import Paper from "@material-ui/core/Paper";
 
 const modeInfo = [
     {name: "C", mime: "text/x-csrc", mode: "clike", ext: ["c", "h"]},
@@ -104,7 +106,7 @@ interface IState {
     theme:string;
 }
 
-export default class Editor extends React.Component<IProps, IState> {
+class Editor extends React.Component<IProps, IState> {
     state:IState;
 
     constructor(props:IProps) {
@@ -120,23 +122,26 @@ export default class Editor extends React.Component<IProps, IState> {
             if (i.name == this.props.lang)
                 mode = i.mode;
         return (
-            <div>
+            <Paper>
                 <Toolbar>
-                    <b>{this.props.title}</b>&nbsp;&nbsp;
-                    Language:
-                    {this.props.fixedLang
-                        ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
-                        : <Select value={this.props.lang} onChange={(e) => this.props.setLang(e.target.value)}>
-                            {lang}
-                        </Select>}
-                    Theme:
-                    <Select value={this.state.theme} onChange={(e) => this.setState({theme: e.target.value})}>
-                        {te}
-                    </Select>
+                    <Typography>
+                        <b>{this.props.title}</b>&nbsp;&nbsp;
+                        Language:
+                        {this.props.fixedLang
+                            ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
+                            : <Select value={this.props.lang} onChange={(e) => this.props.setLang(e.target.value)}>
+                                {lang}
+                            </Select>}
+                        Theme:
+                        <Select value={this.state.theme} onChange={(e) => this.setState({theme: e.target.value})}>
+                            {te}
+                        </Select>
+                    </Typography>
                 </Toolbar>
                 <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} onChange={(e,d,v) => this.props.setData(v)} />
-
-            </div>
+            </Paper>
         )
     }
 }
+
+export default Editor;

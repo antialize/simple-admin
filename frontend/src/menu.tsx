@@ -27,9 +27,6 @@ import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 import Popper from "@material-ui/core/Popper";
 import Typography from "@material-ui/core/Typography";
 import Link from "@material-ui/core/Link";
-import { HotKeys } from "react-hotkeys";
-
-
 
 
 function MenuDropdown({children}:{children:any}) {
@@ -141,8 +138,8 @@ function SearchImpl(props:ThemedComponentProps) {
             <IconButton  aria-label="Search" onClick={()=>{searchInput.focus(); searchInput.select();}}>
                 <SearchIcon />
             </IconButton>
-            <Popper open={key != ""} anchorEl={anchor} placement="bottom-end">
-                <Paper style={{padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto", zindex:999999}}>
+            <Popper open={key != ""} anchorEl={anchor} placement="bottom-end" style={{zIndex: 99999}}>
+                <Paper style={{padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto"}}>
                     <Typography variant="h5" style={{marginBottom: 10}}>Search results</Typography>
                     {typeFind}
                 </Paper>

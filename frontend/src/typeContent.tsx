@@ -5,8 +5,25 @@ import Select from "@material-ui/core/Select";
 import MenuItem from "@material-ui/core/MenuItem";
 import Switch from "@material-ui/core/Switch";
 import FormControlLabel from "@material-ui/core/FormControlLabel";
+import { Typography, Theme } from "@material-ui/core";
+import { StyleRules, withStyles, createStyles, StyledComponentProps } from "@material-ui/core/styles";
 
-export function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void}) {
+
+const styles = (theme:Theme) : StyleRules => {
+    return createStyles({
+        th: {
+            color: theme.palette.text.primary
+        },
+        td: {
+            color: theme.palette.text.primary
+        },
+        tr: {
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary
+        }});
+}
+
+export function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>void} & StyledComponentProps) {
     let rows = [];
     let c = p.content.slice(0);
     c.push({type: TypePropType.none});
@@ -97,11 +114,11 @@ export function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])
                 </td>
                 <td><TextField value={r.type != TypePropType.none && r.name || ""} disabled={r.type == TypePropType.none} onChange={(e) => change({name: e.target.value})}/></td>
                 <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent && r.title || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({title: e.target.value})}/></td>
-                <td>{def}</td>
-                <td>{temp}</td>
-                <td>{var_}</td>
+                <td className={p.classes.td}>{def}</td>
+                <td className={p.classes.td}>{temp}</td>
+                <td className={p.classes.td}>{var_}</td>
                 <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent  && r.description || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({description: e.target.value})}/></td>
-                <td>{extra}</td>
+                <td className={p.classes.td}>{extra}</td>
             </tr>);
     }
 
@@ -109,14 +126,14 @@ export function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])
         <table>
             <thead>
                 <tr>
-                    <th>Type</th>
-                    <th>Name</th>
-                    <th>Title</th>
-                    <th>Default</th>
-                    <th>Template</th>
-                    <th>Variable</th>
-                    <th>Description</th>
-                    <th>Extra</th>
+                    <th className={p.classes.th}>Type</th>
+                    <th className={p.classes.th}>Name</th>
+                    <th className={p.classes.th}>Title</th>
+                    <th className={p.classes.th}>Default</th>
+                    <th className={p.classes.th}>Template</th>
+                    <th className={p.classes.th}>Variable</th>
+                    <th className={p.classes.th}>Description</th>
+                    <th className={p.classes.th}>Extra</th>
                 </tr>
             </thead>
             <tbody>
@@ -125,4 +142,5 @@ export function TypeContent(p: {content: ITypeProp[], onChange: (v: ITypeProp[])
         </table>);
 }
 
-export default TypeContent;
+export default withStyles(styles)(TypeContentImpl);
+

@@ -5,24 +5,25 @@ import {InformationList, InformationListRow} from './information_list'
 import state from "./state";
 import { observer } from "mobx-react";
 import Editor from './editor'
+import Typography from "@material-ui/core/Typography";
 
 function CententInfo(p: {c:{[key:string]:any}, t: State.IObject2<IType>}) {
     if (!p.c) return <span>None</span>;
 
     return (
         <InformationList>
-            <InformationListRow name="Name">{p.c.name}</InformationListRow>
+            <InformationListRow name="Name"><Typography>{p.c.name}</Typography></InformationListRow>
             {p.t.content.content.map(v => {
                 switch (v.type) {
                 case TypePropType.bool:
-                    return <InformationListRow name={v.title}>{p.c[v.name]?"true":false}</InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{p.c[v.name]?"true":false}</Typography></InformationListRow>;
                 case TypePropType.text:
                 case TypePropType.choice:
-                    return <InformationListRow name={v.title}>{p.c[v.name] || ""}</InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{p.c[v.name] || ""}</Typography></InformationListRow>;
                 case TypePropType.number:
-                    return <InformationListRow name={v.title}>{""+(p.c[v.name] || "")}</InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{""+(p.c[v.name] || "")}</Typography></InformationListRow>;
                 case TypePropType.document:
-                    return <InformationListRow name={v.title}>{p.c[v.name] || ""}</InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{p.c[v.name] || ""}</Typography></InformationListRow>;
                 }
             })}
         </InformationList>);
@@ -32,22 +33,22 @@ export default observer(({index}:{index:number}) => {
     const o = state.deployment.objects[index];
     const t = o && o.typeId !== null && state.types.get(o.typeId);
     return <div>
-            <h1>Information</h1>
+            <Typography variant="h4">Information</Typography>
             <InformationList>
-                <InformationListRow name="Title">{o.title}</InformationListRow>
-                <InformationListRow name="Deploy Name">{o.name}</InformationListRow>
-                <InformationListRow name="Host">{o.hostName}</InformationListRow>
-                <InformationListRow name="Type">{o.typeName}</InformationListRow>
-                {o.typeId !== null? <InformationListRow name="Kind">{t.content.kind}</InformationListRow>: null}
+                <InformationListRow name="Title"><Typography>{o.title}</Typography></InformationListRow>
+                <InformationListRow name="Deploy Name"><Typography>{o.name}</Typography></InformationListRow>
+                <InformationListRow name="Host"><Typography>{o.hostName}</Typography></InformationListRow>
+                <InformationListRow name="Type"><Typography>{o.typeName}</Typography></InformationListRow>
+                {o.typeId !== null? <InformationListRow name="Kind"><Typography>{t.content.kind}</Typography></InformationListRow>: null}
             </InformationList>
             {o.typeId !== null?
                 <div>
-                    <h1>Old</h1>
+                    <Typography variant="h4">Old</Typography>
                     <CententInfo c={o.prevContent} t={t}/>
-                    <h1>New</h1>
+                    <Typography variant="h4">New</Typography>
                     <CententInfo c={o.nextContent} t={t}/>
                 </div>: null}
-            <h1>Script</h1>
+            <Typography variant="h4">Script</Typography>
             <Editor title="Script" setLang={(lang:string)=>{}} lang="Python" fixedLang={true} readOnly={true} setData={(data:string)=>{}} data={o.script} />
         </div>;
 });

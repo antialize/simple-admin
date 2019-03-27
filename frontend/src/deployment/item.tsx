@@ -4,19 +4,20 @@ import { observer } from "mobx-react";
 import state from "../state";
 import Button from "@material-ui/core/Button";
 import Checkbox from "@material-ui/core/Checkbox";
+import { StyledComponentProps } from "@material-ui/core/styles";
 
 interface IProps {
     index: number;
 }
 
-export default observer((p:IProps)=>{
+export default observer((p:IProps&StyledComponentProps)=>{
     let o = state.deployment.objects[p.index];
     let cn:string;
     switch(o.status) {
-    case State.DEPLOYMENT_OBJECT_STATUS.Deplying: cn = "deployment_active"; break;
-    case State.DEPLOYMENT_OBJECT_STATUS.Failure: cn = "deployment_failure"; break;
-    case State.DEPLOYMENT_OBJECT_STATUS.Success: cn = "deployment_success"; break;
-    case State.DEPLOYMENT_OBJECT_STATUS.Normal: cn = o.enabled?"deployment_normal":"deployment_disabled"; break;
+    case State.DEPLOYMENT_OBJECT_STATUS.Deplying: cn = p.classes.active; break;
+    case State.DEPLOYMENT_OBJECT_STATUS.Failure: cn = p.classes.failure; break;
+    case State.DEPLOYMENT_OBJECT_STATUS.Success: cn = p.classes.success; break;
+    case State.DEPLOYMENT_OBJECT_STATUS.Normal: cn = o.enabled?p.classes.normal:p.classes.disabled; break;
     }
     let act:string;
     switch(o.action) {
@@ -26,13 +27,13 @@ export default observer((p:IProps)=>{
     case State.DEPLOYMENT_OBJECT_ACTION.Trigger: act="Trigger"; break;
     }
     const canSelect = state.deployment.status == State.DEPLOYMENT_STATUS.ReviewChanges;
-    return (<tr key={o.index} className={cn}>
+    return (<tr className={cn} key={o.index}>
         <td>{o.hostName}</td>
         <td>{o.title}</td>
         <td>{o.typeName}</td>
         <td>{act}</td>
         <td><Checkbox checked={o.enabled} disabled={!canSelect} onChange={(e)=>state.deployment.toggle(o.index, e.target.checked)}/></td>
-        <td><Button variant="contained" onClick={(e)=>{
+        <td><Button onClick={(e)=>{
             state.page.onClick(e, {type:State.PAGE_TYPE.DeploymentDetails, index: o.index})}}
             href={state.page.link({type:State.PAGE_TYPE.DeploymentDetails, index: o.index})}>Details</Button></td>
         </tr>
