@@ -123,7 +123,7 @@ export class ObjectState {
             }
             if (this.current != null && this.current.version == cp.version)
                 return; //We are allready modifying the right object
-            this.current = Object.assign({}, this.versions.get(cp.version));
+            this.current = JSON.parse(JSON.stringify(this.versions.get(cp.version)));
         } else { // We are modifying a new object
             if (this.current != null) return; //We are allready modifying the right object
             this.current = {id: this.id, type: cp.objectType, name:"", version: null, catagory: "", content: {}, comment: ""};

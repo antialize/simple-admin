@@ -519,7 +519,6 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
     }
 
     valueChanges(a:IStatValueChanges) {
-        console.log("VALUE CHANGED", a);
         let l = a.level;
         let i = a.index;
         if (!(a.name in this.buckets)) return;
