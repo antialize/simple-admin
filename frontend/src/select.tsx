@@ -10,6 +10,7 @@ import CancelIcon from '@material-ui/icons/Cancel';
 import Paper from "@material-ui/core/Paper";
 import { emphasize } from '@material-ui/core/styles/colorManipulator';
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
+import CreatableSelect from 'react-select/lib/Creatable';
 
 function NoOptionsMessage(props:any) {
     return (
@@ -27,22 +28,24 @@ function NoOptionsMessage(props:any) {
     return <div ref={inputRef} {...props} />;
   }
   
-  function Control(props:any) {
-    return (
-      <TextField
-        fullWidth
-        InputProps={{
-          inputComponent,
-          inputProps: {
-            className: props.selectProps.classes.input,
-            inputRef: props.innerRef,
-            children: props.children,
-            ...props.innerProps,
-          },
-        }}
-        {...props.selectProps.textFieldProps}
-      />
-    );
+  function Control(fullWidth?:boolean) {
+    return (props:any) => {
+        return (
+        <TextField
+            fullWidth={fullWidth}
+            InputProps={{
+            inputComponent,
+            inputProps: {
+                className: props.selectProps.classes.input,
+                inputRef: props.innerRef,
+                children: props.children,
+                ...props.innerProps,
+            },
+            }}
+            {...props.selectProps.textFieldProps}
+        />
+        );
+        }
   }
   
   function Option(props:any) {
@@ -160,13 +163,15 @@ const styles = (theme:Theme) : StyleRules => {
 
 interface Item {
     label:string;
-    value: number;
+    value: number | string;
 }
 interface IProps {
     isMulti?: boolean;
     placeholder?: string;
     options: Item[];
     value: Item | Item[];
+    create?: boolean;
+    fullWidth?: boolean;
     onChange?: (value: Item | Item[]) => void;
 }
 
@@ -183,10 +188,32 @@ function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps)
         },
       };
 
+    if (props.create)
+        <CreatableSelect
+            classes={props.classes}
+            styles={selectStyles}
+            components={{Control:Control(props.fullWidth),
+                Menu,
+                MultiValue,
+                NoOptionsMessage,
+                Option,
+                Placeholder,
+                SingleValue,
+                ValueContainer,}}
+            placeholder={props.placeholder}
+            isMulti={props.isMulti}
+            options={props.options}
+            isClearable={false}
+            value={props.value}
+            onChange={(v) => {
+                console.log("On change", v);
+                props.onChange(v)
+            }} />;
+
     return <RSelect
         classes={props.classes}
         styles={selectStyles}
-        components={{Control,
+        components={{Control:Control(props.fullWidth),
             Menu,
             MultiValue,
             NoOptionsMessage,

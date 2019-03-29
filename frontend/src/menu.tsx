@@ -1,16 +1,12 @@
 import * as React from "react";
 import * as State from '../../shared/state'
-import ObjectFinder from './object_finder'
 import { hostId, userId} from '../../shared/type'
 import TypeMenuItem, { ObjectMenuList } from './typeMenuItem';
-import HostTypeMenuItem from './hostTypeMenuItem';
 import state from "./state";
 import { observer } from "mobx-react";
 import Button from '@material-ui/core/Button';
-import Drawer from '@material-ui/core/Drawer';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
-import Divider from '@material-ui/core/Divider';
 import AppBar from "@material-ui/core/AppBar";
 import Toolbar from "@material-ui/core/Toolbar";
 import IconButton from "@material-ui/core/IconButton";
@@ -21,7 +17,6 @@ import { useState } from "react";
 import MenuItem from "@material-ui/core/MenuItem";
 import Paper from "@material-ui/core/Paper";
 import InputBase from "@material-ui/core/InputBase";
-import FormControl from "@material-ui/core/FormControl";
 import { withTheme } from "@material-ui/core/styles";
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 import Popper from "@material-ui/core/Popper";
