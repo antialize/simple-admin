@@ -3,43 +3,43 @@ import { IPage, IObjectDigest, IObject2, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_ST
 import { IType } from './type'
 
 export enum ACTION {
-    AddDeploymentLog,
-    AddLogLines,
-    AddMessage,
-    Alert,
-    AuthStatus,
-    CancelDeployment,
-    ClearDeploymentLog,
-    DeleteObject,
-    DeployObject,
-    EndLog,
-    FetchObject,
-    HostDown,
-    Login,
-    Logout,
-    MessageTextRep,
-    MessageTextReq,
-    ObjectChanged,
-    PokeService,
-    RequestAuthStatus,
-    RequestInitialState,
-    RequestStatBucket,
-    SaveObject,
-    SetDeploymentMessage,
-    SetDeploymentObjects,
-    SetDeploymentObjectStatus,
-    SetDeploymentStatus,
-    SetInitialState,
-    SetMessagesDismissed,
-    SetPage,
-    StartDeployment,
-    StartLog,
-    StatBucket,
-    StatValueChanges,
-    StopDeployment,
-    SubscribeStatValues,
-    ToggleDeploymentObject,
-    UpdateStatus,
+    AddDeploymentLog="AddDeploymentLog",
+    AddLogLines="AddLogLines",
+    AddMessage="AddMessage",
+    Alert="Alert",
+    AuthStatus="AuthStatus",
+    CancelDeployment="CancelDeployment",
+    ClearDeploymentLog="ClearDeploymentLog",
+    DeleteObject="DeleteObject",
+    DeployObject="DeployObject",
+    EndLog="EndLog",
+    FetchObject="FetchObject",
+    HostDown="HostDown",
+    Login="Login",
+    Logout="LogOut",
+    MessageTextRep="MessageTextRep",
+    MessageTextReq="MessageTextReq",
+    ObjectChanged="ObjectChanged",
+    PokeService="PokeService",
+    RequestAuthStatus="RequestAuthStatus",
+    RequestInitialState="RequestInitialState",
+    RequestStatBucket="RequestStatBucket",
+    SaveObject="SaveObject",
+    SetDeploymentMessage="SetDeploymentMessage",
+    SetDeploymentObjects="SetDeploymentObjects",
+    SetDeploymentObjectStatus="SetDeploymentObjectStatus",
+    SetDeploymentStatus="SetDeploymentStatus",
+    SetInitialState="SetInitialState",
+    SetMessagesDismissed="SetMessageDismissed",
+    SetPage="SetPage",
+    StartDeployment="StartDeployment",
+    StartLog="StartLog",
+    StatBucket="StatBucket",
+    StatValueChanges="StatValueChanges",
+    StopDeployment="StopDeployment",
+    SubscribeStatValues="SubscribeStatValues",
+    ToggleDeploymentObject="ToggleDeploymentObject",
+    UpdateStatus="UpdateStatus",
 }
 
 export interface IUpdateStatusAction {
@@ -88,7 +88,13 @@ export interface ISetInitialState {
     types: { [id:number]: IObject2<IType>};
 }
 
-export enum SERVICE_POKE { Start, Stop, Restart, Reload, Kill }
+export enum SERVICE_POKE {
+    Start="Start",
+    Stop="Stop",
+    Restart="Restart",
+    Reload="Reload",
+    Kill="Kill",
+}
 
 export interface IPokeService {
     type: ACTION.PokeService;
@@ -216,8 +222,6 @@ export interface IAlert {
     message: string;
     title: string;
 }
-
-export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
     
 export interface IRequestAuthStatus {
     type: ACTION.RequestAuthStatus;

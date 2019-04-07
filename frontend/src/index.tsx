@@ -2,7 +2,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import Statuses from './statuses'
 import * as State from '../../shared/state';
-import { IAction, ACTION, CONNECTION_STATUS, IRequestAuthStatus } from '../../shared/actions'
+import { IAction, ACTION, IRequestAuthStatus } from '../../shared/actions'
 import Object from './object'
 import Menu from './menu'
 import ObjectList from './objectList'
@@ -13,17 +13,14 @@ import { add, clear } from './deployment/log';
 import * as Cookies from 'js-cookie';
 import { Login } from './login';
 import * as chart from './chart';
-import state, { ObjectState, StatusState } from "./state";
+import state, { ObjectState, StatusState, CONNECTION_STATUS } from "./state";
 import {observer} from "mobx-react";
 import setupState from './setupState';
 import {runInAction} from "mobx";
 import DeploymentDetails from './deploymentDetails';
 import { typeId } from "../../shared/type";
-import { withStyles } from '@material-ui/core/styles';
 import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'; 
 import Typography from "@material-ui/core/Typography";
-import { withTheme } from '@material-ui/core/styles';
-import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 
 function never(n: never, message: string) {
     console.error(message);
@@ -58,7 +55,7 @@ export interface ActionTarget {
     handle: (action: IAction) => boolean;
 }
 
-const actionTargets: { [action: number]: ActionTarget[] } = {};
+const actionTargets: { [action: string]: ActionTarget[] } = {};
 
 export function addActionTarget(action: ACTION, target: ActionTarget) {
     if (!(action in actionTargets)) actionTargets[action] = [];
@@ -81,7 +78,7 @@ let reconnectTime = 1;
 const setupSocket = () => {
     if (reconnectTime < 1000 * 10)
         reconnectTime = reconnectTime * 2;
-    state.connectionStatus =  CONNECTION_STATUS.CONNECTING;
+    state.connectionStatus = CONNECTION_STATUS.CONNECTING;
     socket = new WebSocket('wss://' + remoteHost + '/sysadmin');
     socket.onmessage = data => {
         const loaded = state.loaded;
@@ -104,7 +101,7 @@ const setupSocket = () => {
 
         switch (d.type) {
         case ACTION.SetPage:
-            //TODO
+            state.page.set(d.page);
             break;
         case ACTION.Alert:
             alert(d.message);

@@ -1,5 +1,5 @@
 import {observable, computed, action} from "mobx";
-import {CONNECTION_STATUS, IAction, IMessage, IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject}  from "../../shared/actions";
+import {IAction, IMessage, IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject}  from "../../shared/actions";
 import {LoginState} from "./login"
 import {  IObject2, IObjectDigest, PAGE_TYPE } from "../../shared/state";
 import {ISmartStatus, IStatusUptime, IStatusMeminfo, IStatusLBSRelease, IStatusUname, IStatusLoadAVG, IStatusMount, IService, IStatus, IStatusUpdate} from "../../shared/status"
@@ -224,6 +224,8 @@ export class StatusState {
         }
     }
 };
+
+export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
 class State {
     @observable
