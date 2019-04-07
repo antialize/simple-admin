@@ -22,7 +22,7 @@ export const setupSocket = () => {
         const loaded = state.loaded;
         const d = JSON.parse(data.data) as IAction;
         if (d.type in state.actionTargets) {
-            for (const t of state.actionTargets.get(d.type))
+            for (const t of state.actionTargets.targets.get(d.type))
                 if (t.handle(d))
                     return;
         }

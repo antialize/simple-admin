@@ -6,6 +6,7 @@ import state from "./state";
 import { Theme, StyleRules, createStyles, withStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { TypePropType, ITrigger } from '../../shared/type'
 import { observer } from "mobx-react";
+import derivedState from "./derivedState";
 
 interface TriggersProps {
     triggers:ITrigger[];
@@ -36,7 +37,7 @@ const TriggersImpl = observer((p:TriggersProps & StyledComponentProps) => {
     for (let i=0; i <= triggers.length; ++i) {
 		const v = i < triggers.length && triggers[i];
 
-        const t = v ? state.triggers.find(t => t.id == v.id) : null;
+        const t = v ? derivedState.triggers.find(t => t.id == v.id) : null;
         let fields: JSX.Element[] = [];
         if (v && t && t.content && t.content.content) {
             for (let item of t.content.content) {
@@ -61,7 +62,7 @@ const TriggersImpl = observer((p:TriggersProps & StyledComponentProps) => {
                             setTriggers();
                         }}>
                         <MenuItem value={0}>None</MenuItem>
-                        {state.triggers.map(t => <MenuItem key={t.name} value={t.id}>{t.name}</MenuItem>)}
+                        {derivedState.triggers.map(t => <MenuItem key={t.name} value={t.id}>{t.name}</MenuItem>)}
                     </Select>
 				</td><td>
                     {fields}

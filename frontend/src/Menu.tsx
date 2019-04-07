@@ -21,7 +21,7 @@ import { hostId, userId} from '../../shared/type'
 import { observer } from "mobx-react";
 import { useState } from "react";
 import { withTheme } from "@material-ui/core/styles";
-
+import derivedState from './derivedState';
 
 function matchText(text:string, key:string) {
     if (!key || key.length == 0) return false;
@@ -113,7 +113,7 @@ function SearchImpl(props:ThemedComponentProps) {
 const Search = withTheme()(SearchImpl);
 
 const Menu = observer(()=>{
-    const types = state.menuTypes;
+    const types = derivedState.menuTypes;
     return (
         <AppBar position="static">
             <Toolbar>

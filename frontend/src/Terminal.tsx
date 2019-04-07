@@ -6,14 +6,14 @@ import * as fit from 'xterm/lib/addons/fit/fit';
 import * as fullscreen from 'xterm/lib/addons/fullscreen/fullscreen';
 import Button from "@material-ui/core/Button";
 import Chip from "@material-ui/core/Chip";
-import { Terminal } from 'xterm';
+import { Terminal as T}  from 'xterm';
 import { remoteHost } from './config';
 
-Terminal.applyAddon(fit);
-Terminal.applyAddon(fullscreen);
+T.applyAddon(fit);
+T.applyAddon(fullscreen);
 
 declare global {
-    const Terminal: Terminal;
+    const Terminal: T;
 }
 
 interface Props {
@@ -24,7 +24,7 @@ class Connection {
     connected = false;
 
     constructor(public hostId: number, public connectionId: number, public nameChanged: (id: number, name: string) => void) {
-        this.term = new Terminal({ cursorBlink: true, scrollback: 10000 });
+        this.term = new T({ cursorBlink: true, scrollback: 10000 });
     }
 
     connect() {
@@ -77,7 +77,7 @@ class Connection {
     }
 
     oldsize: [number, number] = [0, 0]
-    term?: Terminal;
+    term?: T;
     termDiv?: HTMLDivElement;
     socket?: WebSocket;
     name: string;

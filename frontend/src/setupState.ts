@@ -2,12 +2,14 @@ import DeploymentState from "./deployment/DeploymentState";
 import LoginState from "./LoginState";
 import PageState from "./PageState";
 import state from "./state"
+import { ActionTargets } from "./ActionTargets";
 
 function setupState() {
     state.login = new LoginState;
     state.deployment = new DeploymentState;
     state.page = new PageState;
     state.types = new Map;
+    state.actionTargets = new ActionTargets;
     state.objectDigests = new Map;
     state.objectListFilter = new Map;
     state.messages = new Map;

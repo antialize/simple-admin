@@ -3,16 +3,13 @@ import LoginState from "./LoginState";
 import ObjectState from "./ObjectState";
 import PageState from "./PageState";
 import StatusState from "./StatusState";
-import { IAction, IMessage, ACTION }  from "../../shared/actions";
+import { IAction, IMessage }  from "../../shared/actions";
 import { IObject2, IObjectDigest } from "../../shared/state";
-import { IType, hostId, typeId } from "../../shared/type";
-import { observable, computed } from "mobx";
+import { IType } from "../../shared/type";
+import { observable } from "mobx";
+import { ActionTargets } from "./ActionTargets";
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
-
-export interface ActionTarget {
-    handle: (action: IAction) => boolean;
-}
 
 class State {
     @observable
@@ -38,44 +35,7 @@ class State {
     @observable
     objectDigests: Map<number, Map<number, IObjectDigest>>;
 
-    actionTargets: Map<ACTION, Set<ActionTarget>> = new Map;
-    addActionTarget(action: ACTION, target: ActionTarget) {
-        if (!this.actionTargets.has(action)) this.actionTargets.set(action, new Set);
-        this.actionTargets.get(action).add(target);
-    }
-    removeActionTarget(action: ACTION, target: ActionTarget) {
-        this.actionTargets.get(action).delete(target);
-    }
-
-    @computed
-    get menuTypes() {
-        const ans: {id:number, name:string}[] = [];
-        for (const [key, type] of this.types) {
-            if (type.content.kind == "trigger") continue;
-            ans.push({id: type.id, name: type.content.plural});
-        }
-        ans.sort((l, r)=>{
-            if (l.id == hostId) return -1;
-            if (r.id == hostId) return 1;
-            if (l.id == typeId) return 1;
-            if (r.id == typeId) return -1;
-            return l.name < r.name?-1:1
-        })
-        return ans;
-    }
-
-    @computed
-    get triggers() {
-        let triggers:IObject2<IType>[] = [];
-        for(const [key, type] of this.types) {
-            if (type.content.kind != "trigger") continue;
-            triggers.push(type);
-        }
-        triggers.sort( (l,r) => {
-            return l.name < r.name ? -1: 1;
-        });
-        return triggers;
-    }
+    actionTargets: ActionTargets;
 
     @observable
     objectListFilter: Map<number, string>;

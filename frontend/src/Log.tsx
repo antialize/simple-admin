@@ -1,6 +1,7 @@
 import * as React from "react";
 import Typography from "@material-ui/core/Typography";
-import state, { ActionTarget } from "./state";
+import state from "./state";
+import { ActionTarget } from "./ActionTargets";
 import {IAction, ACTION, IStartLog, IEndLog} from '../../shared/actions';
 
 interface Props {
@@ -50,7 +51,7 @@ class Log extends React.Component<Props, {}> implements ActionTarget {
             id: this.id
         };
         state.sendMessage(msg);
-        state.addActionTarget(ACTION.AddLogLines, this);
+        state.actionTargets.add(ACTION.AddLogLines, this);
     }
 
     componentWillUnmount() {
@@ -60,7 +61,7 @@ class Log extends React.Component<Props, {}> implements ActionTarget {
             host: this.props.host
         }
         state.sendMessage(msg);
-        state.removeActionTarget(ACTION.AddLogLines, this);
+        state.actionTargets.remove(ACTION.AddLogLines, this);
     }
 
     render() {
