@@ -49,7 +49,7 @@ export class DB {
 
         await r("PRAGMA journal_mode=WAL");
         await r("CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)");
-        await i("ALTER TABLE `objects` ADD COLUMN `catagory` TEXT");
+        await i("ALTER TABLE `objects` ADD COLUMN `category` TEXT");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
         await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
         //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
@@ -74,8 +74,8 @@ export class DB {
         }
 
         for (let d of defaults) {
-            await r("REPLACE INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `catagory`, `comment`) VALUES (?, 1, ?, ?, ?, datetime('now'), 0, ?, ?)", [
-                d.id, d.type, d.name, JSON.stringify(d.content), d.catagory, d.comment
+            await r("REPLACE INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, 1, ?, ?, ?, datetime('now'), 0, ?, ?)", [
+                d.id, d.type, d.name, JSON.stringify(d.content), d.category, d.comment
             ]);
             let mv = await q("SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?", [d.id]);
             await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [mv['version'], d.id]);
@@ -244,8 +244,8 @@ export class DB {
 
     getAllObjects() {
         let db = this.db;
-        return new Promise<{ id: number, type: number, name: string, catagory: string }[]>((cb, cbe) => {
-            db.all("SELECT `id`, `type`, `name`, `catagory` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+        return new Promise<{ id: number, type: number, name: string, category: string }[]>((cb, cbe) => {
+            db.all("SELECT `id`, `type`, `name`, `category` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -259,8 +259,8 @@ export class DB {
 
     getAllObjectsFull() {
         let db = this.db;
-        return new Promise<{ id: number, type: number, name: string, content: string, catagory: string, version: number, comment: string }[]>((cb, cbe) => {
-            db.all("SELECT `id`, `type`, `name`, `content`, `catagory`, `version`, `comment` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+        return new Promise<{ id: number, type: number, name: string, content: string, category: string, version: number, comment: string }[]>((cb, cbe) => {
+            db.all("SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -274,8 +274,8 @@ export class DB {
 
     getObjectByID(id: number) {
         let db = this.db;
-        return new Promise<{ version: number, type: number, name: string, content: string, catagory: string, comment: string }[]>((cb, cbe) => {
-            db.all("SELECT `version`, `type`, `name`, `content`, `catagory`, `comment` FROM `objects` WHERE `id`=?", [id],
+        return new Promise<{ version: number, type: number, name: string, content: string, category: string, comment: string }[]>((cb, cbe) => {
+            db.all("SELECT `version`, `type`, `name`, `content`, `category`, `comment` FROM `objects` WHERE `id`=?", [id],
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -289,8 +289,8 @@ export class DB {
 
     getNewestObjectByID(id: number) {
         let db = this.db;
-        return new Promise<{ version: number, type: number, name: string, content: string, catagory: string }>((cb, cbe) => {
-            db.get("SELECT `version`, `type`, `name`, `content`, `catagory`, `comment` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
+        return new Promise<{ version: number, type: number, name: string, content: string, category: string }>((cb, cbe) => {
+            db.get("SELECT `version`, `type`, `name`, `content`, `category`, `comment` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -303,7 +303,7 @@ export class DB {
     changeObject(id: number, object: IObject2<any>) {
         let db = this.db;
         let ins = ({ id, version }: IV) => (cb: (res: IV) => void, cbe: (error: SAError) => void) => {
-            db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `catagory`, `comment`) VALUES (?, ?, ?, ?, ?, datetime('now'), 1, ?, ?)", [id, version, object.type, object.name, JSON.stringify(object.content), object.catagory, object.comment], (err) => {
+            db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, ?, ?, ?, ?, datetime('now'), 1, ?, ?)", [id, version, object.type, object.name, JSON.stringify(object.content), object.category, object.comment], (err) => {
                 if (err)
                     cbe(new SAError(ErrorType.Database, err));
                 else
@@ -338,15 +338,15 @@ export class DB {
 
     getHostContentByName(hostname: string) {
         let db = this.db;
-        return new Promise<{ id: number, content: Host, version: number, type: number, name: string, catagory: string, comment: string }>((cb, cbe) => {
-            db.get("SELECT `id`, `content`, `version`, `name`, `catagory`, `comment` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
+        return new Promise<{ id: number, content: Host, version: number, type: number, name: string, category: string, comment: string }>((cb, cbe) => {
+            db.get("SELECT `id`, `content`, `version`, `name`, `category`, `comment` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (row === undefined)
                         cb(null);
                     else
-                        cb({ id: row['id'], content: JSON.parse(row['content']), version: row['version'], type: hostId, name: hostname, catagory: row['catagory'], comment: row['comment'] })
+                        cb({ id: row['id'], content: JSON.parse(row['content']), version: row['version'], type: hostId, name: hostname, category: row['category'], comment: row['comment'] })
                 })
         });
     }

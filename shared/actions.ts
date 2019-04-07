@@ -88,12 +88,12 @@ export interface ISetInitialState {
     types: { [id:number]: IObject2<IType>};
 }
 
-export enum SERVICE_POKE {
-    Start="Start",
-    Stop="Stop",
+export enum SERVICE_POKE { 
+    Start="Start", 
+    Stop="Stop", 
     Restart="Restart",
-    Reload="Reload",
-    Kill="Kill",
+    Reload="Reload", 
+    Kill="Kill" 
 }
 
 export interface IPokeService {

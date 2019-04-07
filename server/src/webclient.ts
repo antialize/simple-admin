@@ -205,7 +205,7 @@ export class WebClient extends JobOwner {
                             type: row.type,
                             name: row.name,
                             content: JSON.parse(row.content),
-                            catagory: row.catagory,
+                            category: row.category,
                             comment: row.comment,
                         }
                     );
@@ -342,14 +342,14 @@ async function sendInitialState(c: WebClient) {
                 id: row.id,
                 type: row.type,
                 name: row.name,
-                catagory: row.catagory,
+                category: row.category,
                 content: JSON.parse(row.content) as IType,
                 version: row.version,
                 comment: row.comment
             };
         }
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, catagory: row.catagory });
+        action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, category: row.category });
     }
 
     for (const id in hostClients.hostClients) {

@@ -17,7 +17,7 @@ interface IDefault {
     type: number;
     id: number;
     name: string;
-    catagory: string;
+    category: string;
     content: object;
     comment: string;
 }
@@ -29,13 +29,13 @@ export let defaults: IDefault[] =
             type: typeId,
             id: typeId,
             name: "Type",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Type of types (buildin)",
             content: {
                 deployOrder: 0,
                 plural: "Types",
                 kind: "type",
-                hasCatagory: true,
+                hasCategory: true,
                 hasDepends: true,
                 hasContains: true,
                 hasTriggers: true,
@@ -44,7 +44,7 @@ export let defaults: IDefault[] =
                     {type: TypePropType.text, title: "Plural", name:"plural", description:"Plural of name", default: "", template:false, variable:""} as ITextTypeProp,
                     {type: TypePropType.choice, title: "Kind", name:"kind", description: "", default:"delta", choices:["delta", "trigger", "host", "accumulate", "collection", "root", "type","monitor"]} as IChoiceTypeProp,
                     {type: TypePropType.number, title: "Deploy order", name:"deployOrder", description:"", default: 0} as INumberTypeProp,
-                    {type: TypePropType.bool, title: "Has catagory", name:"hasCatagory", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
+                    {type: TypePropType.bool, title: "Has category", name:"hasCategory", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
                     {type: TypePropType.bool, title: "Has variables", name:"hasVariables", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
                     {type: TypePropType.bool, title: "Has triggers", name:"hasTriggers", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
                     {type: TypePropType.bool, title: "Has depends", name:"hasDepends", description:"", default: false, template:false, variable:""} as IBoolTypeProp,
@@ -62,12 +62,12 @@ export let defaults: IDefault[] =
             type: typeId,
             id: hostId,
             name: "Host",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "The type of a host (buildin)",
             content: {
                 plural: "Hosts",
                 kind: "host",
-                hasCatagory: true,
+                hasCategory: true,
                 hasVariables: true,
                 hasContains: true,
                 containsName: "Has",
@@ -84,7 +84,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: rootId,
             name: "Root",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "The type of the singular root object (buildin)",
             content: {
                 plural: "Roots",
@@ -101,13 +101,13 @@ export let defaults: IDefault[] =
             type: typeId,
             id: collectionId,
             name: "Collection",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Generic collection type, does not split elements",
             content: {
                 deployOrder: 10,
                 plural: "Collections",
                 kind: "collection",
-                hasCatagory: true,
+                hasCategory: true,
                 hasContains: true,
                 hasDepends: true,
                 containsName: "Has",
@@ -119,14 +119,14 @@ export let defaults: IDefault[] =
             type: typeId,
             id: complexCollectionId,
             name: "Complex collection",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Complex collection type, has variables and such, causes element splits",
             content: {
                 deployOrder: 10,
                 plural: "Complex collections",
                 kind: "collection",
                 hasVariables: true,
-                hasCatagory: true,
+                hasCategory: true,
                 hasContains: true,
                 hasDepends: true,
                 containsName: "Has",
@@ -138,13 +138,13 @@ export let defaults: IDefault[] =
             type: typeId,
             id: fileId,
             name: "File",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "File type",
             content: {
                 deployOrder: 40,
                 plural: "Files",
                 kind: "delta",
-                hasCatagory: true,
+                hasCategory: true,
                 hasTriggers: true,
                 content: [
                     {type: TypePropType.text, title: "Path", name:"path",  description:"Where to store the file", default: "", template:true, variable:"path", deployTitle:true},
@@ -181,13 +181,13 @@ export let defaults: IDefault[] =
             type: typeId,
             id: userId,
             name: "User",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "The type of a user\nDo not delete the password field, as that is also used when logging in to simple admin",
             content: {
                 deployOrder: 30,
                 plural: "Users",
                 kind: "delta",
-                hasCatagory: true,
+                hasCategory: true,
                 hasVariables: true,
                 hasContains: true,
                 hasDepends: true,
@@ -282,13 +282,13 @@ export let defaults: IDefault[] =
             type: typeId,
             id: groupId,
             name: "Group",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "The type of a unix group",
             content: {
                 deployOrder: 20,
                 plural: "Groups",
                 kind: "delta",
-                hasCatagory: false,
+                hasCategory: false,
                 hasVariables: false,
                 hasContains: false,
                 containsName: "Contains",
@@ -328,7 +328,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: ufwAllowId,
             name: "UFW Allow",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Type to poke holes throu a ufw firewall",
             content: {
                 deployOrder: 60,
@@ -355,7 +355,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: reloadServiceTriggerId,
             name: "Reload service",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Reloads a systemd service",
             content: {
                 deployOrder: 0,
@@ -376,7 +376,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: restartServiceTriggerId,
             name: "Restart service",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Restarts a systemd service",
             content: {
                 deployOrder: 0,
@@ -396,7 +396,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: runTriggerId,
             name: "Run",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Run some shell code",
             content: {
                 deployOrder: 0,
@@ -416,7 +416,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: packageId,
             name: "Package",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Install debian packages",
             content: {
                 deployOrder: 50,
@@ -465,7 +465,7 @@ export let defaults: IDefault[] =
             type: typeId,
             id: monitorId,
             name: "Monitor",
-            catagory: "Buildin",
+            category: "Buildin",
             comment: "Monitor things on a hosts",
             content: {
                 deployOrder: 100,
@@ -483,7 +483,7 @@ export let defaults: IDefault[] =
             type: rootId,
             id: rootInstanceId,
             name: "Root",
-            catagory: "",
+            category: "",
             comment: "The singular root instance",
             content: {
                 variables: [{key:'user', value:'root'}],

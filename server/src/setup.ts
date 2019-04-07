@@ -27,7 +27,7 @@ export default async (req: Request, res: Response) => {
         id: ho.id, 
         type: ho.type, 
         name: ho.name,
-        catagory: ho.catagory,
+        category: ho.category,
         comment: ho.comment,
         content: {...ho.content, password: cpw},
         version: ho.version

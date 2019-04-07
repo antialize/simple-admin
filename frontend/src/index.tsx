@@ -1,26 +1,32 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import Statuses from './statuses'
 import * as State from '../../shared/state';
-import { IAction, ACTION, IRequestAuthStatus } from '../../shared/actions'
-import Object from './object'
-import Menu from './menu'
-import ObjectList from './objectList'
-import Messages from './messages';
-import { remoteHost } from './config';
-import { Deployment } from './deployment';
-import { add, clear } from './deployment/log';
-import * as Cookies from 'js-cookie';
-import { Login } from './login';
-import * as chart from './chart';
-import state, { ObjectState, StatusState, CONNECTION_STATUS } from "./state";
-import {observer} from "mobx-react";
-import setupState from './setupState';
-import {runInAction} from "mobx";
-import DeploymentDetails from './deploymentDetails';
-import { typeId } from "../../shared/type";
-import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'; 
+import Deployment from './Deployment';
+import DeploymentDetails from './deployment/Details';
+import Login from './Login';
+import Menu from './Menu';
+import Messages from './Messages';
+import Object from './Object';
+import ObjectList from './ObjectList';
+import Statuses from './Statuses';
 import Typography from "@material-ui/core/Typography";
+import setupState from './setupState';
+import state, { CONNECTION_STATUS } from "./state";
+import theme from "./theme";
+import { IAction } from '../../shared/actions';
+import { MuiThemeProvider } from '@material-ui/core/styles'; 
+import { observer } from "mobx-react";
+import { socket, setupSocket } from "./setupSocket";
+
+setupState();
+setupSocket();
+state.sendMessage = (action: IAction) => {
+    socket.send(JSON.stringify(action));
+};
+
+window.onpopstate = (e) => {
+    state.page.set(e.state as State.IPage);
+};
 
 function never(n: never, message: string) {
     console.error(message);
@@ -50,217 +56,10 @@ export const MainPage = observer(()=>{
     }
 });
 
-
-export interface ActionTarget {
-    handle: (action: IAction) => boolean;
-}
-
-const actionTargets: { [action: string]: ActionTarget[] } = {};
-
-export function addActionTarget(action: ACTION, target: ActionTarget) {
-    if (!(action in actionTargets)) actionTargets[action] = [];
-    actionTargets[action].push(target);
-}
-
-export function removeActionTarget(action: ACTION, target: ActionTarget) {
-    actionTargets[action] = actionTargets[action].filter((t) => t !== target);
-}
-
-export function sendMessage(action: IAction) {
-    socket.send(JSON.stringify(action));
-}
-setupState();
-state.sendMessage = sendMessage;
-
-let socket: WebSocket;
-let reconnectTime = 1;
-
-const setupSocket = () => {
-    if (reconnectTime < 1000 * 10)
-        reconnectTime = reconnectTime * 2;
-    state.connectionStatus = CONNECTION_STATUS.CONNECTING;
-    socket = new WebSocket('wss://' + remoteHost + '/sysadmin');
-    socket.onmessage = data => {
-        const loaded = state.loaded;
-        const d = JSON.parse(data.data) as IAction;
-        if (d.type in actionTargets) {
-            for (const t of actionTargets[d.type])
-                if (t.handle(d))
-                    return;
-        }
-
-        if (d.type == ACTION.ClearDeploymentLog) {
-            clear();
-            return;
-        }
-
-        if (d.type == ACTION.AddDeploymentLog) {
-            add(d.bytes);
-            return;
-        }
-
-        switch (d.type) {
-        case ACTION.SetPage:
-            state.page.set(d.page);
-            break;
-        case ACTION.Alert:
-            alert(d.message);
-            break;
-        case ACTION.StatBucket:
-        case ACTION.StatValueChanges:
-            chart.handleAction(d);
-            break;
-        case ACTION.UpdateStatus:
-            runInAction(() => {
-                if (!state.status.has(d.host))
-                    state.status.set(d.host, new StatusState());
-                state.status.get(d.host).applyStatusUpdate(d.update);
-            });
-            break;
-        case ACTION.HostDown:
-            runInAction(() => {
-                if (state.status.has(d.id)) state.status.get(d.id).up = false;
-            });
-            break;;
-        case ACTION.AuthStatus:
-            runInAction(()=> {
-                if (d.pwd && d.otp)
-                    state.connectionStatus = CONNECTION_STATUS.INITING;
-                else
-                    state.connectionStatus = CONNECTION_STATUS.LOGIN;
-                if (d.user)
-                    state.login.user = d.user;
-                state.authMessage = d.message;
-                state.authOtp = d.otp;
-                state.authUser = d.user;
-            });
-            if (d.session !== null) {
-                Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });
-            }
-            if (d.otp && d.pwd) {
-                state.sendMessage({ type: ACTION.RequestInitialState });
-            }
-            break;
-        case ACTION.SetInitialState:
-            runInAction(() => {
-                state.deployment.objects = d.deploymentObjects;
-                state.deployment.message = d.deploymentMessage;
-                state.deployment.status = d.deploymentStatus;
-                reconnectTime = 1;
-                for (const b of (d.deploymentLog || []))
-                    add(b);
-                if (!loaded)
-                    state.page.setFromUrl();
-
-                state.connectionStatus = CONNECTION_STATUS.INITED;
-                state.loaded = true;
-
-                for (let id in d.types)
-                    state.types.set(+id, d.types[id]);
-
-                for (let id in d.objectNamesAndIds) {
-                    let m = new Map<number, State.IObjectDigest>();
-                    for (let ent of d.objectNamesAndIds[id])
-                        m.set(ent.id, ent);
-                    state.objectDigests.set(+id, m);
-                }
-
-                for (let msg of d.messages)
-                    state.messages.set(msg.id, msg);
-
-                for (let status in d.statuses) {
-                    const s = new StatusState();
-                    s.setFromInitialState(d.statuses[status]);
-                    state.status.set(+status, s);
-                }
-            });
-            break;
-        case ACTION.SetMessagesDismissed:
-            runInAction(()=>{
-                for (let id of d.ids)
-                    state.messages.get(id).dismissed = d.dismissed
-            });
-            break;
-        case ACTION.AddMessage:
-            runInAction(()=>{
-                state.messages.set(d.message.id, d.message);
-            });
-            break;;
-        case ACTION.ObjectChanged:
-            runInAction(()=>{
-                if (d.object.length == 0) {
-                    state.types.delete(d.id);
-                    for (const [key, values] of state.objectDigests)
-                        values.delete(d.id);
-                    state.objects.delete(d.id);
-                } else {
-                    const last = d.object[d.object.length -1];
-                    if (!state.objectDigests.has(last.type))
-                        state.objectDigests.set(last.type, new Map());
-                    state.objectDigests.get(last.type).set(d.id, {id: d.id, name: last.name, type: last.type, catagory: last.catagory});
-
-                    if (last.type == typeId)
-                        state.types.set(last.id, last);
-
-                    if (!state.objects.has(d.id))
-                        state.objects.set(d.id, new ObjectState(d.id));
-                    const o = state.objects.get(d.id);
-                    for (const obj of d.object)
-                        o.versions.set(obj.version, obj);
-                    o.loadStatus = "loaded";
-                    o.loadCurrent();
-                }
-            });
-            break;
-        case ACTION.SetDeploymentStatus:
-            state.deployment.status = d.status;
-            break;
-        case ACTION.SetDeploymentMessage:
-            state.deployment.message = d.message;
-            break;
-        case ACTION.SetDeploymentObjects:
-            state.deployment.objects = d.objects;
-            break;
-        case ACTION.SetDeploymentObjectStatus:
-            state.deployment.objects[d.index].status = d.status;
-            break;
-        case ACTION.ToggleDeploymentObject:
-            runInAction(()=>{
-                if (d.index === null)
-                    for (let o of state.deployment.objects)
-                        o.enabled = d.enabled;
-                else
-                    state.deployment.objects[d.index].enabled = d.enabled;
-            });
-            break;
-        }
-    };
-
-    socket.onopen = () => {
-        state.connectionStatus = CONNECTION_STATUS.AUTHENTICATING;
-        let msg: IRequestAuthStatus = { type: ACTION.RequestAuthStatus, session: Cookies.get("simple-admin-session") };
-        sendMessage(msg);
-    }
-
-    socket.onclose = () => {
-        state.connectionStatus = CONNECTION_STATUS.WAITING
-        socket = null;
-        setTimeout(() => setupSocket(), reconnectTime);
-    };
-};
-
-setupSocket();
-
-window.onpopstate = (e) => {
-    state.page.set(e.state as State.IPage);
-};
-
-
 const Content = observer(()=>{
     let dialog: JSX.Element = null;
     if (state.connectionStatus != CONNECTION_STATUS.INITED) {
         dialog = <Login />;
-
     }
     if (state.loaded) {
         return (<>
@@ -273,35 +72,6 @@ const Content = observer(()=>{
         return dialog;
     }
 });
-
-const theme = createMuiTheme({
-    typography: {
-        useNextVariants: true,
-      },
-    overrides: {
-        MuiDialogActions: {
-            root:  {
-                margin: 20
-            }
-        },
-        MuiMenu: {
-            paper: {
-                minWidth: 250,
-            }
-        },
-        MuiTypography: {
-            h4: {
-                marginTop: 20,
-                margitBottom: 5
-            }
-        }
-    },
-    palette: {
-        type: "dark"
-      },
-   });
-
-document.body.style.backgroundColor = theme.palette.background.default;
 
 ReactDOM.render(
     <MuiThemeProvider theme={theme}>

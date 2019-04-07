@@ -6,7 +6,7 @@ export interface IObjectDigest {
     name: string;
     id: number;
     type: number;
-    catagory: string;
+    category: string;
 }
 export interface IObjectListPage {
     type: PAGE_TYPE.ObjectList;
@@ -39,7 +39,7 @@ export interface IObject2<T> {
     id: number;
     type: number;
     name: string;
-    catagory: string;
+    category: string;
     content: T;
     version: number;
     comment: string;

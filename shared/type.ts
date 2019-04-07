@@ -82,7 +82,7 @@ export interface IType {
     kind?: KindType;
     deployOrder?: number;
     script?: string;
-    hasCatagory?: boolean;
+    hasCategory?: boolean;
     hasVariables?: boolean;
     hasContains?: boolean;
     hasSudoOn?: boolean;
