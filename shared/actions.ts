@@ -3,14 +3,43 @@ import { IPage, IObjectDigest, IObject2, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_ST
 import { IType } from './type'
 
 export enum ACTION {
-    UpdateStatus, SetPage, SetObjectListFilter, SetInitialState, FetchObject, ObjectChanged,
-    SetServiceListFilter, PokeService, StartLog, AddLogLines, EndLog, SetServiceLogVisibility,
-    AddMessage, SetMessagesDismissed, SetObjectName, SetObjectComment, SetObjectCatagory, SetObjectContentParam, DiscardObject, SaveObject,
-    HostDown, Alert,
-    DeployObject, SetDeploymentStatus, SetDeploymentMessage, SetDeploymentObjects, ClearDeploymentLog, AddDeploymentLog, SetDeploymentObjectStatus, ToggleDeploymentObject, DeleteObject,
-    StopDeployment, StartDeployment, CancelDeployment, SetConnectionStatus, SetMessageExpanded, SetMessageGroupExpanded, QueryStats, QueryStatsAnswer, MessageTextReq, MessageTextRep,
-    AuthStatus, Login, Logout, RequestAuthStatus, SetLoginUsername, SetLoginPassword, SetLoginOtp, RequestInitialState,
-    RequestStatBucket, StatBucket, SubscribeStatValues, StatValueChanges
+    AddDeploymentLog,
+    AddLogLines,
+    AddMessage,
+    Alert,
+    AuthStatus,
+    CancelDeployment,
+    ClearDeploymentLog,
+    DeleteObject,
+    DeployObject,
+    EndLog,
+    FetchObject,
+    HostDown,
+    Login,
+    Logout,
+    MessageTextRep,
+    MessageTextReq,
+    ObjectChanged,
+    PokeService,
+    RequestAuthStatus,
+    RequestInitialState,
+    RequestStatBucket,
+    SaveObject,
+    SetDeploymentMessage,
+    SetDeploymentObjects,
+    SetDeploymentObjectStatus,
+    SetDeploymentStatus,
+    SetInitialState,
+    SetMessagesDismissed,
+    SetPage,
+    StartDeployment,
+    StartLog,
+    StatBucket,
+    StatValueChanges,
+    StopDeployment,
+    SubscribeStatValues,
+    ToggleDeploymentObject,
+    UpdateStatus,
 }
 
 export interface IUpdateStatusAction {
@@ -35,12 +64,6 @@ export interface ISetPageAction {
     page: IPage;
 }
 
-export interface ISetObjectListFilter {
-    type: ACTION.SetObjectListFilter;
-    objectType: number;
-    filter: string;
-}
-
 export interface IMessage {
     id: number;
     host: number | null;
@@ -63,12 +86,6 @@ export interface ISetInitialState {
     deploymentMessage: string;
     deploymentLog: string[];
     types: { [id:number]: IObject2<IType>};
-}
-
-export interface ISetServiceListFilter {
-    type: ACTION.SetServiceListFilter;
-    host: number;
-    filter: string;
 }
 
 export enum SERVICE_POKE { Start, Stop, Restart, Reload, Kill }
@@ -111,13 +128,6 @@ export interface IMessageTextRepAction {
     message: string;
 };
 
-export interface ISetServiceLogVisibilty {
-    type: ACTION.SetServiceLogVisibility;
-    host: number;
-    service: string;
-    visibility: boolean;
-}
-
 export interface IAddMessage {
     type: ACTION.AddMessage;
     message: IMessage;
@@ -128,37 +138,6 @@ export interface ISetMessagesDismissed {
     ids: number[];
     dismissed: boolean;
     source: "server" | "webclient";
-}
-
-// Object actions
-export interface ISetObjectName {
-    type: ACTION.SetObjectName;
-    id: number;
-    name: string;
-}
-
-export interface ISetObjectComment {
-    type: ACTION.SetObjectComment;
-    id: number;
-    comment: string;
-}
-
-export interface ISetObjectCatagory {
-    type: ACTION.SetObjectCatagory;
-    id: number;
-    catagory: string;
-}
-
-export interface ISetObjectContentParam {
-    type: ACTION.SetObjectContentParam;
-    id: number;
-    param: string;
-    value: any;
-}
-
-export interface IDiscardObject {
-    type: ACTION.DiscardObject;
-    id: number;
 }
 
 export interface ISaveObject {
@@ -240,38 +219,6 @@ export interface IAlert {
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
     
-
-export interface ISetConnectionStatus {
-    type: ACTION.SetConnectionStatus;
-    status: CONNECTION_STATUS;
-}
-
-export interface ISetMessageExpanded {
-    type: ACTION.SetMessageExpanded;
-    id: number;
-    expanded: boolean;
-}
-
-export interface ISetMessageGroupExpanded {
-    type: ACTION.SetMessageGroupExpanded;
-    id: number;
-    expanded: boolean;
-}
-
-export interface IQueryStats {
-    type: ACTION.QueryStats;
-    qs: {
-        start: number;
-        step: number;
-        values: {qid:number, name:string}[];
-    }[];
-}
-
-export interface IQueryStatsAnswer {
-    type: ACTION.QueryStatsAnswer;
-    answers: {id:number, values:number[]}[];
-};
-
 export interface IRequestAuthStatus {
     type: ACTION.RequestAuthStatus;
     session: string;
@@ -339,13 +286,43 @@ export interface IStatValueChanges {
     index: number;
 };
 
-export type IAction = IUpdateStatusAction | ISetPageAction | ISetObjectListFilter | ISetInitialState
-    | IFetchObject | IObjectChanged | ISetServiceListFilter | IPokeService | IStartLog | IEndLog
-    | IAddLogLines | ISetServiceLogVisibilty | IAddMessage | ISetMessagesDismissed | ISetObjectName 
-    | ISetObjectComment | ISetObjectContentParam | IDiscardObject | ISaveObject | IDeleteObject | IHostDown
-    | IDeployObject | ISetDeploymentStatus | ISetDeploymentMessage | ISetDeploymentObjects | IClearDeploymentLog
-    | IAddDeploymentLog | ISetDeploymentObjectStatus | IToggleDeploymentObject | IStopDeployment
-    | IStartDeployment | IStartDeployment | ICancelDeployment | IAlert | ISetObjectCatagory
-    | ISetConnectionStatus | ISetMessageExpanded | ISetMessageGroupExpanded | IQueryStats | IQueryStatsAnswer
-    | IMessageTextReqAction | IMessageTextRepAction | IAuthStatus | IRequestAuthStatus | ILogin | ILogout
-    | IRequestInitialState | IRequestStatBucket | IStatBucket | ISubscribeStatValues | IStatValueChanges;
+export type IAction =
+    | IAddDeploymentLog
+    | IAddLogLines
+    | IAddMessage
+    | IAlert
+    | IAuthStatus
+    | ICancelDeployment
+    | IClearDeploymentLog
+    | IDeleteObject
+    | IDeployObject
+    | IEndLog
+    | IFetchObject
+    | IHostDown
+    | ILogin
+    | ILogout
+    | IMessageTextRepAction
+    | IMessageTextReqAction
+    | IObjectChanged
+    | IPokeService
+    | IRequestAuthStatus
+    | IRequestInitialState
+    | IRequestStatBucket
+    | ISaveObject
+    | ISetDeploymentMessage
+    | ISetDeploymentObjects
+    | ISetDeploymentObjectStatus
+    | ISetDeploymentStatus
+    | ISetInitialState
+    | ISetMessagesDismissed
+    | ISetPageAction
+    | IStartDeployment
+    | IStartDeployment
+    | IStartLog
+    | IStatBucket
+    | IStatValueChanges
+    | IStopDeployment
+    | ISubscribeStatValues
+    | IToggleDeploymentObject
+    | IUpdateStatusAction
+    ;

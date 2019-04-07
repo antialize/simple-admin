@@ -103,11 +103,11 @@ const setupSocket = () => {
         }
 
         switch (d.type) {
+        case ACTION.SetPage:
+            //TODO
+            break;
         case ACTION.Alert:
             alert(d.message);
-            break;
-        case ACTION.SetConnectionStatus:
-            state.connectionStatus = d.status;
             break;
         case ACTION.StatBucket:
         case ACTION.StatValueChanges:
