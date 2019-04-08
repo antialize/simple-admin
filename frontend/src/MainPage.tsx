@@ -13,7 +13,7 @@ import * as State from '../../shared/state';
 function never(n: never, message: string) {
     console.error(message);
 }
-export const MainPage = observer(() => {
+export const MainPage = observer(function MainPage() {
     const p = state.page.current;
     switch (p.type) {
         case State.PAGE_TYPE.Dashbord:

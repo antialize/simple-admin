@@ -8,7 +8,7 @@ import { InformationList, InformationListRow } from './InformationList';
 import { Typography } from "@material-ui/core";
 import { observer } from "mobx-react";
 
-export default observer(({id}:{id:number}) => {
+const Status = observer(function Status({id}:{id:number}) {
     const s = state.status.get(id);
     if (s == null || !s.up)
         return <Typography color="error">Down</Typography>;
@@ -175,3 +175,5 @@ export default observer(({id}:{id:number}) => {
             <Chart initialZoom={20} style={{flex:1, marginLeft: 20, marginRight: 10, minHeight: '270px'}} host={id}/>
         </div>)
 });
+
+export default Status;

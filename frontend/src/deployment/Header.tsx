@@ -5,7 +5,7 @@ import Typography from "@material-ui/core/Typography";
 import state from "../state";
 import { observer } from "mobx-react";
 
-const Header = observer(()=>{
+const Header = observer(function Header() {
     let spin = false;
     let status = "";
 

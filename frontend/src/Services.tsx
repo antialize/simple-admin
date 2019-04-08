@@ -98,7 +98,7 @@ function ServiceLog({ host, service }: { host: number, service: string }) {
 
 
 
-const ServicesImpl = observer(({id, classes}: {id:number} & StyledComponentProps) => {
+const ServicesImpl = observer(function Services({id, classes}: {id:number} & StyledComponentProps) {
     if (!state.status.has(id)) return null;
     const filter = state.serviceListFilter.get(id) || "";
     let lvs = state.serviceLogVisibility.get(id);

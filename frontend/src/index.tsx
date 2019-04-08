@@ -22,7 +22,7 @@ window.onpopstate = (e) => {
     state.page.set(e.state as State.IPage);
 };
 
-const Content = observer(()=>{
+const Content = observer(function Content () {
     let dialog: JSX.Element = null;
     if (state.connectionStatus != CONNECTION_STATUS.INITED) {
         dialog = <Login />;

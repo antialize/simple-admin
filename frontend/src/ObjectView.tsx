@@ -12,7 +12,7 @@ import { DEPLOYMENT_STATUS } from '../../shared/state'
 import { hostId, userId} from '../../shared/type'
 import { observer } from 'mobx-react';
 
-const ObjectView = observer(({type, id, version}:{type:number, id:number, version?:number})=>{
+const ObjectView = observer(function ObjectView ({type, id, version}:{type:number, id:number, version?:number}) {
     if (!state.objects.has(id) || !state.objects.get(id).current)
         return <CircularProgress />;
     let o = state.objects.get(id);

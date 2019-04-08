@@ -11,7 +11,7 @@ import state from "./state";
 import { hostId } from '../../shared/type';
 import { observer } from "mobx-react";
 
-const StatusesCard = observer(({id}: {id:number}) => {
+const StatusesCard = observer(function StatusesCard({id}: {id:number}) {
     let hosts = state.objectDigests.get(hostId);
     let name = hosts && hosts.has(id) && hosts.get(id).name;
     let up = state.status.has(id) && state.status.get(id).up;

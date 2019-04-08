@@ -10,7 +10,7 @@ import Status from "./Status";
 import state from "./state";
 import { observer } from "mobx-react";
 
-const HostExtra =  observer(({id}:{id:number}) => {
+const HostExtra = observer(function HostExtra({id}:{id:number}) {
     const up = state.status.has(id) && state.status.get(id).up;
     let c: JSX.Element = null;
     if (up) {

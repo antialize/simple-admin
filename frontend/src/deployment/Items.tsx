@@ -5,7 +5,7 @@ import state from "../state";
 import { observer } from "mobx-react";
 import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } from "@material-ui/core/styles";
 
-const ItemsImpl = observer((p:StyledComponentProps)=>{
+const ItemsImpl = observer(function ItemImpl(p:StyledComponentProps) {
     switch (state.deployment.status) {
     case State.DEPLOYMENT_STATUS.BuildingTree:
     case State.DEPLOYMENT_STATUS.InvilidTree:

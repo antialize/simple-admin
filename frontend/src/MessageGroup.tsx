@@ -6,7 +6,7 @@ import { ISetMessagesDismissed, ACTION} from '../../shared/actions';
 import { hostId } from '../../shared/type';
 import { observer } from 'mobx-react';
 
-const MessageGroup = observer(({ids, start, end, dismissed}: {ids:number[], start:number, end:number, dismissed: number}) => {
+const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}: {ids:number[], start:number, end:number, dismissed: number}) {
     const toggle = (dismissed: boolean) => {
         const p:ISetMessagesDismissed = {
             type: ACTION.SetMessagesDismissed,

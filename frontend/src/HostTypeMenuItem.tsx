@@ -8,7 +8,7 @@ import state from "./state";
 import { hostId } from '../../shared/type';
 import { observer } from "mobx-react";
 
-const HostTypeMenuItem =  observer(() => {
+const HostTypeMenuItem =  observer(function HostTypeMenuItem() {
     let type = state.types.get(hostId);
     let hosts = [];
     if (state.objectDigests.has(hostId)) {

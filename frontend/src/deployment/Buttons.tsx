@@ -4,7 +4,7 @@ import Button from '@material-ui/core/Button';
 import state from "../state";
 import { observer } from "mobx-react";
 
-const Buttons = observer(()=>{
+const Buttons = observer(function Buttons() {
     const p = state.deployment;
     let hasDisabled = false;
     let hasEnabled = false;

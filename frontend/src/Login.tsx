@@ -10,7 +10,7 @@ import TextField from "@material-ui/core/TextField";
 import state, { CONNECTION_STATUS } from "./state";
 import { observer } from "mobx-react";
 
-const Login = observer(()=>{
+const Login = observer(function Login() {
     const l = state.login;
     let message="";
     switch (state.connectionStatus) {

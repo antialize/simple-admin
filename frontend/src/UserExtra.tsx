@@ -5,7 +5,7 @@ import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
 
-const UserExtra = observer(({id}:{id:number})=>{
+const UserExtra = observer(function UserExtra({id}:{id:number}) {
     const ctx = state.objects.get(id).current.content;
     let c: JSX.Element = null;
     if (!ctx.otp_url) return null;

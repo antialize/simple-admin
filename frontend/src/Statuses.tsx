@@ -5,7 +5,7 @@ import state from "./state";
 import { hostId } from '../../shared/type';
 import { observer } from "mobx-react";
 
-const Statuses = observer(()=>{
+const Statuses = observer(function Statuses() {
     const catagories: { [key: string]: {id: number, name: string}[] } = {};
     const hosts = state.objectDigests.get(hostId);
     if (!hosts) return null;

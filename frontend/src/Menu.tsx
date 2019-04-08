@@ -34,7 +34,7 @@ function matchText(text:string, key:string) {
     return false;
 }
 
-const MatchedText = ({search, text}:{search:string, text:string}) => {
+function  MatchedText({search, text}:{search:string, text:string}) {
     let ans=[];
     let ki=0;
     let j=0;
@@ -59,7 +59,7 @@ const MatchedText = ({search, text}:{search:string, text:string}) => {
     return <>{ans}</>;
 };
 
-const TypeObjects = observer(({search, type, clearSearch}:{search: string, type:number, clearSearch: ()=>void}) => {
+const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{search: string, type:number, clearSearch: ()=>void}) {
     let ans = [];
     for (let [id, p] of state.objectDigests.get(type)) {
         if (!matchText(p.name, search)) continue;
@@ -112,7 +112,7 @@ function SearchImpl(props:ThemedComponentProps) {
 
 const Search = withTheme()(SearchImpl);
 
-const Menu = observer(()=>{
+const Menu = observer(function Menu() {
     const types = derivedState.menuTypes;
     return (
         <AppBar position="static">

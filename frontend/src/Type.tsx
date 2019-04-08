@@ -17,7 +17,7 @@ import { InformationList, InformationListRow } from './InformationList';
 import { observer } from "mobx-react";
 import {TypePropType, hostId, rootId} from '../../shared/type';
 
-const Type = observer(({typeId, id}:{typeId:number, id:number}) => {
+const Type = observer(function Type({typeId, id}:{typeId:number, id:number}) {
     const obj = state.objects.get(id);
     const current = obj.current;
     const type = state.types && state.types.has(typeId) && state.types.get(typeId).content;

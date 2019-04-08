@@ -9,7 +9,7 @@ import Typography from '@material-ui/core/Typography';
 import state from "./state";
 import { observer } from "mobx-react";
 
-const ObjectList = observer(({type}:{type:number}) => {
+const ObjectList = observer(function ObjectList({type}:{type:number}) {
     let filter = (state.objectListFilter.get(type) || "");
     let lst = [];
     if (state.objectDigests.has(type)) {

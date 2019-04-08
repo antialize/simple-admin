@@ -9,7 +9,7 @@ interface IProps {
     filter(type:number, id:number): boolean;
 }
 
-const ObjectSelector = observer((p:IProps) => {
+const ObjectSelector = observer(function ObjectSelector(p:IProps) {
     let sel:{[key:number]:boolean} = {};    
     for (let s of p.selected)
         sel[s] = true;

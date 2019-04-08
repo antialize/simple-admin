@@ -26,7 +26,7 @@ function DropDown({title, children}:{title:string, children:any}) {
     </>;
 }
 
-export const ObjectMenuList = observer(({type}:{type:number})=>{
+export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:number}) {
     let lst = [];
     if (state.objectDigests.has(type)) {
         for (let [i, v] of state.objectDigests.get(type)) {
@@ -61,7 +61,7 @@ export const ObjectMenuList = observer(({type}:{type:number})=>{
         );
 });
 
-const TypeMenuItem = observer(({id}:{id:number})=>{
+const TypeMenuItem = observer(function TypeMenuItem({id}:{id:number}) {
     const name = state.types.get(id).name;
     if (id == rootId) {
         return <Button 

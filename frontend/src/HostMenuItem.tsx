@@ -7,7 +7,7 @@ import state from "./state";
 import { hostId } from '../../shared/type';
 import { observer } from "mobx-react";
 
-const HostMenuItem = observer(({id}: {id:number}) => {
+const HostMenuItem = observer(function HostMenuItem({id}: {id:number}) {
     const name = state.objectDigests.get(hostId).get(id).name;
     const up = state.status.has(id) && state.status.get(id).up;
     let messages = 0;

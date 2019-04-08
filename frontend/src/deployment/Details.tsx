@@ -29,7 +29,7 @@ function CententInfo(p: {c:{[key:string]:any}, t: State.IObject2<IType>}) {
         </InformationList>);
 }
 
-const Details = observer(({index}:{index:number}) => {
+const Details = observer(function Details({index}:{index:number}) {
     const o = state.deployment.objects[index];
     const t = o && o.typeId !== null && state.types.get(o.typeId);
     return <div>

@@ -13,7 +13,7 @@ interface MGroup {
     dismissed: number;
 }
 
-const Messages = observer(({host}: {host?:number}) => {
+const Messages = observer(function Messages({host}: {host?:number}) {
     const messages: {id:number, time:number}[] = [];
     let count = 0;
     for (const [id, message] of state.messages) {

@@ -27,7 +27,7 @@ const styles = (theme:Theme) : StyleRules => {
         }});
 }
 
-const TriggersImpl = observer((p:TriggersProps & StyledComponentProps) => {
+const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponentProps) {
 	let triggers = p.triggers.slice(0);
 	let rows: JSX.Element[] =[];
 	let setTriggers = () => {

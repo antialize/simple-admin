@@ -10,7 +10,7 @@ interface IProps {
     index: number;
 }
 
-const Item = observer((p:IProps&StyledComponentProps)=>{
+const Item = observer(function Item(p:IProps&StyledComponentProps) {
     let o = state.deployment.objects[p.index];
     let cn:string;
     switch(o.status) {

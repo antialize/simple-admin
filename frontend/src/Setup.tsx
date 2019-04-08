@@ -3,7 +3,7 @@ import state from "./state";
 import { Typography } from "@material-ui/core";
 import { observer } from "mobx-react";
 
-const Setup = observer(({hostid}:{hostid:number}) => {
+const Setup = observer(function Setup({hostid}:{hostid:number}) {
     let c = state.objects.get(hostid).current;
     if (!c || !c.content) return <div>No content</div>;
     let host = window.location.hostname;

@@ -5,7 +5,7 @@ import { ISetMessagesDismissed, ACTION, IMessageTextReqAction } from '../../shar
 import { hostId} from '../../shared/type';
 import { observer } from "mobx-react";
 
-const Message = observer(({id, inGroup}: {id:number, inGroup:boolean}) => {
+const Message = observer(function Message({id, inGroup}: {id:number, inGroup:boolean}) {
     const message = state.messages.get(id);
     const hostname = state.objectDigests.get(hostId).get(message.id).name;
     const newDate = new Date(message.time * 1000);

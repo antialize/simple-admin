@@ -2,7 +2,7 @@ import * as React from "react";
 import state from "./state";
 import { observer } from "mobx-react";
 
-const Smart = observer(({host}:{host:number})=>{
+const Smart = observer(function Smart({host}:{host:number}) {
     let rows: JSX.Element[] = [];
     const importantSmart = new Set([5,103,171,172,175,176,181,182,184,187,188,191,197,198,200,221]);
     const smart = state.status.get(host).smart;
