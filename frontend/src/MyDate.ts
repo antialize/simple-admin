@@ -1,3 +1,5 @@
+import * as React from 'react';
+
 class MyDate {
     constructor(public year: number, public month: number = 0, public date: number = 1, public hours: number = 0, public minutes: number = 0, public seconds: number=0) {
         this.fixup();

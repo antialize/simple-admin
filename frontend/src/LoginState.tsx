@@ -5,11 +5,12 @@ import { observable, action } from "mobx";
 
 class LoginState {
     @observable
-    user: string;
+    user: string = "";
     @observable
-    pwd: string;
+    pwd: string = "";
     @observable
-    otp: string;
+    otp: string = "";
+
     @action
     login() {
         const l: ILogin = {

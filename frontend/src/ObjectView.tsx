@@ -12,7 +12,7 @@ import { DEPLOYMENT_STATUS } from '../../shared/state'
 import { hostId, userId} from '../../shared/type'
 import { observer } from 'mobx-react';
 
-const Object = observer(({type, id, version}:{type:number, id:number, version?:number})=>{
+const ObjectView = observer(({type, id, version}:{type:number, id:number, version?:number})=>{
     if (!state.objects.has(id) || !state.objects.get(id).current)
         return <CircularProgress />;
     let o = state.objects.get(id);
@@ -45,7 +45,7 @@ const Object = observer(({type, id, version}:{type:number, id:number, version?:n
                     <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>o.discard()} disabled={!touched}>Discard</Button>
                     <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>{
                         if (confirm("Are you sure you want to delete the object?")) o.delete();}}
-                        disabled={!canDeploy /*|| p.class == 'root'*/}>Delete</Button>
+                        disabled={!canDeploy}>Delete</Button>
                 </div>
             </Box>
             <div>
@@ -54,5 +54,5 @@ const Object = observer(({type, id, version}:{type:number, id:number, version?:n
         </div>);
 });
 
-export default Object;
+export default ObjectView;
 
