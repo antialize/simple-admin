@@ -86,8 +86,6 @@ export const setupSocket = () => {
                     reconnectTime = 1;
                     for (const b of (d.deploymentLog || []))
                         add(b);
-                    if (!loaded)
-                        state.page.setFromUrl();
                     state.connectionStatus = CONNECTION_STATUS.INITED;
                     state.loaded = true;
                     for (let id in d.types)
@@ -105,6 +103,8 @@ export const setupSocket = () => {
                         s.setFromInitialState(d.statuses[status]);
                         state.status.set(+status, s);
                     }
+                    if (!loaded)
+                        state.page.setFromUrl();
                 });
                 break;
             case ACTION.SetMessagesDismissed:

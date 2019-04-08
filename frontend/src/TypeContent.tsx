@@ -63,7 +63,7 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
         }
         let temp;
         if (r.type == TypePropType.text || r.type == TypePropType.document) 
-            temp = <Switch key="template" checked={r.template} onChange={(e)=>change({template: e.target.value})}/>;
+            temp = <Switch key="template" checked={r.template} onChange={(e)=>change({template: e.target.checked})}/>;
         else
             temp = <Switch key="template" checked={false} disabled={true}/>;
         let var_;
@@ -73,11 +73,11 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
             var_ = <TextField key="var" value="" disabled={true} />;
         let extra = null;
         if (r.type == TypePropType.choice)
-            extra = <TextField value={((r.choices) || []).join(", ").trim()} onChange={(e) => change({choices: e.target.value.split(",").map(v=>v.trim())})}/>; //hintText="Choices"
+            extra = <TextField value={((r.choices) || []).join(", ").trim()} onChange={(e) => change({choices: e.target.value.split(",").map(v=>v.trim())})}/>;
         else if (r.type == TypePropType.document)
             extra = <span>
-                <TextField key="langname" value={r.langName || ""} onChange={(e) => change({langName: e.target.value})}/> // hintText="LangName"
-                <TextField key="lang" value={r.lang || ""} onChange={(e) => change({lang: e.target.value})}/> //hintText="Lang"
+                <TextField key="langname" value={r.langName || ""} onChange={(e) => change({langName: e.target.value})}/>
+                <TextField key="lang" value={r.lang || ""} onChange={(e) => change({lang: e.target.value})}/>
                 </span>;
         else if (r.type == TypePropType.text)
             extra = (

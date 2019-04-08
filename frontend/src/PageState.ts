@@ -29,14 +29,14 @@ class PageState {
             pg.id = this.nextNewObjectId;
             --this.nextNewObjectId;
         }
-        history.pushState(page, null, this.link(pg));
+        history.pushState(pg, null, this.link(pg));
 
-        this.current = page;
+        this.current = pg;
 
-        if (page.type == State.PAGE_TYPE.Object) {
-            if (!state.objects.has(page.id))
-                state.objects.set(page.id, new ObjectState(page.id));
-            state.objects.get(page.id).loadCurrent();
+        if (pg.type == State.PAGE_TYPE.Object) {
+            if (!state.objects.has(pg.id))
+                state.objects.set(pg.id, new ObjectState(pg.id));
+            state.objects.get(pg.id).loadCurrent();
         }
     }
 

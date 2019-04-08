@@ -28,6 +28,7 @@ const ObjectSelector = observer(function ObjectSelector(p:IProps) {
     return (
         <Select
             isMulti
+            fullWidth
             options={all}
             value={selected}
             onChange={(value: Item[]) => p.setSelected(value.map(i=>i.value))}

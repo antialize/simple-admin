@@ -72,10 +72,10 @@ const Type = observer(function Type({typeId, id}:{typeId:number, id:number}) {
             extra.push(<Editor title={ct.title} key={ct.name} data={v==undefined?"":v} setData={(v:string) => setProp(ct.name, v)} lang={ct.lang || c[ct.langName]} fixedLang={ct.lang != ""} setLang={(v:string) => setProp(ct.langName, v)}/>);
             break;
         case TypePropType.typeContent:
-            extra.push(<TypeContent content={v || []} onChange={v => setProp(ct.name, v)} />);
+            extra.push(<TypeContent key={ct.name} content={v || []} onChange={v => setProp(ct.name, v)} />);
             break;
         case TypePropType.monitorContent:
-            extra.push(<MonitorContent content={v || []} onChange={v => setProp(ct.name, v)} />);
+            extra.push(<MonitorContent key={ct.name}  content={v || []} onChange={v => setProp(ct.name, v)} />);
             break;
         }
     }
