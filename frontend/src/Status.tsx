@@ -17,13 +17,13 @@ const Status = observer(function Status({id}:{id:number}) {
     for (const [target, mount] of s.mounts) {
         const block_size = 512;
         lst.push(
-            <InformationListRow key={mount.src} name={mount.src + " at " + mount.target}>
+            <InformationListRow key={mount.src + " at " + mount.target} name={mount.src + " at " + mount.target}>
                 <Typography>
                     <Size size={(mount.blocks - mount.free_blocks) * mount.block_size} />
                     <span> of </span>
                     <Size size={mount.blocks * mount.block_size} /><br />
-                    <LinearProgress variant="determinate" value={(mount.blocks - mount.free_blocks)*100/mount.blocks} />
                 </Typography>
+                <LinearProgress variant="determinate" value={(mount.blocks - mount.free_blocks)*100/mount.blocks} />
             </InformationListRow>);
     }
 
@@ -150,9 +150,9 @@ const Status = observer(function Status({id}:{id:number}) {
     };
 */
     let swap = (s.meminfo.swap_total == 0)
-        ? <span>None</span>
+        ? <Typography>None</Typography>
         : (<span>
-            <Size size={s.meminfo.swap_total - s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /><br />
+            <Typography><Size size={s.meminfo.swap_total - s.meminfo.swap_free} /><span> of </span><Size size={s.meminfo.swap_total} /></Typography><br />
             <LinearProgress variant="determinate" value={(s.meminfo.swap_total - s.meminfo.swap_free)*100/s.meminfo.swap_total} />
         </span>);
 
@@ -166,9 +166,9 @@ const Status = observer(function Status({id}:{id:number}) {
                     <InformationListRow name="Uptime"><Typography><Time seconds={s.uptime?s.uptime.total:0} /></Typography></InformationListRow>
                     <InformationListRow name="Loadavg"><Typography>{s.loadavg?s.loadavg.minute:"unknown"}</Typography></InformationListRow>
                     <InformationListRow name="Memory"><Typography>
-                        <Size size={s.meminfo?s.meminfo.total - s.meminfo.free:0} /><span> of </span><Size size={s.meminfo?s.meminfo.total:0} /><br /></Typography>
+                        <Size size={s.meminfo?s.meminfo.total - s.meminfo.free:0} /><span> of </span><Size size={s.meminfo?s.meminfo.total:0} /></Typography><br />
                     </InformationListRow>
-                    <InformationListRow name="Swap"><Typography>{swap}</Typography></InformationListRow>
+                    <InformationListRow name="Swap">{swap}</InformationListRow>
                     {lst}
                 </InformationList>
             </div>

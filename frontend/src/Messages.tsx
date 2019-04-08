@@ -63,9 +63,9 @@ const Messages = observer(function Messages({host}: {host?:number}) {
                     <tr>
                         <th><Typography variant="body1" component="span">Type</Typography></th>
                         <th><Typography variant="body1" component="span">Host</Typography></th>
-                        <th><Typography variant="title" component="span">Message</Typography></th>
-                        <th><Typography variant="title" component="span">Time</Typography></th>
-                        <th><Typography variant="title" component="span">Action</Typography></th></tr>
+                        <th><Typography variant="body1" component="span">Message</Typography></th>
+                        <th><Typography variant="body1" component="span">Time</Typography></th>
+                        <th><Typography variant="body1" component="span">Action</Typography></th></tr>
                 </thead>
                 <tbody>{messageItems}</tbody>
             </table>

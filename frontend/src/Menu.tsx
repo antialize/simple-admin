@@ -75,7 +75,7 @@ const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{s
     if (!ans.length) return <> </>;
 
     return <>
-        <Typography variant="title">Type {state.types.has(type)?state.types.get(type).name:"??"}</Typography>
+        <Typography variant="h4">Type {state.types.has(type)?state.types.get(type).name:"??"}</Typography>
         <List>
             {ans}
         </List>
@@ -118,7 +118,7 @@ const Menu = observer(function Menu() {
         <AppBar position="static">
             <Toolbar>
                 <MenuDropdown> 
-                    {types.map(t => <SubMenu title={t.name}> <ObjectMenuList type={t.id} /> </SubMenu>)}
+                    {types.map(t => <SubMenu title={t.name} key={t.name}> <ObjectMenuList type={t.id} /> </SubMenu>)}
                 </MenuDropdown>
                 <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
                 <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>
