@@ -9,16 +9,16 @@ import { JobOwner } from './jobowner'
 import { MonitorJob } from './jobs/monitorJob'
 import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
-import {errorHandler} from './error';
-import {log} from 'winston';
-import {Job} from './job';
-import {IMonitor, IMonitorProp, MonitorPropType, MonitorUnit} from '../../shared/monitor'
+import { errorHandler } from './error';
+import { log } from 'winston';
+import { Job } from './job';
+import { IMonitor, IMonitorProp, MonitorPropType, MonitorUnit } from '../../shared/monitor'
 import * as stat from './stat';
 
 enum Interval {
-    instante=0,
-    five_minutes=1,
-    hour=2,
+    instante = 0,
+    five_minutes = 1,
+    hour = 2,
 };
 
 function delay(time: number) {
@@ -54,7 +54,7 @@ export class HostClient extends JobOwner {
         this.socket.on('close', () => this.onClose());
         this.socket.on('data', (data: any) => this.onData(data as Buffer));
         this.socket.on('error', (err: Error) => {
-            log('warning', "Client socket error", {hostname: this.hostname, error: err});
+            log('warning', "Client socket error", { hostname: this.hostname, error: err });
         });
         this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);;
     }
@@ -71,7 +71,7 @@ export class HostClient extends JobOwner {
         this.pingTimer = null;
         msg.emit(this.id, "Host down", "Did not respond to ping within 20 seconds.");
         this.closeHandled = true;
-        log('warning', "Client ping timeout", {hostname: this.hostname});
+        log('warning', "Client ping timeout", { hostname: this.hostname });
         this.socket.end();
     }
 
@@ -87,12 +87,16 @@ export class HostClient extends JobOwner {
         if (this.pingTimer != null)
             clearTimeout(this.pingTimer);
 
-        if (!this.auth) return;
+        if (!this.auth) {
+            log('info', "Bad auth for client", { hostname: this.hostname });
+            return;
+        }
+
         if (!this.closeHandled)
             msg.emit(this.id, "Host down", "Connection closed.");
 
-        log('info', "Client disconnected", {hostname: this.hostname});
-            
+        log('info', "Client disconnected", { hostname: this.hostname });
+
         if (this.id in hostClients.hostClients)
             delete hostClients.hostClients[this.id];
 
@@ -102,19 +106,19 @@ export class HostClient extends JobOwner {
         this.kill();
     }
 
-    removeJob(job:Job, m: message.Failure|message.Success|null) {
+    removeJob(job: Job, m: message.Failure | message.Success | null) {
         if (job == this.monitorJob) {
             if (this.reloadingMonitor) {
                 this.reloadingMonitor = false;
                 this.monitorJob = new MonitorJob(this, this.monitorScript);
             } else {
-                log('warning', "Monitor job died", {hostname: this.hostname});
+                log('warning', "Monitor job died", { hostname: this.hostname });
                 msg.emit(this.id, "Monitor job died", this.monitorJob.error);
                 this.monitorJob = null;
-                setTimeout(()=> {
+                setTimeout(() => {
                     if (this.monitorJob != null) return;
-                    log('info', "Restart monitor joxb", {hostname: this.hostname});
-                    this.monitorJob = new MonitorJob(this, this.monitorScript);                
+                    log('info', "Restart monitor joxb", { hostname: this.hostname });
+                    this.monitorJob = new MonitorJob(this, this.monitorScript);
                 }, this.monitorRestartTime);
                 this.monitorRestartTime *= 1.5;
             }
@@ -122,10 +126,10 @@ export class HostClient extends JobOwner {
         super.removeJob(job, m);
     }
 
-    monitorChanged(script:string, content:IMonitor[]) {
+    monitorChanged(script: string, content: IMonitor[]) {
         let md = this.monitorJob;
         this.monitorJob = null;
-        log('info', "New monitor", {hostname: this.hostname, /*content*/});
+        log('info', "New monitor", { hostname: this.hostname, /*content*/ });
         this.monitorContent = content;
         this.monitorScript = script;
         this.monitorRestartTime = 1000;
@@ -137,7 +141,7 @@ export class HostClient extends JobOwner {
         }
     }
 
-    async setMonitor(script: string, content:IMonitor[]) {
+    async setMonitor(script: string, content: IMonitor[]) {
         await db.setHostMonitor(this.id, script, JSON.stringify(content));
         this.monitorChanged(script, content);
     }
@@ -154,7 +158,7 @@ export class HostClient extends JobOwner {
         if (this.auth === false) return;
         if (this.auth === null) {
             if (obj.type != "auth") {
-                log('warning', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
+                log('warning', "Client invalid auth", { address: this.socket.remoteAddress, port: this.socket.remotePort, obj });
                 this.socket.end();
                 this.auth = false;
                 return;
@@ -162,7 +166,7 @@ export class HostClient extends JobOwner {
 
             let [id, _] = await Promise.all<number, void>([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
-                log('info', "Client authorized", {hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort});
+                log('info', "Client authorized", { hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort });
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;
