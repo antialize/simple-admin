@@ -42,7 +42,7 @@ import Paper from "@material-ui/core/Paper";
 import Select from "@material-ui/core/Select";
 import Toolbar from "@material-ui/core/Toolbar";
 import Typography from "@material-ui/core/Typography";
-import { UnControlled as CodeMirror } from 'react-codemirror2';
+import { Controlled as CodeMirror } from 'react-codemirror2';
 
 const modeInfo = [
     {name: "C", mime: "text/x-csrc", mode: "clike", ext: ["c", "h"]},
@@ -137,7 +137,8 @@ class Editor extends React.Component<IProps, IState> {
                         </Select>
                     </Typography>
                 </Toolbar>
-                <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} onChange={(e,d,v) => this.props.setData(v)} />
+                <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} 
+                     onBeforeChange={(e,d,v) => {this.props.setData(v)}} />
             </Paper>
         )
     }
