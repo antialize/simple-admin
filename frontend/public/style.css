@@ -70,7 +70,7 @@ tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
         display: flex;
         flex-wrap: nowrap;
         flex-direction: column;
-        height: calc(100vh - 20px);
+        height: calc(100vh - 110px);
     }
 
     .deployment_header {
@@ -107,7 +107,7 @@ tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
         grid-template-columns: 730px 1fr;
         grid-template-rows: auto auto auto auto 1fr;
         grid-gap: 10px;
-        height: calc(100vh - 20px);
+        height: calc(100vh - 110px);
     }
 
     .deployment_header {
