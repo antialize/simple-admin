@@ -15,6 +15,7 @@
     "@types/priorityqueuejs": "^1.0.1",
     "@types/speakeasy": "^2.0.2",
     "@types/sqlite3": "^3.1.1",
+    "@types/uuid": "^3.4.4",
     "@types/winston": "^2.3.7",
     "@types/ws": "^4.0.0",
     "async-exit-hook": "^2.0.1",
@@ -30,6 +31,7 @@
     "sqlite3": "^3.1.13",
     "ts-node": "^4.1.0",
     "typescript": "^2.7.1",
+    "uuid": "^3.3.2",
     "winston": "^2.4.0",
     "ws": "^4.0.0"
   },

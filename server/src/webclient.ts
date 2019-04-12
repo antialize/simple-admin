@@ -24,6 +24,7 @@ import * as crypto from 'crypto';
 import { config } from './config'
 import * as speakeasy from 'speakeasy';
 import * as stat from './stat';
+import {docker} from './docker';
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -392,6 +393,11 @@ export class WebClients {
         this.httpsServer = https.createServer(this.credentials, this.httpsApp);
         this.wss = new WebSocket.Server({ server: this.httpsServer })
         this.httpsApp.get("/setup.sh", (req, res) => setup(req, res));
+        this.httpsApp.get("/v2/*", docker.get.bind(docker));
+        this.httpsApp.put("/v2/*", docker.put.bind(docker) );
+        this.httpsApp.post("/v2/*", docker.post.bind(docker));
+        this.httpsApp.delete("/v2/*", docker.delete.bind(docker));
+        this.httpsApp.patch("/v2/*", docker.patch.bind(docker));
         this.httpsApp.use(express.static("../frontend/public"));
         this.wss.on('connection', (ws, request) => {
             const u = url.parse(request.url, true);

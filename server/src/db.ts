@@ -60,6 +60,8 @@ export class DB {
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
         await r("CREATE TABLE IF NOT EXISTS `host_monitor` (`host` INTEGER PRIMARY KEY, `script` TEXT, `content` TEXT, `time` INTEGER)");
 
+        await r("CREATE TABLE IF NOT EXISTS `docker_images` (`project` TEXT, `tag` TEXT, `time` INTEGER, `manifest` TEXT, `hash` TEXT, `firstDeploy` INTEGER, `lastUndeploy` INTEGER)");
+
         //await r("DROP TABLE `stats`");
         //await r("DROP INDEX IF EXISTS `stats_index`");
 
