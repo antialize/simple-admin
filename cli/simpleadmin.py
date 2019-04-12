@@ -84,6 +84,8 @@ async def deauth(full):
     if full and os.path.exists(c.cookieFile):
         os.unlink(c.cookieFile)
 
+async def deploy(server, image, slot=None, config=None, restore_on_failure=True):
+    pass
     
 def main():
     parser = argparse.ArgumentParser(prog='simpleadmin')
@@ -95,10 +97,19 @@ def main():
     parser_deauth = subparsers.add_parser('deauth', help='Deauthenticate user', description="Deauthenticate your user")
     parser_deauth.add_argument('-f, --full', dest='full', action='store_true', help="Forget two factor authentication")
 
+    parser_deploy = subparsers.add_parser('deploy', help='Deploy', description="Deploy image on server")
+    parser_deploy.add_argument('server', help="The server to deploy on")
+    parser_deploy.add_argument('image', help="The image to deploy")
+    parser_deploy.add_argument('-s, --slot', dest='slot', help="The slot to deloy to", default=None)
+    parser_deploy.add_argument('-c, --config', dest='config', help="The config to use", default=None)
+    parser_deploy.add_argument('--no-restore-on-failure', dest='restore_on_failure', action='store_false')
+
     args = parser.parse_args()
     if args.command == 'auth':
         asyncio.get_event_loop().run_until_complete(auth(args.user))
     elif args.command == 'deauth':
         asyncio.get_event_loop().run_until_complete(deauth(args.full))
+    elif args.command == 'deploy':
+        asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.slot, args.config, args.restore_on_failure))
 if __name__ == '__main__':
     main()
