@@ -72,7 +72,11 @@ async def run_instant(obj, output_queue):
                 data = stdout.decode("utf-8", "replace")
             proc = None
         finally:
-            if proc != None: proc.kill();
+            if proc != None:
+                try:
+                    proc.kill()
+                except:
+                    passproc.kill()
         return {'type': 'success', 'data': data}
 
 async def script_input_handler(stdin, input_queue):
@@ -156,7 +160,11 @@ async def run_script(obj, output_queue, input_queue):
             logging.info("Script done %d %d"%(obj['id'], code))
         finally:
             if proc != None:
-                proc.kill()
+                try:
+                    proc.kill()
+                except:
+                    pass
+
         return {'type': 'success', 'code': code} 
 
 ############################################################################################################################
