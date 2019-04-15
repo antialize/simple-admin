@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse, getpass, os, json, asyncio, subprocess, base64, socket
+import argparse, getpass, os, json, asyncio, subprocess, base64, socket, random
 import websockets
 
 remote = json.load(open("/etc/simpleadmin_client.json", "r"))['server_host']
@@ -84,9 +84,20 @@ async def deauth(full):
     if full and os.path.exists(c.cookieFile):
         os.unlink(c.cookieFile)
 
-async def deploy(server, image, slot=None, config=None, restore_on_failure=True):
-    pass
-    
+async def deploy(server, image, container=None, config=None, restore_on_failure=True):
+    c = Connection()
+    await c.setup(requireAuth=True)
+    ref = random.randint(0, 2**48-1)
+    await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref}))
+
+    while True:
+        res = json.loads(await c.socket.recv())
+        if res['type'] == 'DockerDeployLog' and res['ref'] == ref:
+            print(res['message'])
+        if res['type'] == 'DockerDeployEnd' and res['ref'] == ref:
+            print(res['message'])
+            break
+
 def main():
     parser = argparse.ArgumentParser(prog='simpleadmin')
     subparsers = parser.add_subparsers(help='commands', dest="command")
@@ -100,7 +111,7 @@ def main():
     parser_deploy = subparsers.add_parser('deploy', help='Deploy', description="Deploy image on server")
     parser_deploy.add_argument('server', help="The server to deploy on")
     parser_deploy.add_argument('image', help="The image to deploy")
-    parser_deploy.add_argument('-s, --slot', dest='slot', help="The slot to deloy to", default=None)
+    parser_deploy.add_argument('-s, --container', dest='container', help="The container to deloy to", default=None)
     parser_deploy.add_argument('-c, --config', dest='config', help="The config to use", default=None)
     parser_deploy.add_argument('--no-restore-on-failure', dest='restore_on_failure', action='store_false')
 
@@ -110,6 +121,7 @@ def main():
     elif args.command == 'deauth':
         asyncio.get_event_loop().run_until_complete(deauth(args.full))
     elif args.command == 'deploy':
-        asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.slot, args.config, args.restore_on_failure))
+        asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.container, args.config, args.restore_on_failure))
+
 if __name__ == '__main__':
     main()
