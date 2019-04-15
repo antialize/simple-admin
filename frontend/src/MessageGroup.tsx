@@ -19,7 +19,9 @@ const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}
 
     const id = ids[0];
     const message = state.messages.get(id);
-    const hostname = state.objectDigests.get(hostId).get(message.host).name;
+    const hosts = state.objectDigests.get(hostId);
+    const host = hosts && hosts.get(id);
+    const hostname = (host && host.name) || "missing";
     const expanded = state.messageGroupExpanded.get(id) || false;
 
     const newDate = new Date(end * 1000);
