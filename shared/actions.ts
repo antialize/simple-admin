@@ -12,6 +12,9 @@ export enum ACTION {
     ClearDeploymentLog="ClearDeploymentLog",
     DeleteObject="DeleteObject",
     DeployObject="DeployObject",
+    DockerDeployDone="DockerDeployEnd",
+    DockerDeployLog="DockerDeployLog",
+    DockerDeployStart="DockerDeployStart",
     EndLog="EndLog",
     FetchObject="FetchObject",
     HostDown="HostDown",
@@ -26,8 +29,8 @@ export enum ACTION {
     RequestStatBucket="RequestStatBucket",
     SaveObject="SaveObject",
     SetDeploymentMessage="SetDeploymentMessage",
-    SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentObjectStatus="SetDeploymentObjectStatus",
+    SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentStatus="SetDeploymentStatus",
     SetInitialState="SetInitialState",
     SetMessagesDismissed="SetMessageDismissed",
@@ -290,6 +293,29 @@ export interface IStatValueChanges {
     index: number;
 };
 
+export interface IDockerDeployStart {
+    type: ACTION.DockerDeployStart;
+    host: number | string;
+    image: string;
+    container?: string;
+    config?: string;
+    restoreOnFailure: boolean;
+    ref: number;
+}
+
+export interface IDockerDeployLog {
+    type: ACTION.DockerDeployLog;
+    ref: number;
+    message: string;
+}
+
+export interface IDockerDeployDone {
+    type: ACTION.DockerDeployDone;
+    ref: number;
+    status: boolean;
+    message?: string;
+}
+
 export type IAction =
     | IAddDeploymentLog
     | IAddLogLines
@@ -300,6 +326,9 @@ export type IAction =
     | IClearDeploymentLog
     | IDeleteObject
     | IDeployObject
+    | IDockerDeployDone
+    | IDockerDeployLog
+    | IDockerDeployStart
     | IEndLog
     | IFetchObject
     | IHostDown
@@ -314,8 +343,8 @@ export type IAction =
     | IRequestStatBucket
     | ISaveObject
     | ISetDeploymentMessage
-    | ISetDeploymentObjects
     | ISetDeploymentObjectStatus
+    | ISetDeploymentObjects
     | ISetDeploymentStatus
     | ISetInitialState
     | ISetMessagesDismissed

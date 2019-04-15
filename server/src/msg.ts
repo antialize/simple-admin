@@ -45,7 +45,7 @@ export class Msg {
     async getResent() {
         const time = (+new Date() / 1000) - 60 * 60 * 24 * 2; //Two dayes ago
         const res: actions.IMessage[] = [];
-        for (const row of db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages` WHERE `dismissed`=0 OR `dismissedTime`>?", time)) {
+        for (const row of await db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages` WHERE `dismissed`=0 OR `dismissedTime`>?", time)) {
             const msg: string = row['message'] || "";
             res.push({
                 id: row['id'],
@@ -66,9 +66,9 @@ export class Msg {
         return db.get("SELECT `message` FROM `messages` WHERE `id`=?", [id]) as Promise<{ message: string }>;
     }
 
-    getAll() {
+    async getAll() {
         const res: actions.IMessage[] = [];
-        for (const row of db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages`")) {
+        for (const row of await db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages`")) {
             res.push({
                 id: row['id'],
                 host: row['host'],

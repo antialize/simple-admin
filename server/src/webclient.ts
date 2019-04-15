@@ -33,7 +33,7 @@ interface EWS extends express.Express {
 async function getAuth(host: string, sid: string) {
     try {
         let row = await db.get("SELECT `pwd`, `otp`, `user`, `host` FROM `sessions` WHERE `sid`=?", sid);
-        if (row['host'] != host) {
+        if (row['host'] != host || row['user'] === "docker_client") {
             return { auth: false, pwd: false, otp: false, sid: null, user: null };
         } else {
             const now = Date.now() / 1000 | 0;
@@ -306,6 +306,9 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.ToggleDeploymentObject:
                 deployment.toggleObject(act.index, act.enabled);
+                break;
+            case ACTION.DockerDeployStart:
+                docker.deploy(this, act);
                 break;
             default:
                 log("warning", "Web client unknown message", { act });
