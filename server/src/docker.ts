@@ -467,7 +467,7 @@ class Docker {
      async listDeployments(client: WebClient, act: IDockerListDeployments) {
         const res: IDockerListDeploymentsRes = {type: ACTION.DockerListDeploymentsRes, ref: act.ref, deployments: []};
         try {
-            for (const row of await db.all("SELECT `project`, container`, `host`, `startTime`, `endTime`, `hash`, `user` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `host`, `project`, `container`)")) {
+            for (const row of await db.all("SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)")) {
                 if (act.host && row.host != act.host) continue;
                 if (act.image && row.project != act.image) continue;
                 res.deployments.push({
