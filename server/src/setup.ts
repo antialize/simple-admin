@@ -45,12 +45,13 @@ export default async (req: Request, res: Response) => {
     script += "add-apt-repository universe\n";
     script += "apt update\n";
     // smartmontools recommends mailx which depends on some mail-transport-agent. Install ssmtp instead of postfix.
-    script += "apt install -y python3 python3-dbus git smartmontools postfix- ssmtp\n";
+    script += "apt install -y python3 python3-dbus git smartmontools postfix- ssmtp python3-websockets\n";
     script += "echo '{\"password\": \""+npw+"\", \"server_host\": \""+config.hostname+"\", \"hostname\": \""+host+"\"}' > /etc/simpleadmin_client.json\n";
     script += "rm -rf /opt/simple-admin\n";
     script += "mkdir -p /opt/simple-admin\n";
     script += "git clone https://github.com/antialize/simple-admin.git /opt/simple-admin\n";
-    script += "cp /opt/simple-admin/simpleadmin-client.service /etc/systemd/system\n";
+    script += "ln -Tfs /opt/simple-admin/simpleadmin-client.service /etc/systemd/system/simpleadmin-client.service\n";
+    script += "ln -Tfs /opt/simple-admin/simpleadmin.py /usr/bin/sadmin\n";
     script += "systemctl daemon-reload\n";
     script += "systemctl enable simpleadmin-client.service\n";
     script += "systemctl restart simpleadmin-client.service\n";
