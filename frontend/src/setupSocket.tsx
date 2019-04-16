@@ -165,6 +165,9 @@ export const setupSocket = () => {
                         state.deployment.objects[d.index].enabled = d.enabled;
                 });
                 break;
+            case ACTION.DockerListImageTagsRes:
+                state.dockerImages.handleLoad(d);
+                break;
         }
     };
     socket.onopen = () => {

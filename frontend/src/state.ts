@@ -3,11 +3,12 @@ import LoginState from "./LoginState";
 import ObjectState from "./ObjectState";
 import PageState from "./PageState";
 import StatusState from "./StatusState";
-import { IAction, IMessage }  from "../../shared/actions";
+import { IAction, IMessage, DockerImageTag }  from "../../shared/actions";
 import { IObject2, IObjectDigest } from "../../shared/state";
 import { IType } from "../../shared/type";
 import { observable } from "mobx";
 import { ActionTargets } from "./ActionTargets";
+import { DockerImagesState } from "./DockerImages";
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
@@ -60,6 +61,9 @@ class State {
 
     @observable
     status: Map<Number, StatusState>;
+
+    @observable
+    dockerImages: DockerImagesState;
 
     sendMessage: (act:IAction)=>void = null;
 };

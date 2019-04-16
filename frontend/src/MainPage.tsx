@@ -9,6 +9,7 @@ import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
 import * as State from '../../shared/state';
+import { DockerImages } from './DockerImages';
 
 function never(n: never, message: string) {
     console.error(message);
@@ -32,6 +33,10 @@ export const MainPage = observer(function MainPage() {
             return <Deployment />;
         case State.PAGE_TYPE.DeploymentDetails:
             return <div><DeploymentDetails index={p.index} /></div>;
+        case State.PAGE_TYPE.DockerImages:
+            return <DockerImages/>;
+        case State.PAGE_TYPE.DockerContainers:
+            return <div>Docker containers</div>;
         default:
             never(p, "Unhandled page type");
     }

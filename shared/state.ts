@@ -1,6 +1,6 @@
 import {IType} from './type'
 
-export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment, DeploymentDetails }
+export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment, DeploymentDetails, DockerImages, DockerContainers}
 
 export interface IObjectDigest {
     name: string;
@@ -33,7 +33,15 @@ export interface IDeploymentDetailsPage {
     index: number;
 }
 
-export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage | IDeploymentDetailsPage;
+export interface IDockerImagesPage {
+    type: PAGE_TYPE.DockerImages;
+}
+
+export interface IDockerContainersPage {
+    type: PAGE_TYPE.DockerContainers;
+}
+
+export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage | IDeploymentDetailsPage | IDockerImagesPage | IDockerContainersPage;
 
 export interface IObject2<T> {
     id: number;

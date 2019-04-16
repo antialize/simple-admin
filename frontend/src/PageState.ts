@@ -64,6 +64,12 @@ class PageState {
             o['page'] = 'deploymentDetails'
             o['index'] = ""+page.index;
             break;
+        case State.PAGE_TYPE.DockerImages:
+            o['page'] = 'dockerImages';
+            break;
+        case State.PAGE_TYPE.DockerContainers:
+            o['page'] = 'dockerContainers';
+            break;
         default:
             never(page, "Unhandled page");
         }
@@ -83,6 +89,12 @@ class PageState {
         switch (p) {
         default:
             this.current = {type: State.PAGE_TYPE.Dashbord};
+            break;
+        case 'dockerImages':
+            this.current = {type: State.PAGE_TYPE.DockerImages};
+            break;
+        case 'dockerContainers':
+            this.current = {type: State.PAGE_TYPE.DockerContainers}
             break;
         case 'deployment':
             this.current = {type: State.PAGE_TYPE.Deployment};

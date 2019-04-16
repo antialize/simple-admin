@@ -3,6 +3,7 @@ import LoginState from "./LoginState";
 import PageState from "./PageState";
 import state from "./state"
 import { ActionTargets } from "./ActionTargets";
+import { DockerImagesState } from "./DockerImages";
 
 function setupState() {
     state.login = new LoginState;
@@ -19,6 +20,7 @@ function setupState() {
     state.serviceLogVisibility = new Map;
     state.objects = new Map;
     state.status = new Map;
+    state.dockerImages = new DockerImagesState;
 };
 
 export default setupState;
