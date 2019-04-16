@@ -15,8 +15,14 @@ export enum ACTION {
     DockerDeployDone="DockerDeployEnd",
     DockerDeployLog="DockerDeployLog",
     DockerDeployStart="DockerDeployStart",
+    DockerListDeployments="DockerListDeployments",
+    DockerListDeploymentsRes="DockerListDeploymentsRes",
+    DockerListImageTags="DockerListImageTags",
+    DockerListImageTagsRes="DockerListImageTagsRes",
     EndLog="EndLog",
     FetchObject="FetchObject",
+    GetObjectId="GetObjectId",
+    GetObjectIdRes="GetObjectIdRes",
     HostDown="HostDown",
     Login="Login",
     Logout="LogOut",
@@ -44,6 +50,8 @@ export enum ACTION {
     ToggleDeploymentObject="ToggleDeploymentObject",
     UpdateStatus="UpdateStatus",
 }
+
+export type Ref = number | string;
 
 export interface IUpdateStatusAction {
     type: ACTION.UpdateStatus;
@@ -300,20 +308,74 @@ export interface IDockerDeployStart {
     container?: string;
     config?: string;
     restoreOnFailure: boolean;
-    ref: number;
+    ref: Ref;
 }
 
 export interface IDockerDeployLog {
     type: ACTION.DockerDeployLog;
-    ref: number;
+    ref: Ref;
     message: string;
 }
 
 export interface IDockerDeployDone {
     type: ACTION.DockerDeployDone;
-    ref: number;
+    ref: Ref;
     status: boolean;
     message?: string;
+}
+
+export interface IGetObjectId {
+    type: ACTION.GetObjectId;
+    ref: Ref;
+    path: string;
+}
+
+export interface IGetObjectIdRes {
+    type: ACTION.GetObjectIdRes;
+    ref: Ref;
+    id: number | null;
+}
+
+export interface IDockerListImageTags {
+    type: ACTION.DockerListImageTags;
+    ref: Ref;
+}
+
+export interface DockerImageTag {
+    image: string;
+    tag: string;
+    hash: string;
+    time: number;
+    user: string;
+}
+
+export interface IDockerListImageTagsRes {
+    type: ACTION.DockerListImageTagsRes;
+    ref: Ref;
+    tags: DockerImageTag[];
+}
+
+export interface IDockerListDeployments {
+    type: ACTION.DockerListDeployments;
+    ref: Ref;
+    host?: number;
+    image?: string;
+}
+
+export interface DockerDeployment {
+    image: string;
+    hash: string;
+    name: string;
+    user: string;
+    start: number;
+    end: number;
+    host: number;
+}
+
+export interface IDockerListDeploymentsRes {
+    type: ACTION.DockerListDeploymentsRes;
+    ref: Ref;
+    deployments: DockerDeployment[];
 }
 
 export type IAction =
@@ -329,8 +391,14 @@ export type IAction =
     | IDockerDeployDone
     | IDockerDeployLog
     | IDockerDeployStart
+    | IDockerListDeployments
+    | IDockerListDeploymentsRes
+    | IDockerListImageTags
+    | IDockerListImageTagsRes
     | IEndLog
     | IFetchObject
+    | IGetObjectId
+    | IGetObjectIdRes
     | IHostDown
     | ILogin
     | ILogout

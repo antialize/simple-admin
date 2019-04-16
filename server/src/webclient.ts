@@ -213,6 +213,19 @@ export class WebClient extends JobOwner {
                 }
                 this.sendMessage(res);
                 break;
+            case ACTION.GetObjectId:
+                let id = null;
+                try {
+                    const parts = act.path.split("/", 2);
+                    if (parts.length != 2) break;
+                    const typeRow = await db.get('SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1', typeId, parts[0]);
+                    if (!typeRow || !typeRow.id) break;
+                    const objectRow = await db.get('SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1', typeRow['id'], parts[1]);
+                    if (objectRow) id = objectRow.id;
+                } finally {
+                    this.sendMessage({type: ACTION.GetObjectIdRes, ref: act.ref, id});
+                }
+                break;
             case ACTION.PokeService:
                 if (act.host in hostClients.hostClients) {
                     new PokeServiceJob(hostClients.hostClients[act.host], act.poke, act.service);
@@ -309,6 +322,12 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.DockerDeployStart:
                 docker.deploy(this, act);
+                break;
+            case ACTION.DockerListDeployments:
+                docker.listDeployments(this, act);
+                break;
+            case ACTION.DockerListImageTags:
+                docker.listImageTags(this, act)
                 break;
             default:
                 log("warning", "Web client unknown message", { act });

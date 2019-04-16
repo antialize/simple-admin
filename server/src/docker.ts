@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients } from './instances';
-import { IDockerDeployStart, ACTION } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -286,7 +286,7 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref:number, hash:string, conf:string, session:string) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string) {
         return new Promise((accept, reject) => {
             const pyStr = (v:string) => {
                 return "r'" + v.replace("'", "\\'") + "'";
@@ -462,6 +462,45 @@ class Docker {
             client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed due to an exception"});
             log('error', "Deployment failed do to an exception", e);
          }
+     }
+
+     async listDeployments(client: WebClient, act: IDockerListDeployments) {
+        const res: IDockerListDeploymentsRes = {type: ACTION.DockerListDeploymentsRes, ref: act.ref, deployments: []};
+        try {
+            for (const row of await db.all("SELECT `project`, container`, `host`, `startTime`, `endTime`, `hash`, `user` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `host`, `project`, `container`)")) {
+                if (act.host && row.host != act.host) continue;
+                if (act.image && row.project != act.image) continue;
+                res.deployments.push({
+                    image: row.project,
+                    hash: row.hash,
+                    name: row.container,
+                    host: row.host,
+                    start: row.startTime,
+                    end: row.endTime,
+                    user: row.user
+                });
+            }
+        } finally {
+            client.sendMessage(res);
+        }
+     }
+
+     async listImageTags(client: WebClient, act: IDockerListImageTags) {
+        const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
+        try {
+            for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+                res.tags.push(
+                    {
+                        image: row.project,
+                        hash: row.hash,
+                        tag: row.tag,
+                        user: row.user,
+                        time: row.time
+                    }
+                );
+        } finally {
+            client.sendMessage(res);
+        }
      }
 }
 
