@@ -47,6 +47,7 @@ export class Msg {
         const res: actions.IMessage[] = [];
         for (const row of await db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages` WHERE `dismissed`=0 OR `dismissedTime`>?", time)) {
             const msg: string = row['message'] || "";
+            if (row.type === null) continue;
             res.push({
                 id: row['id'],
                 host: row['host'],
