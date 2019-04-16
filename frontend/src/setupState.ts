@@ -4,6 +4,7 @@ import PageState from "./PageState";
 import state from "./state"
 import { ActionTargets } from "./ActionTargets";
 import { DockerImagesState } from "./DockerImages";
+import { DockerContainersState } from "./DockerContainers";
 
 function setupState() {
     state.login = new LoginState;
@@ -21,6 +22,7 @@ function setupState() {
     state.objects = new Map;
     state.status = new Map;
     state.dockerImages = new DockerImagesState;
+    state.dockerContainers = new DockerContainersState;
 };
 
 export default setupState;

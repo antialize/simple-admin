@@ -9,6 +9,7 @@ import { IType } from "../../shared/type";
 import { observable } from "mobx";
 import { ActionTargets } from "./ActionTargets";
 import { DockerImagesState } from "./DockerImages";
+import { DockerContainersState } from "./DockerContainers";
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
@@ -62,8 +63,11 @@ class State {
     @observable
     status: Map<Number, StatusState>;
 
-    @observable
+    @observable.shallow
     dockerImages: DockerImagesState;
+
+    @observable.shallow
+    dockerContainers: DockerContainersState;
 
     sendMessage: (act:IAction)=>void = null;
 };

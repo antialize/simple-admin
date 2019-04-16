@@ -10,6 +10,7 @@ import state from "./state";
 import { observer } from "mobx-react";
 import * as State from '../../shared/state';
 import { DockerImages } from './DockerImages';
+import { DockerContainers } from './DockerContainers';
 
 function never(n: never, message: string) {
     console.error(message);
@@ -36,7 +37,7 @@ export const MainPage = observer(function MainPage() {
         case State.PAGE_TYPE.DockerImages:
             return <DockerImages/>;
         case State.PAGE_TYPE.DockerContainers:
-            return <div>Docker containers</div>;
+            return <DockerContainers />;
         default:
             never(p, "Unhandled page type");
     }

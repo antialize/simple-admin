@@ -168,6 +168,9 @@ export const setupSocket = () => {
             case ACTION.DockerListImageTagsRes:
                 state.dockerImages.handleLoad(d);
                 break;
+            case ACTION.DockerListDeploymentsRes:
+                state.dockerContainers.handleLoad(d);
+                break;
         }
     };
     socket.onopen = () => {
