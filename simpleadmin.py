@@ -89,7 +89,7 @@ async def deploy(server, image, container=None, config=None, restore_on_failure=
     c = Connection()
     await c.setup(requireAuth=True)
     ref = random.randint(0, 2**48-1)
-    await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref}))
+    await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref, "container": container}))
 
     while True:
         res = json.loads(await c.socket.recv())
@@ -183,11 +183,12 @@ def main():
         asyncio.get_event_loop().run_until_complete(auth(args.user))
     elif args.command == 'deauth':
         asyncio.get_event_loop().run_until_complete(deauth(args.full))
-    elif args.command == 'dockerDelpoy':
+    elif args.command == 'dockerDeploy':
         asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.container, args.config, args.restore_on_failure))
     elif args.command == 'edit':
         asyncio.get_event_loop().run_until_complete(edit(args.object))
-
+    else:
+        print("No command specified")
 
 if __name__ == '__main__':
     main()
