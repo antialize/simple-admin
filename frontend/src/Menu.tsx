@@ -7,7 +7,7 @@ import InputBase from "@material-ui/core/InputBase";
 import Link from "@material-ui/core/Link";
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
-import MenuDropdown from "./MenuDropdown";
+import MenuDropdown, { DropDownItem } from "./MenuDropdown";
 import Paper from "@material-ui/core/Paper";
 import Popper from "@material-ui/core/Popper";
 import SearchIcon from '@material-ui/icons/Search';
@@ -17,7 +17,7 @@ import TypeMenuItem, { ObjectMenuList } from './TypeMenuItem';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
-import { hostId, userId} from '../../shared/type'
+import { hostId, userId, rootId, rootInstanceId} from '../../shared/type'
 import { observer } from "mobx-react";
 import { useState } from "react";
 import { withTheme } from "@material-ui/core/styles";
@@ -118,7 +118,13 @@ const Menu = observer(function Menu() {
         <AppBar position="static">
             <Toolbar>
                 <MenuDropdown> 
-                    {types.map(t => <SubMenu title={t.name} key={t.name}> <ObjectMenuList type={t.id} /> </SubMenu>)}
+                    {types.map(t =>
+                        t.id == rootId
+                        ? <DropDownItem key={rootInstanceId}
+                            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
+                            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}>Root</DropDownItem>
+                        : <SubMenu title={t.name} key={t.name}>  <ObjectMenuList type={t.id} /> </SubMenu>
+                    )}
                 </MenuDropdown>
                 <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
                 <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>

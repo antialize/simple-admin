@@ -8,23 +8,7 @@ import state from "./state";
 import { observer } from "mobx-react";
 import { rootInstanceId, rootId } from '../../shared/type';
 import { useState } from "react";
-
-function DropDown({title, children}:{title:string, children:any}) {
-    const [open, setOpen] = useState(false);
-    const [anchor, setAnchor] = useState(null);
-    return <>
-        <Button
-            aria-owns={open ? 'render-props-menu' : undefined}
-            aria-haspopup="true"
-            onClick={event => {setAnchor(event.currentTarget); setOpen(true)}}
-            >
-            {title}
-        </Button>
-        <Menu id="render-props-menu" anchorEl={anchor} open={open} onClose={()=>setOpen(false)} anchorOrigin={{vertical:'bottom', horizontal: 'left'}} transformOrigin={{vertical: "top", horizontal: "left"}}>
-            {children}
-        </Menu>
-    </>;
-}
+import MenuDropdown, { DropDownItem } from "./MenuDropdown";
 
 export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:number}) {
     let lst = [];
@@ -36,30 +20,31 @@ export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:numb
     }
     return (
         <>
-            <MenuItem
+            <DropDownItem
                 key="new"
                 onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}
                 href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}>
                 new
-            </MenuItem>
-            <MenuItem
+            </DropDownItem>
+            <DropDownItem
                 key="list"
                 onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ObjectList, objectType: type})}
                 href={state.page.link({type:State.PAGE_TYPE.ObjectList, objectType: type})}>
                 list
-            </MenuItem>
-            <Divider/>
+            </DropDownItem>
+            <DropDownItem/>
             {lst.map(v=>
-             <MenuItem
+             <DropDownItem
                 key={v.id}
                 onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}
                 href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}>
                 {v.name}
-            </MenuItem>
+            </DropDownItem>
             )}
         </>
         );
 });
+
 
 const TypeMenuItem = observer(function TypeMenuItem({id}:{id:number}) {
     const name = state.types.get(id).name;
@@ -69,14 +54,9 @@ const TypeMenuItem = observer(function TypeMenuItem({id}:{id:number}) {
            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}>{name}</Button>;
    }
-   return <DropDown title={name}>
+   return <MenuDropdown title={name}>
         <ObjectMenuList type={id} />
-   </DropDown>;
-
- /*  return <Button 
-    key={id}
-    onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ObjectList, objectType:id})}
-    href={state.page.link({type:State.PAGE_TYPE.ObjectList, objectType:id})}>{name}</Button>;*/
+   </MenuDropdown>;
 });
 
 export default TypeMenuItem;

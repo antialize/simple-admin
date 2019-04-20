@@ -9,6 +9,7 @@ import Smart from './Smart';
 import Status from "./Status";
 import state from "./state";
 import { observer } from "mobx-react";
+import { HostDockerContainers, DockerContainers } from "./DockerContainers";
 
 const HostExtra = observer(function HostExtra({id}:{id:number}) {
     const up = state.status.has(id) && state.status.get(id).up;
@@ -47,6 +48,7 @@ const HostExtra = observer(function HostExtra({id}:{id:number}) {
                     <Box title="Status" collapsable={true} expanded={true}>
                         <Status id={id} />
                     </Box>
+                    <HostDockerContainers host={id} title="DockerContainers" />
                 </div>: null}
             {c}
         </div>)
