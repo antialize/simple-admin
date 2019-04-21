@@ -22,6 +22,8 @@ import { observer } from "mobx-react";
 import { useState } from "react";
 import { withTheme } from "@material-ui/core/styles";
 import derivedState from './derivedState';
+import {HotKeyListener, HotKeyPortal} from "./HotKey";
+import ClickAwayListener from "@material-ui/core/ClickAwayListener";
 
 function matchText(text:string, key:string) {
     if (!key || key.length == 0) return false;
@@ -34,7 +36,7 @@ function matchText(text:string, key:string) {
     return false;
 }
 
-function  MatchedText({search, text}:{search:string, text:string}) {
+function MatchedText({search, text}:{search:string, text:string}) {
     let ans=[];
     let ki=0;
     let j=0;
@@ -88,25 +90,45 @@ function SearchImpl(props:ThemedComponentProps) {
     const [key, setKey] = useState("");
     const [anchor, setAnchor] = useState(null);
 
-
     const typeFind = [];
+    let first: [number, number] = null;
     if (key != "") {
         for (let [type, members] of state.objectDigests) {
+            if (!first) {
+                for (let [id, p] of state.objectDigests.get(type)) {
+                    if (!matchText(p.name, key)) continue;
+                    first = [type, id];
+                    break;
+                }
+            }
             typeFind.push(<TypeObjects search={key} type={type} clearSearch={()=>setKey("")} />);
         }
     }
-    return <div ref={e=>setAnchor(e)} style={{backgroundColor: props.theme.palette.primary.light, borderRadius: props.theme.shape.borderRadius, paddingLeft: 10}}>
-            <InputBase inputRef={(e)=>searchInput=e} placeholder="Search" value={key} onChange={e=>setKey(e.target.value)}  />
-            <IconButton  aria-label="Search" onClick={()=>{searchInput.focus(); searchInput.select();}}>
-                <SearchIcon />
-            </IconButton>
-            <Popper open={key != ""} anchorEl={anchor} placement="bottom-end" style={{zIndex: 99999}}>
-                <Paper style={{padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto"}}>
-                    <Typography variant="h5" style={{marginBottom: 10}}>Search results</Typography>
-                    {typeFind}
-                </Paper>
-            </Popper>
-        </div>;
+    return <HotKeyListener handlers={{
+            'search': (e)=>{searchInput.focus(); setKey(""); return false;}
+        }}>
+            <div ref={e=>setAnchor(e)} style={{backgroundColor: props.theme.palette.primary.light, borderRadius: props.theme.shape.borderRadius, paddingLeft: 10}}>
+                <InputBase inputRef={(e)=>searchInput=e} placeholder="Search" value={key} onChange={e=>setKey(e.target.value)}  />
+                <IconButton  aria-label="Search" onClick={()=>{searchInput.focus(); searchInput.select();}}>
+                    <SearchIcon />
+                </IconButton>
+                <Popper open={key != ""} anchorEl={anchor} placement="bottom-end" style={{zIndex: 99999}}>
+                    <HotKeyPortal hotkeys={{close: '!esc', first: '!return'}} >
+                        <HotKeyListener
+                            handlers={{
+                                close: ()=> {setKey(""); searchInput.blur(); },
+                                first: ()=> {state.page.set({type: State.PAGE_TYPE.Object, objectType: first[0], id: first[1], version:null}); setKey(""); searchInput.blur();}}} >
+                            <ClickAwayListener onClickAway={()=>setKey("")}>
+                                <Paper style={{padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto"}}>
+                                    <Typography variant="h5" style={{marginBottom: 10}}>Search results</Typography>
+                                    {typeFind}
+                                </Paper>
+                            </ClickAwayListener>
+                        </HotKeyListener>
+                    </HotKeyPortal>
+                </Popper>
+            </div>
+        </HotKeyListener>
        
 }
 
@@ -117,28 +139,35 @@ const Menu = observer(function Menu() {
     return (
         <AppBar position="static">
             <Toolbar>
-                <MenuDropdown> 
-                    {types.map(t =>
-                        t.id == rootId
-                        ? <DropDownItem key={rootInstanceId}
-                            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
-                            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}>Root</DropDownItem>
-                        : <SubMenu title={t.name} key={t.name}>  <ObjectMenuList type={t.id} /> </SubMenu>
-                    )}
-                </MenuDropdown>
-                <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
-                <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>
-                <div style={{width: "10px"}} />
-                <TypeMenuItem key={hostId} id={hostId} />
-                <TypeMenuItem key={userId} id={userId} />
-                <div style={{width: "10px"}} />
-                <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerImages})} href={state.page.link({type:State.PAGE_TYPE.DockerImages})}>Images</Button>
-                <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerContainers})} href={state.page.link({type:State.PAGE_TYPE.DockerContainers})}>Containers</Button>
-                <div style={{flexGrow: 1}} />
-                <Search />
-                <div style={{width: "10px"}} />
-                <Button onClick={()=>state.login.logout(false)}>Logout</Button>
-                <Button onClick={()=>state.login.logout(true)}>Full logout</Button>
+                <HotKeyListener
+                    handlers={{
+                        dashbord: (e)=>state.page.set({type:State.PAGE_TYPE.Dashbord}),
+                        images: (e)=>state.page.set({type:State.PAGE_TYPE.DockerImages}),
+                        containers: (e)=>state.page.set({type:State.PAGE_TYPE.DockerContainers}),
+                    }}>
+                    <MenuDropdown hotkey='menu'>
+                        {types.map(t =>
+                            t.id == rootId
+                            ? <DropDownItem key={rootInstanceId}
+                                onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
+                                href={state.page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}>Root</DropDownItem>
+                            : <SubMenu title={t.name} key={t.name}>  <ObjectMenuList type={t.id} /> </SubMenu>
+                        )}
+                    </MenuDropdown>
+                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
+                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>
+                    <div style={{width: "10px"}} />
+                    <TypeMenuItem key={hostId} id={hostId} />
+                    <TypeMenuItem key={userId} id={userId} />
+                    <div style={{width: "10px"}} />
+                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerImages})} href={state.page.link({type:State.PAGE_TYPE.DockerImages})}>Images</Button>
+                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerContainers})} href={state.page.link({type:State.PAGE_TYPE.DockerContainers})}>Containers</Button>
+                    <div style={{flexGrow: 1}} />
+                    <Search />
+                    <div style={{width: "10px"}} />
+                    <Button onClick={()=>state.login.logout(false)}>Logout</Button>
+                    <Button onClick={()=>state.login.logout(true)}>Full logout</Button>
+                </HotKeyListener>
             </Toolbar>
     </AppBar>);
 });

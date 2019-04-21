@@ -11,6 +11,7 @@ import { observer } from "mobx-react";
 import { socket, setupSocket } from "./setupSocket";
 import { MainPage } from "./MainPage";
 import * as State from '../../shared/state';
+import {HotKeyPortal} from "./HotKey"
 
 setupState();
 setupSocket();
@@ -28,12 +29,19 @@ const Content = observer(function Content () {
         dialog = <Login />;
     }
     if (state.loaded) {
-        return (<>
-            <Menu/>
-            <main>
-                <MainPage />
-            </main>
-         </>)
+        return <HotKeyPortal
+                hotkeys={{
+                    'search': ['/', 's'],
+                    'dashbord': 'd',
+                    'images': 'i',
+                    'containers': 'c',
+                    'menu': 'm'
+                }} >
+                <Menu/>
+                <main>
+                    <MainPage />
+                </main>
+            </HotKeyPortal>;
     } else {
         return dialog;
     }
