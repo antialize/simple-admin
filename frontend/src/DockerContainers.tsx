@@ -1,6 +1,6 @@
 import * as React from 'react';
 import state from './state';
-import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerListDeploymentsRes, DockerDeployment } from '../../shared/actions';
+import { ACTION, IDockerListDeploymentsRes, DockerDeployment, IDockerDeploymentsChanged } from '../../shared/actions';
 import { observable, action } from 'mobx';
 import { observer } from 'mobx-react';
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -32,11 +32,31 @@ export class DockerContainersState {
     handleLoad(act: IDockerListDeploymentsRes) {
         this.loading = false;
         this.loaded = true;
-        console.log("HI", act.deployments);
         for (const tag of act.deployments) {
             if (!this.hosts.has(tag.host))
                 this.hosts.set(tag.host, []);
             this.hosts.get(tag.host).push(tag);
+        }
+    }
+
+    @action
+    handleChange(act: IDockerDeploymentsChanged) {
+        for (const tag of act.changed) {
+            if (!this.hosts.has(tag.host))
+                this.hosts.set(tag.host, []);
+            let found = false;
+            let lst = this.hosts.get(tag.host);
+            for (let i=0; i < lst.length; ++i) {
+                if (lst[i].name != tag.name) continue;
+                found = true;
+                lst[i] = tag;
+            }
+            if (!found) lst.push(tag);
+        }
+        for (const tag of act.removed) {
+            if (!this.hosts.has(tag.host)) continue;
+            let lst = this.hosts.get(tag.host);
+            this.hosts.set(tag.host, lst.filter((e) => e.name != tag.name));
         }
     }
 };
@@ -100,9 +120,9 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
                 <td>Who knows?</td>
                 <td>
                     <Button>Log</Button>
-                    <Button>Stop</Button>
-                    <Button>Start</Button>
-                    <Button>Remove</Button>
+                    <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStop, host: p.host, container: container.name})}>Stop</Button>
+                    <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStart, host: p.host, container: container.name})}>Start</Button>
+                    <Button onClick={()=>{confirm("Delete this container from host?") && state.sendMessage({type: ACTION.DockerContainerRemove, host: p.host, container: container.name})}}>Remove</Button>
                     <Button>Details</Button>
                 </td>
             </tr>

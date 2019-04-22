@@ -1,12 +1,13 @@
 import * as React from 'react';
 import state from './state';
-import { ACTION, IDockerListImageTagsRes, DockerImageTag } from '../../shared/actions';
+import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged } from '../../shared/actions';
 import { observable, action } from 'mobx';
 import { observer } from 'mobx-react';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
-import Typography from '@material-ui/core/Typography';
 import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } from "@material-ui/core/styles";
+import Switch from '@material-ui/core/Switch';
+
 
 export class DockerImagesState {
     @observable 
@@ -34,6 +35,27 @@ export class DockerImagesState {
             if (!this.projects.has(tag.image))
                 this.projects.set(tag.image, []);
             this.projects.get(tag.image).push(tag);
+        }
+    }
+
+    @action
+    handleChange(act: IDockerImageTagsCharged) {
+        for (const tag of act.changed) {
+            if (!this.projects.has(tag.image))
+                this.projects.set(tag.image, []);
+            let lst = this.projects.get(tag.image);
+            let found = false;
+            for (let i=0; i < lst.length; ++i) {
+                if (lst[i].hash != tag.hash) continue;
+                lst[i] = tag;
+                found = true;
+            }
+            if (!found) lst.push(tag);
+        }
+        for (const tag of act.removed) {
+            if (!this.projects.has(tag.image)) continue;
+            let lst = this.projects.get(tag.image);
+            this.projects.set(tag.image, lst.filter((e)=>{e.hash != tag.hash}));
         }
     }
 };
@@ -96,6 +118,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                     <td>{tag.hash}</td>
                     <td>{new Date(tag.time*1000).toISOString()}</td>
                     <td>{tag.user}</td>
+                    <td><Switch checked={false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, hash: tag.hash, pin: e.target.checked})}/></td>
                 </tr>
             )
         }
@@ -107,6 +130,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                         <th>Hash</th>
                         <th>Created</th>
                         <th>User</th>
+                        <th>Pin</th>
                     </tr>
                 </thead>
                 <tbody>

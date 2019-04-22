@@ -12,12 +12,18 @@ export enum ACTION {
     ClearDeploymentLog="ClearDeploymentLog",
     DeleteObject="DeleteObject",
     DeployObject="DeployObject",
+    DockerContainerRemove="DockerContainerRemove",
+    DockerContainerStart="DockerContainerStart",
+    DockerContainerStop="DockerContainerStop",
     DockerDeployDone="DockerDeployEnd",
     DockerDeployLog="DockerDeployLog",
     DockerDeployStart="DockerDeployStart",
+    DockerDeploymentsChanged="DockerDeploymentsChanged",
+    DockerImageSetPin="DockerImageSetPin",
     DockerListDeployments="DockerListDeployments",
     DockerListDeploymentsRes="DockerListDeploymentsRes",
     DockerListImageTags="DockerListImageTags",
+    DockerListImageTagsChanged="DockerListImageTagsChanged",
     DockerListImageTagsRes="DockerListImageTagsRes",
     EndLog="EndLog",
     FetchObject="FetchObject",
@@ -355,6 +361,12 @@ export interface IDockerListImageTagsRes {
     tags: DockerImageTag[];
 }
 
+export interface IDockerImageTagsCharged {
+    type: ACTION.DockerListImageTagsChanged;
+    changed: DockerImageTag[];
+    removed: {image: string, hash:string}[];
+}
+
 export interface IDockerListDeployments {
     type: ACTION.DockerListDeployments;
     ref: Ref;
@@ -378,6 +390,36 @@ export interface IDockerListDeploymentsRes {
     deployments: DockerDeployment[];
 }
 
+export interface IDockerDeploymentsChanged {
+    type: ACTION.DockerDeploymentsChanged;
+    changed: DockerDeployment[];
+    removed: {host:number, name:string}[];
+}
+
+export interface IDockerContainerStart {
+    type: ACTION.DockerContainerStart;
+    host: number;
+    container: string;
+}
+
+export interface IDockerContainerStop {
+    type: ACTION.DockerContainerStop;
+    host: number;
+    container: string;
+}
+
+export interface IDockerContainerRemove {
+    type: ACTION.DockerContainerRemove;
+    host: number;
+    container: string;
+}
+
+export interface IDockerImageSetPin {
+    type: ACTION.DockerImageSetPin;
+    hash: string;
+    pin: boolean;
+}
+
 export type IAction =
     | IAddDeploymentLog
     | IAddLogLines
@@ -388,9 +430,15 @@ export type IAction =
     | IClearDeploymentLog
     | IDeleteObject
     | IDeployObject
+    | IDockerContainerRemove
+    | IDockerContainerStart
+    | IDockerContainerStop
     | IDockerDeployDone
     | IDockerDeployLog
     | IDockerDeployStart
+    | IDockerDeploymentsChanged
+    | IDockerImageSetPin
+    | IDockerImageTagsCharged
     | IDockerListDeployments
     | IDockerListDeploymentsRes
     | IDockerListImageTags
