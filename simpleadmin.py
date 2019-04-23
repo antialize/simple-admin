@@ -31,24 +31,8 @@ class Connection:
         self.otp = res['otp']
         if requireAuth and not (self.pwd and self.otp):
             raise Exception("Authentication required")
-        
-async def auth(user):
-    c = Connection()
-    await c.setup(requireAuth=False)
-    if c.pwd and c.otp:
-        print("Allready authenticated")
-        return
 
-    pwd = getpass.getpass()
-    if not pwd:
-        return
-    
-    otp = None
-    if not c.otp:
-        otp = getpass.getpass("One time password: ")
-        if not otp:
-            return
-        
+async def login(c, user, pwd, otp):
     await c.socket.send(json.dumps({'type': 'Login', 'user': user, 'pwd': pwd, 'otp': otp}))
     res = json.loads(await c.socket.recv())
     if res['type'] != "AuthStatus":
@@ -74,6 +58,25 @@ async def auth(user):
         
     c.pwd = True
     c.otp = True
+
+async def auth(user):
+    c = Connection()
+    await c.setup(requireAuth=False)
+    if c.pwd and c.otp:
+        print("Allready authenticated")
+        return
+
+    pwd = getpass.getpass()
+    if not pwd:
+        return
+
+    otp = None
+    if not c.otp:
+        otp = getpass.getpass("One time password: ")
+        if not otp:
+            return
+
+    await login(c, user, pwd, otp)
     print("Sucessfully authenticated")
     
 async def deauth(full):
@@ -157,6 +160,88 @@ async def edit(path):
             print("Save")
             break
 
+async def ui_login(loop, c):
+    import urwid as u
+    aloop = asyncio.get_event_loop()
+
+    widget_old = loop.widget
+    try:
+        message = ""
+        user = getpass.getuser()
+
+        while True:
+            f = aloop.create_future()
+
+            class Dialog(u.AttrMap):
+                def keypress(self, size, key):
+                    if key == 'enter':
+                        f.set_result(True)
+                        return True
+                    if key == 'esc':
+                        f.set_result(False)
+                        return True
+                    if key == 'tab':
+                        return super(Dialog, self).keypress(size, 'down')
+                    return super(Dialog, self).keypress(size, key)
+
+            usr = u.Edit(multiline=False, caption="user: ", allow_tab=False, edit_text=user)
+            pwd = u.Edit(multiline=False, caption="password: ", allow_tab=False, mask="*")
+            otp = u.Edit(multiline=False, caption="one time: ", allow_tab=False) if not c.otp else None
+            button = u.Button('Log in')
+            u.connect_signal(button, 'click', lambda _: f.set_result(True), None)
+
+            interior = u.Filler(u.Pile([
+                u.Text('Enter username and password:'),
+                u.Text(' '),
+                u.AttrMap(usr, 'bg', 'focus'),
+                u.AttrMap(pwd, 'bg', 'focus'),
+                u.AttrMap(otp or u.Text(''), 'bg', 'focus'),
+                u.Text(' '),
+                u.AttrMap(u.Text(message), 'error'),
+                u.Text(' '),
+                u.AttrMap(button, 'button', 'focus')]))
+
+            window = Dialog(u.LineBox(interior, title="Login"), 'bg')
+            background = u.AttrMap(u.SolidFill(), 'back')
+            topw = u.Overlay(window, background, 'center', 60, 'middle', 15)
+
+            loop.widget = topw
+
+            if not await f:
+                return False
+            try:
+                user = usr.edit_text
+                await login(c, user, pwd.edit_text, otp.edit_pos if otp else None)
+                if c.otp and c.pwd:
+                    return True
+            except Exception as e:
+                message = str(e)
+    finally:
+        loop.widget = widget_old
+
+async def ui():
+    import urwid as u
+    aloop = asyncio.get_event_loop()
+    evl = u.AsyncioEventLoop(loop=aloop)
+
+    palette = [
+        ('button', 'white', 'dark red'),
+        ('focus', 'white', 'dark green'),
+        ('back', 'black', 'black'),
+        ('error', 'dark red', 'dark blue'),
+        ('bg', 'white', 'dark blue'),]
+    loop = u.MainLoop(u.SolidFill(' '), event_loop=evl, palette=palette)
+    try:
+        loop.start()
+
+        c = Connection()
+        await c.setup(requireAuth=False)
+
+        if not c.pwd or not c.otp:
+            await ui_login(loop, c)
+    finally:
+        loop.stop()
+
 def main():
     parser = argparse.ArgumentParser(prog='simpleadmin')
     subparsers = parser.add_subparsers(help='commands', dest="command")
@@ -188,7 +273,7 @@ def main():
     elif args.command == 'edit':
         asyncio.get_event_loop().run_until_complete(edit(args.object))
     else:
-        print("No command specified")
+        asyncio.get_event_loop().run_until_complete(ui())
 
 if __name__ == '__main__':
     main()
