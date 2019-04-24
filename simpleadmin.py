@@ -143,7 +143,7 @@ async def edit(path):
         else:
             f.write(json.dumps(w[t], indent=4))
         f.flush()
-        proc = await asyncio.create_subprocess_exec('vi', f.name)
+        proc = await asyncio.create_subprocess_exec(os.environ.get('EDITOR', 'editor'), f.name)
         if await proc.wait() != 0:
             return
         with open(f.name, mode="r") as f2:
@@ -195,17 +195,19 @@ async def ui_login(loop, c):
         while True:
             f = aloop.create_future()
 
-            class Dialog(u.AttrMap):
+            class Root(u.AttrMap):
                 def keypress(self, size, key):
+                    if super(Dialog, self).keypress(size, key) is None:
+                        return None
                     if key == 'enter':
                         f.set_result(True)
-                        return True
+                        return None
                     if key == 'esc':
                         f.set_result(False)
-                        return True
+                        return None
                     if key == 'tab':
                         return super(Dialog, self).keypress(size, 'down')
-                    return super(Dialog, self).keypress(size, key)
+                    return key
 
             usr = u.Edit(multiline=False, caption="user: ", allow_tab=False, edit_text=user)
             pwd = u.Edit(multiline=False, caption="password: ", allow_tab=False, mask="*")
@@ -224,7 +226,7 @@ async def ui_login(loop, c):
                 u.Text(' '),
                 u.AttrMap(button, 'button', 'focus')]))
 
-            window = Dialog(u.LineBox(interior, title="Login"), 'bg')
+            window = Root(u.LineBox(interior, title="Login"), 'bg')
             background = u.AttrMap(u.SolidFill(), 'back')
             topw = u.Overlay(window, background, 'center', 60, 'middle', 15)
 
@@ -257,21 +259,24 @@ async def ui_select_object(loop, c, state):
                 continue
             for o in v:
                 name = "%s: %s"%(tn, o['name'])
-                allButtons.append((name, u.AttrMap(portal.connect(u.Button(name), 'click', lambda _, i: f.set_result(i), o['id']), 'bg', 'focus')))
+                allButtons.append((name, u.AttrMap(portal.connect(u.Button(name), 'click', lambda _, i=o['id']: f.set_result(i)), 'bg', 'focus')))
                 
-
         selected = []
         class Root(u.AttrMap):
             def keypress(self, size, key):
+                if super(Root, self).keypress(size, key) is None:
+                    return None
                 if key == 'esc':
                     f.set_result(None)
-                    return True
+                    return None
                 if key == 'enter':
                     if selected:
                         selected[0].keypress((15,), 'enter')
                     f.set_result(None)
-                    return True
-                return super(Root, self).keypress(size, key)
+                    return None
+                if key == '/':
+                    pile.focus_position = 0
+                return key
 
         lstWalker = u.SimpleFocusListWalker([])
         def filter(pattern):
@@ -296,9 +301,7 @@ async def ui_select_object(loop, c, state):
         search = u.Edit()
         portal.connect(search, 'change', lambda a,b: filter(b))
         filter("")
-
-        loop.widget = Root(
-            u.Pile([
+        pile = u.Pile([
                 ('pack', u.LineBox(
                     search,
                     title='filter',
@@ -307,8 +310,32 @@ async def ui_select_object(loop, c, state):
                     u.ListBox(lstWalker),
                     title='Objects'
                 ))
-            ]),
-            'bg')
+            ])
+        loop.widget = Root(pile, 'bg')
+        return await f
+
+async def ui_select_list(loop, c, current, values):
+    with UIPortal(loop) as portal:
+        import urwid as u
+        aloop = asyncio.get_event_loop()
+        f = aloop.create_future()
+
+        class Root(u.AttrMap):
+            def keypress(self, size, key):
+                if super(Root, self).keypress(size, key) is None:
+                    return None
+                if key == 'esc':
+                    f.set_result(None)
+                    return None
+                return key
+        lv = u.SimpleFocusListWalker(
+            [u.AttrMap(portal.connect(u.Button(v), 'click', lambda _,v=v: f.set_result(v)), 'bg', 'focus') for v in values]
+            )
+        for i in range(len(values)):
+            if values[i] == current:
+                lv.set_focus(i)
+        window = Root(u.LineBox(u.ListBox(lv), title="Choice"), 'bg')
+        loop.widget = u.Overlay(window, loop.widget, 'center', 60, 'middle', 40)
         return await f
 
 async def ui_edit_object(loop, c, id, types):
@@ -339,56 +366,71 @@ async def ui_edit_object(loop, c, id, types):
         f = aloop.create_future()
         class Root(u.AttrMap):
             def keypress(self, size, key):
+                if super(Root, self).keypress(size, key) is None:
+                    return None
                 if key == 'esc':
                     f.set_result(None)
-                    return True
-                return super(Root, self).keypress(size, key)
+                    return None
+                return key
 
         # loop.stop()
         t = types[str(state['type'])]['content']
         fields = []
-
+        store = []
         def addField(label, obj):
             fields.append(u.Columns([(25, u.Text(label))]+obj))
 
+        def addStoreField(label, obj, type, name):
+            store.append((type, name, obj))
+            addField(label, [u.AttrMap(obj, 'bg', 'focus')])
+
         w = 25
-        addField('name', [u.AttrMap(u.Edit(edit_text=state['name'] or ""), 'bg', 'focus')])
-        addField('comment', [u.AttrMap(u.Edit(edit_text=state['comment'] or ""), 'bg', 'focus')])
+        addStoreField('Name', u.Edit(edit_text=state.get('name', '')), 'outer,text', 'name')
+        addStoreField('Comment', u.Edit(edit_text=state.get('comment', '')), 'outer,text', 'comment')
         if t['hasCategory']:
-            addField('category', [u.AttrMap(u.Edit(edit_text=state['category'] or ""), 'bg', 'focus')])
+            addStoreField('Category', u.Edit(edit_text=state['category'] or ''), 'outer,text', 'category')
+
         content = state['content']
-        for c in t['content']:
-            if c['type'] == 0: #None
+        for ic in t['content']:
+            title = ic.get('title', '')
+            name = ic['name']
+            type = ic['type']
+            if type == 0: #None
                 pass
-            elif c['type'] == 1: #Bool
-                addField(c['title'], [u.AttrMap(u.CheckBox(label="", state=content.get(c['name'], '')), 'bg', 'focus')])
-            elif c['type'] == 2: #text
-                addField(c['title'], [u.AttrMap(u.Edit(edit_text=content.get(c['name'], '')), 'bg', 'focus')])
-            elif c['type'] == 3: #Password
-                addField(c['title'], [u.AttrMap(u.Edit(edit_text=content.get(c['name'], ''), mask='*'), 'bg', 'focus')])
-            elif c['type'] == 4: #document
-                edit = u.Edit(edit_text=content.get(c['name'], ''), multiline=True, allow_tab=True)
-                button = u.Button('Open in editor')
-                def open_in_editor(a):
+            elif type == 1: #Bool
+                addStoreField(title, u.CheckBox(label="", state=content.get(name, False)), 'checkbox', name)
+            elif type == 2: #text
+                addStoreField(title, u.Edit(edit_text=content.get(name, False)), 'text', name)
+            elif type == 3: #Password
+                addStoreField(title, u.Edit(edit_text=content.get(name, False), mask="*"), 'password', name)
+            elif type == 4: #document
+                edit = u.Edit(edit_text=content.get(name, ''), multiline=True, allow_tab=True)
+                def open_in_editor(_, edit=edit):
                     ext=".txt"
                     with NamedTemporaryFile(mode='w', suffix=ext) as f:
                         f.write(edit.edit_text)
                         f.flush()
                         loop.stop()
-                        if subprocess.run(['vi', f.name]).returncode == 0:
+                        if subprocess.run([os.environ.get('EDITOR', 'editor'), f.name]).returncode == 0:
                             with open(f.name, mode="r") as f2:
                                 edit.edit_text = f2.read()
                         loop.start()
-                portal.connect(button, 'click', open_in_editor)
-                addField(c['title'], [u.AttrMap(button, 'button', 'focus')])
+                addField(title, [u.AttrMap(portal.connect(u.Button('Open in editor'), 'click', open_in_editor), 'button', 'focus')])
                 fields.append(u.AttrMap(edit, 'bg', 'focus'))
-            elif c['type'] == 5: #Choice
+                store.append(('text', name, edit))
+            elif type == 5: #Choice
+                button = u.Button(content.get(name, ''))
+                async def change_choice(ic=ic, button=button):
+                    ans = await ui_select_list(loop, c, button.label, ic['choices'])
+                    if ans is not None:
+                        button.set_label(ans)
+                portal.connect(button, 'click', lambda _: asyncio.ensure_future(change_choice()))
+                addStoreField(title, button, 'button', name)
+            elif type == 6: #TypeContent
                 pass
-            elif c['type'] == 6: #TypeContent
+            elif type == 7: #Number
                 pass
-            elif c['type'] == 7: #Number
-                pass
-            elif c['type'] == 8: #monitorContent
+            elif type == 8: #monitorContent
                 pass
         
         fields.append(u.Text(" "))
@@ -407,7 +449,30 @@ async def ui_edit_object(loop, c, id, types):
                 ))
             ]),
             'bg')
-        return await f
+        if not await f:
+            return False
+
+        for (type, name, obj) in store:
+            type = type.split(',')
+            if 'button' in type:
+                value = obj.label
+            elif 'text' in type:
+                value = obj.edit_text
+            elif 'checkbox' in type:
+                value = obj.state
+            elif 'password' in type:
+                pass
+            else:
+                raise Error("Unknown store type")
+            if 'outer' in type:
+                state[name] = value
+            else:
+                content[name] = value
+        await c.socket.send(json.dumps({'type': 'SaveObject', 'id': id, 'obj': state}))
+        while True:
+            res = json.loads(await c.socket.recv())
+            if res['type'] == 'ObjectChanged' and res['id'] == id:
+                break
 
 async def ui():
     import urwid as u
