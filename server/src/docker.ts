@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
-import { db, hostClients } from './instances';
+import { db, hostClients, webClients } from './instances';
 import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
@@ -210,7 +210,23 @@ class Docker {
             const h = "sha256:" + hash.digest('hex');
 
             await db.run("DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?", p[2], p[4], h);
-            const id = await db.insert("INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`) VALUES (?, ?, ?, ?, ?, ?)", p[2], p[4], content, h, user, +new Date() / 1000);
+            const time = +new Date() / 1000;
+            const id = await db.insert("INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`) VALUES (?, ?, ?, ?, ?, ?)", p[2], p[4], content, h, user, time);
+          
+            webClients.broadcast({
+                type: ACTION.DockerListImageTagsChanged,
+                changed: [
+                    {
+                        image: p[2],
+                        hash: h,
+                        tag: p[4],
+                        user,
+                        time
+                    }
+                ],
+                removed: []
+            });
+          
             // TODO validate that we have all the parts
             res.status(201).header("Location", "/v2/" + p[2] + "/manifests/" + hash).header("Content-Length", "0").header("Docker-Content-Digest", h).end();
             return;
@@ -440,6 +456,23 @@ class Docker {
                     await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     await db.run("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", image, container, host.id, now, conf, hash, client.user);
+
+                    webClients.broadcast({
+                        type: ACTION.DockerDeploymentsChanged,
+                        changed: [
+                            {
+                                image,
+                                hash,
+                                name: container,
+                                host: host.id,
+                                start: now,
+                                end: null,
+                                user: client.user
+                            }
+                        ],
+                        removed: []
+                    });
+
                 } catch (e) {
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find root or host"});
                     log('error', "Deployment failed", e)
