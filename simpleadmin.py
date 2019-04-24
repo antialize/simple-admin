@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse, getpass, os, json, asyncio, subprocess, base64, socket, random
+import argparse, getpass, os, json, asyncio, subprocess, base64, socket, random, subprocess
 import websockets
 from tempfile import NamedTemporaryFile
 
@@ -14,7 +14,7 @@ class Connection:
         self.otp = False
         
     async def setup(self, requireAuth=True):
-        self.socket = await websockets.connect('wss://%s/sysadmin'%remote)
+        self.socket = await websockets.connect('wss://%s/sysadmin'%remote,  read_limit=2**30, max_size=2**30)
 
         session = ""
         if os.path.exists(self.cookieFile):
@@ -152,7 +152,7 @@ async def edit(path):
             else:
                 w[t] = json.loads(f2.read())
 
-    await c.socket.send(json.dumps({'type': 'SaveObject', 'id': id, 'obj': cur}));
+    await c.socket.send(json.dumps({'type': 'SaveObject', 'id': id, 'obj': cur}))
 
     while True:
         res = json.loads(await c.socket.recv())
@@ -160,12 +160,35 @@ async def edit(path):
             print("Save")
             break
 
+
+class UIPortal:
+    def __init__(self, loop):
+        self.old = None
+        self.loop = loop
+        self.connections = []
+
+    def __enter__(self):
+        self.old = self.loop.widget
+        return self
+
+    def connect(self, widget, name, fn, context=None):
+        import urwid as u
+        self.connections.append( (widget, name, fn, context) )
+        u.connect_signal(widget, name, fn, context)
+        return widget
+
+    def __exit__(self, *args):
+        import urwid as u
+        for (widget, name, fn, context) in self.connections:
+            u.disconnect_signal(widget, name, fn, context)
+        self.connections = []
+        self.loop.widget = self.old
+
 async def ui_login(loop, c):
     import urwid as u
     aloop = asyncio.get_event_loop()
 
-    widget_old = loop.widget
-    try:
+    with UIPortal(loop) as portal:
         message = ""
         user = getpass.getuser()
 
@@ -188,7 +211,7 @@ async def ui_login(loop, c):
             pwd = u.Edit(multiline=False, caption="password: ", allow_tab=False, mask="*")
             otp = u.Edit(multiline=False, caption="one time: ", allow_tab=False) if not c.otp else None
             button = u.Button('Log in')
-            u.connect_signal(button, 'click', lambda _: f.set_result(True), None)
+            portal.connect(button, 'click', lambda _: f.set_result(True))
 
             interior = u.Filler(u.Pile([
                 u.Text('Enter username and password:'),
@@ -216,11 +239,179 @@ async def ui_login(loop, c):
                     return True
             except Exception as e:
                 message = str(e)
-    finally:
-        loop.widget = widget_old
+
+
+async def ui_select_object(loop, c, state):
+    with UIPortal(loop) as portal:
+        import urwid as u
+        aloop = asyncio.get_event_loop()
+        typeNames = {}
+        for o in state['objectNamesAndIds']['1']:
+            typeNames[int(o['id'])] = o['name']
+        f = aloop.create_future()
+        allButtons = []
+        for c, v in state['objectNamesAndIds'].items():
+            try:
+                tn = typeNames[int(c)]
+            except (ValueError, KeyError):
+                continue
+            for o in v:
+                name = "%s: %s"%(tn, o['name'])
+                allButtons.append((name, u.AttrMap(portal.connect(u.Button(name), 'click', lambda _, i: f.set_result(i), o['id']), 'bg', 'focus')))
+                
+
+        selected = []
+        class Root(u.AttrMap):
+            def keypress(self, size, key):
+                if key == 'esc':
+                    f.set_result(None)
+                    return True
+                if key == 'enter':
+                    if selected:
+                        selected[0].keypress((15,), 'enter')
+                    f.set_result(None)
+                    return True
+                return super(Root, self).keypress(size, key)
+
+        lstWalker = u.SimpleFocusListWalker([])
+        def filter(pattern):
+            p = pattern.lower()
+            selected.clear()
+            for (n, b) in allButtons:
+                i = 0
+                if not p:
+                    selected.append(b)
+                else:
+                    nn = n.lower()
+                    for c in nn:
+                        if c != p[i]:
+                            continue
+                        i += 1
+                        if i == len(p):
+                            selected.append(b)
+                            break
+            lstWalker.clear()
+            lstWalker.extend(selected)
+
+        search = u.Edit()
+        portal.connect(search, 'change', lambda a,b: filter(b))
+        filter("")
+
+        loop.widget = Root(
+            u.Pile([
+                ('pack', u.LineBox(
+                    search,
+                    title='filter',
+                )),
+                ('weight', 1, u.LineBox(
+                    u.ListBox(lstWalker),
+                    title='Objects'
+                ))
+            ]),
+            'bg')
+        return await f
+
+async def ui_edit_object(loop, c, id, types):
+    with UIPortal(loop) as portal:
+        import urwid as u
+        aloop = asyncio.get_event_loop()
+
+        loop.widget =  u.Overlay(
+            u.AttrMap(
+                u.LineBox(
+                    u.Filler(
+                        u.Text('Fetching object')
+                    ),
+                    title="Loading"
+                ), 'bg'),
+            u.AttrMap(u.SolidFill(), 'back'),
+            'center', 40, 'middle', 10,
+        )
+
+        await c.socket.send(json.dumps({'type': 'FetchObject', 'id': id})) 
+        state = None
+        while True:
+            res = json.loads(await c.socket.recv())
+            if res['type'] == 'ObjectChanged' and res['id'] == id:
+                state = res['object'][-1]
+                break
+
+        f = aloop.create_future()
+        class Root(u.AttrMap):
+            def keypress(self, size, key):
+                if key == 'esc':
+                    f.set_result(None)
+                    return True
+                return super(Root, self).keypress(size, key)
+
+        # loop.stop()
+        t = types[str(state['type'])]['content']
+        fields = []
+
+        def addField(label, obj):
+            fields.append(u.Columns([(25, u.Text(label))]+obj))
+
+        w = 25
+        addField('name', [u.AttrMap(u.Edit(edit_text=state['name'] or ""), 'bg', 'focus')])
+        addField('comment', [u.AttrMap(u.Edit(edit_text=state['comment'] or ""), 'bg', 'focus')])
+        if t['hasCategory']:
+            addField('category', [u.AttrMap(u.Edit(edit_text=state['category'] or ""), 'bg', 'focus')])
+        content = state['content']
+        for c in t['content']:
+            if c['type'] == 0: #None
+                pass
+            elif c['type'] == 1: #Bool
+                addField(c['title'], [u.AttrMap(u.CheckBox(label="", state=content.get(c['name'], '')), 'bg', 'focus')])
+            elif c['type'] == 2: #text
+                addField(c['title'], [u.AttrMap(u.Edit(edit_text=content.get(c['name'], '')), 'bg', 'focus')])
+            elif c['type'] == 3: #Password
+                addField(c['title'], [u.AttrMap(u.Edit(edit_text=content.get(c['name'], ''), mask='*'), 'bg', 'focus')])
+            elif c['type'] == 4: #document
+                edit = u.Edit(edit_text=content.get(c['name'], ''), multiline=True, allow_tab=True)
+                button = u.Button('Open in editor')
+                def open_in_editor(a):
+                    ext=".txt"
+                    with NamedTemporaryFile(mode='w', suffix=ext) as f:
+                        f.write(edit.edit_text)
+                        f.flush()
+                        loop.stop()
+                        if subprocess.run(['vi', f.name]).returncode == 0:
+                            with open(f.name, mode="r") as f2:
+                                edit.edit_text = f2.read()
+                        loop.start()
+                portal.connect(button, 'click', open_in_editor)
+                addField(c['title'], [u.AttrMap(button, 'button', 'focus')])
+                fields.append(u.AttrMap(edit, 'bg', 'focus'))
+            elif c['type'] == 5: #Choice
+                pass
+            elif c['type'] == 6: #TypeContent
+                pass
+            elif c['type'] == 7: #Number
+                pass
+            elif c['type'] == 8: #monitorContent
+                pass
+        
+        fields.append(u.Text(" "))
+        fields.append(
+            u.Columns([
+                u.AttrMap(portal.connect(u.Button('Save'), 'click', lambda _: f.set_result(True)), 'button', 'focus'),
+                u.AttrMap(portal.connect(u.Button('Cancle'), 'click', lambda _: f.set_result(False)), 'button', 'focus')
+            ])
+        )
+
+        loop.widget = Root(
+            u.Pile([
+                ('weight', 1, u.LineBox(
+                    u.ListBox(u.SimpleFocusListWalker(fields)),
+                    title='Object %s (%d)'%(state['name'], id)
+                ))
+            ]),
+            'bg')
+        return await f
 
 async def ui():
     import urwid as u
+    u.set_encoding("UTF-8")
     aloop = asyncio.get_event_loop()
     evl = u.AsyncioEventLoop(loop=aloop)
 
@@ -230,7 +421,7 @@ async def ui():
         ('back', 'black', 'black'),
         ('error', 'dark red', 'dark blue'),
         ('bg', 'white', 'dark blue'),]
-    loop = u.MainLoop(u.SolidFill(' '), event_loop=evl, palette=palette)
+    loop = u.MainLoop(u.SolidFill(), event_loop=evl, palette=palette)
     try:
         loop.start()
 
@@ -239,6 +430,33 @@ async def ui():
 
         if not c.pwd or not c.otp:
             await ui_login(loop, c)
+
+        loop.widget =  u.Overlay(
+            u.AttrMap(
+                u.LineBox(
+                    u.Filler(
+                        u.Text('Reading initial state')
+                    ),
+                    title="Loading"
+                ), 'bg'),
+            u.AttrMap(u.SolidFill(), 'back'),
+            'center', 40, 'middle', 10,
+        )
+
+        await c.socket.send(json.dumps({'type': 'RequestInitialState'}))
+        state = None
+        while True:
+            res = json.loads(await c.socket.recv())
+            if res['type'] == 'SetInitialState':
+                state = res
+                break
+
+        while True:
+            id = await ui_select_object(loop, c, state)
+            if not id:
+                return
+            await ui_edit_object(loop, c, id, state['types'])
+
     finally:
         loop.stop()
 
