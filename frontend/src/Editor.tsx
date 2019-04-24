@@ -123,19 +123,16 @@ class Editor extends React.Component<IProps, IState> {
         return (
             <Paper>
                 <Toolbar>
-                    <Typography>
-                        <b>{this.props.title}</b>&nbsp;&nbsp;
-                        Language:
-                        {this.props.fixedLang
-                            ? <span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span>
-                            : <Select value={this.props.lang} onChange={(e) => this.props.setLang(e.target.value)}>
-                                {lang}
-                            </Select>}
-                        Theme:
-                        <Select value={this.state.theme} onChange={(e) => this.setState({theme: e.target.value})}>
-                            {te}
-                        </Select>
-                    </Typography>
+                    <Typography><b>{this.props.title}</b>&nbsp;&nbsp;Language:</Typography>
+                    {this.props.fixedLang
+                        ? <Typography><span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span></Typography>
+                        : <Select value={this.props.lang} onChange={(e) => this.props.setLang(e.target.value)}>
+                            {lang}
+                        </Select>}
+                    <Typography>Theme:</Typography>
+                    <Select value={this.state.theme} onChange={(e) => this.setState({theme: e.target.value})}>
+                        {te}
+                    </Select>
                 </Toolbar>
                 <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} 
                      onBeforeChange={(e,d,v) => {this.props.setData(v)}} />

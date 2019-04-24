@@ -46,8 +46,8 @@ const Type = observer(function Type({typeId, id}:{typeId:number, id:number}) {
             break;
         case TypePropType.text:
             rows.push(<InformationListRow key={ct.name} name={ct.title}>
-                    <Tooltip title={ct.description}>
-                        <TextField value={v==undefined?ct.default:v} fullWidth={ct.lines && ct.lines > 0} multiline={ct.lines && ct.lines > 1} rows={ct.lines || 1} onChange={(e) => setProp(ct.name, e.target.value)}/>
+                    <Tooltip title={ct.description || ""}>
+                        <TextField value={v==undefined?ct.default:v} fullWidth={ct.lines > 0} style={{width: 400}} multiline={ct.lines > 1} rows={ct.lines || 1} onChange={(e) => setProp(ct.name, e.target.value)}/>
                     </Tooltip>
                 </InformationListRow>);
             break;
@@ -69,7 +69,7 @@ const Type = observer(function Type({typeId, id}:{typeId:number, id:number}) {
                 </InformationListRow>);
             break;
         case TypePropType.document:
-            extra.push(<Editor title={ct.title} key={ct.name} data={v==undefined?"":v} setData={(v:string) => setProp(ct.name, v)} lang={ct.lang || c[ct.langName]} fixedLang={ct.lang != ""} setLang={(v:string) => setProp(ct.langName, v)}/>);
+            extra.push(<Editor title={ct.title} key={ct.name} data={v==undefined?"":v} setData={(v:string) => setProp(ct.name, v)} lang={ct.lang || c[ct.langName]} fixedLang={ct.lang != null && ct.lang != ""} setLang={(v:string) => setProp(ct.langName, v)}/>);
             break;
         case TypePropType.typeContent:
             extra.push(<TypeContent key={ct.name} content={v || []} onChange={v => setProp(ct.name, v)} />);
