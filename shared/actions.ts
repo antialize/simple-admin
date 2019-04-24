@@ -353,6 +353,7 @@ export interface DockerImageTag {
     hash: string;
     time: number;
     user: string;
+    pin: boolean;
 }
 
 export interface IDockerListImageTagsRes {
@@ -416,6 +417,7 @@ export interface IDockerContainerRemove {
 
 export interface IDockerImageSetPin {
     type: ACTION.DockerImageSetPin;
+    image: string;
     hash: string;
     pin: boolean;
 }

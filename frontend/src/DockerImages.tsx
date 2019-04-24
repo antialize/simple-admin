@@ -46,7 +46,7 @@ export class DockerImagesState {
             let lst = this.projects.get(tag.image);
             let found = false;
             for (let i=0; i < lst.length; ++i) {
-                if (lst[i].hash != tag.hash) continue;
+                if (lst[i].tag != tag.tag) continue;
                 lst[i] = tag;
                 found = true;
             }
@@ -118,7 +118,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                     <td>{tag.hash}</td>
                     <td>{new Date(tag.time*1000).toISOString()}</td>
                     <td>{tag.user}</td>
-                    <td><Switch checked={false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, hash: tag.hash, pin: e.target.checked})}/></td>
+                    <td><Switch checked={tag.pin} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, image: tag.image, hash: tag.hash, pin: e.target.checked})}/></td>
                 </tr>
             )
         }
