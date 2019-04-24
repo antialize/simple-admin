@@ -62,6 +62,7 @@ export class DB {
 
         //await r('DROP TABLE `docker_images`');
         await r("CREATE TABLE IF NOT EXISTS `docker_images` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT, `manifest` TEXT, `hash` TEXT, `user` INTEGER, `time` INTEGER)");
+        await i("ALTER TABLE `docker_images` ADD COLUMN `pin` INTEGER");
         await r("CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)");
 
         //await r("DROP TABLE `stats`");

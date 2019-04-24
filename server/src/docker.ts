@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -211,7 +211,7 @@ class Docker {
 
             await db.run("DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?", p[2], p[4], h);
             const time = +new Date() / 1000;
-            const id = await db.insert("INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`) VALUES (?, ?, ?, ?, ?, ?)", p[2], p[4], content, h, user, time);
+            const id = await db.insert("INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`, `pin`) VALUES (?, ?, ?, ?, ?, ?, 0)", p[2], p[4], content, h, user, time);
           
             webClients.broadcast({
                 type: ACTION.DockerListImageTagsChanged,
@@ -221,7 +221,8 @@ class Docker {
                         hash: h,
                         tag: p[4],
                         user,
-                        time
+                        time,
+                        pin: false
                     }
                 ],
                 removed: []
@@ -518,23 +519,42 @@ class Docker {
         }
      }
 
-     async listImageTags(client: WebClient, act: IDockerListImageTags) {
+    async listImageTags(client: WebClient, act: IDockerListImageTags) {
         const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
         try {
-            for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
                 res.tags.push(
                     {
                         image: row.project,
                         hash: row.hash,
                         tag: row.tag,
                         user: row.user,
-                        time: row.time
+                        time: row.time,
+                        pin: row.pin
                     }
                 );
         } finally {
             client.sendMessage(res);
         }
-     }
+    }
+
+    async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
+        db.run('UPDATE `docker_images` SET pin=? WHERE `hash`=? AND `project`=?', act.pin?1:0, act.hash, act.image);
+        const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: []};
+
+        for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
+            res.changed.push(
+                {
+                    image: row.project,
+                    hash: row.hash,
+                    tag: row.tag,
+                    user: row.user,
+                    time: row.time,
+                    pin: row.pin
+                }
+            );
+        webClients.broadcast(res);
+    }
 }
 
 export const docker = new Docker;

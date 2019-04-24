@@ -312,22 +312,25 @@ export class WebClient extends JobOwner {
                 deployment.cancel();
                 break;
             case ACTION.StartDeployment:
-                deployment.start().catch(errorHandler("Deployment::start", this));
+                await deployment.start().catch(errorHandler("Deployment::start", this));
                 break;
             case ACTION.StopDeployment:
-                deployment.stop();
+                await deployment.stop();
                 break;
             case ACTION.ToggleDeploymentObject:
-                deployment.toggleObject(act.index, act.enabled);
+                await deployment.toggleObject(act.index, act.enabled);
                 break;
             case ACTION.DockerDeployStart:
-                docker.deploy(this, act);
+                await docker.deploy(this, act);
                 break;
             case ACTION.DockerListDeployments:
-                docker.listDeployments(this, act);
+                await docker.listDeployments(this, act);
                 break;
             case ACTION.DockerListImageTags:
-                docker.listImageTags(this, act)
+                await docker.listImageTags(this, act);
+                break;
+            case ACTION.DockerImageSetPin:
+                await docker.imageSetPin(this, act);
                 break;
             default:
                 log("warning", "Web client unknown message", { act });
