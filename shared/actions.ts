@@ -30,10 +30,15 @@ export enum ACTION {
     GetObjectId="GetObjectId",
     GetObjectIdRes="GetObjectIdRes",
     HostDown="HostDown",
+    ListModifiedFiles="ListModifiedFiles",
     Login="Login",
     Logout="LogOut",
     MessageTextRep="MessageTextRep",
     MessageTextReq="MessageTextReq",
+    ModifiedFilesChanged="ModifiedFilesChanged",
+    ModifiedFilesList="ModifiedFilesList",
+    ModifiedFilesResolve="ModifiedFilesResolve",
+    ModifiedFilesScan="ModifiedFilesScan",
     ObjectChanged="ObjectChanged",
     PokeService="PokeService",
     RequestAuthStatus="RequestAuthStatus",
@@ -422,6 +427,40 @@ export interface IDockerImageSetPin {
     pin: boolean;
 }
 
+export interface ModifiedFile {
+    id: number;
+    type: number;
+    host: number;
+    object: number;
+    deployed: string;
+    actual: string;
+    current: string;
+}
+
+export interface IModifiedFilesScan {
+    type: ACTION.ModifiedFilesScan;
+}
+
+export interface IModifiedFilesList {
+    type: ACTION.ModifiedFilesList;
+}
+
+export interface IModifiedFilesChanged {
+    type: ACTION.ModifiedFilesChanged;
+    lastScanTime: number;
+    scanning: boolean;
+    full: boolean;
+    changed: ModifiedFile[];
+    removed: number[];
+}
+
+export interface IModifiedFilesResolve {
+    type: ACTION.ModifiedFilesResolve;
+    id: number;
+    action: "redeploy" | "updateCurrent";
+    newCurrent: string;
+}
+
 export type IAction =
     | IAddDeploymentLog
     | IAddLogLines
@@ -476,4 +515,7 @@ export type IAction =
     | ISubscribeStatValues
     | IToggleDeploymentObject
     | IUpdateStatusAction
-    ;
+    | IModifiedFilesScan
+    | IModifiedFilesList
+    | IModifiedFilesChanged
+    | IModifiedFilesResolve;

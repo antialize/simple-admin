@@ -7,6 +7,7 @@ import * as instances from './instances';
 import {errorHandler} from './error'
 import * as stat from './stat';
 import {log} from 'winston';
+import { ModifiedFiles } from './modifiedfiles';
 const exitHook = require('async-exit-hook');
 
 log("info", "STARTING SERVER");
@@ -15,6 +16,7 @@ async function setup() {
     instances.setMsg(new Msg());
     instances.setDeployment(new Deployment());
     instances.setDb(new DB());
+    instances.setModifiedFiles(new ModifiedFiles());
 
     try {
         await instances.db.init()

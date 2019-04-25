@@ -15,7 +15,7 @@ import { PokeServiceJob } from './jobs/pokeServiceJob'
 import * as fs from 'fs';
 import * as crypt from './crypt'
 import * as helmet from 'helmet'
-import { webClients, msg, hostClients, db, deployment } from './instances'
+import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
 import { errorHandler } from './error'
 import { IType, typeId, userId, TypePropType } from '../../shared/type'
 import setup from './setup'
@@ -331,6 +331,12 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.DockerImageSetPin:
                 await docker.imageSetPin(this, act);
+                break;
+            case ACTION.ModifiedFilesScan:
+                await modifiedFiles.scan(this, act);
+                break;
+            case ACTION.ModifiedFilesList:
+                await modifiedFiles.list(this, act);
                 break;
             default:
                 log("warning", "Web client unknown message", { act });
