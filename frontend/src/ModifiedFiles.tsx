@@ -31,6 +31,12 @@ export class ModifiedFilesState {
     @observable
     lastScanTime: number;
 
+    @observable
+    saveTime: number = null;
+
+
+    private saveInterval: any = null;
+
     load() {
         if (this.loading || this.loaded) return;
         this.loading = true;
@@ -82,7 +88,16 @@ export class ModifiedFilesState {
             newCurrent
         });
         const f = this.modifiedFiles.get(id);
-        state.page.set({type: PAGE_TYPE.Object, objectType: f.type, id: f.object, version: null});
+        this.saveTime = 10;
+
+        this.saveInterval = setInterval(()=>{
+            --this.saveTime;
+            if (this.saveTime > 0) return;
+            clearInterval(this.saveInterval);
+            state.page.set({type: PAGE_TYPE.Object, objectType: f.type, id: f.object, version: null});
+            this.saveTime = null;
+            this.saveInterval = null;
+        }, 500);
     }
 };
 
@@ -153,7 +168,7 @@ export class ModifiedFileRevolver extends React.Component<{id:number}, {content:
                 &nbsp;&nbsp;
                 <Button variant="contained" color="secondary" onClick={()=>s.revert(this.props.id)}>Revert changes on host</Button>
                 &nbsp;&nbsp;
-                <Button variant="contained" color="primary" disabled={current == content} onClick={()=>s.save(this.props.id, content)}>Save changes</Button>
+                <Button variant="contained" color="primary" disabled={current == content} onClick={()=>s.save(this.props.id, content)}>{s.saveTime?"Wait "+s.saveTime:"Save changes"}</Button>
             </div>
             {
                 this.state.patch
