@@ -6,7 +6,7 @@ import StatusState from "./StatusState";
 import { IAction, IMessage, DockerImageTag }  from "../../shared/actions";
 import { IObject2, IObjectDigest } from "../../shared/state";
 import { IType } from "../../shared/type";
-import { observable } from "mobx";
+import { observable, computed } from "mobx";
 import { ActionTargets } from "./ActionTargets";
 import { DockerImagesState } from "./DockerImages";
 import { DockerContainersState } from "./DockerContainers";
@@ -45,6 +45,15 @@ class State {
 
     @observable
     messages: Map<number, IMessage>;
+
+    @computed
+    get activeMessages() {
+        let cnt = 0;
+        for (const [n, m] of this.messages)
+            if (!m.dismissed)
+                cnt += 1;
+        return cnt;
+    }
 
     @observable
     messageExpanded: Map<number, boolean>;

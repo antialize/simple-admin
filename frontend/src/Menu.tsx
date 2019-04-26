@@ -24,6 +24,8 @@ import { withTheme } from "@material-ui/core/styles";
 import derivedState from './derivedState';
 import {HotKeyListener, HotKeyPortal} from "./HotKey";
 import ClickAwayListener from "@material-ui/core/ClickAwayListener";
+import Badge from '@material-ui/core/Badge';
+import MailIcon from '@material-ui/icons/Mail';
 
 function matchText(text:string, key:string) {
     if (!key || key.length == 0) return false;
@@ -154,7 +156,9 @@ const Menu = observer(function Menu() {
                             : <SubMenu title={t.name} key={t.name}>  <ObjectMenuList type={t.id} /> </SubMenu>
                         )}
                     </MenuDropdown>
-                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
+                    <Badge color="secondary" badgeContent={state.activeMessages}>
+                        <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
+                    </Badge>
                     <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>
                     <div style={{width: "10px"}} />
                     <TypeMenuItem key={hostId} id={hostId} />

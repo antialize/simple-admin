@@ -20,8 +20,8 @@ const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}
     const id = ids[0];
     const message = state.messages.get(id);
     const hosts = state.objectDigests.get(hostId);
-    const host = hosts && hosts.get(id);
-    const hostname = (host && host.name) || "missing";
+    const host = hosts && hosts.get(message.host);
+    const hostname = (host && host.name) || "";
     const expanded = state.messageGroupExpanded.get(id) || false;
 
     const newDate = new Date(end * 1000);
@@ -38,7 +38,7 @@ const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}
     if (expanded)
         actions.push(<Button color="primary" variant="contained" key="contract" onClick={()=> state.messageGroupExpanded.set(id, false)}>Contract</Button>);
     else
-        actions.push(<Button color="primary" variant="contained" key="expand" onClick={()=> state.messageGroupExpanded.set(id, false)}>Expand</Button>);
+        actions.push(<Button color="primary" variant="contained" key="expand" onClick={()=> state.messageGroupExpanded.set(id, true)}>Expand</Button>);
     
     let rows = [<tr className={c} key={ids[0]+"_root"}><td>{message.type} ({ids.length})</td><td>{hostname}</td><td></td><td>{newDate.toUTCString()}</td><td>{actions}</td></tr>];
     if (expanded) {
