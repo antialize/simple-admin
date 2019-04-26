@@ -435,6 +435,7 @@ export interface ModifiedFile {
     deployed: string;
     actual: string;
     current: string;
+    path: string;
 }
 
 export interface IModifiedFilesScan {

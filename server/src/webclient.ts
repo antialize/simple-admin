@@ -338,6 +338,9 @@ export class WebClient extends JobOwner {
             case ACTION.ModifiedFilesList:
                 await modifiedFiles.list(this, act);
                 break;
+            case ACTION.ModifiedFilesResolve:
+                await modifiedFiles.resolve(this, act);
+                break;
             default:
                 log("warning", "Web client unknown message", { act });
         }

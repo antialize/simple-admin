@@ -294,7 +294,7 @@ export class DB {
 
     getNewestObjectByID(id: number) {
         let db = this.db;
-        return new Promise<{ version: number, type: number, name: string, content: string, category: string }>((cb, cbe) => {
+        return new Promise<{ version: number, type: number, name: string, content: string, category: string, comment: string}>((cb, cbe) => {
             db.get("SELECT `version`, `type`, `name`, `content`, `category`, `comment` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
                 (err, row) => {
                     if (err)

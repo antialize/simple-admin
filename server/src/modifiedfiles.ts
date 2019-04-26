@@ -1,14 +1,19 @@
 import { fileId } from "./default";
-import { db, webClients } from "./instances";
-import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, ModifiedFile, ACTION } from "../../shared/actions";
+import { db, webClients, hostClients } from "./instances";
+import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, ModifiedFile, ACTION, IObjectChanged } from "../../shared/actions";
 import { WebClient } from "./webclient";
+import { Job } from "./job";
+import * as message from './messages';
+
+const cronId = 10240;
+const systemdServiceId = 10206;
 
 export class ModifiedFiles {
     lastScan: number = null;
     scanning: boolean = false;
     idc: number = 0;
     props = new Map<number, {dead: boolean, updated: boolean}>();
-    modifiedFiles: ModifiedFile[];
+    modifiedFiles: ModifiedFile[] = [];
 
     async broadcast_changes() {
         const changed = [];
@@ -20,6 +25,7 @@ export class ModifiedFiles {
                 removed.push(f.id);
             else
                 changed.push(f);
+            p.updated = false;
         }
         webClients.broadcast({
             type: ACTION.ModifiedFilesChanged,
@@ -29,24 +35,276 @@ export class ModifiedFiles {
             changed,
             removed
         })
+        this.modifiedFiles = this.modifiedFiles.filter((f) => {
+            return !this.props.get(f.id).dead;
+        })
     }
 
-    async scan(client: WebClient, act:IModifiedFilesScan) {
+    async scan(client?: WebClient, act?:IModifiedFilesScan) {
         if (this.scanning) return;
 
         this.scanning = true;
         this.lastScan = +new Date() / 1000;
         await this.broadcast_changes();
+        type Obj = {path:string, type:number, host:number, data:string, object:number, actual?: string};
+        let objects = new Map<number, Obj[]>();    
+        for (const row of await db.all("SELECT `name`, `content`, `type`, `title`, `host` FROM `deployments` WHERE `type` in (?, ?, ?)", fileId, cronId, systemdServiceId)) {
+            const content = JSON.parse(row.content);
+            if (!content.content) continue;
+            let data: string = null;
+            let path: string = null;
+            switch (+row.type) {
+            case fileId: 
+                data = content.content.data; 
+                path = content.content.path;
+                break;
+            case systemdServiceId: 
+                data = content.content.unit;
+                path = "/etc/systemd/system/"+content.content.name+".service"
+                break;
+            case cronId: 
+                data = content.content.script; 
+                path = content.content.path;
+                break;
+            }
+           
+            if (!data || !path) continue;
+            if (!objects.has(row.host)) objects.set(row.host, []);
+            objects.get(row.host).push({path, type: +row.type, host: row.host, data, object: content.object});
+        }
 
-        /*for (const row of await db.all("SELECT `name`, `content`, `type`, `title`, `host` FROM `deployments` WHERE `type`=?", fileId)) {
-            console.log(row):
-        }*/
+        let promises: Promise<{host: number; content: {path:string, data:string}[]}>[] = [];
+        for (const [hostId, objs] of objects) {
+            if (!hostClients.hostClients[hostId]) continue;
+            const host = hostClients.hostClients[hostId];
+            if (!host.auth || !host.status || !host.status.up) continue;
+
+            promises.push(new Promise((accept, reject) => {
+                let args: string[] = [];
+                for (const o of objs)
+                    args.push(o.path);
+                let script = `
+import sys, base64, json
+ans = {'content': []}
+for path in sys.argv[1:]:
+    data = None
+    try:
+        with open(path, 'rb') as f:
+            data = f.read().decode('utf-8')
+    except OSError:
+        pass
+    ans['content'].append({'path': path, 'data': data})
+sys.stdout.write(json.dumps(ans))
+sys.stdout.flush()
+`;
+               
+                class FileContentJob extends Job {  
+                    out: string = "";
+    
+                    constructor() {
+                        super(host, null, host);
+                        let msg: message.RunScript = {
+                            'type': 'run_script', 
+                            'id': this.id, 
+                            'name': "read_files.py", 
+                            'interperter': '/usr/bin/python3', 
+                            'content': script,
+                            'args': args,
+                            'stdin_type': 'none',
+                            'stdout_type': 'text',
+                            'stderr_type': 'none'
+                        };
+                        this.client.sendMessage(msg);
+                        this.running = true;
+                    }
+    
+                    handleMessage(obj: message.Incomming) {
+                        super.handleMessage(obj);
+                        switch(obj.type) {
+                        case 'data':
+                            if (obj.source == 'stdout')
+                                this.out += obj.data;
+                            break;
+                        case 'success':
+                            if (obj.code == 0) accept({host: hostId, content: JSON.parse(this.out).content});
+                            else reject(new Error("Script returned " + obj.code) );
+                            break;    
+                        case 'failure':
+                            reject(new Error("Script failure"));
+                            break;
+                        }
+                    }
+                };
+                new FileContentJob();
+            }));
+        }
+
+        for (const {host, content} of await Promise.all(promises)) {
+            if (!content) throw new Error("Failed to run on host " + host);
+            let objs = objects.get(host);
+            if(objs.length != content.length) 
+                throw new Error("Not all files there");
+            let modified = new Map<string, Obj>();;
+            for (let i=0; i < objs.length; ++i) {
+                if (objs[i].path != content[i].path)
+                    throw new Error("Path error");
+
+                objs[i].actual = content[i].data;
+                if (objs[i].actual == objs[i].data)
+                    continue;
+                modified.set(objs[i].path, objs[i]);
+            }
+            for (let m of this.modifiedFiles) {
+                if (m.host != host) continue;
+                const p = this.props.get(m.id);
+                let alter = <A>(o: A, n: A) : A => {
+                    if (o != n) p.updated =true;
+                    return n;
+                }
+                if (!modified.has(m.path)) {
+                    p.dead = alter(p.dead, true);
+                    continue;
+                }
+                const o = modified.get(m.path);
+                modified.delete(m.path);
+                p.dead = alter(p.dead, false);
+                m.actual = alter(m.actual, o.actual);
+                m.deployed = alter(m.deployed, o.data);
+                m.object = alter(m.object, o.object);
+                m.path = alter(m.path, o.path);
+                m.type = alter(m.type, o.type);
+            }
+            for (const [path, o] of modified) {
+                const id = this.idc++;
+                this.modifiedFiles.push(
+                    {
+                        id,
+                        type: o.type,
+                        actual: o.actual,
+                        deployed: o.data,
+                        host: o.host,
+                        path: o.path,
+                        object: o.object,
+                        current: null
+                    }
+                )
+                this.props.set(id, {dead: false, updated: true});
+            }
+        }
+
+        if (this.modifiedFiles.length != 0) {
+            let oids = [];
+            for (const f of this.modifiedFiles) 
+                oids.push(f.object);
+
+            let m = new Map<number, string>();
+            for (const row of await db.all("SELECT `id`, `content` FROM `objects` WHERE `newest`=1 AND `id` in (?"+ ", ?".repeat(oids.length - 1) + ")",  ...oids)) 
+                m.set(row.id, row.content);
+            
+            for (const f of this.modifiedFiles) {
+                if (!m.has(f.object)) continue;
+                const content = JSON.parse(m.get(f.object));
+                switch (f.type) {
+                case fileId:
+                    f.current = content.data;
+                    break
+                case systemdServiceId:
+                    f.current = content.unit;
+                    break;
+                case cronId:
+                    f.current = content.script;
+                    break;
+                }
+            }
+        }
+
         this.scanning = false;
         await this.broadcast_changes();
     }
 
     async resolve(client: WebClient, act:IModifiedFilesResolve) {
+        let f: ModifiedFile = null;
+        for (const o of this.modifiedFiles)
+            if (o.id == act.id)
+                f = o;
+        if (f === null) throw new Error("Unable to find object with that id");
+        if (act.action == 'redeploy') {
+            const host = hostClients.hostClients[f.host];
+            if (!host) throw new Error("Host is not up");
+            await new Promise((accept, reject) => {
+                let script = `
+import sys
+o = ${JSON.stringify({'path': f.path, 'content': f.deployed})}
+with open(o['path'], 'w', encoding='utf-8') as f:
+    f.write(o['content'])
+`;
+                class RevertJob extends Job {  
+                    constructor() {
+                        super(host, null, host);
+                        let msg1: message.RunScript = {
+                            'type': 'run_script', 
+                            'id': this.id, 
+                            'name': "revert.py", 
+                            'interperter': '/usr/bin/python3', 
+                            'content': script,
+                            'args': [],
+                            'stdin_type': 'none',
+                            'stdout_type': 'none',
+                            'stderr_type': 'text'
+                        };
+                        this.client.sendMessage(msg1);
+                        this.running = true;
+                    }
+    
+                    handleMessage(obj: message.Incomming) {
+                        super.handleMessage(obj);
+                        switch(obj.type) {
+                        case 'success':
+                            if (obj.code == 0) accept();
+                            else reject(new Error("Script returned " + obj.code) );
+                            break;    
+                        case 'failure':
+                            reject(new Error("Script failure"));
+                            break;
+                        }
+                    }
+                };
+                new RevertJob();
+            });
+            const pp = this.props.get(act.id);
+            pp.dead = true;
+            pp.updated = true;
+            await this.broadcast_changes();
+        } else if (act.action == 'updateCurrent') {
+            const row = await db.getNewestObjectByID(f.object);
 
+            const obj = {
+                id: f.object,
+                version: row.version,
+                type: row.type,
+                name: row.name,
+                content: JSON.parse(row.content),
+                category: row.category,
+                comment: row.comment,
+            }
+
+            switch (f.type) {
+            case fileId:
+                obj.content['data'] = act.newCurrent;
+                break;
+            case systemdServiceId:
+                obj.content['unit'] = act.newCurrent;
+                break;
+            case cronId:
+                obj.content['script'] = act.newCurrent;
+                break;
+            }
+
+            let { id, version } = await db.changeObject(f.object, obj);
+            obj.version = version;
+            let res: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [obj] };
+            webClients.broadcast(res);
+        }
     }
     
     async list(client: WebClient, act:IModifiedFilesList) {
@@ -55,8 +313,13 @@ export class ModifiedFiles {
             full: true,
             scanning: this.scanning,
             lastScanTime: this.lastScan,
-            changed: this.modifiedFiles,
+            changed: this.modifiedFiles.filter((f)=>!this.props.get(f.id).dead),
             removed: [],
         })
+    }
+
+    constructor() {
+        setTimeout(()=>this.scan(), 1000*2*60);
+        setInterval(()=>this.scan(), 1000*60*60*12);
     }
 }
