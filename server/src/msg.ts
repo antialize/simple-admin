@@ -6,7 +6,7 @@ import { errorHandler, ErrorType, SAError } from './error'
 export class Msg {
     async emit(host: number, type: string, message: string, subtype: string = null, url: string = null) {
         const time = +new Date() / 1000;
-        const id = await db.insert("INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)", [host, type, subtype, message, url, time])
+        const id = await db.insert("INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)", host, type, subtype, message, url, time)
         if (!message) message = "";
         const act: actions.IAddMessage = {
             type: actions.ACTION.AddMessage,

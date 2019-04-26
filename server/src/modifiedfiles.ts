@@ -1,5 +1,5 @@
 import { fileId } from "./default";
-import { db, webClients, hostClients } from "./instances";
+import { db, webClients, hostClients, msg } from "./instances";
 import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, ModifiedFile, ACTION, IObjectChanged } from "../../shared/actions";
 import { WebClient } from "./webclient";
 import { Job } from "./job";
@@ -189,6 +189,7 @@ sys.stdout.flush()
                     }
                 )
                 this.props.set(id, {dead: false, updated: true});
+                msg.emit(o.host, "Modified file", "The file "+o.path+" has been modified since it was deployed");
             }
         }
 
