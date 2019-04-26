@@ -80,6 +80,9 @@ export const setupSocket = () => {
                 break;
             case ACTION.SetInitialState:
                 runInAction(() => {
+                    state.modifiedFiles.loaded = false;
+                    state.dockerImages.loaded = false;
+                    state.dockerContainers.loaded = false;
                     state.deployment.objects = d.deploymentObjects;
                     state.deployment.message = d.deploymentMessage;
                     state.deployment.status = d.deploymentStatus;
@@ -176,6 +179,9 @@ export const setupSocket = () => {
                 break;
             case ACTION.DockerDeploymentsChanged:
                 state.dockerContainers.handleChange(d);
+                break;
+            case ACTION.ModifiedFilesChanged:
+                state.modifiedFiles.handleChange(d);
                 break;
         }
     };

@@ -92,9 +92,9 @@ const modeInfo = [
 const themes = ['default', 'ambiance', 'material', 'neo', 'night'];
 
 interface IProps {
-    setLang(lang:string): void;
+    setLang? (lang:string): void;
     lang: string;
-    setData(data:string): void;
+    setData? (data:string): void;
     data: string;
     fixedLang: boolean;
     readOnly?: boolean;
@@ -135,7 +135,7 @@ class Editor extends React.Component<IProps, IState> {
                     </Select>
                 </Toolbar>
                 <CodeMirror value={this.props.data} options={{mode: mode, theme: this.state.theme, indentUnit: 4, indentWithTabs: true, lineNumbers:true, readOnly:this.props.readOnly, tabSize:4, showTrailingSpace: true, matchBrackets: true}} 
-                     onBeforeChange={(e,d,v) => {this.props.setData(v)}} />
+                     onBeforeChange={(e,d,v) => {this.props.setData && this.props.setData(v)}} />
             </Paper>
         )
     }

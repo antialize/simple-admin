@@ -11,6 +11,7 @@ import { observer } from "mobx-react";
 import * as State from '../../shared/state';
 import { DockerImages } from './DockerImages';
 import { DockerContainers } from './DockerContainers';
+import { ModifiedFiles, ModifiedFileRevolver } from './ModifiedFiles';
 
 function never(n: never, message: string) {
     console.error(message);
@@ -38,6 +39,10 @@ export const MainPage = observer(function MainPage() {
             return <DockerImages/>;
         case State.PAGE_TYPE.DockerContainers:
             return <DockerContainers />;
+        case State.PAGE_TYPE.ModifiedFiles:
+            return <ModifiedFiles />;
+        case State.PAGE_TYPE.ModifiedFile:
+            return <ModifiedFileRevolver id={p.id} />;
         default:
             never(p, "Unhandled page type");
     }

@@ -137,6 +137,26 @@ tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
     }
 }
 
+.modified_container {
+    display: grid;
+    grid-gap: 1rem;
+    grid-template-columns: 1fr  1fr;
+
+    grid-template-areas:
+      "head head"
+      "lt   right"
+      "lb   right";
+  }
+
+.modified_container div.CodeMirror {
+    height: calc(100vh - 20em);
+    width: calc(50vw - 2em);
+}
+
+.modified_container .modified_half div.CodeMirror {
+    height: calc(50vh - 13em);
+}
+
 .cm-trailingspace {
      background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QUXCToH00Y1UgAAACFJREFUCNdjPMDBUc/AwNDAAAFMTAwMDA0OP34wQgX/AQBYgwYEx4f9lQAAAABJRU5ErkJggg==);
      background-position: bottom left;

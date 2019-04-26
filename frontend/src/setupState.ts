@@ -5,6 +5,7 @@ import state from "./state"
 import { ActionTargets } from "./ActionTargets";
 import { DockerImagesState } from "./DockerImages";
 import { DockerContainersState } from "./DockerContainers";
+import { ModifiedFilesState } from "./ModifiedFiles";
 
 function setupState() {
     state.login = new LoginState;
@@ -23,6 +24,7 @@ function setupState() {
     state.status = new Map;
     state.dockerImages = new DockerImagesState;
     state.dockerContainers = new DockerContainersState;
+    state.modifiedFiles = new ModifiedFilesState;
 };
 
 export default setupState;

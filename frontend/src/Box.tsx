@@ -4,7 +4,7 @@ import ExpansionPanelDetails from "@material-ui/core/ExpansionPanelDetails";
 import ExpansionPanelSummary from "@material-ui/core/ExpansionPanelSummary";
 import Typography from "@material-ui/core/Typography";
 
-function Box( {title, collapsable, expanded, children}:{title:React.ReactNode, collapsable?:boolean, expanded?:boolean, children?:JSX.Element|JSX.Element[]}) {
+function Box( {title, collapsable, expanded, children}:{title:React.ReactNode, collapsable?:boolean, expanded?:boolean, children?:React.ReactNode}) {
     return (
         <ExpansionPanel defaultExpanded={!collapsable || expanded} style={{marginBottom:"20px"}}>
             <ExpansionPanelSummary>

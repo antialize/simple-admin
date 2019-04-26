@@ -70,6 +70,13 @@ class PageState {
         case State.PAGE_TYPE.DockerContainers:
             o['page'] = 'dockerContainers';
             break;
+        case State.PAGE_TYPE.ModifiedFiles:
+            o['page'] = 'modifiedFiles';
+            break;
+        case State.PAGE_TYPE.ModifiedFile:
+            o['page'] = 'modifiedFile';
+            o['id'] = ""+page.id;
+            break;
         default:
             never(page, "Unhandled page");
         }
@@ -95,6 +102,12 @@ class PageState {
             break;
         case 'dockerContainers':
             this.current = {type: State.PAGE_TYPE.DockerContainers}
+            break;
+        case 'modifiedFiles':
+            this.current = {type: State.PAGE_TYPE.ModifiedFiles}
+            break;
+        case 'modifiedFile':
+            this.current = {type: State.PAGE_TYPE.ModifiedFile, id: +getUrlParameter('id')};
             break;
         case 'deployment':
             this.current = {type: State.PAGE_TYPE.Deployment};

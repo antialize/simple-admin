@@ -10,6 +10,7 @@ import { observable } from "mobx";
 import { ActionTargets } from "./ActionTargets";
 import { DockerImagesState } from "./DockerImages";
 import { DockerContainersState } from "./DockerContainers";
+import { ModifiedFilesState } from "./ModifiedFiles";
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
@@ -68,6 +69,9 @@ class State {
 
     @observable.shallow
     dockerContainers: DockerContainersState;
+
+    @observable.shallow
+    modifiedFiles: ModifiedFilesState;
 
     sendMessage: (act:IAction)=>void = null;
 };

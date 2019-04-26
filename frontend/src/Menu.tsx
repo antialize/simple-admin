@@ -162,6 +162,7 @@ const Menu = observer(function Menu() {
                     <div style={{width: "10px"}} />
                     <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerImages})} href={state.page.link({type:State.PAGE_TYPE.DockerImages})}>Images</Button>
                     <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerContainers})} href={state.page.link({type:State.PAGE_TYPE.DockerContainers})}>Containers</Button>
+                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ModifiedFiles})} href={state.page.link({type:State.PAGE_TYPE.ModifiedFiles})}>Modified Files</Button>
                     <div style={{flexGrow: 1}} />
                     <Search />
                     <div style={{width: "10px"}} />
