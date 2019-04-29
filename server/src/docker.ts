@@ -126,7 +126,7 @@ class Docker {
 
         // GET 	/v2/<name>/manifests/<reference> Manifest Fetch the manifest identified by name and reference where reference can be a tag or digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
         if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "manifests") {
-            const row = await db.get("SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?)", p[2], p[4], p[4]);
+            const row = await db.get("SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1", p[2], p[4], p[4]);
             if (!row) {
                 log('error', "Docker get manifest: not found", p[2], [4])
                 res.status(404).end();
