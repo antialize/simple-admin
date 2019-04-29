@@ -330,6 +330,7 @@ class Docker {
             script += "    sys.stdout.flush()\n"
             script += "    subprocess.call(['docker', '--config', t, 'rm', "+pyStr(container)+"])\n"
             client.sendMessage({type: ACTION.DockerDeployLog, ref, message: "Deploying image "+hash});
+            conf += "\n-e DOCKER_HASH=\""+hash+"\"";
             const args = shellQuote.parse(conf.split("\n").join(" "));
             const o = [pyStr('docker'), pyStr('--config'), 't', pyStr('run'), pyStr('-d'), pyStr('--name'), pyStr(container)];
             for (let i=0; i < args.length; ++i) {
