@@ -540,7 +540,7 @@ class Docker {
     }
 
     async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
-        db.run('UPDATE `docker_images` SET pin=? WHERE `hash`=? AND `project`=?', act.pin?1:0, act.hash, act.image);
+        await db.run('UPDATE `docker_images` SET pin=? WHERE `hash`=? AND `project`=?', act.pin?1:0, act.hash, act.image);
         const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: []};
 
         for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
