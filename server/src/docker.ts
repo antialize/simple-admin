@@ -45,8 +45,45 @@ class Upload {
 
 const HASH_PATTERN = /^sha256:[0-9A-Fa-f]{64}$/;
 
+interface IHostContainer {
+    id: string;
+    name: string;
+    image: string;
+    state: string;
+    created: number;
+}
+
+interface IHostContainerState {
+    type: 'docker_container_state';
+    id: string;
+    state: string;
+}
+
+interface IHostContainers {
+    type: 'docker_containers';
+    full: boolean;
+    update: IHostContainer[];
+    delete: string[];
+}
+
+interface IHostImage {
+    id: string;
+    digests: string[];
+    tags: string[];
+    created: number;
+}
+
+interface IHostImages {
+    type: 'docker_images';
+    full: boolean;
+    update: IHostImage[];
+    delete: string[];
+}
+
 class Docker {
     activeUploads = new Map<string, Upload>();
+    hostImages = new Map<number, Map<string, IHostImage>>();
+    hostContainers = new Map<number, Map<string, IHostContainer>>();
 
     async checkAuth(req: express.Request, res: express.Response) {
         if (req.headers['authorization']) {
@@ -623,6 +660,40 @@ class Docker {
                 }
             );
         webClients.broadcast(res);
+    }
+
+    handleHostDockerContainers(host: HostClient, obj: IHostContainers) {
+        if (!this.hostContainers.has(host.id))
+            this.hostContainers.set(host.id, new Map());
+        const containers = this.hostContainers.get(host.id);
+        if (obj.full) containers.clear();
+
+        for (const id of obj.delete)
+            containers.delete(id);
+
+        for (const u of obj.update)
+            containers.set(u.id, u);
+        }
+
+    handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
+        const containers = this.hostContainers.get(host.id);
+        if (!containers) return;
+        const o = containers.get(obj.id);
+        if (!o) return;
+        o.state = obj.state;
+    }
+
+    handleHostDockerImages(host: HostClient, obj: IHostImages) {
+        if (!this.hostImages.has(host.id))
+            this.hostImages.set(host.id, new Map());
+        const images = this.hostImages.get(host.id);
+        if (obj.full) images.clear();
+
+        for (const id of obj.delete)
+            images.delete(id);
+
+        for (const u of obj.update)
+            images.set(u.id, u);
     }
 }
 
