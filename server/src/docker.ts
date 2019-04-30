@@ -391,21 +391,7 @@ class Docker {
                 'auth': Buffer.from("docker_client:"+session).toString('base64')
             };
 
-            let script = "import os, subprocess, shlex, sys, tempfile, shutil\n";
-            script += "def run(*args):\n"
-            script += "    print('$ ' + ' '.join([shlex.quote(arg) for arg in args]))\n"
-            script += "    sys.stdout.flush()\n"
-            script += "    subprocess.check_call(args)\n"
-            script += "t = tempfile.mkdtemp()\n"
-            script += "try:\n"
-            script += "    with open(t+'/config.json', 'w') as f:\n"
-            script += "        f.write("+pyStr(JSON.stringify(dockerConf))+")\n"
-            script += "    print('$ docker container stop %s'%("+ pyStr(container) +"))\n"
-            script += "    sys.stdout.flush()\n"
-            script += "    subprocess.call(['docker', '--config', t, 'stop', "+pyStr(container)+"])\n"
-            script += "    print('$ docker container rm %s'%("+ pyStr(container) +"))\n"
-            script += "    sys.stdout.flush()\n"
-            script += "    subprocess.call(['docker', '--config', t, 'rm', "+pyStr(container)+"])\n"
+            const envs = [];
             client.sendMessage({type: ACTION.DockerDeployLog, ref, message: "Deploying image "+hash});
             conf += "\n-e DOCKER_HASH=\""+hash+"\"";
             const args = shellQuote.parse(conf.split("\n").join(" "));
@@ -415,18 +401,66 @@ class Docker {
                     ++i;
                     o.push("'-e'");
                     const parts = args[i].toString().split("=", 2);
-                    if (parts.length == 2) {
-                        script += "    os.environ[" + pyStr(parts[0]) + "] = " + pyStr(parts[1]) + "\n"
-                    }
+                    if (parts.length == 2)
+                        envs.push("    os.environ[" + pyStr(parts[0]) + "] = " + pyStr(parts[1]))
                     o.push(pyStr(parts[0]));
                 } else {
                     o.push(pyStr(""+args[i]));
                 }
             }
             o.push(pyStr(config.hostname + "/" + image + "@" + hash));
-            script += "    run("+o.join(", ")+")\n"
-            script += "finally:\n"
-            script += "    shutil.rmtree(t, True)\n"
+
+
+            let script = `
+import os, subprocess, shlex, sys, tempfile, shutil, asyncio
+started_ok = False
+container = ${pyStr(container)}
+
+async def passthrough(i, o):
+    global started_ok
+    while not i.at_eof():
+        line = await i.readline()
+        os.write(o, line)
+        if b"started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N" in line:
+            started_ok = True
+            return
+
+async def read_log():
+    proc = await asyncio.create_subprocess_exec(
+        'docker', 'container', 'logs', '--follow', '--timestamps', '--since', '2s', container,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
+    await asyncio.wait( (passthrough(proc.stdout, 1), passthrough(proc.stderr, 2)), 
+        return_when=asyncio.FIRST_COMPLETED, timeout=120)
+    try:
+        proc.terminate()
+    except:
+        pass
+
+def run(*args):
+    print('$ ' + ' '.join([shlex.quote(arg) for arg in args]))
+    sys.stdout.flush()
+    subprocess.check_call(args)
+
+t = tempfile.mkdtemp()
+try:
+    with open(t+'/config.json', 'w') as f:
+        f.write(${pyStr(JSON.stringify(dockerConf))})
+    print('$ docker container stop %s'%(container))
+    sys.stdout.flush()
+    subprocess.call(['docker', '--config', t, 'stop', container])
+    print('$ docker container rm %s'%(container))
+    sys.stdout.flush()
+    subprocess.call(['docker', '--config', t, 'rm', container])
+${envs.join("\n")}
+    run(${o.join(", ")})
+
+    asyncio.get_event_loop().run_until_complete(read_log())
+    if not started_ok:
+        raise SystemExit("Service did not start successfully")
+finally:
+    shutil.rmtree(t, True)
+`
            
             class DockerJob extends Job {  
                 stdoutPart: string = "";
