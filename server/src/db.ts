@@ -73,6 +73,7 @@ export class DB {
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `stats_index` ON `stats` (`host`, `name`, `index`, `level`)");
 
         await r("CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)");
+        await r("DELETE FROM `sessions` WHERE `user`=?", ["docker_client"]);
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {

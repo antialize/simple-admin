@@ -531,9 +531,9 @@ class Docker {
                     }
                 }
             } finally {
-                await db.run("DELETE FROM `sessions` WHERE `user`=? AND sid`=?", "docker_client", now, session);
+                await db.run("DELETE FROM `sessions` WHERE `user`=? AND `sid`=?", "docker_client", session);
                 if (oldDeploy && !keepOld)
-                    await db.run("UPDATE 'docker_deployments` SET `endTime`=? WHERE `id`=?", now, oldDeploy.id);
+                    await db.run("UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?", now, oldDeploy.id);
             }
          } catch (e) {
             client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed due to an exception"});
