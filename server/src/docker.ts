@@ -43,7 +43,7 @@ class Upload {
     }
 };
 
-
+const HASH_PATTERN = /^sha256:[0-9A-Fa-f]{64}$/;
 
 class Docker {
     activeUploads = new Map<string, Upload>();
@@ -107,8 +107,7 @@ class Docker {
         // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
         if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs") {
             const b = p[4];
-            const re = /^sha256:[0-9A-Fa-f]{64}$/;
-            if (!re.test(b)) {
+            if (!HASH_PATTERN.test(b)) {
                 log('error', "Docker get blob: bad name", b);
                 res.status(400).end();
                 return;
@@ -158,6 +157,15 @@ class Docker {
     }
 
     async put(req: express.Request, res: express.Response) {
+        try {
+            return await this.putInner(req, res);
+        } catch (e) {
+            log('error', "Uncaught exception in docker.put", e);
+            res.status(500).end();
+        }
+    }
+
+    async putInner(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
         const user = await this.checkAuth(req, res);
         if (user === null || user === "docker_client") return;
@@ -202,8 +210,40 @@ class Docker {
 
             log('info', "Docker put manifest", p[2], p[4]);
 
-            let cv = JSON.parse(content);
-            content = JSON.stringify(cv);
+            // Validate that manifest is JSON.
+            const manifest = JSON.parse(content);
+            content = JSON.stringify(manifest);
+
+            // Validate that we have all the parts.
+            for (const layer of manifest.layers) {
+                const {digest} = layer;
+                if (!HASH_PATTERN.test(digest)) {
+                    log('error', "Docker put manifest: bad layer digest", digest);
+                    res.status(400).end();
+                    return;
+                }
+                // TODO: await fs.access() instead.
+                try {
+                    fs.accessSync(docker_blobs_path + digest);
+                } catch (e) {
+                    log('error', "Docker put manifest: layer digest does not exist", digest);
+                    res.status(400).end();
+                    return;
+                }
+                // If file does not exist, an error is thrown.
+            }
+
+            // Read config
+            const configDigest = manifest.config.digest;
+            if (!HASH_PATTERN.test(configDigest)) {
+                log('error', "Docker put manifest: bad config digest", configDigest);
+                res.status(400).end();
+                return;
+            }
+            const configString = fs.readFileSync(docker_blobs_path + configDigest, {encoding: "utf-8"});
+            const config = JSON.parse(configString);
+            const labels = config.config.Labels || {};
+            const labelsString = JSON.stringify(labels);
 
             const hash = crypto.createHash("sha256");
             hash.update(content, 'utf8');
@@ -211,7 +251,7 @@ class Docker {
 
             await db.run("DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?", p[2], p[4], h);
             const time = +new Date() / 1000;
-            const id = await db.insert("INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`, `pin`) VALUES (?, ?, ?, ?, ?, ?, 0)", p[2], p[4], content, h, user, time);
+            const id = await db.insert("INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`, `pin`, `labels`) VALUES (?, ?, ?, ?, ?, ?, 0, ?)", p[2], p[4], content, h, user, time, labelsString);
           
             webClients.broadcast({
                 type: ACTION.DockerListImageTagsChanged,
@@ -222,13 +262,13 @@ class Docker {
                         tag: p[4],
                         user,
                         time,
-                        pin: false
+                        pin: false,
+                        labels: labels,
                     }
                 ],
                 removed: []
             });
-          
-            // TODO validate that we have all the parts
+
             res.status(201).header("Location", "/v2/" + p[2] + "/manifests/" + hash).header("Content-Length", "0").header("Docker-Content-Digest", h).end();
             return;
         }
@@ -523,7 +563,7 @@ class Docker {
     async listImageTags(client: WebClient, act: IDockerListImageTags) {
         const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
         try {
-            for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
                 res.tags.push(
                     {
                         image: row.project,
@@ -531,7 +571,8 @@ class Docker {
                         tag: row.tag,
                         user: row.user,
                         time: row.time,
-                        pin: row.pin
+                        pin: row.pin,
+                        labels: JSON.parse(row.labels || "{}"),
                     }
                 );
         } finally {
@@ -543,7 +584,7 @@ class Docker {
         await db.run('UPDATE `docker_images` SET pin=? WHERE `hash`=? AND `project`=?', act.pin?1:0, act.hash, act.image);
         const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: []};
 
-        for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
+        for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
             res.changed.push(
                 {
                     image: row.project,
@@ -551,7 +592,8 @@ class Docker {
                     tag: row.tag,
                     user: row.user,
                     time: row.time,
-                    pin: row.pin
+                    pin: row.pin,
+                    labels: JSON.parse(row.labels || "{}"),
                 }
             );
         webClients.broadcast(res);

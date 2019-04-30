@@ -359,6 +359,7 @@ export interface DockerImageTag {
     time: number;
     user: string;
     pin: boolean;
+    labels: {[key: string]: string};
 }
 
 export interface IDockerListImageTagsRes {
