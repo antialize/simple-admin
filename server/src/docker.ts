@@ -537,7 +537,7 @@ class Docker {
             }
          } catch (e) {
             client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed due to an exception"});
-            log('error', "Deployment failed do to an exception", e);
+            log('error', "Deployment failed due to an exception", e);
          }
      }
 
