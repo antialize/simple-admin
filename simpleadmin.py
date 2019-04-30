@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 
-import argparse, getpass, os, json, asyncio, subprocess, base64, socket, random, subprocess
+import argparse
+import asyncio
+import base64
+import datetime
+import getpass
+import itertools
+import json
+import os
+import random
+import subprocess
+import time
 import websockets
 from tempfile import NamedTemporaryFile
 
@@ -161,6 +171,65 @@ async def edit(path):
             break
 
 
+def rel_time(timestamp):
+    seconds = time.time() - timestamp
+    x = [("days", 86400), ("hours", 3600), ("minutes", 60)]
+    for k, d in x:
+        v = int(seconds / d)
+        if v > 0:
+            return "%s %s ago" % (v, k if v > 1 else k.rstrip("s"))
+    return "%s seconds ago" % int(seconds)
+
+
+async def list_deployments():
+    c = Connection()
+    await c.setup(requireAuth=True)
+    ref = random.randint(0, 2 ** 48 - 1)
+
+    await c.socket.send(json.dumps({"type": "RequestInitialState"}))
+    while True:
+        res = json.loads(await c.socket.recv())
+        if res["type"] == "SetInitialState":
+            break
+    state = res
+    type_ids = {o["name"]: str(o["id"]) for o in state["objectNamesAndIds"]["1"]}
+    host_names = {
+        int(o["id"]): o["name"] for o in state["objectNamesAndIds"][type_ids["Host"]]
+    }
+
+    await c.socket.send(json.dumps({"type": "DockerListDeployments", "ref": ref}))
+    while True:
+        res = json.loads(await c.socket.recv())
+        if res["type"] == "DockerListDeploymentsRes" and res["ref"] == ref:
+            break
+    deployments = res["deployments"]
+    deployments.sort(key=lambda d: (d["image"], d["host"]))
+    groups = itertools.groupby(deployments, key=lambda d: (d["image"], d["host"]))
+    for (image, host_id), group in groups:
+        print("\n%s on %s" % (image, host_names.get(host_id, host_id)))
+        for deployment in group:
+            image_info = deployment.get("imageInfo", {})
+            labels = image_info.get("labels", {})
+            name = deployment["name"]
+            bold = "\x1b[1m"
+            red = "\x1b[31m"
+            green = "\x1b[32m"
+            reset = "\x1b[0m"
+            deploy_time = green + bold + rel_time(deployment["start"]) + reset
+            status = "%s by %s" % (deploy_time, deployment["user"])
+            if image_info:
+                push_time = green + bold + rel_time(image_info["time"]) + reset
+                push_status = "%s by %s" % (push_time, image_info["user"])
+                if status != push_status:
+                    status = "pushed %s, deployed %s" % (push_status, status)
+            git = ""
+            if labels:
+                commit = labels.get("GIT_COMMIT")
+                branch = labels.get("GIT_BRANCH")
+                git = "%s (%s %s)%s" % (reset + green, commit, branch, reset)
+            print("- %s %s%s" % (bold + red + name + reset, status, git))
+
+
 class UIPortal:
     def __init__(self, loop):
         self.old = None
@@ -247,9 +316,8 @@ async def ui_select_object(loop, c, state):
     with UIPortal(loop) as portal:
         import urwid as u
         aloop = asyncio.get_event_loop()
-        typeNames = {}
-        for o in state['objectNamesAndIds']['1']:
-            typeNames[int(o['id'])] = o['name']
+        typeNames = {int(o['id']): o['name'] for o in state['objectNamesAndIds']['1']}
+
         f = aloop.create_future()
         allButtons = []
         for c, v in state['objectNamesAndIds'].items():
@@ -546,6 +614,8 @@ def main():
     parser_deploy = subparsers.add_parser('edit', help='Edit', description="Edit an object")
     parser_deploy.add_argument('object', help="The server to deploy on")
 
+    subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
+
     args = parser.parse_args()
     if args.command == 'auth':
         asyncio.get_event_loop().run_until_complete(auth(args.user))
@@ -555,6 +625,8 @@ def main():
         asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.container, args.config, args.restore_on_failure))
     elif args.command == 'edit':
         asyncio.get_event_loop().run_until_complete(edit(args.object))
+    elif args.command == 'listDeployments':
+        asyncio.get_event_loop().run_until_complete(list_deployments())
     else:
         asyncio.get_event_loop().run_until_complete(ui())
 
