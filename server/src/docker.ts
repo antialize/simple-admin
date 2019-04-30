@@ -107,7 +107,7 @@ class Docker {
         // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
         if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs") {
             const b = p[4];
-            const re = /sha256:[0-9A-Fa-f]{64}/g;
+            const re = /^sha256:[0-9A-Fa-f]{64}$/;
             if (!re.test(b)) {
                 log('error', "Docker get blob: bad name", b);
                 res.status(400).end();
