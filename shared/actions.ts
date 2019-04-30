@@ -383,6 +383,7 @@ export interface IDockerListDeployments {
 
 export interface DockerDeployment {
     image: string;
+    imageInfo?: DockerImageTag;
     hash: string;
     name: string;
     user: string;

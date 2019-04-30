@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -498,12 +498,14 @@ class Docker {
                     await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     await db.run("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", image, container, host.id, now, conf, hash, client.user);
+                    const tagByHash = await this.getTagsByHash([hash]);
 
                     webClients.broadcast({
                         type: ACTION.DockerDeploymentsChanged,
                         changed: [
                             {
                                 image,
+                                imageInfo: tagByHash[hash],
                                 hash,
                                 name: container,
                                 host: host.id,
@@ -539,12 +541,32 @@ class Docker {
          }
      }
 
+    async getTagsByHash(hashes: string[]) {
+        const placeholders = [];
+        for (const _ of hashes) placeholders.push("?");
+        const tagByHash: {[hash: string]: DockerImageTag} = {};
+        for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash` IN (" + placeholders.join(",") + ")", ...hashes)) {
+            tagByHash[row.hash] = {
+                image: row.project,
+                hash: row.hash,
+                tag: row.tag,
+                user: row.user,
+                time: row.time,
+                pin: row.pin,
+                labels: JSON.parse(row.labels || "{}"),
+            };
+        }
+        return tagByHash;
+    }
+
      async listDeployments(client: WebClient, act: IDockerListDeployments) {
         const res: IDockerListDeploymentsRes = {type: ACTION.DockerListDeploymentsRes, ref: act.ref, deployments: []};
         try {
+            const hashes = [];
             for (const row of await db.all("SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)")) {
                 if (act.host && row.host != act.host) continue;
                 if (act.image && row.project != act.image) continue;
+                hashes.push(row.hash);
                 res.deployments.push({
                     image: row.project,
                     hash: row.hash,
@@ -554,6 +576,10 @@ class Docker {
                     end: row.endTime,
                     user: row.user
                 });
+            }
+            const tagByHash = await this.getTagsByHash(hashes);
+            for (const deployment of res.deployments) {
+                deployment.imageInfo = tagByHash[deployment.hash];
             }
         } finally {
             client.sendMessage(res);
