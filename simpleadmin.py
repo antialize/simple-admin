@@ -42,6 +42,7 @@ class Connection:
         if requireAuth and not (self.pwd and self.otp):
             raise Exception("Authentication required")
 
+
 async def login(c, user, pwd, otp):
     await c.socket.send(json.dumps({'type': 'Login', 'user': user, 'pwd': pwd, 'otp': otp}))
     res = json.loads(await c.socket.recv())
@@ -612,7 +613,7 @@ def main():
 
 
     parser_deploy = subparsers.add_parser('edit', help='Edit', description="Edit an object")
-    parser_deploy.add_argument('object', help="The server to deploy on")
+    parser_deploy.add_argument('path', help="Path of object to edit")
 
     subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
 
@@ -624,7 +625,7 @@ def main():
     elif args.command == 'dockerDeploy':
         asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.container, args.config, args.restore_on_failure))
     elif args.command == 'edit':
-        asyncio.get_event_loop().run_until_complete(edit(args.object))
+        asyncio.get_event_loop().run_until_complete(edit(args.path))
     elif args.command == 'listDeployments':
         asyncio.get_event_loop().run_until_complete(list_deployments())
     else:
