@@ -28,6 +28,7 @@ export class MonitorJob extends Job {
         switch(obj.type) {
         case 'data':
             if (obj.source == 'stdout') {
+                if (!obj.data) return;
                 const type = obj.data.type;
                 if (type === undefined || type === "status")
                     this.client.updateStatus(obj.data as IStatusUpdate).catch( (err) => {

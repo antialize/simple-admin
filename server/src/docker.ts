@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -80,10 +80,36 @@ interface IHostImages {
     delete: string[];
 }
 
+interface DeploymentInfo {
+    restore: number | null;
+    host: number;
+    image: string;
+    container: string;
+    hash: string;
+    user: string;
+    config: string;
+    timeout: any;
+    start: number;
+    end: number;
+}
+
 class Docker {
     activeUploads = new Map<string, Upload>();
     hostImages = new Map<number, Map<string, IHostImage>>();
     hostContainers = new Map<number, Map<string, IHostContainer>>();
+
+    idc = 0;
+    delayedDeploymentInformations = new Map<number, DeploymentInfo>();
+
+    getContainerState(host:number, container:string) : string {
+        const i = this.hostContainers.get(host);
+        if (!i) return undefined;
+        for (const [id, v] of i) {
+            if (v.name != "/"+container) continue;
+            return v.state;
+        }
+        return undefined;
+    }
 
     async checkAuth(req: express.Request, res: express.Response) {
         if (req.headers['authorization']) {
@@ -561,32 +587,31 @@ finally:
             const now = Date.now() / 1000 | 0;
             const session = crypto.randomBytes(64).toString('hex');
             
-            let keepOld = false;
             try {
                 await db.run("INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)", "docker_client", "", now, now, session);
 
                 try {
+                    let id = this.idc++;
+                    this.delayedDeploymentInformations.set(id, {
+                        host: host.id,
+                        container,
+                        image,
+                        hash,
+                        config: conf,
+                        user: client.user,
+                        restore: null,
+                        timeout: null,
+                        start: now,
+                        end: null
+                    });
+                      
                     await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
-                    await db.run("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", image, container, host.id, now, conf, hash, client.user);
-                    const tagByHash = await this.getTagsByHash([hash]);
-
-                    webClients.broadcast({
-                        type: ACTION.DockerDeploymentsChanged,
-                        changed: [
-                            {
-                                image,
-                                imageInfo: tagByHash[hash],
-                                hash,
-                                name: container,
-                                host: host.id,
-                                start: now,
-                                end: null,
-                                user: client.user
-                            }
-                        ],
-                        removed: []
-                    });
+                   
+                    if (this.delayedDeploymentInformations.has(id))
+                        this.delayedDeploymentInformations.get(id).timeout = setTimeout(
+                            () => this.handleDeploymentTimeout(id), 1000 * 60
+                        );
 
                 } catch (e) {
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find root or host"});
@@ -595,16 +620,30 @@ finally:
                     if (act.restoreOnFailure && oldDeploy) {
                         client.sendMessage({type: ACTION.DockerDeployLog, ref: act.ref, message: "Deployment failed attempting to redeploy old"});
                         try {
+                            let id = this.idc++;
+                            this.delayedDeploymentInformations.set(id, {
+                                host: host.id,
+                                container,
+                                image,
+                                hash: oldDeploy.hash,
+                                config: oldDeploy.config,
+                                user: client.user,
+                                restore: oldDeploy.id,
+                                timeout: null,
+                                start: now,
+                                end: null
+                            });
                             await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session);
-                            keepOld = true;
+                            if (this.delayedDeploymentInformations.has(id))
+                                this.delayedDeploymentInformations.get(id).timeout = setTimeout(
+                                    () => this.handleDeploymentTimeout(id), 1000 * 60
+                                );
                         } catch (e) {
                         }
                     }
                 }
             } finally {
                 await db.run("DELETE FROM `sessions` WHERE `user`=? AND `sid`=?", "docker_client", session);
-                if (oldDeploy && !keepOld)
-                    await db.run("UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?", now, oldDeploy.id);
             }
          } catch (e) {
             client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed due to an exception"});
@@ -645,7 +684,8 @@ finally:
                     host: row.host,
                     start: row.startTime,
                     end: row.endTime,
-                    user: row.user
+                    user: row.user,
+                    state: this.getContainerState(row.host, row.container)
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -696,18 +736,154 @@ finally:
         webClients.broadcast(res);
     }
 
-    handleHostDockerContainers(host: HostClient, obj: IHostContainers) {
-        if (!this.hostContainers.has(host.id))
-            this.hostContainers.set(host.id, new Map());
-        const containers = this.hostContainers.get(host.id);
-        if (obj.full) containers.clear();
+    async broadcastDeploymentChange(o: DeploymentInfo) {
+        const tagByHash = await this.getTagsByHash([o.hash]);
+        const msg : IAction = {
+            type: ACTION.DockerDeploymentsChanged,
+            changed: [
+                {
+                    image: o.image,
+                    imageInfo: tagByHash[o.hash],
+                    hash: o.hash,
+                    name: o.container,
+                    host: o.host,
+                    start: o.start,
+                    end: o.end,
+                    user: o.user,
+                    state: this.getContainerState(o.host, o.container)
+                }
+            ],
+            removed: []
+        };
+        webClients.broadcast(msg);
+    }
 
-        for (const id of obj.delete)
-            containers.delete(id);
-
-        for (const u of obj.update)
-            containers.set(u.id, u);
+  
+    async handleDeployment(o: DeploymentInfo) {
+        if (o.restore) {
+            await db.run("DELETE FROM docker_deployments` WHERE `id` > ? AND `host`=? AND `project`=? AND `container`=?", o.restore, o.host, o.image, o.container);
+            await db.run("UPDATE `docker_deployments` SET `endTime` = null WHERE `id`=?", o.restore);
+        } else {
+            const oldDeploy = await db.get("SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", o.host, o.image, o.container);
+            if (oldDeploy && !oldDeploy.endTime)
+                await db.run("UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?", o.start, oldDeploy.id);
+            await db.run("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.hash, o.user);
         }
+        await this.broadcastDeploymentChange(o);
+    }
+
+    async handleDeploymentTimeout(id: number) {
+        try {
+            const o = this.delayedDeploymentInformations.get(id);
+            if (!o) return;
+            log("info", "We did an deployment but we did not hear anything from the client");
+            o.timeout = null;
+            this.delayedDeploymentInformations.delete(id);
+            await this.handleDeployment(o);
+        } catch (e) {
+            log("info", "Uncaught exception in handleDeploymentTimeout", e);
+        }
+    }
+
+    async handleHostDockerContainers(host: HostClient, obj: IHostContainers) {
+        try {
+            if (!this.hostContainers.has(host.id))
+                this.hostContainers.set(host.id, new Map());
+            const containers = this.hostContainers.get(host.id);
+            if (obj.full) containers.clear();
+            const images = this.hostImages.get(host.id);
+            if (!images) {
+                log('error', "No images for host", host.id);
+                return;
+            }
+
+            const now = Date.now() / 1000 | 0;
+
+            for (const id of obj.delete) {
+                const c = containers.get(id);
+                if (!c) continue;
+                containers.delete(id);
+                const container = c.name.substr(1); //For some reason there is a slash in the string??
+                const row = await db.get("SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", container);
+                if (!row || !row.project) continue;
+                await db.run("UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?", now, row.id);
+                await this.broadcastDeploymentChange({
+                    host: host.id,
+                    restore: null,
+                    image: row.project,
+                    container,
+                    hash: row.hash,
+                    user: row.user,
+                    config: row.config,
+                    timeout: null,
+                    start: row.start,
+                    end: now
+                });
+            }
+        
+            for (const u of obj.update) {
+                containers.set(u.id, u);
+                const image = images.get(u.image);
+                if (!image) {
+                    log('error', "Could not find image for container")
+                    continue;
+                }
+                const container = u.name.substr(1); //For some reason there is a slash in the string??
+                const row = await db.get("SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, container);
+                if (!row || !row.project) {
+                    log('info', "Could not find project for container", container, row);
+                    continue;
+                }
+                const project = row.project;
+
+                let deploymentInfo: DeploymentInfo = null;
+                let keep = false;
+                for (const [id, info] of this.delayedDeploymentInformations) {
+                    if (info.host != host.id || info.container != container || info.image != project) continue;
+                    let match = false;
+                    for (const d of image.digests)
+                        if (info.hash === d || info.hash === d.split("@")[1])
+                            match = true;
+                    if (match) {
+                        deploymentInfo = info;
+                        this.delayedDeploymentInformations.delete(id);
+                        break
+                    }
+                }
+        
+                if (deploymentInfo) {
+                    if(deploymentInfo.timeout)
+                    clearTimeout(deploymentInfo.timeout);
+                } else {
+                    for (const d of image.digests) {
+                        if (row.hash === d || row.hash === d.split("@")[1])
+                            keep = true;
+                    }
+                    if (row.endTime)
+                        keep = false;
+                    deploymentInfo = {
+                        host: host.id,
+                        restore: null,
+                        image: project,
+                        container,
+                        hash: keep ? row.hash : image.digests[0].split('@')[1],
+                        user: keep?row.user:null,
+                        config: keep ? row.config : null,
+                        timeout: null,
+                        start: keep ? row.startTime : now,
+                        end: null,
+                    };
+                }
+                if (!keep)
+                    await this.handleDeployment(deploymentInfo);
+                else
+                    await this.broadcastDeploymentChange(deploymentInfo);
+            }
+        } catch (e) {
+            console.log(e);
+            log("info", "Uncaught exception in handleHostDockerContainers", e);
+        }
+    }
 
     handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
         const containers = this.hostContainers.get(host.id);

@@ -390,6 +390,7 @@ export interface DockerDeployment {
     start: number;
     end: number;
     host: number;
+    state?: string;
 }
 
 export interface IDockerListDeploymentsRes {
