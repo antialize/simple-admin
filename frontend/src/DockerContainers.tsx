@@ -109,15 +109,21 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
  
     let rows = [];
     for (const container of containers) {
+        let commit = "";
+        if (container.imageInfo && container.imageInfo.labels) {
+            commit = (container.imageInfo.labels.GIT_BRANCH || "") + " " + (container.imageInfo.labels.GIT_COMMIT || "");
+        }
         rows.push(
             <tr>
                 <td>{container.name}</td>
                 <td>{container.image}</td>
-                <td>{container.hash}</td>
+                <td>{container.state || ""}</td>
+                <td>{commit}</td>
+                <td>{container.user}</td>
+                <td>{container.imageInfo && container.imageInfo.user || ""}</td>
+                <td>{container.hash? container.hash.substr(7,12) : ""}</td>
                 <td>{new Date(container.start*1000).toISOString()}</td>
                 <td>{container.end? new Date(container.start*1000).toISOString(): ""}</td>
-                <td>{container.user}</td>
-                <td>Who knows?</td>
                 <td>
                     <Button>Log</Button>
                     <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStop, host: p.host, container: container.name})}>Stop</Button>
@@ -134,11 +140,13 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
                 <tr>
                     <th>Name</th>
                     <th>Project</th>
+                    <th>Status</th>
+                    <th>Commit</th>
+                    <th>Deploy user</th>
+                    <th>Push user</th>
                     <th>Hash</th>
                     <th>Start</th>
                     <th>End</th>
-                    <th>User</th>
-                    <th>Status</th>
                     <td>Actions</td>
                 </tr>
             </thead>

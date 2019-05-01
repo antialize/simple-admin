@@ -112,9 +112,14 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
         });
         let rows = [];
         for (const tag of tags) {
+            let commit = "";
+            if (tag.labels) {
+                commit = (tag.labels.GIT_BRANCH || "") + " " + (tag.labels.GIT_COMMIT || "");
+            }
             rows.push(
                 <tr>
                     <td>{tag.tag}</td>
+                    <td>{commit}</td>
                     <td>{tag.hash}</td>
                     <td>{new Date(tag.time*1000).toISOString()}</td>
                     <td>{tag.user}</td>
@@ -127,6 +132,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                 <thead>
                     <tr>
                         <th>Tag</th>
+                        <th>Commit</th>
                         <th>Hash</th>
                         <th>Created</th>
                         <th>User</th>
