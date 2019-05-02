@@ -204,10 +204,37 @@ async def list_deployments():
         if res["type"] == "DockerListDeploymentsRes" and res["ref"] == ref:
             break
     deployments = res["deployments"]
+    list_deployment_groups(group_deployments(deployments, host_names))
+
+
+def group_deployments(deployments, host_names):
     deployments.sort(key=lambda d: (d["image"], d["host"]))
-    groups = itertools.groupby(deployments, key=lambda d: (d["image"], d["host"]))
-    for (image, host_id), group in groups:
-        print("\n%s on %s" % (image, host_names.get(host_id, host_id)))
+    image_groups = itertools.groupby(deployments, key=lambda d: d["image"])
+    groups = []
+    for image, image_group in image_groups:
+        by_host = itertools.groupby(image_group, key=lambda d: d["host"])
+        by_host = [
+            (host_names.get(host_id, host_id), list(g)) for host_id, g in by_host
+        ]
+        x = set(tuple(d["name"] for d in group) for host, group in by_host)
+        y = next(iter(x))
+        if len(x) == len(y) == 1 and len(by_host) > 1:
+            # There is only one deployment on each host,
+            # and the deployment name is the same on all hosts.
+            # Switch the layout from {host: {name: deployment}}
+            # to {name: {host: deployment}}
+            name = y[0]
+            for host, (deployment,) in by_host:
+                deployment["name"] = host
+            groups.append((name, [deployment for host, (deployment,) in by_host]))
+        else:
+            groups += [("%s on %s" % (image, host), group) for host, group in by_host]
+    return groups
+
+
+def list_deployment_groups(groups):
+    for name, group in groups:
+        print("\n%s" % name)
         for deployment in group:
             image_info = deployment.get("imageInfo", {})
             labels = image_info.get("labels", {})
