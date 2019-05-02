@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -91,6 +91,7 @@ interface DeploymentInfo {
     timeout: any;
     start: number;
     end: number;
+    id: number;
 }
 
 class Docker {
@@ -320,6 +321,7 @@ class Docker {
                 type: ACTION.DockerListImageTagsChanged,
                 changed: [
                     {
+                        id,
                         image: p[2],
                         hash: h,
                         tag: p[4],
@@ -602,7 +604,8 @@ finally:
                         restore: null,
                         timeout: null,
                         start: now,
-                        end: null
+                        end: null,
+                        id: null
                     });
                       
                     await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
@@ -631,7 +634,8 @@ finally:
                                 restore: oldDeploy.id,
                                 timeout: null,
                                 start: now,
-                                end: null
+                                end: null,
+                                id: oldDeploy.id,
                             });
                             await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session);
                             if (this.delayedDeploymentInformations.has(id))
@@ -655,8 +659,9 @@ finally:
         const placeholders = [];
         for (const _ of hashes) placeholders.push("?");
         const tagByHash: {[hash: string]: DockerImageTag} = {};
-        for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash` IN (" + placeholders.join(",") + ")", ...hashes)) {
+        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash` IN (" + placeholders.join(",") + ")", ...hashes)) {
             tagByHash[row.hash] = {
+                id: row.id,
                 image: row.project,
                 hash: row.hash,
                 tag: row.tag,
@@ -669,7 +674,7 @@ finally:
         return tagByHash;
     }
 
-     async listDeployments(client: WebClient, act: IDockerListDeployments) {
+    async listDeployments(client: WebClient, act: IDockerListDeployments) {
         const res: IDockerListDeploymentsRes = {type: ACTION.DockerListDeploymentsRes, ref: act.ref, deployments: []};
         try {
             const hashes = [];
@@ -678,6 +683,7 @@ finally:
                 if (act.image && row.project != act.image) continue;
                 hashes.push(row.hash);
                 res.deployments.push({
+                    id: row.id,
                     image: row.project,
                     hash: row.hash,
                     name: row.container,
@@ -695,14 +701,64 @@ finally:
         } finally {
             client.sendMessage(res);
         }
-     }
+    }
 
     async listImageTags(client: WebClient, act: IDockerListImageTags) {
         const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
         try {
-            for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
                 res.tags.push(
                     {
+                        id: row.id,
+                        image: row.project,
+                        hash: row.hash,
+                        tag: row.tag,
+                        user: row.user,
+                        time: row.time,
+                        pin: row.pin,
+                        labels: JSON.parse(row.labels || "{}"),
+                    }
+                );
+        } finally {
+            client.sendMessage(res);
+        }
+    }
+
+
+    async listDeploymentHistory(client: WebClient, act: IDockerListDeploymentHistory) {
+        const res: IDockerListDeploymentHistoryRes = {type: ACTION.DockerListDeploymentHistoryRes, host: act.host, name: act.name, ref: act.ref, deployments: []};
+        try {
+            const hashes = [];
+            for (const row of await db.all("SELECT * FROM `docker_deployments` WHERE `host`=? AND `container` = ?", act.host, act.name)) {
+                hashes.push(row.hash);
+                res.deployments.push({
+                    id: row.id,
+                    image: row.project,
+                    hash: row.hash,
+                    name: row.container,
+                    host: row.host,
+                    start: row.startTime,
+                    end: row.endTime,
+                    user: row.user,
+                    state: row.endTime ? null : this.getContainerState(row.host, row.container)
+                });
+            }
+            const tagByHash = await this.getTagsByHash(hashes);
+            for (const deployment of res.deployments) {
+                deployment.imageInfo = tagByHash[deployment.hash];
+            }
+        } finally {
+            client.sendMessage(res);
+        }
+    }
+
+    async listImageTagHistory(client: WebClient, act: IDockerListImageTagHistory) {
+        const res: IDockerListImageTagHistoryRes = {type: ACTION.DockerListImageTagHistoryRes, ref: act.ref, images: [], image: act.image, tag: act.tag};
+        try {
+            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+                res.images.push(
+                    {
+                        id: row.id,
                         image: row.project,
                         hash: row.hash,
                         tag: row.tag,
@@ -721,9 +777,10 @@ finally:
         await db.run('UPDATE `docker_images` SET pin=? WHERE `hash`=? AND `project`=?', act.pin?1:0, act.hash, act.image);
         const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: []};
 
-        for (const row of await db.all("SELECT `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
+        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
             res.changed.push(
                 {
+                    id:row.id,
                     image: row.project,
                     hash: row.hash,
                     tag: row.tag,
@@ -742,6 +799,7 @@ finally:
             type: ACTION.DockerDeploymentsChanged,
             changed: [
                 {
+                    id: o.id,
                     image: o.image,
                     imageInfo: tagByHash[o.hash],
                     hash: o.hash,
@@ -763,11 +821,12 @@ finally:
         if (o.restore) {
             await db.run("DELETE FROM docker_deployments` WHERE `id` > ? AND `host`=? AND `project`=? AND `container`=?", o.restore, o.host, o.image, o.container);
             await db.run("UPDATE `docker_deployments` SET `endTime` = null WHERE `id`=?", o.restore);
+            o.id = o.restore;
         } else {
             const oldDeploy = await db.get("SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", o.host, o.image, o.container);
             if (oldDeploy && !oldDeploy.endTime)
                 await db.run("UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?", o.start, oldDeploy.id);
-            await db.run("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.hash, o.user);
+            o.id = await db.insert("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.hash, o.user);
         }
         await this.broadcastDeploymentChange(o);
     }
@@ -808,6 +867,7 @@ finally:
                 if (!row || !row.project) continue;
                 await db.run("UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?", now, row.id);
                 await this.broadcastDeploymentChange({
+                    id: row.id,
                     host: host.id,
                     restore: null,
                     image: row.project,
@@ -872,6 +932,7 @@ finally:
                         timeout: null,
                         start: keep ? row.startTime : now,
                         end: null,
+                        id: keep ? row.id: null,
                     };
                 }
                 if (!keep)

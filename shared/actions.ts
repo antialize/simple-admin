@@ -20,8 +20,12 @@ export enum ACTION {
     DockerDeployStart="DockerDeployStart",
     DockerDeploymentsChanged="DockerDeploymentsChanged",
     DockerImageSetPin="DockerImageSetPin",
+    DockerListDeploymentHistory="DockerListDeploymentHistory",
+    DockerListDeploymentHistoryRes="DockerListDeploymentHistoryRes",
     DockerListDeployments="DockerListDeployments",
     DockerListDeploymentsRes="DockerListDeploymentsRes",
+    DockerListImageTagHistory="DockerListImageTagHistory",
+    DockerListImageTagHistoryRes="DockerListImageTagHistoryRes",
     DockerListImageTags="DockerListImageTags",
     DockerListImageTagsChanged="DockerListImageTagsChanged",
     DockerListImageTagsRes="DockerListImageTagsRes",
@@ -353,6 +357,7 @@ export interface IDockerListImageTags {
 }
 
 export interface DockerImageTag {
+    id: number;
     image: string;
     tag: string;
     hash: string;
@@ -382,6 +387,7 @@ export interface IDockerListDeployments {
 }
 
 export interface DockerDeployment {
+    id: number;
     image: string;
     imageInfo?: DockerImageTag;
     hash: string;
@@ -428,6 +434,36 @@ export interface IDockerImageSetPin {
     image: string;
     hash: string;
     pin: boolean;
+}
+
+export interface IDockerListDeploymentHistory {
+    type: ACTION.DockerListDeploymentHistory;
+    host: number;
+    name: string;
+    ref: Ref;
+}
+
+export interface IDockerListDeploymentHistoryRes {
+    type: ACTION.DockerListDeploymentHistoryRes;
+    host: number;
+    name: string;
+    ref: Ref;
+    deployments: DockerDeployment[];
+}
+
+export interface IDockerListImageTagHistory {
+    type: ACTION.DockerListImageTagHistory;
+    image: string;
+    tag: string;
+    ref: Ref;
+}
+
+export interface IDockerListImageTagHistoryRes {
+    type: ACTION.DockerListImageTagHistoryRes;
+    image: string;
+    tag: string;
+    ref: Ref;
+    images: DockerImageTag[];
 }
 
 export interface ModifiedFile {
@@ -484,8 +520,12 @@ export type IAction =
     | IDockerDeploymentsChanged
     | IDockerImageSetPin
     | IDockerImageTagsCharged
+    | IDockerListDeploymentHistory
+    | IDockerListDeploymentHistoryRes
     | IDockerListDeployments
     | IDockerListDeploymentsRes
+    | IDockerListImageTagHistory
+    | IDockerListImageTagHistoryRes
     | IDockerListImageTags
     | IDockerListImageTagsRes
     | IEndLog
@@ -497,6 +537,9 @@ export type IAction =
     | ILogout
     | IMessageTextRepAction
     | IMessageTextReqAction
+    | IModifiedFilesChanged
+    | IModifiedFilesList
+    | IModifiedFilesScan
     | IObjectChanged
     | IPokeService
     | IRequestAuthStatus
@@ -519,7 +562,4 @@ export type IAction =
     | ISubscribeStatValues
     | IToggleDeploymentObject
     | IUpdateStatusAction
-    | IModifiedFilesScan
-    | IModifiedFilesList
-    | IModifiedFilesChanged
     | IModifiedFilesResolve;

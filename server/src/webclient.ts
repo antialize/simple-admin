@@ -332,6 +332,12 @@ export class WebClient extends JobOwner {
             case ACTION.DockerImageSetPin:
                 await docker.imageSetPin(this, act);
                 break;
+            case ACTION.DockerListDeploymentHistory:
+                await docker.listDeploymentHistory(this, act);
+                break;
+            case ACTION.DockerListImageTagHistory:
+                await docker.listImageTagHistory(this, act);
+                break;
             case ACTION.ModifiedFilesScan:
                 await modifiedFiles.scan(this, act);
                 break;
@@ -444,7 +450,7 @@ export class WebClients {
                 const rows = +u.query.rows;
                 const session = u.query.session as string;
                 const addresses = request.socket.address()['address'];
-                const address = Array.isArray(addresses) ? address[0] as string : addresses;
+                const address = Array.isArray(addresses) ? addresses[0] as string : addresses;
                 getAuth(address, session).then((a: any) => {
                     if (a.auth && server in hostClients.hostClients)
                         new ShellJob(hostClients.hostClients[server], ws, cols, rows);
