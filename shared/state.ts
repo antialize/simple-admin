@@ -1,6 +1,19 @@
 import {IType} from './type'
 
-export enum PAGE_TYPE { Dashbord, ObjectList, Object, Deployment, DeploymentDetails, DockerImages, DockerContainers, ModifiedFiles, ModifiedFile}
+export enum PAGE_TYPE {
+    Dashbord,
+    Deployment,
+    DeploymentDetails,
+    DockerContainerDetails,
+    DockerContainerHistory,
+    DockerContainers,
+    DockerImageHistory,
+    DockerImages,
+    ModifiedFile,
+    ModifiedFiles,
+    Object,
+    ObjectList,
+}
 
 export interface IObjectDigest {
     name: string;
@@ -41,6 +54,26 @@ export interface IDockerContainersPage {
     type: PAGE_TYPE.DockerContainers;
 }
 
+export interface IDockerImageHistory {
+    type: PAGE_TYPE.DockerImageHistory
+    project: string;
+    tag: string;
+}
+
+export interface IDockerContainerDetails {
+    type: PAGE_TYPE.DockerContainerDetails;
+    host: number;
+    container: string;
+    id: number;
+}
+
+export interface IDockerContainerHistory {
+    type: PAGE_TYPE.DockerContainerHistory;
+    host: number;
+    container: string;
+}
+
+
 export interface IModifiedFilesPage {
     type: PAGE_TYPE.ModifiedFiles;
 }
@@ -50,7 +83,20 @@ export interface IModifiedFilePage {
     id: number;
 }
 
-export type IPage = IObjectListPage | IObjectPage | IDashbordPage | IDeploymentPage | IDeploymentDetailsPage | IDockerImagesPage | IDockerContainersPage | IModifiedFilesPage | IModifiedFilePage;
+export type IPage =
+    | IDashbordPage
+    | IDeploymentDetailsPage
+    | IDeploymentPage
+    | IDockerContainerDetails
+    | IDockerContainerHistory
+    | IDockerContainersPage
+    | IDockerImageHistory
+    | IDockerImagesPage
+    | IModifiedFilePage
+    | IModifiedFilesPage
+    | IObjectListPage
+    | IObjectPage
+    ;
 
 export interface IObject2<T> {
     id: number;

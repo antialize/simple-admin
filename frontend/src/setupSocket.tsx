@@ -177,6 +177,9 @@ export const setupSocket = () => {
             case ACTION.DockerListDeploymentsRes:
                 state.dockerContainers.handleLoad(d);
                 break;
+            case ACTION.DockerListDeploymentHistoryRes:
+                state.dockerContainers.handleLoadHistory(d);
+                break;
             case ACTION.DockerDeploymentsChanged:
                 state.dockerContainers.handleChange(d);
                 break;

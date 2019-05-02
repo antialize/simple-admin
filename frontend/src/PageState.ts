@@ -77,6 +77,22 @@ class PageState {
             o['page'] = 'modifiedFile';
             o['id'] = ""+page.id;
             break;
+        case State.PAGE_TYPE.DockerContainerDetails:
+            o['page'] = 'dockerContainerDetails';
+            o['host'] = ""+page.host;
+            o['container'] = page.container;
+            o['id'] = ""+page.id;
+            break;
+        case State.PAGE_TYPE.DockerContainerHistory:
+            o['page'] = 'dockerContainerHistory';
+            o['host'] = ""+page.host;
+            o['container'] = page.container;
+            break;
+        case State.PAGE_TYPE.DockerImageHistory:
+            o['page'] = 'dockerImageHistory';
+            o['project'] = ""+page.project;
+            o['tag'] = page.tag;
+            break;
         default:
             never(page, "Unhandled page");
         }
@@ -124,6 +140,15 @@ class PageState {
             break;
         case 'deploymentDetails':
             this.current = {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};
+            break;
+        case 'dockerContainerDetails':
+            this.current = {type: State.PAGE_TYPE.DockerContainerDetails, host: +getUrlParameter("host"), container: getUrlParameter("container"), id: +getUrlParameter("id")};
+            break;
+        case 'dockerContainerHistory':
+            this.current = {type: State.PAGE_TYPE.DockerContainerHistory, host: +getUrlParameter("host"), container: getUrlParameter("container")};
+            break;
+        case 'dockerImageHistory':
+            this.current = {type: State.PAGE_TYPE.DockerImageHistory, project: getUrlParameter("project"), tag: getUrlParameter("tag")};
             break;
         }
     }

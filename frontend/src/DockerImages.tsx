@@ -148,3 +148,6 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
     return <div>{lst}</div>;
 }));
 
+export const DockerImageHistory = withStyles(styles)(observer(function DockerImageHistory(p:StyledComponentProps) {
+    return <div>Todo</div>;
+}));

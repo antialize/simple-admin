@@ -9,8 +9,8 @@ import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
 import * as State from '../../shared/state';
-import { DockerImages } from './DockerImages';
-import { DockerContainers } from './DockerContainers';
+import { DockerImages, DockerImageHistory } from './DockerImages';
+import { DockerContainers, DockerContainerDetails, DockerContainerHistory } from './DockerContainers';
 import { ModifiedFiles, ModifiedFileRevolver } from './ModifiedFiles';
 
 function never(n: never, message: string) {
@@ -43,6 +43,12 @@ export const MainPage = observer(function MainPage() {
             return <ModifiedFiles />;
         case State.PAGE_TYPE.ModifiedFile:
             return <ModifiedFileRevolver id={p.id} />;
+        case State.PAGE_TYPE.DockerContainerDetails:
+            return <DockerContainerDetails />;
+        case State.PAGE_TYPE.DockerContainerHistory:
+            return <DockerContainerHistory />;
+        case State.PAGE_TYPE.DockerImageHistory:
+            return <DockerImageHistory />;
         default:
             never(p, "Unhandled page type");
     }
