@@ -431,8 +431,7 @@ export interface IDockerContainerRemove {
 
 export interface IDockerImageSetPin {
     type: ACTION.DockerImageSetPin;
-    image: string;
-    hash: string;
+    id: number;
     pin: boolean;
 }
 

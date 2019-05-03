@@ -81,7 +81,9 @@ export const setupSocket = () => {
             case ACTION.SetInitialState:
                 runInAction(() => {
                     state.modifiedFiles.loaded = false;
-                    state.dockerImages.loaded = false;
+                    state.dockerImages.imageHistory.clear();
+                    state.dockerImages.projects = {state: 'initial'};
+                    state.dockerContainers.containerHistory.clear();
                     state.dockerContainers.hosts = {state: 'initial'};
                     state.deployment.objects = d.deploymentObjects;
                     state.deployment.message = d.deploymentMessage;
@@ -173,6 +175,9 @@ export const setupSocket = () => {
                 break;
             case ACTION.DockerListImageTagsChanged:
                 state.dockerImages.handleChange(d);
+                break;
+            case ACTION.DockerListImageTagHistoryRes:
+                state.dockerImages.handleLoadHistory(d);
                 break;
             case ACTION.DockerListDeploymentsRes:
                 state.dockerContainers.handleLoad(d);
