@@ -340,6 +340,15 @@ export class WebClient extends JobOwner {
             case ACTION.DockerListImageTagHistory:
                 await docker.listImageTagHistory(this, act);
                 break;
+            case ACTION.DockerContainerStart:
+                await docker.containerCommand(this, act.host, act.container, "start");
+                break;
+            case ACTION.DockerContainerStop:
+                await docker.containerCommand(this, act.host, act.container, "stop");
+                break;
+            case ACTION.DockerContainerRemove:
+                await docker.containerCommand(this, act.host, act.container, "rm");
+                break;
             case ACTION.ModifiedFilesScan:
                 await modifiedFiles.scan(this, act);
                 break;

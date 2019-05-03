@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -774,10 +774,10 @@ finally:
     }
 
     async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
-        await db.run('UPDATE `docker_images` SET pin=? WHERE `hash`=? AND `project`=?', act.pin?1:0, act.hash, act.image);
+        await db.run('UPDATE `docker_images` SET pin=? WHERE `id`=?', act.pin?1:0, act.id);
         const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: []};
 
-        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash`=? AND `project`=?", act.hash, act.image))
+        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id`=?", act.id))
             res.changed.push(
                 {
                     id:row.id,
@@ -946,6 +946,32 @@ finally:
         }
     }
 
+    async containerCommand(wc: WebClient, hostId:number, container: string , command: string) {
+        let host = hostClients.hostClients[hostId];
+        if (!host) return;
+        
+        const script = `
+import os, sys
+os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
+`;
+        class PJob extends Job {
+            constructor() {
+                super(host, null, host);
+                let msg: message.RunInstant = {
+                    'type': 'run_instant',
+                    'id': this.id,
+                    'name': 'pokeContainer.py',
+                    'interperter': '/usr/bin/python3',
+                    'content': script,
+                    'args': [command, container],
+                };
+                this.client.sendMessage(msg);
+                this.running = true;
+            }
+        };
+        new PJob();
+    }
+    
     handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
         const containers = this.hostContainers.get(host.id);
         if (!containers) return;
