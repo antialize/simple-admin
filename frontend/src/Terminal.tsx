@@ -220,7 +220,7 @@ class HostTerminals extends React.Component<Props, State> {
             if (id == this.state.current)
                 style.backgroundColor = 'rgb(0, 188, 212)';
 
-            return <Chip key={id} style={style} onClick={() => this.setCurrent(id)} onDelete={() => this.closeTerminal(id)}>{this.state.names[id]}</Chip>
+            return <Chip key={id} style={style} onClick={() => this.setCurrent(id)} onDelete={() => this.closeTerminal(id)} label={this.state.names[id]} />
         });
 
         return (
@@ -228,7 +228,7 @@ class HostTerminals extends React.Component<Props, State> {
                 <div ref={(div) => this.outerDiv = div} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap' }}>
                         {terms}
-                        <Chip onClick={() => this.newTerminal()} style={{ margin: 4 }}>+</Chip>
+                        <Chip onClick={() => this.newTerminal()} style={{ margin: 4 }} label="+" />
                         <div style={{ marginLeft: 'auto' }} />
                         <Button variant="contained" onClick={() => this.reset()} style={{ margin: 4, alignSelf: 'flex-end' }}>Reset</Button>
                         <Button variant="contained" onClick={() => this.toggleFullScreen()} style={{ margin: 4, alignSelf: 'flex-end' }}>Full screen</Button>

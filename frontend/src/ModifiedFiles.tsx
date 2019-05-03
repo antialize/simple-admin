@@ -198,7 +198,7 @@ export const ModifiedFiles = withStyles(styles)(observer(function ModifiedFiles(
     for (const [id, f] of s.modifiedFiles) {
         const oo = state.objectDigests.get(f.type);
         const a : IModifiedFilePage = {type: PAGE_TYPE.ModifiedFile, id: id};
-        rows.push(<tr>
+        rows.push(<tr key={id}>
             <td>{state.objectDigests.get(hostId).get(f.host).name}</td>
             <td>{state.types.has(f.type) ? state.types.get(f.type).name : f.type}</td>
             <td>{f.path}</td>

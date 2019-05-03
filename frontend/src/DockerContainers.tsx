@@ -4,7 +4,7 @@ import { observable, action, ObservableMap } from 'mobx';
 import { observer } from 'mobx-react';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
-import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } from "@material-ui/core/styles";
+import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { hostId } from '../../shared/type';
 import Button from '@material-ui/core/Button';
 import Time from './Time';
@@ -13,21 +13,34 @@ import state from "./state";
 import * as State from '../../shared/state'
 import { InformationListRow, InformationList } from './InformationList';
 import Typography from '@material-ui/core/Typography';
+import Remote from './Remote'
+import styles from './styles'
 
 export class DockerContainersState {
-    @observable 
-    loaded = false;
-    
-    loading = false;
-    
     @observable
-    hosts: ObservableMap<number, DockerDeployment[]> = new ObservableMap;
+    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: 'initial'};
 
     @observable
-    containerHistory: ObservableMap<number, ObservableMap<string, "loading" | ObservableMap<number, DockerDeployment>>> = new ObservableMap;
+    containerHistory: ObservableMap<number, ObservableMap<string,  Remote< ObservableMap<number, DockerDeployment> >>> = new ObservableMap;
 
     @observable
     wtf: number = 0;
+
+
+    getHosts() {
+        switch (this.hosts.state) {
+        case 'loading': return null;
+        case 'data': return this.hosts.data;
+        case 'error': return null;
+        case 'initial':
+            state.sendMessage({
+                type: ACTION.DockerListDeployments,
+                ref: 0
+            });
+            this.hosts = {state: 'loading'}
+            return null;
+        }
+    }
 
     getHistory(host:number, container: string) {
         let c1 = this.containerHistory.get(host);
@@ -35,36 +48,33 @@ export class DockerContainersState {
             c1 = new ObservableMap();
             this.containerHistory.set(host, c1);
         }
-        const c2 = c1.get(container);
-        if (c2 === "loading") return null;
-        if (c2) return c2;
-        state.sendMessage({
-            type: ACTION.DockerListDeploymentHistory,
-            host: host,
-            name: container,
-            ref: 0
-        });
-        c1.set(container, "loading");
-        return null;
+        const c2 = c1.get(container) || {state: 'initial'};
+        switch (c2.state) {
+        case 'loading': return null;
+        case 'data': return c2.data;
+        case 'error': return null;
+        case 'initial':
+            state.sendMessage({
+                type: ACTION.DockerListDeploymentHistory,
+                host: host,
+                name: container,
+                ref: 0
+            });
+            c1.set(container, {state: "loading"});
+            return null;
+        }
     }
 
-    load() {
-        if (this.loading || this.loaded) return;
-        this.loading = true;
-        state.sendMessage({
-            type: ACTION.DockerListDeployments,
-            ref: 0
-        });
-    }
 
     @action
     handleLoad(act: IDockerListDeploymentsRes) {
-        this.loading = false;
-        this.loaded = true;
+        if (this.hosts.state != 'data')
+            this.hosts = {state: 'data', data: new ObservableMap()};
+
         for (const tag of act.deployments) {
-            if (!this.hosts.has(tag.host))
-                this.hosts.set(tag.host, []);
-            this.hosts.get(tag.host).push(tag);
+            if (!this.hosts.data.has(tag.host))
+                this.hosts.data.set(tag.host, []);
+            this.hosts.data.get(tag.host).push(tag);
         }
     }
 
@@ -75,86 +85,52 @@ export class DockerContainersState {
         const m = new ObservableMap();
         for (const d of act.deployments)
             m.set(d.id, d);
-        h.set(act.name, m);
+        h.set(act.name, {state: 'data', data:m});
         ++this.wtf;
     }
 
     @action
     handleChange(act: IDockerDeploymentsChanged) {
-        for (const tag of act.changed) {
-            if (!this.hosts.has(tag.host))
-                this.hosts.set(tag.host, []);
-            let found = false;
-            let lst = this.hosts.get(tag.host);
-            for (let i=0; i < lst.length; ++i) {
-                if (lst[i].name != tag.name) continue;
-                found = true;
-                if (lst[i].id <= tag.id)
-                    lst[i] = tag;
-            }
-            if (!found) lst.push(tag);
+        if (this.hosts.state == 'data') {
+            const hosts = this.hosts.data;
+            for (const tag of act.changed) {
+                if (!hosts.has(tag.host))
+                    hosts.set(tag.host, []);
+                let found = false;
+                let lst = hosts.get(tag.host);
+                for (let i=0; i < lst.length; ++i) {
+                    if (lst[i].name != tag.name) continue;
+                    found = true;
+                    if (lst[i].id <= tag.id)
+                        lst[i] = tag;
+                }
+                if (!found) lst.push(tag);
 
+            }
+            for (const tag of act.removed) {
+                if (!hosts.has(tag.host)) continue;
+                let lst = hosts.get(tag.host);
+                hosts.set(tag.host, lst.filter((e) => e.name != tag.name));
+            }
+        }
+
+        for (const tag of act.changed) {
             const h = this.containerHistory.get(tag.host);
             if (!h) continue;
             const hh = h.get(tag.name);
-            if (!hh || hh === "loading") continue;
-            hh.set(tag.id, tag);
-        }
-        for (const tag of act.removed) {
-            if (!this.hosts.has(tag.host)) continue;
-            let lst = this.hosts.get(tag.host);
-            this.hosts.set(tag.host, lst.filter((e) => e.name != tag.name));
+            if (!hh || hh.state !== 'data') continue;
+            hh.data.set(tag.id, tag);
         }
     }
-};
-
-const styles = (theme:Theme) : StyleRules => {
-    return createStyles({
-        table: {
-            borderCollapse: 'collapse',
-            borderWidth: 1,
-            borderColor: theme.palette.background.default,
-            borderStyle: 'solid',
-            width: '100%',
-            '& th' :{
-                color: theme.palette.text.primary,
-                borderWidth: 1,
-                borderColor: theme.palette.background.default,
-                borderStyle: 'solid',
-            },
-            "& tr" : {
-                borderWidth: 1,
-                borderColor: theme.palette.background.default,
-                borderStyle: 'solid',
-                color: theme.palette.text.primary,
-                backgroundColor: theme.palette.background.paper,
-            },
-            "& td" : {
-                borderWidth: 1,
-                borderColor: theme.palette.background.default,
-                borderStyle: 'solid',
-                padding: 4
-            },
-            '& tr:nth-child(even)': {
-                backgroundColor: theme.palette.background.default,
-            },
-        },
-        header: {
-            fontSize: 25,
-            padding: 8,
-            backgroundColor: theme.palette.primary.main
-        }
-    });
 }
 
 export const HostDockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host:number; title?:string} & StyledComponentProps) {
-    const s = state.dockerContainers;
-    s.load();
-    if (!s.loaded) return null;
+    const hosts = state.dockerContainers.getHosts();
+    if (!hosts) return null;
     if (!state.objectDigests.get(hostId).has(p.host)) return null;
     let hostName = state.objectDigests.get(hostId).get(p.host).name;
-    if (!state.dockerContainers.hosts.has(p.host)) return null;
-    let containers = state.dockerContainers.hosts.get(p.host).slice();
+    if (!hosts.has(p.host)) return null;
+    let containers = hosts.get(p.host).slice();
     containers.sort((a, b)=> {
         return a.name < b.name ? -1 : 1;
     });
@@ -191,7 +167,7 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
     return <>
         <thead >
             <tr>
-                <th colSpan={10} className={p.classes.header}>
+                <th colSpan={10} className={p.classes.infoTableHeader}>
                     {p.title || hostName}
                 </th>
             </tr>
@@ -215,14 +191,12 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
 }));
 
 export const DockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host?:string} & StyledComponentProps) {
-    const s = state.dockerContainers;
-    s.load();
-    if (!s.loaded)
-        return <CircularProgress />;
-    
+    const hosts = state.dockerContainers.getHosts();
+    if (!hosts) return <CircularProgress />;
+
     const lst = [];
     const keys = [];
-    for (const key of state.dockerContainers.hosts.keys())
+    for (const key of hosts.keys())
         keys.push(key);
     keys.sort();
 
@@ -230,7 +204,7 @@ export const DockerContainers = withStyles(styles)(observer(function DockerConta
         lst.push(<HostDockerContainers key={host} host={host} />)
 
     return <Box title="Docker containers">
-         <table className={p.classes.table}>
+         <table className={p.classes.infoTable}>
             {lst}
          </table>
         </Box>;
@@ -238,15 +212,15 @@ export const DockerContainers = withStyles(styles)(observer(function DockerConta
 
 export const DockerContainerDetails = withStyles(styles)(observer(function DockerContainerDetails(p:StyledComponentProps) {
     const s = state.dockerContainers;
-    s.load();
-    if (!s.loaded) return <CircularProgress />;
+    const hosts = s.getHosts();
+    if (!hosts) return <CircularProgress />;
     const page = state.page.current;
     if (page.type != State.PAGE_TYPE.DockerContainerDetails) return null;
     if (!state.objectDigests.get(hostId).has(page.host)) return null;
     let hostName = state.objectDigests.get(hostId).get(page.host).name;
 
     let container = null;
-    for (const c of s.hosts.get(page.host)) {
+    for (const c of hosts.get(page.host)) {
         if (c.id == page.id)
             container = c;
     }
@@ -326,7 +300,7 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
         )
     }
     return <Box title={`Docker containers history: ${page.container}@${hostName}`}>
-        <table className={p.classes.table}>
+        <table className={p.classes.infoTable}>
             <thead >
                 <tr>
                     <th>Commit</th>

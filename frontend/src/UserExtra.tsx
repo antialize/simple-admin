@@ -10,8 +10,7 @@ const UserExtra = observer(function UserExtra({id}:{id:number}) {
     let c: JSX.Element = null;
     if (!ctx.otp_url) return null;
     return (<Box title="One time password">
-        <Typography>{ctx.otp_base32}</Typography>
-        <img ref={(v) => {console.log("A"); QRCode.toDataURL(ctx.opt_url).then((s) => {console.log("B"); v.src = s;})}} />
+        <img ref={(v) => {QRCode.toDataURL(ctx.otp_url).then((s) => {if (v) v.src = s;})}} />
     </Box>);
 });
 

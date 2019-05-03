@@ -15,12 +15,12 @@ import Variables from './Variables';
 import state from "./state";
 import { InformationList, InformationListRow } from './InformationList';
 import { observer } from "mobx-react";
-import {TypePropType, hostId, rootId} from '../../shared/type';
+import {TypePropType, hostId, rootId, typeId} from '../../shared/type';
 
-const Type = observer(function Type({typeId, id}:{typeId:number, id:number}) {
+const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:number}) {
     const obj = state.objects.get(id);
     const current = obj.current;
-    const type = state.types && state.types.has(typeId) && state.types.get(typeId).content;
+    const type = state.types && state.types.has(myType) && state.types.get(myType).content;
     if (!type)
         return <div>Missing type</div>;
     if (!current || !current.content)
@@ -85,7 +85,7 @@ const Type = observer(function Type({typeId, id}:{typeId:number, id:number}) {
             <InformationList key={id + current.version}>
                 <InformationListRow name="Name"><TextField key="name" value={current.name} onChange={(e) => {current.name = e.target.value; obj.touched = true;}} /></InformationListRow>
                 <InformationListRow name="Comment"><TextField key="comment" fullWidth multiline value={current.comment} onChange={(e) => {current.comment = e.target.value; obj.touched = true;}}/></InformationListRow>
-                {type.hasCategory?<InformationListRow name="Category"><Category type={typeId} category={current.category} setCategory={(cat:string) => {current.category = cat; obj.touched=true}} /></InformationListRow>:null}
+                {type.hasCategory?<InformationListRow name="Category"><Category type={myType} category={current.category} setCategory={(cat:string) => {current.category = cat; obj.touched=true}} /></InformationListRow>:null}
                 {rows}
                 {type.hasTriggers?<InformationListRow name="Triggers" long={true}><Triggers triggers={c.triggers || []} setTriggers={triggers => setProp("triggers", triggers)} /></InformationListRow>:null}
                 {type.hasVariables?<InformationListRow name="Variables" long={true}><Variables variables={c.variables || []} setVariables={(vars: {key:string, value:string}[])=> setProp("variables", vars)} /></InformationListRow>:null}

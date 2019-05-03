@@ -82,7 +82,7 @@ export const setupSocket = () => {
                 runInAction(() => {
                     state.modifiedFiles.loaded = false;
                     state.dockerImages.loaded = false;
-                    state.dockerContainers.loaded = false;
+                    state.dockerContainers.hosts = {state: 'initial'};
                     state.deployment.objects = d.deploymentObjects;
                     state.deployment.message = d.deploymentMessage;
                     state.deployment.status = d.deploymentStatus;
