@@ -149,11 +149,13 @@ export class WebClient extends JobOwner {
                         let contentStr = await db.getUserContent(act.user);
                         if (contentStr) {
                             let content = JSON.parse(contentStr);
-                            found = true;
-                            pwd = await crypt.validate(act.pwd, content.password);
-                            if (act.otp) {
-                                otp = speakeasy.totp.verify({ secret: content.otp_base32, encoding: 'base32', token: act.otp, window: 1 });
-                                newOtp = true;
+                            if (content.admin === true) {
+                                found = true;
+                                pwd = await crypt.validate(act.pwd, content.password);
+                                if (act.otp) {
+                                    otp = speakeasy.totp.verify({ secret: content.otp_base32, encoding: 'base32', token: act.otp, window: 1 });
+                                    newOtp = true;
+                                }
                             }
                         }
                     } catch (e) {
