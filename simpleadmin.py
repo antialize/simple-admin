@@ -496,7 +496,7 @@ async def ui_edit_object(loop, c, id, types):
             elif type == 1: #Bool
                 addStoreField(title, u.CheckBox(label="", state=content.get(name, False)), 'checkbox', name)
             elif type == 2: #text
-                addStoreField(title, u.Edit(edit_text=content.get(name, False)), 'text', name)
+                addStoreField(title, u.Edit(edit_text=content.get(name, "")), 'text', name)
             elif type == 3: #Password
                 addStoreField(title, u.Edit(edit_text=content.get(name, False), mask="*"), 'password', name)
             elif type == 4: #document
