@@ -21,9 +21,6 @@ export class DockerImagesState {
     @observable
     imageHistory: Map<string, Map<string, Remote< Map<number, DockerImageTag> >>> = new Map;
 
-    @observable
-    wtf: number = 0;
-
     load() {
         if (this.projects.state != 'initial') return;
         state.sendMessage({
@@ -67,11 +64,9 @@ export class DockerImagesState {
         const h1 = this.imageHistory.get(act.image);
         if (!h1) return;
         const m : Map<number, DockerImageTag> = new Map();
-        console.log("Handle load history")
         for (const i of act.images)
             m.set(i.id, i);
         h1.set(act.tag, {state: 'data', data: m});
-        this.wtf += 1;
     }
 
     @action

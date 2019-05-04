@@ -24,9 +24,6 @@ export class DockerContainersState {
     @observable
     containerHistory: ObservableMap<number, ObservableMap<string,  Remote< ObservableMap<number, DockerDeployment> >>> = new ObservableMap;
 
-    @observable
-    wtf: number = 0;
-
     @action
     load() {
         if (this.hosts.state != 'initial') return;
@@ -75,7 +72,6 @@ export class DockerContainersState {
         for (const d of act.deployments)
             m.set(d.id, d);
         h.set(act.name, {state: 'data', data:m});
-        ++this.wtf;
     }
 
     @action
