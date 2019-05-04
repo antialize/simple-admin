@@ -113,7 +113,7 @@ export class DockerContainersState {
     }
 }
 
-export const HostDockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host:number; title?:string} & StyledComponentProps) {
+export const HostDockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host:number; title?:string, standalone: boolean} & StyledComponentProps) {
     const r = extractRemote(state.dockerContainers.hosts);
     if (r.state != 'good') return r.error;
     const hosts = r.data;
@@ -154,6 +154,32 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
             </tr>
         )
     }
+
+    let headers =  <tr>
+        <th>Container</th>
+        <th>Project</th>
+        <th>Status</th>
+        <th>Commit</th>
+        <th>User</th>
+        <th>Hash</th>
+        <th>Start</th>
+        <th>End</th>
+        <td>Actions</td>
+    </tr>;
+
+    if (p.standalone)
+        return (
+            <Box title="Docker containers">
+                <table className={p.classes.infoTable}>
+                    <thead >
+                       {headers}
+                    </thead>
+                    <tbody>
+                        {rows}
+                    </tbody>
+                </table>
+            </Box>);
+
     return <>
         <thead >
             <tr>
@@ -161,17 +187,7 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
                     {p.title || hostName}
                 </th>
             </tr>
-            <tr>
-                <th>Container</th>
-                <th>Project</th>
-                <th>Status</th>
-                <th>Commit</th>
-                <th>User</th>
-                <th>Hash</th>
-                <th>Start</th>
-                <th>End</th>
-                <td>Actions</td>
-            </tr>
+            {headers}
         </thead>
         <tbody>
             {rows}
@@ -192,7 +208,7 @@ export const DockerContainers = withStyles(styles)(observer(function DockerConta
     keys.sort();
 
     for (const host of keys)
-        lst.push(<HostDockerContainers key={host} host={host} />)
+        lst.push(<HostDockerContainers key={host} host={host} standalone={false}/>)
 
     return <Box title="Docker containers">
          <table className={p.classes.infoTable}>

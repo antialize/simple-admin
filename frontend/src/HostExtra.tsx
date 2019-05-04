@@ -48,7 +48,7 @@ const HostExtra = observer(function HostExtra({id}:{id:number}) {
                     <Box title="Status" collapsable={true} expanded={true}>
                         <Status id={id} />
                     </Box>
-                    <HostDockerContainers host={id} title="DockerContainers" />
+                    <HostDockerContainers host={id} title="DockerContainers" standalone={true} />
                 </div>: null}
             {c}
         </div>)
