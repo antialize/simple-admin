@@ -19,6 +19,7 @@ export default async (req: Request, res: Response) => {
     let ho = await db.getHostContentByName(host);
     if (!ho || !ho.content || (ho.content as any).password !== token) {
         res.status(406).send("#!/bin/bash\necho \"Invalid\"\n");
+        return;
     }
 
     let npw = randomBytes(18).toString('base64');

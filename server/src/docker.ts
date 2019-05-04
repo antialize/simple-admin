@@ -14,6 +14,8 @@ import { HostClient } from './hostclient';
 import * as message from './messages';
 import * as shellQuote from 'shell-quote';
 import { config } from './config';
+import nullCheck from './nullCheck';
+import getOrInsert from './getOrInsert';
 
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
@@ -35,7 +37,6 @@ class Upload {
     count: Count;
     hash: crypto.Hash;
     writer: fs.WriteStream;
-    p: Writable;
     constructor(public un: string) {
         this.hash = crypto.createHash('sha256');
         this.count = new Count;
@@ -90,8 +91,8 @@ interface DeploymentInfo {
     config: string;
     timeout: any;
     start: number;
-    end: number;
-    id: number;
+    end: number | null;
+    id: number | null;
 }
 
 class Docker {
@@ -107,7 +108,7 @@ class Docker {
         setInterval(this.prune.bind(this), 1000*60*60*12); // prune docker images every 12 houers
     }
 
-    getContainerState(host:number, container:string) : string {
+    getContainerState(host:number, container:string) : string | undefined {
         const i = this.hostContainers.get(host);
         if (!i) return undefined;
         for (const [id, v] of i) {
@@ -244,12 +245,13 @@ class Docker {
         // PUT /v2/<name>/blobs/uploads/<uuid> Blob Upload Complete the upload specified by uuid, optionally appending the body as the final chunk.
         if (p.length == 6 && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
             const un = p[5]
-            if (!this.activeUploads.has(un)) {
+            const u = this.activeUploads.get(un);
+            if (!u) {
                 log('error', "Docker put blob: missing", un);
                 res.status(404).end();
                 return;
             }
-            const u = this.activeUploads.get(un);
+
             await this.handleUpload(req, u, true);
 
             log('info', "Docker put blob", un);
@@ -358,12 +360,13 @@ class Docker {
         // PATCH /v2/<name>/blobs/uploads/<uuid> Blob Upload Upload a chunk of data for the specified upload.
         if (p.length == 6 && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
             const un = p[5];
-            if (!this.activeUploads.has(un)) {
+            const u = this.activeUploads.get(un);
+            if (!u) {
                 log('info', "Docker patch blob: missing", un);
                 res.status(404).end();
                 return;
             }
-            const u = this.activeUploads.get(un);
+
             await this.handleUpload(req, u, false);
             res.setHeader("Location", req.url);
             res.setHeader("Range", "0-" + u.count.value);
@@ -513,7 +516,7 @@ finally:
                         'stdout_type': 'binary',
                         'stderr_type': 'binary'
                     };
-                    this.client.sendMessage(msg);
+                    host.sendMessage(msg);
                     this.running = true;
                 }
 
@@ -541,13 +544,14 @@ finally:
     async deploy(client: WebClient, act: IDockerDeployStart) {
         try {
             log('info', "Docker deploy start", act.ref);
-            let host: HostClient = null;
+            let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
                 if (cl.hostname == act.host || cl.id == act.host) host = cl;
             }
+            const user = nullCheck(client.user, "Missing user");
 
-            if (!host) {
+            if (!host || !host.id) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Invalid hostname or host is not up"});
                 return;
             }
@@ -555,7 +559,7 @@ finally:
             const p = act.image.split(":");
             const image = p[0];
             const reference = p[1] || "latest";
-            let hash: string = null;
+            let hash: string | null = null;
             for (const row of await db.all("SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND (`hash`=? OR `tag`=?) ORDER BY `time` DESC LIMIT 1", image, reference, reference)) {
                 hash = row.hash;
             }
@@ -567,7 +571,7 @@ finally:
 
             const container = act.container || image;
             const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
-            let conf: string = null;
+            let conf: string | null = null;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
                 const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
@@ -591,6 +595,7 @@ finally:
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
             }
+            if (!conf) throw Error("Missing config");
             
             const now = Date.now() / 1000 | 0;
             const session = crypto.randomBytes(64).toString('hex');
@@ -606,7 +611,7 @@ finally:
                         image,
                         hash,
                         config: conf,
-                        user: client.user,
+                        user: user,
                         restore: null,
                         timeout: null,
                         start: now,
@@ -616,9 +621,10 @@ finally:
                       
                     await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
-                   
-                    if (this.delayedDeploymentInformations.has(id))
-                        this.delayedDeploymentInformations.get(id).timeout = setTimeout(
+
+                    const ddi = this.delayedDeploymentInformations.get(id);
+                    if (ddi)
+                        ddi.timeout = setTimeout(
                             () => this.handleDeploymentTimeout(id), 1000 * 60
                         );
 
@@ -636,7 +642,7 @@ finally:
                                 image,
                                 hash: oldDeploy.hash,
                                 config: oldDeploy.config,
-                                user: client.user,
+                                user: user,
                                 restore: oldDeploy.id,
                                 timeout: null,
                                 start: now,
@@ -644,8 +650,9 @@ finally:
                                 id: oldDeploy.id,
                             });
                             await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session);
-                            if (this.delayedDeploymentInformations.has(id))
-                                this.delayedDeploymentInformations.get(id).timeout = setTimeout(
+                            const ddi = this.delayedDeploymentInformations.get(id);
+                            if (ddi)
+                                ddi.timeout = setTimeout(
                                     () => this.handleDeploymentTimeout(id), 1000 * 60
                                 );
                         } catch (e) {
@@ -749,7 +756,7 @@ finally:
                     start: row.startTime,
                     end: row.endTime,
                     user: row.user,
-                    state: row.endTime ? null : this.getContainerState(row.host, row.container),
+                    state: row.endTime ? undefined : this.getContainerState(row.host, row.container),
                     config: row.config,
                 });
             }
@@ -811,7 +818,7 @@ finally:
             type: ACTION.DockerDeploymentsChanged,
             changed: [
                 {
-                    id: o.id,
+                    id: nullCheck(o.id),
                     image: o.image,
                     imageInfo: tagByHash[o.hash],
                     hash: o.hash,
@@ -859,9 +866,8 @@ finally:
 
     async handleHostDockerContainers(host: HostClient, obj: IHostContainers) {
         try {
-            if (!this.hostContainers.has(host.id))
-                this.hostContainers.set(host.id, new Map());
-            const containers = this.hostContainers.get(host.id);
+            if (!host.id) throw Error("Missing host id");
+            const containers = getOrInsert(this.hostContainers, host.id, ()=>new Map());
             if (obj.full) containers.clear();
             const images = this.hostImages.get(host.id);
             if (!images) {
@@ -909,7 +915,7 @@ finally:
                 }
                 const project = row.project;
 
-                let deploymentInfo: DeploymentInfo = null;
+                let deploymentInfo: DeploymentInfo | null = null;
                 let keep = false;
                 for (const [id, info] of this.delayedDeploymentInformations) {
                     if (info.host != host.id || info.container != container || info.image != project) continue;
@@ -978,7 +984,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                     'content': script,
                     'args': [command, container],
                 };
-                this.client.sendMessage(msg);
+                host.sendMessage(msg);
                 this.running = true;
             }
         };
@@ -986,6 +992,8 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
     }
     
     handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
+        if (!host.id) throw Error("Missing host id");
+
         const containers = this.hostContainers.get(host.id);
         if (!containers) return;
         const o = containers.get(obj.id);
@@ -994,9 +1002,9 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
     }
 
     handleHostDockerImages(host: HostClient, obj: IHostImages) {
-        if (!this.hostImages.has(host.id))
-            this.hostImages.set(host.id, new Map());
-        const images = this.hostImages.get(host.id);
+        if (!host.id) throw Error("Missing host id");
+
+        const images = getOrInsert(this.hostImages, host.id, ()=>new Map());
         if (obj.full) images.clear();
 
         for (const id of obj.delete)

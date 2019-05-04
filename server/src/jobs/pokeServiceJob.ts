@@ -30,7 +30,7 @@ export class PokeServiceJob extends Job {
             'content': fs.readFileSync('scripts/pokeService.py', 'utf-8'),
             'args': [act, service],
         };
-        this.client.sendMessage(msg);
+        hostClient.sendMessage(msg);
         this.running = true;
     }
 }

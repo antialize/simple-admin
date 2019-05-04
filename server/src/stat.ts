@@ -2,11 +2,13 @@ import {db, webClients} from './instances'
 import { log } from 'winston';
 import { WebClient } from './webclient';
 import { ACTION, ISubscribeStatValues, IStatValueChanges} from '../../shared/actions';
+import nullCheck from './nullCheck';
+import getOrInsert from './getOrInsert';
 
 const epoc = 1514764800
 
 interface StatBucket {
-    id: number;
+    id: number | null;
     host: number;
     name: string;
     index: number;
@@ -42,7 +44,7 @@ export async function flush() {
         let first = true;
         let params: any[] = [];
         while (dirty.length != 0 && params.length < 980) {
-            const e = dirty.pop();
+            const e = nullCheck(dirty.pop());
             e.dirty = false;
             if (first) first = false;
             else q += ", "
@@ -61,19 +63,19 @@ export async function flush() {
 
 export async function get(host:number, name:string, level:number, index:number, create:boolean = false) {
     const k = key(host, name, level, index);
-    if (cache.has(k)) {
-        const res = cache.get(k);
-        res.ttl = max_ttl;
-        return cache.get(k);
+    const res1 = cache.get(k);
+    if (res1) {
+        res1.ttl = max_ttl;
+        return res1
     }
     const row = await db.get("SELECT `id`, `values` FROM `stats` WHERE `host`=? AND `name`=? AND `level`=? AND `index`=?", host, name, level, index);
     if (!row && !create) return null;
-    const res: StatBucket = {id: null, host, name, level, index, dirty:false, values: null, ttl:max_ttl};
-    if (row && row.values) {
-        res.values = row.values;
-        res.id = row.id;
-    }
-    if (res.values == null) res.values = new Buffer(4*1024);
+
+    const values = row && row.values;
+    const res: StatBucket = {
+        id: values?row.id: null,
+        host, name, level, index, dirty:false,
+        values: values || new Buffer(4*1024), ttl:max_ttl};
     cache.set(k, res);
     return res;
 }
@@ -118,7 +120,7 @@ export async function register(host:number, name:string, time:number, interval:n
    
     do {
         const o = index & 1023;
-        let bucket = await get(host, name, level, index >> 10, true);
+        let bucket = nullCheck(await get(host, name, level, index >> 10, true));
         bucket.values.writeFloatBE((bucket.values.readFloatBE(o*4) || 0) + value, o*4);
         bucket.dirty = true;
         index = index >> 1;
@@ -127,7 +129,7 @@ export async function register(host:number, name:string, time:number, interval:n
 }
 
 
-export async function subscribe(client: WebClient, sub: ISubscribeStatValues) {
+export async function subscribe(client: WebClient, sub: ISubscribeStatValues | null) {
     if (sub == null) {
         const vs = clientSubscriptions.get(client);
         if (vs) {
@@ -160,8 +162,8 @@ export async function subscribe(client: WebClient, sub: ISubscribeStatValues) {
     }
 
     if (sub && sub.values) {
-        if (!subscriptions.has(sub.host)) subscriptions.set(sub.host, new Map<string, Map<number, Subscription> >());
-        if (!clientSubscriptions.has(client)) clientSubscriptions.set(client, new Map<number, Subscription[]>());
+        const x = getOrInsert(subscriptions, sub.host, ()=> new Map<string, Map<number, Subscription> >());
+        const y = getOrInsert(clientSubscriptions, client, ()=> new Map<number, Subscription[]>());
         let subs: Subscription[] = [];
         for (const name of sub.values) {
             const s: Subscription = {
@@ -171,11 +173,9 @@ export async function subscribe(client: WebClient, sub: ISubscribeStatValues) {
                 name
             }
             subs.push(s);
-            let x = subscriptions.get(s.host);
-            if (!x.has(s.name)) x.set(s.name, new Map<number, Subscription>());
-            x.get(s.name).set(sub.target, s);
+            getOrInsert(x, s.name, ()=>new Map<number, Subscription>()).set(sub.target, s);
         }
-        clientSubscriptions.get(client).set(sub.target, subs);
+        y.set(sub.target, subs);
     }
 }
 

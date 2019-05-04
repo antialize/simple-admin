@@ -134,8 +134,8 @@ export interface IDeploymentObject {
     script: string;
     prevScript: string;
     nextContent: {[key:string]: any};
-    prevContent: {[key:string]: any};
-    id: number;
+    prevContent: {[key:string]: any} | null;
+    id: number | null;
     typeId: number;
     typeName: string;
     triggers: IDeploymentTrigger[];

@@ -98,7 +98,7 @@ export interface IMessage {
     message: string;
     fullMessage: boolean;
     time: number;
-    url: string;
+    url: string | null;
     dismissed: boolean;
 }
 
@@ -226,7 +226,7 @@ export interface ISetDeploymentObjectStatus {
 
 export interface IToggleDeploymentObject {
     type: ACTION.ToggleDeploymentObject;
-    index: number;
+    index: number | null;
     enabled: boolean;
     source: "server" | "webclient";
 }
@@ -260,7 +260,7 @@ export interface IAuthStatus {
     user: string;
     pwd: boolean;
     otp: boolean;
-    message: string;
+    message: string | null;
 };
 
 export interface ILogin {
@@ -296,7 +296,7 @@ export interface IStatBucket {
     name: string;
     index: number;
     level: number;
-    values: number[];
+    values: number[] | null;
 }
 
 export interface ISubscribeStatValues {
@@ -395,7 +395,7 @@ export interface DockerDeployment {
     name: string;
     user: string;
     start: number;
-    end: number;
+    end: number | null
     host: number;
     state?: string;
     config: string;

@@ -26,9 +26,9 @@ function never(n: never, message: string) { throw new Error(message); }
 
 export class Deployment {
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
-    message: string;
+    message: string | null = null;
     deploymentObjects: IDeploymentObject[] = [];
-    log: string[];
+    log: string[] = [];
 
     setStatus(s: DEPLOYMENT_STATUS) {
         this.status = s;
