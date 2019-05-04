@@ -451,17 +451,18 @@ export class WebClients {
         this.httpsApp.patch("/v2/*", docker.patch.bind(docker));
         this.httpsApp.use(express.static("../frontend/public"));
         this.wss.on('connection', (ws, request) => {
+            const rawAddresses = request.socket.address();
+            const address = typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address;
+
             const u = url.parse(request.url, true);
             if (u.pathname == '/sysadmin') {
-                const wc = new WebClient(ws, request.socket.address()['address']);
+                const wc = new WebClient(ws,  address);
                 this.webclients.add(wc);
             } else if (u.pathname == '/terminal') {
                 const server = +u.query.server;
                 const cols = +u.query.cols;
                 const rows = +u.query.rows;
                 const session = u.query.session as string;
-                const addresses = request.socket.address()['address'];
-                const address = Array.isArray(addresses) ? addresses[0] as string : addresses;
                 getAuth(address, session).then((a: any) => {
                     if (a.auth && server in hostClients.hostClients)
                         new ShellJob(hostClients.hostClients[server], ws, cols, rows);

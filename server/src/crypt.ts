@@ -1,5 +1,4 @@
 import * as crypt3 from 'crypt3'
-import * as crypto from 'crypto'
 
 
 export function hash(password:string) {
