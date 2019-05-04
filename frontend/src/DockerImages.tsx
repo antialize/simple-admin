@@ -9,6 +9,7 @@ import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } fro
 import Switch from '@material-ui/core/Switch';
 import styles from './styles'
 import Remote from './Remote';
+import extractRemote from "./extractRemote";
 import * as State from '../../shared/state'
 import { IPage } from '../../shared/state';
 import Button from '@material-ui/core/Button';
@@ -23,50 +24,31 @@ export class DockerImagesState {
     @observable
     wtf: number = 0;
 
-    getProjects() {
-        switch (this.projects.state) {
-        case 'initial':
-            state.sendMessage({
-                type: ACTION.DockerListImageTags,
-                ref: 0
-            });
-            this.projects = {state: 'loading'}
-            return null;
-        case 'error':
-            return null;
-        case 'loading':
-            return null;
-        case 'data':
-            return this.projects.data;
-        }
+    load() {
+        if (this.projects.state != 'initial') return;
+        state.sendMessage({
+            type: ACTION.DockerListImageTags,
+            ref: 0
+        });
+        this.projects = {state: 'loading'};
     }
 
-    getImageHistory(project:string, tag:string) {
-        this.wtf;
+    @action
+    loadImageHistory(project:string, tag:string) {
         let h1 = this.imageHistory.get(project);
         if (!h1) {
             h1 = new Map();
             this.imageHistory.set(project, h1);
         }
-        const h2 = h1.get(tag) || {state: 'initial'};
-        console.log("Get image history", h2.state);
-        switch (h2.state) {
-        case 'initial':
-            state.sendMessage({
-                type: ACTION.DockerListImageTagHistory,
-                ref: 0,
-                image: project,
-                tag
-            });
-            h1.set(tag, {state: 'loading'})
-            return null;
-        case 'error':
-            return null;
-        case 'loading':
-            return null;
-        case 'data':
-            return h2.data;
-        }
+        let h2 = h1.get(tag);
+        if (h2 && h2.state != 'initial') return;
+        state.sendMessage({
+            type: ACTION.DockerListImageTagHistory,
+            ref: 0,
+            image: project,
+            tag
+        });
+        h1.set(tag, {state: 'loading'})
     }
 
     @action
@@ -125,9 +107,10 @@ export class DockerImagesState {
 };
 
 export const DockerImages = withStyles(styles)(observer(function DockerImages(p:StyledComponentProps) {
-    const projects = state.dockerImages.getProjects();
-    if (!projects)
-        return <CircularProgress />;
+    const r = extractRemote(state.dockerImages.projects);;
+    if (r.state != 'good') return r.error;
+    const projects = r.data;
+
     const lst = [];
     const keys = [];
     for (const key of projects.keys())
@@ -194,10 +177,11 @@ export const DockerImageHistory = withStyles(styles)(observer(function DockerIma
     const s = state.dockerImages;
     const page = state.page.current;
     if (page.type != State.PAGE_TYPE.DockerImageHistory) return null;
-    const history = s.getImageHistory(page.project, page.tag);
-    if (!history)
-        return <CircularProgress />;
 
+    let h1 = s.imageHistory.get(page.project);
+    const r = extractRemote(h1 && h1.get(page.tag));
+    if (r.state != 'good') return r.error;
+    const history = r.data;
     let images = [];
     for (const [id, c] of history)
         images.push(c);

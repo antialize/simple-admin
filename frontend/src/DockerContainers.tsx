@@ -15,6 +15,7 @@ import { InformationListRow, InformationList } from './InformationList';
 import Typography from '@material-ui/core/Typography';
 import Remote from './Remote'
 import styles from './styles'
+import extractRemote from './extractRemote';
 
 export class DockerContainersState {
     @observable
@@ -26,45 +27,33 @@ export class DockerContainersState {
     @observable
     wtf: number = 0;
 
-
-    getHosts() {
-        switch (this.hosts.state) {
-        case 'loading': return null;
-        case 'data': return this.hosts.data;
-        case 'error': return null;
-        case 'initial':
-            state.sendMessage({
-                type: ACTION.DockerListDeployments,
-                ref: 0
-            });
-            this.hosts = {state: 'loading'}
-            return null;
-        }
+    @action
+    load() {
+        if (this.hosts.state != 'initial') return;
+        state.sendMessage({
+            type: ACTION.DockerListDeployments,
+            ref: 0
+        });
+        this.hosts = {state: 'loading'}
     }
 
-    getHistory(host:number, container: string) {
+    @action
+    loadHistory(host:number, container: string) {
         let c1 = this.containerHistory.get(host);
         if (!c1) {
             c1 = new ObservableMap();
             this.containerHistory.set(host, c1);
         }
-        const c2 = c1.get(container) || {state: 'initial'};
-        switch (c2.state) {
-        case 'loading': return null;
-        case 'data': return c2.data;
-        case 'error': return null;
-        case 'initial':
-            state.sendMessage({
-                type: ACTION.DockerListDeploymentHistory,
-                host: host,
-                name: container,
-                ref: 0
-            });
-            c1.set(container, {state: "loading"});
-            return null;
-        }
+        let c2 = c1.get(container);
+        if (c2 && c2.state != 'initial') return;
+        state.sendMessage({
+            type: ACTION.DockerListDeploymentHistory,
+            host: host,
+            name: container,
+            ref: 0
+        });
+        c1.set(container, {state: "loading"});
     }
-
 
     @action
     handleLoad(act: IDockerListDeploymentsRes) {
@@ -125,8 +114,9 @@ export class DockerContainersState {
 }
 
 export const HostDockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host:number; title?:string} & StyledComponentProps) {
-    const hosts = state.dockerContainers.getHosts();
-    if (!hosts) return null;
+    const r = extractRemote(state.dockerContainers.hosts);
+    if (r.state != 'good') return r.error;
+    const hosts = r.data;
     if (!state.objectDigests.get(hostId).has(p.host)) return null;
     let hostName = state.objectDigests.get(hostId).get(p.host).name;
     if (!hosts.has(p.host)) return null;
@@ -191,8 +181,9 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
 }));
 
 export const DockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host?:string} & StyledComponentProps) {
-    const hosts = state.dockerContainers.getHosts();
-    if (!hosts) return <CircularProgress />;
+    const r = extractRemote(state.dockerContainers.hosts);
+    if (r.state != 'good') return r.error;
+    const hosts = r.data;
 
     const lst = [];
     const keys = [];
@@ -211,28 +202,16 @@ export const DockerContainers = withStyles(styles)(observer(function DockerConta
 }));
 
 export const DockerContainerDetails = withStyles(styles)(observer(function DockerContainerDetails(p:StyledComponentProps) {
-    const s = state.dockerContainers;
-    const hosts = s.getHosts();
-    if (!hosts) return <CircularProgress />;
     const page = state.page.current;
     if (page.type != State.PAGE_TYPE.DockerContainerDetails) return null;
     if (!state.objectDigests.get(hostId).has(page.host)) return null;
     let hostName = state.objectDigests.get(hostId).get(page.host).name;
 
-    let container = null;
-    for (const c of hosts.get(page.host)) {
-        if (c.id == page.id)
-            container = c;
-    }
-    if (!container) {
-        s.wtf;
-        const history = s.getHistory(page.host, page.container);
-        if (!history)
-            return <CircularProgress />;
-        container = history.get(page.id);
-    }
-    if (!container)
-        return null;
+    const ch = state.dockerContainers.containerHistory.get(page.host);
+    const r = extractRemote(ch && ch.get(page.container));
+    if (r.state != 'good') return r.error;
+    const container = r.data.get(page.id);
+    if (!container) return <span>No such container</span>;
 
     let commit = "";
     if (container.imageInfo && container.imageInfo.labels)
@@ -264,10 +243,10 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
     if (page.type != State.PAGE_TYPE.DockerContainerHistory) return null;
     if (!state.objectDigests.get(hostId).has(page.host)) return null;
     let hostName = state.objectDigests.get(hostId).get(page.host).name;
-    s.wtf;
-    const history = s.getHistory(page.host, page.container);
-    if (!history)
-        return <CircularProgress />;
+    const ch = state.dockerContainers.containerHistory.get(page.host);
+    const r = extractRemote(ch && ch.get(page.container));
+    if (r.state != 'good') return r.error;
+    const history = r.data;
 
     let containers = [];
     for (const [id, c] of history)

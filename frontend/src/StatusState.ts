@@ -34,6 +34,7 @@ class StatusState {
     up: boolean = true;
     @action
     setFromInitialState(s: IStatus) {
+        if (!s) return;
         this.uptime = s.uptime;
         this.meminfo = s.meminfo;
         this.lsb_release = s.lsb_release;

@@ -14,7 +14,45 @@ class PageState {
     nextNewObjectId:number = -2;
 
     @observable
-    current: State.IPage = { type: State.PAGE_TYPE.Dashbord };
+    private current_: State.IPage = { type: State.PAGE_TYPE.Dashbord };
+
+    get current() {
+        return this.current_;
+    }
+
+    set current(p: State.IPage) {
+        switch(p.type) {
+        case State.PAGE_TYPE.Deployment:
+        case State.PAGE_TYPE.Dashbord:
+        case State.PAGE_TYPE.ObjectList:
+        case State.PAGE_TYPE.Object:
+            if (!state.objects.has(p.id))
+                state.objects.set(p.id, new ObjectState(p.id));
+            state.objects.get(p.id).loadCurrent();
+            break;
+        case State.PAGE_TYPE.DeploymentDetails:
+        case State.PAGE_TYPE.DockerImages:
+            state.dockerImages.load();
+            break;
+        case State.PAGE_TYPE.DockerContainers:
+            state.dockerContainers.load();
+            break;
+        case State.PAGE_TYPE.ModifiedFiles:
+        case State.PAGE_TYPE.ModifiedFile:
+            state.modifiedFiles.load();
+            break;
+        case State.PAGE_TYPE.DockerContainerDetails:
+        case State.PAGE_TYPE.DockerContainerHistory:
+            state.dockerContainers.loadHistory(p.host, p.container);
+            break;
+        case State.PAGE_TYPE.DockerImageHistory:
+            state.dockerImages.loadImageHistory(p.project, p.tag);
+            break;
+        default:
+            never(p, "Unhandled page");
+        }
+        this.current_ = p;
+    }
 
     onClick(e: React.MouseEvent<{}>, page: State.IPage) {
         if (e.metaKey || e.ctrlKey || e.button === 2) return;
@@ -32,12 +70,6 @@ class PageState {
         history.pushState(pg, null, this.link(pg));
 
         this.current = pg;
-
-        if (pg.type == State.PAGE_TYPE.Object) {
-            if (!state.objects.has(pg.id))
-                state.objects.set(pg.id, new ObjectState(pg.id));
-            state.objects.get(pg.id).loadCurrent();
-        }
     }
 
     link(page: State.IPage): string {
@@ -133,10 +165,10 @@ class PageState {
             break;
         case 'object':
             let v=getUrlParameter('version');
-            this.current = {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
-            if (!state.objects.has(this.current.id))
-                state.objects.set(this.current.id, new ObjectState(this.current.id));
-            state.objects.get(this.current.id).loadCurrent();
+            this.current_ = {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
+            if (!state.objects.has(this.current_.id))
+                state.objects.set(this.current_.id, new ObjectState(this.current_.id));
+            state.objects.get(this.current_.id).loadCurrent();
             break;
         case 'deploymentDetails':
             this.current = {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};

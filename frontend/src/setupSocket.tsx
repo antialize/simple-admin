@@ -80,7 +80,7 @@ export const setupSocket = () => {
                 break;
             case ACTION.SetInitialState:
                 runInAction(() => {
-                    state.modifiedFiles.loaded = false;
+                    state.modifiedFiles.modifiedFiles = {state: 'initial'};
                     state.dockerImages.imageHistory.clear();
                     state.dockerImages.projects = {state: 'initial'};
                     state.dockerContainers.containerHistory.clear();
