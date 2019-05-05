@@ -474,7 +474,7 @@ export interface ModifiedFile {
     object: number;
     deployed: string;
     actual: string;
-    current: string;
+    current: string | null;
     path: string;
 }
 
@@ -488,7 +488,7 @@ export interface IModifiedFilesList {
 
 export interface IModifiedFilesChanged {
     type: ACTION.ModifiedFilesChanged;
-    lastScanTime: number;
+    lastScanTime: number | null;
     scanning: boolean;
     full: boolean;
     changed: ModifiedFile[];

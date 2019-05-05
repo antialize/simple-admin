@@ -133,10 +133,10 @@ export interface IDeploymentObject {
 
     script: string;
     prevScript: string;
-    nextContent: {[key:string]: any};
+    nextContent: {[key:string]: any} | null;
     prevContent: {[key:string]: any} | null;
     id: number | null;
-    typeId: number;
+    typeId: number | null;
     typeName: string;
     triggers: IDeploymentTrigger[];
     deploymentOrder: number;

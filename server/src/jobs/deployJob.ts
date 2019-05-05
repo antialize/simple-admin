@@ -4,7 +4,6 @@ import {Job} from '../job'
 import * as message from '../messages'
 // Type only imports
 import {HostClient} from '../hostclient'
-import {Deployment} from '../deployment'
 import {deployment} from '../instances'
 
 export class DeployJob extends Job {  
@@ -25,7 +24,7 @@ export class DeployJob extends Job {
             'stdout_type': 'binary',
             'stderr_type': 'binary'
         };
-        this.client.sendMessage(msg);
+        hostClient.sendMessage(msg);
         this.running = true;
     }
 
