@@ -37,7 +37,7 @@
   },
   "scripts": {
     "start": "npm run start-impl",
-    "start-impl": "./node_modules/.bin/ts-node ./src/index.ts",
+    "start-impl": "./node_modules/.bin/ts-node --files ./src/index.ts ./src/crypt3.d.ts",
     "build:live": "nodemon --exec ./node_modules/.bin/ts-node -- ./src/index.ts "
   }
 }

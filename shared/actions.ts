@@ -365,6 +365,7 @@ export interface DockerImageTag {
     user: string;
     pin: boolean;
     labels: {[key: string]: string};
+    removed: number | null;
 }
 
 export interface IDockerListImageTagsRes {
@@ -397,6 +398,7 @@ export interface DockerDeployment {
     end: number;
     host: number;
     state?: string;
+    config: string;
 }
 
 export interface IDockerListDeploymentsRes {

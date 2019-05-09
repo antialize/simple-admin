@@ -1,5 +1,5 @@
 import * as express from 'express';
-import { log } from 'winston';
+import { log, exceptions } from 'winston';
 import * as fs from 'fs';
 import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
@@ -101,6 +101,11 @@ class Docker {
 
     idc = 0;
     delayedDeploymentInformations = new Map<number, DeploymentInfo>();
+
+    constructor() {
+        //setTimeout(this.prune.bind(this), 1000);
+        setInterval(this.prune.bind(this), 1000*60*60*12); // prune docker images every 12 houers
+    }
 
     getContainerState(host:number, container:string) : string {
         const i = this.hostContainers.get(host);
@@ -329,6 +334,7 @@ class Docker {
                         time,
                         pin: false,
                         labels: labels,
+                        removed: null,
                     }
                 ],
                 removed: []
@@ -659,7 +665,7 @@ finally:
         const placeholders = [];
         for (const _ of hashes) placeholders.push("?");
         const tagByHash: {[hash: string]: DockerImageTag} = {};
-        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `hash` IN (" + placeholders.join(",") + ")", ...hashes)) {
+        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `hash` IN (" + placeholders.join(",") + ")", ...hashes)) {
             tagByHash[row.hash] = {
                 id: row.id,
                 image: row.project,
@@ -669,6 +675,7 @@ finally:
                 time: row.time,
                 pin: row.pin,
                 labels: JSON.parse(row.labels || "{}"),
+                removed: row.removed,
             };
         }
         return tagByHash;
@@ -691,7 +698,8 @@ finally:
                     start: row.startTime,
                     end: row.endTime,
                     user: row.user,
-                    state: this.getContainerState(row.host, row.container)
+                    state: this.getContainerState(row.host, row.container),
+                    config: row.config,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -706,7 +714,7 @@ finally:
     async listImageTags(client: WebClient, act: IDockerListImageTags) {
         const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
         try {
-            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
                 res.tags.push(
                     {
                         id: row.id,
@@ -717,6 +725,7 @@ finally:
                         time: row.time,
                         pin: row.pin,
                         labels: JSON.parse(row.labels || "{}"),
+                        removed: row.removed
                     }
                 );
         } finally {
@@ -740,7 +749,8 @@ finally:
                     start: row.startTime,
                     end: row.endTime,
                     user: row.user,
-                    state: row.endTime ? null : this.getContainerState(row.host, row.container)
+                    state: row.endTime ? null : this.getContainerState(row.host, row.container),
+                    config: row.config,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -755,7 +765,7 @@ finally:
     async listImageTagHistory(client: WebClient, act: IDockerListImageTagHistory) {
         const res: IDockerListImageTagHistoryRes = {type: ACTION.DockerListImageTagHistoryRes, ref: act.ref, images: [], image: act.image, tag: act.tag};
         try {
-            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
                 res.images.push(
                     {
                         id: row.id,
@@ -766,6 +776,7 @@ finally:
                         time: row.time,
                         pin: row.pin,
                         labels: JSON.parse(row.labels || "{}"),
+                        removed: row.removed,
                     }
                 );
         } finally {
@@ -777,7 +788,7 @@ finally:
         await db.run('UPDATE `docker_images` SET pin=? WHERE `id`=?', act.pin?1:0, act.id);
         const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: []};
 
-        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels` FROM `docker_images` WHERE `id`=?", act.id))
+        for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?", act.id))
             res.changed.push(
                 {
                     id:row.id,
@@ -788,6 +799,7 @@ finally:
                     time: row.time,
                     pin: row.pin,
                     labels: JSON.parse(row.labels || "{}"),
+                    removed: row.removed,
                 }
             );
         webClients.broadcast(res);
@@ -808,7 +820,8 @@ finally:
                     start: o.start,
                     end: o.end,
                     user: o.user,
-                    state: this.getContainerState(o.host, o.container)
+                    state: this.getContainerState(o.host, o.container),
+                    config: o.config
                 }
             ],
             removed: []
@@ -991,6 +1004,61 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
 
         for (const u of obj.update)
             images.set(u.id, u);
+    }
+
+    async prune() {
+        try {
+            const files = new Set(await new Promise<string[]>( (accept, reject) => {
+                fs.readdir(docker_blobs_path, {encoding: "utf8"}, (err, files) => {
+                    if (err) reject(err);
+                    else accept(files);
+                })
+            }));
+
+            const used = new Set();
+            const now = +new Date() / 1000;
+            const grace = 60*60*24 * 14; // Number of seconds to keep something around
+
+            for (const row of await db.all("SELECT `docker_images`.`manifest`, `docker_images`.`id`, `docker_images`.`tag`, `docker_images`.`time`, MIN(`docker_deployments`.`startTime`) as start, MAX(`docker_deployments`.`endTime`) as end, `pin` FROM `docker_images` LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash` WHERE `removed` IS NULL GROUP BY `docker_images`.`id`")) {
+                let keep =
+                    row.pin
+                    || (row.start && !row.end)
+                    || (row.start && row.end &&  row.end + (row.end - row.start) + grace > now)
+                    || row.time + grace > now;
+
+                const manifest = JSON.parse(row.manifest);
+                if (!files.has(manifest.config.digest)) {
+                    keep = false;
+                    continue;
+                }
+
+                for (const layer of manifest.layers) {
+                    if (!files.has(layer.digest)) {
+                        keep = false;
+                        break;
+                    }
+                }
+
+                if (keep) {
+                    used.add(manifest.config.digest);
+                    for (const layer of manifest.layers)
+                        used.add(layer.digest);
+                } else {
+                    await db.run("UPDATE `docker_images` SET `removed`=? WHERE `id`=?", now, row.id);
+                }
+            }
+            const rem = [...files].filter(x => !used.has(x));
+            console.log("Used: ", used.size, " total: ", files.size, " remove: ", rem.length);
+
+            for (const file of rem) {
+                await new Promise( (acc, rej) => fs.unlink( docker_blobs_path + "/" + file, (e)=> {
+                    if (e) rej(e);
+                    else acc();
+                }));
+            }
+        } catch (err) {
+            console.log("ERROR", err);
+        }
     }
 }
 
