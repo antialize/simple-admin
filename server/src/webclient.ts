@@ -1,5 +1,4 @@
 import * as http from 'http';
-import * as https from 'https';
 import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert, IStatBucket } from '../../shared/actions'
 import * as express from 'express';
 import { IObject2, PAGE_TYPE } from '../../shared/state'
@@ -421,15 +420,10 @@ async function sendInitialState(c: WebClient) {
 }
 
 export class WebClients {
-    privateKey = fs.readFileSync('domain.key', 'utf8');
-    certificate = fs.readFileSync('chained.pem', 'utf8');
-    credentials = { key: this.privateKey, cert: this.certificate };
-    httpsApp = express();
-    webclients = new Set<WebClient>();
-    httpsServer: https.Server;
-    wss: WebSocket.Server;
     httpApp = express();
+    webclients = new Set<WebClient>();
     httpServer: http.Server;
+    wss: WebSocket.Server;
     interval: NodeJS.Timer;
 
     broadcast(act: IAction) {
@@ -440,20 +434,18 @@ export class WebClients {
     }
 
     constructor() {
-        this.httpsApp.use(helmet());
-        this.httpsServer = https.createServer(this.credentials, this.httpsApp);
-        this.wss = new WebSocket.Server({ server: this.httpsServer })
-        this.httpsApp.get("/setup.sh", (req, res) => setup(req, res));
-        this.httpsApp.get("/v2/*", docker.get.bind(docker));
-        this.httpsApp.put("/v2/*", docker.put.bind(docker) );
-        this.httpsApp.post("/v2/*", docker.post.bind(docker));
-        this.httpsApp.delete("/v2/*", docker.delete.bind(docker));
-        this.httpsApp.patch("/v2/*", docker.patch.bind(docker));
-        this.httpsApp.use(express.static("../frontend/public"));
+        this.httpApp.use(helmet());
+        this.httpServer = http.createServer(this.httpApp);
+        this.wss = new WebSocket.Server({ server: this.httpServer })
+        this.httpApp.get("/setup.sh", (req, res) => setup(req, res));
+        this.httpApp.get("/v2/*", docker.get.bind(docker));
+        this.httpApp.put("/v2/*", docker.put.bind(docker) );
+        this.httpApp.post("/v2/*", docker.post.bind(docker));
+        this.httpApp.delete("/v2/*", docker.delete.bind(docker));
+        this.httpApp.patch("/v2/*", docker.patch.bind(docker));
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
-            const address = typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address;
-
+            const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address);
             const u = url.parse(request.url, true);
             if (u.pathname == '/sysadmin') {
                 const wc = new WebClient(ws,  address);
@@ -474,20 +466,13 @@ export class WebClients {
             }
         });
 
-        this.httpApp.use(helmet())
-        this.httpServer = http.createServer(this.httpApp);
-        this.httpApp.use('/.well-known/acme-challenge', express.static("/opt/acme-tiny/challenges/"));
-        this.httpApp.get("*", function(req, res, next) {
-            res.redirect("https://" + req.headers.host + "/" + req.path);
-        })
     }
 
     startServer() {
-        this.httpServer.listen(80, "0.0.0.0");
-        this.httpsServer.listen(443, "0.0.0.0", function() {
+        this.httpServer.listen(8182, "localhost", function() {
             log('info', "Web server started on port 443");
         });
-        this.httpsServer.on('close', () => {
+        this.httpServer.on('close', () => {
             log('info', "Web server stopped");
         });
     }
