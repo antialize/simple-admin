@@ -125,13 +125,18 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
             }
             const historyPage: IPage = {type: State.PAGE_TYPE.DockerImageHistory, project: tag.image, tag: tag.tag};
             rows.push(
-                <tr key={tag.tag}>
+                <tr className={tag.removed?"disabled":null} key={tag.id}>
                     <td>{tag.tag}</td>
                     <td>{commit}</td>
                     <td>{tag.hash}</td>
                     <td>{new Date(tag.time*1000).toISOString()}</td>
                     <td>{tag.user}</td>
-                    <td><Switch checked={tag.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: tag.id, pin: e.target.checked})}/></td>
+                    <td>{
+                        tag.removed
+                        ? new Date(tag.removed*1000).toISOString()
+                        : <Switch checked={tag.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: tag.id, pin: e.target.checked})} />
+                        }
+                    </td>
                     <td>
                         <Button onClick={(e)=>state.page.onClick(e, historyPage)} href={state.page.link(historyPage)}>History</Button>
                     </td>
@@ -194,12 +199,17 @@ export const DockerImageHistory = withStyles(styles)(observer(function DockerIma
             commit = (image.labels.GIT_BRANCH || "") + " " + (image.labels.GIT_COMMIT || "");
         }
         rows.push(
-            <tr key={image.id}>
+            <tr className={image.removed?"disabled":null} key={image.id}>
                 <td>{commit}</td>
                 <td>{image.hash}</td>
                 <td>{new Date(image.time*1000).toISOString()}</td>
                 <td>{image.user}</td>
-                <td><Switch checked={image.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: image.id, pin: e.target.checked})}/></td>
+                <td>
+                    {image.removed
+                    ? new Date(image.removed*1000).toISOString()
+                    : <Switch checked={image.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: image.id, pin: e.target.checked})} />
+                    }
+                </td>
             </tr>
         );
     }

@@ -245,6 +245,7 @@ export const DockerContainerDetails = withStyles(styles)(observer(function Docke
             <InformationListRow name="Build host"><Typography>{container.imageInfo.labels.BUILD_HOST}</Typography></InformationListRow>
             <InformationListRow name="Image hash"><Typography>{container.imageInfo.hash}</Typography></InformationListRow>
             <InformationListRow name="Image Commit"><Typography>{commit}</Typography></InformationListRow>
+            <InformationListRow name="Config"><Typography><pre>{container.config}</pre></Typography></InformationListRow>
         </InformationList>
     </Box>;
 }));

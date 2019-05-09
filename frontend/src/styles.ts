@@ -21,6 +21,9 @@ const styles = (theme:Theme) : StyleRules => {
                 color: theme.palette.text.primary,
                 backgroundColor: theme.palette.background.paper,
             },
+            "& tr.disabled" : {
+                color: theme.palette.text.disabled,
+            },
             "& td" : {
                 borderWidth: 1,
                 borderColor: theme.palette.background.default,
