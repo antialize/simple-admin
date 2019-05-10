@@ -37,6 +37,7 @@ class Connection:
         if res['type'] != "AuthStatus":
             raise Exception("Bad result type")
 
+        self.user = res['user']
         self.pwd = res['pwd']
         self.otp = res['otp']
         if requireAuth and not self.authenticated:
@@ -74,14 +75,15 @@ async def login(c, user, pwd, otp):
     c.pwd = True
     c.otp = True
 
+
 async def auth(user):
     c = Connection()
     await c.setup(requireAuth=False)
-    if c.pwd and c.otp:
-        print("Allready authenticated")
+    if c.authenticated:
+        print("Already authenticated as %s." % c.user)
         return
 
-    pwd = getpass.getpass()
+    pwd = getpass.getpass("Password for %s: " % c.user)
     if not pwd:
         return
 
@@ -92,8 +94,9 @@ async def auth(user):
             return
 
     await login(c, user, pwd, otp)
-    print("Sucessfully authenticated")
-    
+    print("Successfully authenticated.")
+
+
 async def deauth(full):
     c = Connection()
     await c.setup(requireAuth=False)
