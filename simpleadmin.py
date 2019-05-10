@@ -39,8 +39,12 @@ class Connection:
 
         self.pwd = res['pwd']
         self.otp = res['otp']
-        if requireAuth and not (self.pwd and self.otp):
+        if requireAuth and not self.authenticated:
             raise Exception("Authentication required")
+
+    @property
+    def authenticated(self):
+        return self.pwd and self.otp
 
 
 async def login(c, user, pwd, otp):
@@ -184,7 +188,10 @@ def rel_time(timestamp):
 
 async def list_deployments():
     c = Connection()
-    await c.setup(requireAuth=True)
+    await c.setup(requireAuth=False)
+    if not c.authenticated:
+        print("Run sadmin auth first.")
+        return
     ref = random.randint(0, 2 ** 48 - 1)
 
     await c.socket.send(json.dumps({"type": "RequestInitialState"}))
