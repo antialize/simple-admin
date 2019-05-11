@@ -8,12 +8,16 @@ import TextField from "@material-ui/core/TextField";
 import Typography from '@material-ui/core/Typography';
 import state from "./state";
 import { observer } from "mobx-react";
+import nullCheck from '../../shared/nullCheck';
 
 const ObjectList = observer(function ObjectList({type}:{type:number}) {
+    const page = state.page;
+    if (page === null) return <span>Missing state.page</span>;
     let filter = (state.objectListFilter.get(type) || "");
     let lst = [];
-    if (state.objectDigests.has(type)) {
-        for (let [i, v] of state.objectDigests.get(type)) {
+    const digests = state.objectDigests.get(type);
+    if (digests !== undefined) {
+        for (let [i, v] of digests) {
             if (v.name.toLowerCase().includes(filter.toLowerCase()))
                 lst.push(v);
         }
@@ -21,19 +25,19 @@ const ObjectList = observer(function ObjectList({type}:{type:number}) {
     }
     return <>
             <Typography variant="h5" component="h3">
-                List of {state.types.get(type).content.plural}
+                List of {nullCheck(state.types.get(type)).content.plural}
             </Typography>
             <TextField placeholder="Filter" onChange={(e)=>{state.objectListFilter.set(type,e.target.value);}} value={filter}/>
             <List>
                 {lst.map(v => 
                     <ListItem
                         key={v.id}
-                        onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}
-                        href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id, version:null})}>
+                        onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id})}
+                        href={page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id})}>
                         <Link color={"textPrimary" as any}>{v.name}</Link>
                     </ListItem>)}
             </List>
-            <Button variant="contained" onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})} href={state.page.link({type:State.PAGE_TYPE.Object, objectType: type, id: null, version:null})}>Add new</Button>
+            <Button variant="contained" onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type})} href={page.link({type:State.PAGE_TYPE.Object, objectType: type})}>Add new</Button>
         </>;
 });
 

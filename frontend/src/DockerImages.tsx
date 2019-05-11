@@ -3,9 +3,8 @@ import state from './state';
 import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged, IDockerListImageTagHistoryRes } from '../../shared/actions';
 import { observable, action } from 'mobx';
 import { observer } from 'mobx-react';
-import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
-import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } from "@material-ui/core/styles";
+import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
 import Switch from '@material-ui/core/Switch';
 import styles from './styles'
 import Remote from './Remote';
@@ -13,6 +12,9 @@ import extractRemote from "./extractRemote";
 import * as State from '../../shared/state'
 import { IPage } from '../../shared/state';
 import Button from '@material-ui/core/Button';
+import getOrInsert from '../../shared/getOrInsert';
+import Error from "./Error";
+import nullCheck from "../../shared/nullCheck"
 
 export class DockerImagesState {
     @observable
@@ -53,9 +55,7 @@ export class DockerImagesState {
         if (this.projects.state != 'data')
             this.projects = {state: 'data', data: new Map()};
         for (const tag of act.tags) {
-            if (!this.projects.data.has(tag.image))
-                this.projects.data.set(tag.image, []);
-            this.projects.data.get(tag.image).push(tag);
+            getOrInsert(this.projects.data, tag.image, ()=>[]).push(tag);
         }
     }
 
@@ -74,9 +74,7 @@ export class DockerImagesState {
         if (this.projects.state == 'data') {
             const projects = this.projects.data;
             for (const tag of act.changed) {
-                if (!projects.has(tag.image))
-                    projects.set(tag.image, []);
-                let lst = projects.get(tag.image);
+                let lst = getOrInsert(projects, tag.image, ()=>[])
                 let found = false;
                 for (let i=0; i < lst.length; ++i) {
                     if (lst[i].tag != tag.tag) continue;
@@ -86,8 +84,8 @@ export class DockerImagesState {
                 if (!found) lst.push(tag);
             }
             for (const tag of act.removed) {
-                if (!projects.has(tag.image)) continue;
                 let lst = projects.get(tag.image);
+                if (lst === undefined) continue;
                 projects.set(tag.image, lst.filter((e)=>{e.hash != tag.hash}));
             }
         }
@@ -102,10 +100,16 @@ export class DockerImagesState {
 };
 
 export const DockerImages = withStyles(styles)(observer(function DockerImages(p:StyledComponentProps) {
-    const r = extractRemote(state.dockerImages.projects);;
+    const dockerImages = state.dockerImages;
+    if (!dockerImages) return <Error>Missing state.dockerImages</Error>;
+    const r = extractRemote(dockerImages.projects);
     if (r.state != 'good') return r.error;
-    const projects = r.data;
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>;
+    const classes = p.classes;
+    if (!classes) return <Error>Missing classes</Error>;
 
+    const projects = r.data;
     const lst = [];
     const keys = [];
     for (const key of projects.keys())
@@ -113,7 +117,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
     keys.sort();
 
     for (const project of keys) {
-        let tags = projects.get(project).slice();
+        let tags = nullCheck(projects.get(project)).slice();
         tags.sort((a, b)=> {
             return a.time - b.time;
         });
@@ -125,7 +129,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
             }
             const historyPage: IPage = {type: State.PAGE_TYPE.DockerImageHistory, project: tag.image, tag: tag.tag};
             rows.push(
-                <tr className={tag.removed?"disabled":null} key={tag.id}>
+                <tr className={tag.removed?"disabled":undefined} key={tag.id}>
                     <td>{tag.tag}</td>
                     <td>{commit}</td>
                     <td>{tag.hash}</td>
@@ -138,7 +142,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                         }
                     </td>
                     <td>
-                        <Button onClick={(e)=>state.page.onClick(e, historyPage)} href={state.page.link(historyPage)}>History</Button>
+                        <Button onClick={(e)=>page.onClick(e, historyPage)} href={page.link(historyPage)}>History</Button>
                     </td>
                 </tr>
             );
@@ -146,7 +150,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
         lst.push(<React.Fragment key={project}>
             <thead>
                 <tr>
-                    <th colSpan={10} className={p.classes.infoTableHeader}>
+                    <th colSpan={10} className={classes.infoTableHeader}>
                         {project}
                     </th>
                 </tr>
@@ -166,7 +170,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
             </React.Fragment>)
     }
     return <Box title={"Docker images"} expanded={true} collapsable={false}>
-        <table className={p.classes.infoTable}>
+        <table className={classes.infoTable}>
             {lst}
         </table>
         </Box>;
@@ -175,8 +179,11 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
 
 export const DockerImageHistory = withStyles(styles)(observer(function DockerImageHistory(p:StyledComponentProps) {
     const s = state.dockerImages;
-    const page = state.page.current;
-    if (page.type != State.PAGE_TYPE.DockerImageHistory) return null;
+    if (!s) return <Error>Missing state.dockerImages</Error>;
+    const spage = state.page;
+    if (!spage) return <Error>Missing state.page</Error>;
+    const page = spage.current;
+    if (page.type != State.PAGE_TYPE.DockerImageHistory) return <Error>Wrong page</Error>;
 
     let h1 = s.imageHistory.get(page.project);
     const r = extractRemote(h1 && h1.get(page.tag));
@@ -199,7 +206,7 @@ export const DockerImageHistory = withStyles(styles)(observer(function DockerIma
             commit = (image.labels.GIT_BRANCH || "") + " " + (image.labels.GIT_COMMIT || "");
         }
         rows.push(
-            <tr className={image.removed?"disabled":null} key={image.id}>
+            <tr className={image.removed?"disabled":undefined} key={image.id}>
                 <td>{commit}</td>
                 <td>{image.hash}</td>
                 <td>{new Date(image.time*1000).toISOString()}</td>
@@ -215,7 +222,7 @@ export const DockerImageHistory = withStyles(styles)(observer(function DockerIma
     }
 
     return <Box title={`Docker image history: ${page.tag}@${page.project}`}>
-        <table className={p.classes.infoTable}>
+        <table className={nullCheck(p.classes).infoTable}>
             <thead >
                 <tr>
                     <th>Commit</th>

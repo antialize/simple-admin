@@ -16,15 +16,19 @@ import state from "./state";
 import { InformationList, InformationListRow } from './InformationList';
 import { observer } from "mobx-react";
 import {TypePropType, hostId, rootId, typeId} from '../../shared/type';
+import Error from './Error';
 
 const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:number}) {
     const obj = state.objects.get(id);
+    if (!obj) return <Error>Missing object</Error>;
+
     const current = obj.current;
-    const type = state.types && state.types.has(myType) && state.types.get(myType).content;
+    const typeOuter = state.types.get(myType);
+    const type = typeOuter && typeOuter.content;
     if (!type)
-        return <div>Missing type</div>;
+        return <Error>Missing type</Error>;
     if (!current || !current.content)
-        return <div>Missing content</div>;
+        return <Error>Missing content</Error>;
 
     const c = current.content as {[key:string]:any};
     let rows = [];
@@ -47,7 +51,7 @@ const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:numb
         case TypePropType.text:
             rows.push(<InformationListRow key={ct.name} name={ct.title}>
                     <Tooltip title={ct.description || ""}>
-                        <TextField value={v==undefined?ct.default:v} fullWidth={ct.lines > 0} style={{width: 400}} multiline={ct.lines > 1} rows={ct.lines || 1} onChange={(e) => setProp(ct.name, e.target.value)}/>
+                        <TextField value={v==undefined?ct.default:v} fullWidth={!!ct.lines && ct.lines > 0} style={{width: 400}} multiline={!!ct.lines && ct.lines > 1} rows={ct.lines || 1} onChange={(e) => setProp(ct.name, e.target.value)}/>
                     </Tooltip>
                 </InformationListRow>);
             break;

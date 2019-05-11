@@ -4,9 +4,15 @@ import Item from './Item';
 import state from "../state";
 import { observer } from "mobx-react";
 import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } from "@material-ui/core/styles";
+import Error from "../Error";
 
 const ItemsImpl = observer(function ItemImpl(p:StyledComponentProps) {
-    switch (state.deployment.status) {
+    const deployment = state.deployment;
+    if (deployment === null) return <Error>Missing state.deployment</Error>;
+    const classes = p.classes;
+    if (!classes) return <Error>Missing classes</Error>;
+
+    switch (deployment.status) {
     case State.DEPLOYMENT_STATUS.BuildingTree:
     case State.DEPLOYMENT_STATUS.InvilidTree:
     case State.DEPLOYMENT_STATUS.ComputingChanges:
@@ -16,15 +22,15 @@ const ItemsImpl = observer(function ItemImpl(p:StyledComponentProps) {
     case State.DEPLOYMENT_STATUS.ReviewChanges:
         break;
     }
-    const c = state.deployment.objects.length;
+    const c = deployment.objects.length;
     let rows: JSX.Element[] = [];
     
     for (let i=0; i < c; ++i)
-        rows.push(<Item index={i} classes={p.classes}/>);
+        rows.push(<Item index={i} classes={classes}/>);
 
     return (
         <div className="deployment_items">
-            <table className={p.classes.table}>
+            <table className={classes.table}>
                 <thead>
                     <tr>
                         <th >Host</th><th >Object</th><th >Type</th><th >Action</th><th >Enable</th><th >Details</th>

@@ -8,8 +8,15 @@ import { hostId } from '../../shared/type';
 import { observer } from "mobx-react";
 
 const HostMenuItem = observer(function HostMenuItem({id}: {id:number}) {
-    const name = state.objectDigests.get(hostId).get(id).name;
-    const up = state.status.has(id) && state.status.get(id).up;
+    const page = state.page;
+    if (!page) return <span>Missing state.page</span>;
+    const hostDigests = state.objectDigests.get(hostId);
+    if (!hostDigests) return <span>Missing host digests</span>;
+    const digests = hostDigests.get(id);
+    if (!digests) return <span>Missing host digest</span>;
+    const name = digests.name;
+    const status = state.status.get(id);
+    const up = status && status.up;
     let messages = 0;
     for (let [id, msg] of state.messages)
         if (!msg.dismissed && msg.host == id)
@@ -18,8 +25,8 @@ const HostMenuItem = observer(function HostMenuItem({id}: {id:number}) {
             button
             style={{paddingLeft: 40}}
             key={id}
-            onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: id, version:null})}
-            href={state.page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: id, version:null})}>
+            onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: hostId, id: id})}
+            href={page.link({type:State.PAGE_TYPE.Object, objectType: hostId, id: id})}>
                 <ListItemText>{name}</ListItemText>
                 {messages?<Avatar style={{color:"black", backgroundColor:"red"}}>{messages}</Avatar>:null}
             </ListItem>;

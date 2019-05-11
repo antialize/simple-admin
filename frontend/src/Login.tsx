@@ -9,16 +9,18 @@ import DialogTitle from "@material-ui/core/DialogTitle";
 import TextField from "@material-ui/core/TextField";
 import state, { CONNECTION_STATUS } from "./state";
 import { observer } from "mobx-react";
+import Error from "./Error";
 
 const Login = observer(function Login() {
     const l = state.login;
+    if (!l) return <Error>Missing state.login</Error>;
     let message="";
     switch (state.connectionStatus) {
     case CONNECTION_STATUS.AUTHENTICATING: message = "Authenticating"; break;
     case CONNECTION_STATUS.CONNECTED: message = "Connected"; break;
     case CONNECTION_STATUS.CONNECTING: message = "Connecting"; break;
     case CONNECTION_STATUS.INITING: message = "Loading initial state"; break;
-    case CONNECTION_STATUS.LOGIN: message = state.authMessage; break;
+    case CONNECTION_STATUS.LOGIN: message = state.authMessage || "Error"; break;
     case CONNECTION_STATUS.WAITING: message = "Waiting"; break;
     }
     let progress = null;

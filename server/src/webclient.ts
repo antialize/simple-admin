@@ -24,7 +24,7 @@ import { config } from './config'
 import * as speakeasy from 'speakeasy';
 import * as stat from './stat';
 import {docker} from './docker';
-import nullCheck from './nullCheck';
+import nullCheck from '../../shared/nullCheck';
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;

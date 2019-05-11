@@ -7,6 +7,7 @@ import { Theme, StyleRules, createStyles, withStyles, StyledComponentProps } fro
 import { TypePropType, ITrigger } from '../../shared/type'
 import { observer } from "mobx-react";
 import derivedState from "./derivedState";
+import nullCheck from '../../shared/nullCheck';
 
 interface TriggersProps {
     triggers:ITrigger[];
@@ -53,7 +54,7 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
 			<tr key={i}>
 				<td>
                     <Select
-                        value={v.id || 0}
+                        value={(v && v.id) || 0}
                         onChange={(e) => {
                             if (v)
                                 triggers[i] = {id:+e.target.value, values: []};
@@ -70,10 +71,11 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
 		   </tr>);
     }
 
+    const classes = nullCheck(p.classes);
     return (
         <table>
             <thead>
-            <tr><th className={p.classes.th}>Type</th><th className={p.classes.th}>Content</th><th className={p.classes.th}></th></tr>
+            <tr><th className={classes.th}>Type</th><th className={classes.th}>Content</th><th className={classes.th}></th></tr>
             </thead>
             <tbody>
             {rows}

@@ -16,6 +16,8 @@ import Typography from '@material-ui/core/Typography';
 import Remote from './Remote'
 import styles from './styles'
 import extractRemote from './extractRemote';
+import getOrInsert from '../../shared/getOrInsert';
+import Error from "./Error";
 
 export class DockerContainersState {
     @observable
@@ -58,9 +60,7 @@ export class DockerContainersState {
             this.hosts = {state: 'data', data: new ObservableMap()};
 
         for (const tag of act.deployments) {
-            if (!this.hosts.data.has(tag.host))
-                this.hosts.data.set(tag.host, []);
-            this.hosts.data.get(tag.host).push(tag);
+            getOrInsert(this.hosts.data, tag.host, ()=>[]).push(tag);
         }
     }
 
@@ -79,10 +79,8 @@ export class DockerContainersState {
         if (this.hosts.state == 'data') {
             const hosts = this.hosts.data;
             for (const tag of act.changed) {
-                if (!hosts.has(tag.host))
-                    hosts.set(tag.host, []);
                 let found = false;
-                let lst = hosts.get(tag.host);
+                const lst = getOrInsert(hosts, tag.host, ()=>[]);
                 for (let i=0; i < lst.length; ++i) {
                     if (lst[i].name != tag.name) continue;
                     found = true;
@@ -93,8 +91,8 @@ export class DockerContainersState {
 
             }
             for (const tag of act.removed) {
-                if (!hosts.has(tag.host)) continue;
                 let lst = hosts.get(tag.host);
+                if (!lst) continue;
                 hosts.set(tag.host, lst.filter((e) => e.name != tag.name));
             }
         }
@@ -110,13 +108,22 @@ export class DockerContainersState {
 }
 
 export const HostDockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host:number; title?:string, standalone: boolean} & StyledComponentProps) {
-    const r = extractRemote(state.dockerContainers.hosts);
+    const classes = p.classes;
+    if (!classes) return <Error>Missing classes</Error>;
+    const dockerContainers = state.dockerContainers;
+    if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
+    const r = extractRemote(dockerContainers.hosts);
     if (r.state != 'good') return r.error;
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>;
     const hosts = r.data;
-    if (!state.objectDigests.get(hostId).has(p.host)) return null;
-    let hostName = state.objectDigests.get(hostId).get(p.host).name;
-    if (!hosts.has(p.host)) return null;
-    let containers = hosts.get(p.host).slice();
+    const hostDigests = state.objectDigests.get(hostId);
+    const hostDigest = hostDigests && hostDigests.get(p.host);
+    const hostName = hostDigest && hostDigest.name;
+    if (!hostName) return <Error>Missing hostName</Error>;
+    const originalContainers = hosts.get(p.host);
+    if (!originalContainers) return <Error>Missing originalContainers</Error>;
+    let containers = originalContainers.slice();
     containers.sort((a, b)=> {
         return a.name < b.name ? -1 : 1;
     });
@@ -144,8 +151,8 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
                     {container.state == "running" ? <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStop, host: p.host, container: container.name})}>Stop</Button> : null}
                     {container.state != "running" ? <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStart, host: p.host, container: container.name})}>Start</Button> : null}
                     <Button onClick={()=>{confirm("Delete this container from host?") && state.sendMessage({type: ACTION.DockerContainerRemove, host: p.host, container: container.name})}}>Remove</Button>
-                    <Button onClick={(e)=>state.page.onClick(e, detailsPage)} href={state.page.link(detailsPage)}>Details</Button>
-                    <Button onClick={(e)=>state.page.onClick(e, historyPage)} href={state.page.link(historyPage)}>History</Button>
+                    <Button onClick={(e)=>page.onClick(e, detailsPage)} href={page.link(detailsPage)}>Details</Button>
+                    <Button onClick={(e)=>page.onClick(e, historyPage)} href={page.link(historyPage)}>History</Button>
                 </td>
             </tr>
         )
@@ -166,7 +173,7 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
     if (p.standalone)
         return (
             <Box title="Docker containers">
-                <table className={p.classes.infoTable}>
+                <table className={classes.infoTable}>
                     <thead >
                        {headers}
                     </thead>
@@ -179,7 +186,7 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
     return <>
         <thead >
             <tr>
-                <th colSpan={10} className={p.classes.infoTableHeader}>
+                <th colSpan={10} className={classes.infoTableHeader}>
                     {p.title || hostName}
                 </th>
             </tr>
@@ -193,7 +200,11 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
 }));
 
 export const DockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host?:string} & StyledComponentProps) {
-    const r = extractRemote(state.dockerContainers.hosts);
+    const classes = p.classes;
+    if (!classes) return <Error>Missing p.classes</Error>;
+    const dockerContainers = state.dockerContainers;
+    if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
+    const r = extractRemote(dockerContainers.hosts);
     if (r.state != 'good') return r.error;
     const hosts = r.data;
 
@@ -207,27 +218,33 @@ export const DockerContainers = withStyles(styles)(observer(function DockerConta
         lst.push(<HostDockerContainers key={host} host={host} standalone={false}/>)
 
     return <Box title="Docker containers">
-         <table className={p.classes.infoTable}>
+         <table className={classes.infoTable}>
             {lst}
          </table>
         </Box>;
 }));
 
 export const DockerContainerDetails = withStyles(styles)(observer(function DockerContainerDetails(p:StyledComponentProps) {
-    const page = state.page.current;
-    if (page.type != State.PAGE_TYPE.DockerContainerDetails) return null;
-    if (!state.objectDigests.get(hostId).has(page.host)) return null;
-    let hostName = state.objectDigests.get(hostId).get(page.host).name;
-
-    const ch = state.dockerContainers.containerHistory.get(page.host);
+    const spage = state.page;
+    if (!spage) return <Error>Missing state.page</Error>;
+    const page = spage.current;
+    if (page.type != State.PAGE_TYPE.DockerContainerDetails) return <Error>Wrong page type</Error>;;
+    const hosts = state.objectDigests.get(hostId);
+    const host = hosts && hosts.get(page.host);
+    const hostName = host && host.name;
+    if (!hostName) return <Error>Missing host name</Error>;
+    const dockerContainers = state.dockerContainers;
+    if (!dockerContainers) return <Error>Missing dockerContainers</Error>;
+    const ch = dockerContainers.containerHistory.get(page.host);
     const r = extractRemote(ch && ch.get(page.container));
     if (r.state != 'good') return r.error;
     const container = r.data.get(page.id);
-    if (!container) return <span>No such container</span>;
+    if (!container) return <Error>Missing container</Error>;
 
     let commit = "";
-    if (container.imageInfo && container.imageInfo.labels)
-        commit = (container.imageInfo.labels.GIT_BRANCH || "") + " " + (container.imageInfo.labels.GIT_COMMIT || "");
+    const img = container.imageInfo;
+    if (img && img.labels)
+        commit = (img.labels.GIT_BRANCH || "") + " " + (img.labels.GIT_COMMIT || "");
 
     const now = +new Date()/1000;
 
@@ -238,12 +255,12 @@ export const DockerContainerDetails = withStyles(styles)(observer(function Docke
             <InformationListRow name="Deploy start"><Typography>{container.start?<><Time seconds={now - container.start} /><span> ago</span></>:null}</Typography></InformationListRow>
             <InformationListRow name="Deploy end"><Typography>{container.end?<><Time seconds={now - container.end} /><span> ago</span></>:null}</Typography></InformationListRow>
             <InformationListRow name="Deploy state"><Typography>{container.state}</Typography></InformationListRow>
-            <InformationListRow name="Push user"><Typography>{container.imageInfo.user}</Typography></InformationListRow>
-            <InformationListRow name="Push time"><Typography>{container.imageInfo.time?<><Time seconds={now - container.imageInfo.time} /><span> ago</span></>:null}</Typography></InformationListRow>
-            <InformationListRow name="Push tag"><Typography>{container.imageInfo.tag}</Typography></InformationListRow>
-            <InformationListRow name="Build user"><Typography>{container.imageInfo.labels.BUILD_USER}</Typography></InformationListRow>
-            <InformationListRow name="Build host"><Typography>{container.imageInfo.labels.BUILD_HOST}</Typography></InformationListRow>
-            <InformationListRow name="Image hash"><Typography>{container.imageInfo.hash}</Typography></InformationListRow>
+            <InformationListRow name="Push user"><Typography>{img?img.user:null}</Typography></InformationListRow>
+            <InformationListRow name="Push time"><Typography>{img && img.time?<><Time seconds={now - img.time} /><span> ago</span></>:null}</Typography></InformationListRow>
+            <InformationListRow name="Push tag"><Typography>{img ? img.tag : null}</Typography></InformationListRow>
+            <InformationListRow name="Build user"><Typography>{img ? img.labels.BUILD_USER : null}</Typography></InformationListRow>
+            <InformationListRow name="Build host"><Typography>{img ? img.labels.BUILD_HOST : null}</Typography></InformationListRow>
+            <InformationListRow name="Image hash"><Typography>{img ? img.hash : null}</Typography></InformationListRow>
             <InformationListRow name="Image Commit"><Typography>{commit}</Typography></InformationListRow>
             <InformationListRow name="Config"><Typography><pre>{container.config}</pre></Typography></InformationListRow>
         </InformationList>
@@ -251,12 +268,19 @@ export const DockerContainerDetails = withStyles(styles)(observer(function Docke
 }));
 
 export const DockerContainerHistory = withStyles(styles)(observer(function DockerContainerHistory(p: StyledComponentProps) {
+    const classes = p.classes;
+    if (!classes) return <Error>Missing classes</Error>;
     const s = state.dockerContainers;
-    const page = state.page.current;
-    if (page.type != State.PAGE_TYPE.DockerContainerHistory) return null;
-    if (!state.objectDigests.get(hostId).has(page.host)) return null;
-    let hostName = state.objectDigests.get(hostId).get(page.host).name;
-    const ch = state.dockerContainers.containerHistory.get(page.host);
+    if (!s) return <Error>Missing state.dockerContainers</Error>;
+    const spage = state.page;
+    if (!spage) return <Error>Missing state.page</Error>;
+    const page = spage.current;
+    if (page.type != State.PAGE_TYPE.DockerContainerHistory) return <Error>Wrong page type</Error>;
+    const hosts = state.objectDigests.get(hostId)
+    const host = hosts && hosts.get(page.host);
+    const hostName = host && host.name;
+    if (!hostName) return <Error>Missing host name</Error>;;
+    const ch = s.containerHistory.get(page.host);
     const r = extractRemote(ch && ch.get(page.container));
     if (r.state != 'good') return r.error;
     const history = r.data;
@@ -286,13 +310,13 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
                 <td>{container.start?<><Time seconds={now - container.start} /><span> ago</span></>:null}</td>
                 <td>{container.end?<><Time seconds={now - container.end} /><span> ago</span></>:null}</td>
                 <td>
-                    <Button onClick={(e)=>state.page.onClick(e, detailsPage)} href={state.page.link(detailsPage)}>Details</Button>
+                    <Button onClick={(e)=>spage.onClick(e, detailsPage)} href={spage.link(detailsPage)}>Details</Button>
                 </td>
             </tr>
         )
     }
     return <Box title={`Docker containers history: ${page.container}@${hostName}`}>
-        <table className={p.classes.infoTable}>
+        <table className={classes.infoTable}>
             <thead >
                 <tr>
                     <th>Commit</th>
@@ -308,7 +332,5 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
             </tbody>
          </table>
         </Box>;
-
-    return <div>hat</div>;
 }));
 

@@ -366,7 +366,7 @@ export class Deployment {
                 // Perform topsort and construct deployment objects
                 while (true) {
                     const node = toVisit.pop();
-                    if (!node) break;
+                    if (!node) break;                 
                     for (const prev of node.prev) {
                         if (!prev) continue;
                         node.inCount++;
@@ -414,6 +414,7 @@ export class Deployment {
                     const type = objects[obj.type] as IObject2<IType>;
                     if (type.content.kind == "collection" || type.content.kind == "root" || type.content.kind == "host") continue;
                     const name =  nullCheck(node.name);
+                    
                     const o: IDeploymentObject = {
                         index: 0,
                         enabled: true,

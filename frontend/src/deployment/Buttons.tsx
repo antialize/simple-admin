@@ -3,9 +3,11 @@ import * as State from '../../../shared/state';
 import Button from '@material-ui/core/Button';
 import state from "../state";
 import { observer } from "mobx-react";
+import Error from '../Error';
 
 const Buttons = observer(function Buttons() {
     const p = state.deployment;
+    if (p === null) return <Error>Missing state.deployment</Error>;
     let hasDisabled = false;
     let hasEnabled = false;
     for (const o of p.objects) {

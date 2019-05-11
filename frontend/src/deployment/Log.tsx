@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as fit from 'xterm/lib/addons/fit/fit';
 import { Terminal } from 'xterm';
+import nullCheck from '../../../shared/nullCheck';
 
 Terminal.applyAddon(fit);
 
@@ -17,10 +18,10 @@ export function add(bytes: string) {
 }
 
 export class Log extends React.Component<{}, {}> {
-    div: HTMLDivElement = null;
+    div: HTMLDivElement | null = null;
 
     componentDidMount() {
-        theTerm.open(this.div);
+        theTerm.open(nullCheck(this.div));
         (theTerm as any).fit();
     }
 

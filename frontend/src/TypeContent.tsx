@@ -7,7 +7,7 @@ import TextField from "@material-ui/core/TextField";
 import { ITypeProp, TypePropType, hostId } from '../../shared/type';
 import { StyleRules, withStyles, createStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { Theme } from "@material-ui/core";
-
+import nullCheck from '../../shared/nullCheck';
 
 const styles = (theme:Theme) : StyleRules => {
     return createStyles({
@@ -27,6 +27,7 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
     let rows = [];
     let c = p.content.slice(0);
     c.push({type: TypePropType.none});
+    const classes = nullCheck(p.classes);
 
     for (let i = 0; i < c.length; ++i) {
         const r = c[i];
@@ -114,11 +115,11 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
                 </td>
                 <td><TextField value={r.type != TypePropType.none && r.name || ""} disabled={r.type == TypePropType.none} onChange={(e) => change({name: e.target.value})}/></td>
                 <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent && r.title || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({title: e.target.value})}/></td>
-                <td className={p.classes.td}>{def}</td>
-                <td className={p.classes.td}>{temp}</td>
-                <td className={p.classes.td}>{var_}</td>
+                <td className={classes.td}>{def}</td>
+                <td className={classes.td}>{temp}</td>
+                <td className={classes.td}>{var_}</td>
                 <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent  && r.description || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({description: e.target.value})}/></td>
-                <td className={p.classes.td}>{extra}</td>
+                <td className={classes.td}>{extra}</td>
             </tr>);
     }
 
@@ -126,14 +127,14 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
         <table>
             <thead>
                 <tr>
-                    <th className={p.classes.th}>Type</th>
-                    <th className={p.classes.th}>Name</th>
-                    <th className={p.classes.th}>Title</th>
-                    <th className={p.classes.th}>Default</th>
-                    <th className={p.classes.th}>Template</th>
-                    <th className={p.classes.th}>Variable</th>
-                    <th className={p.classes.th}>Description</th>
-                    <th className={p.classes.th}>Extra</th>
+                    <th className={classes.th}>Type</th>
+                    <th className={classes.th}>Name</th>
+                    <th className={classes.th}>Title</th>
+                    <th className={classes.th}>Default</th>
+                    <th className={classes.th}>Template</th>
+                    <th className={classes.th}>Variable</th>
+                    <th className={classes.th}>Description</th>
+                    <th className={classes.th}>Extra</th>
                 </tr>
             </thead>
             <tbody>

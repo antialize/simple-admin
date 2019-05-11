@@ -144,7 +144,7 @@ sys.stdout.flush()
         for (const {host, content} of await Promise.all(promises)) {
             if (!content) throw new Error("Failed to run on host " + host);
             let objs = objects.get(host);
-            if(!objs || objs.length != content.length)
+            if(!objs || objs.length != content.length) 
                 throw new Error("Not all files there");
             let modified = new Map<string, Obj>();;
             for (let i=0; i < objs.length; ++i) {

@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as Mousetrap from 'mousetrap';
 import 'mousetrap-global-bind';
+import getOrInsert from '../../shared/getOrInsert';
 
 class Portal {
     handlers: Map<string, Map<number, (e:KeyboardEvent) => boolean|void>> = new Map;
@@ -10,25 +11,27 @@ class Portal {
     constructor(public hotkeys: {[action:string]: string | string[]}) {}
 
     addHandler(action:string, cb: (e:KeyboardEvent) => boolean|void): number {
-        if (!this.handlers.has(action)) this.handlers.set(action, new Map);
         const id = this.idc++;
-        this.handlers.get(action).set(id, cb);
+        getOrInsert(this.handlers, action, ()=>new Map()).set(id, cb);
         this.idToAction.set(id, action);
         return id;
     }
 
     removeHandler(id: number) {
         const action = this.idToAction.get(id);
+        if (action === undefined) return;
         this.idToAction.delete(id);
-        this.handlers.get(action).delete(id);
+        const handler = this.handlers.get(action);
+        if (handler !== undefined) handler.delete(id);
     }
 
     bind() {
         const inner = (action: string, s: string) => {
             if (!s) return;
             let cb = (e:KeyboardEvent) => {
-                if (!this.handlers.has(action)) return;
-                for (const [_, cb] of this.handlers.get(action)) {
+                const handler = this.handlers.get(action);
+                if (handler === undefined) return;
+                for (const [_, cb] of handler) {
                     if (cb(e) === false) {
                         e.returnValue = false;
                         e.stopImmediatePropagation();
@@ -72,11 +75,11 @@ class Portal {
         }
     }
 };
-const PortalContext = React.createContext(null as Portal);
+const PortalContext = React.createContext(null as any as Portal);
 
 
 export class HotKeyListener extends React.Component<{children: React.ReactNode, handlers: {[action:string]: (e:KeyboardEvent) => void}},{}> {
-    old: {[action:string]: (e:KeyboardEvent) => void} = null;
+    old: {[action:string]: (e:KeyboardEvent) => void} | null = null;
     bindings: number[] = [];
 
     componentWillUnmount() {
@@ -98,13 +101,13 @@ export class HotKeyListener extends React.Component<{children: React.ReactNode, 
 }
 HotKeyListener.contextType = PortalContext;
 
-let currentPortal: Portal;
+let currentPortal: Portal | null = null;
 
 type HotKeyPortalProps = {children?: React.ReactNode, hotkeys: {[action:string]: string | string[]}};
 
 export class HotKeyPortal extends React.Component<HotKeyPortalProps, {}> {
-    portal: Portal; 
-    parent: Portal;
+    portal: Portal;
+    parent: Portal | null = null;
 
     constructor(props:HotKeyPortalProps) {
         super(props);

@@ -73,7 +73,7 @@ export async function get(host:number, name:string, level:number, index:number, 
 
     const values = row && row.values;
     const res: StatBucket = {
-        id: values?row.id: null,
+        id: values?row.id: null, 
         host, name, level, index, dirty:false,
         values: values || new Buffer(4*1024), ttl:max_ttl};
     cache.set(k, res);
@@ -131,7 +131,7 @@ export async function register(host:number, name:string, time:number, interval:n
 
 export async function subscribe(client: WebClient, sub: ISubscribeStatValues | null) {
     if (sub == null) {
-        const vs = clientSubscriptions.get(client);
+        /*const vs = clientSubscriptions.get(client);
         if (vs) {
             vs.forEach( (ss, t) => {
                 for (const s of ss) {
@@ -143,7 +143,7 @@ export async function subscribe(client: WebClient, sub: ISubscribeStatValues | n
                 }
             });
         }
-        clientSubscriptions.delete(client);
+        clientSubscriptions.delete(client);*/
     } else {
         let vs = clientSubscriptions.get(client);
         if (vs) {

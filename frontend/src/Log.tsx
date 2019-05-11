@@ -3,6 +3,7 @@ import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { ActionTarget } from "./ActionTargets";
 import {IAction, ACTION, IStartLog, IEndLog} from '../../shared/actions';
+import nullCheck from "../../shared/nullCheck"
 
 interface Props {
     type: 'dmesg' | 'file' | 'journal';
@@ -17,7 +18,7 @@ interface Props {
  * new lines are simply added to the end of an ul.
  */
 class Log extends React.Component<Props, {}> implements ActionTarget {
-    ul: HTMLUListElement;
+    ul: HTMLUListElement | null = null;
     static nextId = 0;
     id: number;
 
@@ -29,7 +30,8 @@ class Log extends React.Component<Props, {}> implements ActionTarget {
     handle(action:IAction) {
         if (action.type != ACTION.AddLogLines) return false;
         if (action.id != this.id) return false;
-
+        if (!this.ul) return false;
+        
         const bottom = this.ul.scrollTop == this.ul.scrollHeight;
         this.ul.offsetTop
         for (const line of action.lines) {
@@ -51,7 +53,7 @@ class Log extends React.Component<Props, {}> implements ActionTarget {
             id: this.id
         };
         state.sendMessage(msg);
-        state.actionTargets.add(ACTION.AddLogLines, this);
+        nullCheck(state.actionTargets).add(ACTION.AddLogLines, this);
     }
 
     componentWillUnmount() {
@@ -61,7 +63,7 @@ class Log extends React.Component<Props, {}> implements ActionTarget {
             host: this.props.host
         }
         state.sendMessage(msg);
-        state.actionTargets.remove(ACTION.AddLogLines, this);
+        nullCheck(state.actionTargets).remove(ACTION.AddLogLines, this);
     }
 
     render() {

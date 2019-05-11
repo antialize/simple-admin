@@ -11,6 +11,7 @@ import classNames from 'classnames';
 import { Theme, StyleRules, createStyles, StyledComponentProps, withStyles } from "@material-ui/core/styles";
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 import { emphasize } from '@material-ui/core/styles/colorManipulator';
+import nullCheck from '../../shared/nullCheck';
 
 function NoOptionsMessage(props:any) {
     return (
@@ -172,7 +173,7 @@ interface IProps {
     value: Item | Item[];
     create?: boolean;
     fullWidth?: boolean;
-    onChange?: (value: Item | Item[]) => void;
+    onChange?: (value: Item | Item[] | null) => void;
 }
 
 function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps) {
@@ -180,7 +181,7 @@ function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps)
         input: (base:any) => {
             return ({
                 ...base,
-                color: props.theme.palette.text.primary,
+                color: nullCheck(props.theme).palette.text.primary,
                 '& input': {
                     font: 'inherit',
                 },
@@ -206,8 +207,7 @@ function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps)
             isClearable={false}
             value={props.value}
             onChange={(v) => {
-                console.log("On change", v);
-                props.onChange(v)
+                props.onChange && props.onChange(v)
             }} />;
 
     return <RSelect
@@ -227,8 +227,7 @@ function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps)
         isClearable={false}
         value={props.value}
         onChange={(v) => {
-            console.log("On change", v);
-            props.onChange(v)
+            props.onChange && props.onChange(v)
         }}
     />;
 }

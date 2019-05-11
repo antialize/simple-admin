@@ -3,6 +3,7 @@ import { IObject2, PAGE_TYPE } from "../../shared/state";
 import { IType, TypePropType } from "../../shared/type";
 import { observable, action } from "mobx";
 import { state } from "./state";
+import nullCheck from "../../shared/nullCheck";
 
 class ObjectState {
     @observable
@@ -36,9 +37,9 @@ class ObjectState {
     }
     @action.bound
     deploy(cancel: boolean, redeploy: boolean) {
-        state.page.set({ type: PAGE_TYPE.Deployment });
+        nullCheck(state.page).set({ type: PAGE_TYPE.Deployment });
         if (cancel)
-            state.deployment.cancel();
+            nullCheck(state.deployment).cancel();
         const a: IDeployObject = {
             type: ACTION.DeployObject,
             id: this.id,
@@ -56,6 +57,8 @@ class ObjectState {
     }
     @action.bound
     fillDefaults(type: IType) {
+        if (!this.current) return;
+
         let content = this.current.content;
         if (type.hasVariables && !('variables' in content))
             content['variables'] = [];
@@ -95,7 +98,7 @@ class ObjectState {
     }
     @action.bound
     loadCurrent() {
-        const cp = state.page.current;
+        const cp = nullCheck(state.page).current;
         if (cp.type != PAGE_TYPE.Object)
             return;
         if (this.loadStatus == "loading")

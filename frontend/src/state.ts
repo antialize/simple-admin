@@ -3,7 +3,7 @@ import LoginState from "./LoginState";
 import ObjectState from "./ObjectState";
 import PageState from "./PageState";
 import StatusState from "./StatusState";
-import { IAction, IMessage, DockerImageTag }  from "../../shared/actions";
+import { IAction, IMessage }  from "../../shared/actions";
 import { IObject2, IObjectDigest } from "../../shared/state";
 import { IType } from "../../shared/type";
 import { observable, computed } from "mobx";
@@ -21,30 +21,30 @@ class State {
     @observable
     loaded: boolean = false;
 
-    login: LoginState;
-    deployment: DeploymentState;
-    page: PageState;
+    login: LoginState | null = null;
+    deployment: DeploymentState | null = null;
+    page: PageState | null = null;
 
     @observable
-    authUser: string = null;
+    authUser: string | null = null;
     @observable
     authOtp: boolean = false
     @observable
-    authMessage: string = null;
+    authMessage: string | null = null;
 
     @observable
-    types: Map<number, IObject2<IType>>;
+    types: Map<number, IObject2<IType>> = new Map;
 
     @observable
-    objectDigests: Map<number, Map<number, IObjectDigest>>;
+    objectDigests: Map<number, Map<number, IObjectDigest>> = new Map;
 
-    actionTargets: ActionTargets;
-
-    @observable
-    objectListFilter: Map<number, string>;
+    actionTargets: ActionTargets | null = null;
 
     @observable
-    messages: Map<number, IMessage>;
+    objectListFilter: Map<number, string> = new Map;
+
+    @observable
+    messages: Map<number, IMessage> = new Map;
 
     @computed
     get activeMessages() {
@@ -56,33 +56,38 @@ class State {
     }
 
     @observable
-    messageExpanded: Map<number, boolean>;
+    messageExpanded: Map<number, boolean> = new Map;
 
     @observable
-    messageGroupExpanded: Map<number, boolean>;
+    messageGroupExpanded: Map<number, boolean> = new Map;
 
     @observable
-    serviceListFilter: Map<number, string>;
+    serviceListFilter: Map<number, string> = new Map;
 
     @observable
-    serviceLogVisibility: Map<number, Map<string, boolean>>;
+    serviceLogVisibility: Map<number, Map<string, boolean>> = new Map;
 
     @observable
-    objects: Map<number, ObjectState>;
+    objects: Map<number, ObjectState> = new Map;
 
     @observable
-    status: Map<Number, StatusState>;
+    status: Map<Number, StatusState> = new Map;
 
     @observable.shallow
-    dockerImages: DockerImagesState;
+    dockerImages: DockerImagesState | null = null;
 
     @observable.shallow
-    dockerContainers: DockerContainersState;
+    dockerContainers: DockerContainersState | null = null;
 
     @observable.shallow
-    modifiedFiles: ModifiedFilesState;
+    modifiedFiles: ModifiedFilesState | null = null;
 
-    sendMessage: (act:IAction)=>void = null;
+    doSendMessage: null | ((act:IAction)=>void)  = null;
+
+    sendMessage(act:IAction) {
+        if (this.doSendMessage === null) throw Error("doSentMessage not set");
+        this.doSendMessage(act);
+    }
 };
 
 export let state = new State();

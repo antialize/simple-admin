@@ -10,13 +10,18 @@ import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { hostId } from '../../shared/type';
 import { observer } from "mobx-react";
-
+import Error from "./Error";
 const StatusesCard = observer(function StatusesCard({id}: {id:number}) {
-    let hosts = state.objectDigests.get(hostId);
-    let name = hosts && hosts.has(id) && hosts.get(id).name;
-    let up = state.status.has(id) && state.status.get(id).up;
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>;
 
-    let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id:id, version: null };
+    let hosts = state.objectDigests.get(hostId);
+    const host = hosts && hosts.get(id);
+    let name = host && host.name;
+    const status = state.status.get(id);
+    let up = status && status.up;
+
+    let a: State.IPage = { type: State.PAGE_TYPE.Object, objectType: hostId, id:id};
     let elm;
     if (up)
         elm = <Status id={id} />;
@@ -28,7 +33,7 @@ const StatusesCard = observer(function StatusesCard({id}: {id:number}) {
             <CardHeader title={name} />
             <CardContent>{elm}</CardContent>
             <CardActions>
-                <Button onClick={(e) => state.page.onClick(e, a)} href={state.page.link(a)}>Details</Button>
+                <Button onClick={(e) => page.onClick(e, a)} href={page.link(a)}>Details</Button>
             </CardActions>
         </Card>);
 });

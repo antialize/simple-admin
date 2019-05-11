@@ -19,8 +19,9 @@ const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}
 
     const id = ids[0];
     const message = state.messages.get(id);
+    if (!message) return null;
     const hosts = state.objectDigests.get(hostId);
-    const host = hosts && hosts.get(message.host);
+    const host = message.host && hosts && hosts.get(message.host);
     const hostname = (host && host.name) || "";
     const expanded = state.messageGroupExpanded.get(id) || false;
 
@@ -46,7 +47,7 @@ const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}
             rows.push(<Message key={id} inGroup={true} id={id}/>);
         }
     }
-    return rows as any;
+    return <>rows</>;
 });
 
 export default MessageGroup;

@@ -2,6 +2,7 @@ import { IObject2 } from "../../shared/state";
 import { IType, hostId, typeId } from "../../shared/type";
 import { computed } from "mobx";
 import { state } from "./state";
+import nullCheck from '../../shared/nullCheck';
 
 class DerivedState {
     @computed
@@ -13,7 +14,7 @@ class DerivedState {
         for (const [key, type] of state.types) {
             if (type.content.kind == "trigger")
                 continue;
-            ans.push({ id: type.id, name: type.content.plural });
+            ans.push({ id: type.id, name: nullCheck(type.content.plural) });
         }
         ans.sort((l, r) => {
             if (l.id == hostId)

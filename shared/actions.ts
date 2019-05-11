@@ -185,7 +185,7 @@ export interface IHostDown {
 
 export interface IDeployObject {
     type: ACTION.DeployObject;
-    id: number;
+    id: number | null;
     redeploy: boolean;
 }
 
@@ -251,7 +251,7 @@ export interface IAlert {
     
 export interface IRequestAuthStatus {
     type: ACTION.RequestAuthStatus;
-    session: string;
+    session?: string;
 }
 
 export interface IAuthStatus {
@@ -303,7 +303,7 @@ export interface ISubscribeStatValues {
     type: ACTION.SubscribeStatValues;
     target: number;
     host: number;
-    values: string[];
+    values: string[] | null;
 };
 
 export interface IStatValueChanges {
@@ -499,7 +499,7 @@ export interface IModifiedFilesResolve {
     type: ACTION.ModifiedFilesResolve;
     id: number;
     action: "redeploy" | "updateCurrent";
-    newCurrent: string;
+    newCurrent: string | null;
 }
 
 export type IAction =

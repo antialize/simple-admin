@@ -251,7 +251,7 @@ class Docker {
                 res.status(404).end();
                 return;
             }
-
+           
             await this.handleUpload(req, u, true);
 
             log('info', "Docker put blob", un);
@@ -366,7 +366,7 @@ class Docker {
                 res.status(404).end();
                 return;
             }
-
+           
             await this.handleUpload(req, u, false);
             res.setHeader("Location", req.url);
             res.setHeader("Range", "0-" + u.count.value);
@@ -621,7 +621,7 @@ finally:
                       
                     await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
-
+                    
                     const ddi = this.delayedDeploymentInformations.get(id);
                     if (ddi)
                         ddi.timeout = setTimeout(

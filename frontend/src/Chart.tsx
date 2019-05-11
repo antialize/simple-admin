@@ -5,6 +5,7 @@ import { IStatBucket, ACTION, IRequestStatBucket, ISubscribeStatValues, IStatVal
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 import { observer } from "mobx-react";
 import { withTheme } from "@material-ui/core/styles";
+import nullCheck from '../../shared/nullCheck';
 
 const charts: {[key:number]: ChartImpl} = {};
 const epoc = 1514764800;
@@ -22,16 +23,16 @@ const preScale = 2;
 class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
     static cntr = 0;
     target: number;
-    canvas: HTMLCanvasElement;
+    canvas: HTMLCanvasElement | null = null;
     zoom: number;
     host: number;
-    delayedRender : number;
+    delayedRender : number | null = null;
     values: string[] = ["common.cpu", "common.count", "common.diskread", "common.diskwrite", "common.netread", "common.netwrite" ];
     endTime: number;
     buckets: {[name:string]: {[level:number]: {[index:number]: number[]|null}}} = {};
-    snapInterval: number = null;
-    leftSpace: number = null;
-    rightSpace: number = null;
+    snapInterval: number | null = null;
+    leftSpace: number | null = null;
+    rightSpace: number | null = null;
 
     constructor(props: Props & ThemedComponentProps) {
         super(props);
@@ -58,6 +59,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
     }
 
     requestData() {
+        if (!this.canvas) return;
         const startTime = this.endTime - this.canvas.clientWidth * preScale * Math.pow(2, 20-this.zoom);
 
         let start = ((startTime - epoc)/ 5) >> 10;
@@ -122,12 +124,14 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         if (this.delayedRender) window.clearTimeout(this.delayedRender);
         this.delayedRender = null;
         if (!this.canvas) return;
+        const theme = this.props.theme;
+        if (!theme) return;
         const w = this.canvas.clientWidth;;
         const h = this.canvas.clientHeight;
         this.canvas.setAttribute("width", ""+w);
         this.canvas.setAttribute("height", ""+h);
         const ctx = this.canvas.getContext('2d');
-
+        if (!ctx) return;
         ctx.clearRect(0, 0, w, h);
        
         const scale = Math.pow(2, 20-this.zoom) / preScale;
@@ -173,8 +177,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
             let timeHeight = 28;
             let tpp = 100 * (this.endTime - startTime) / contentWidth;
             ctx.save();
-            ctx.strokeStyle = this.props.theme.palette.text.primary;
-            ctx.fillStyle =  this.props.theme.palette.text.primary;
+            ctx.strokeStyle = theme.palette.text.primary;
+            ctx.fillStyle = theme.palette.text.primary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(leftSpace-2, h - bottomSpace);
@@ -267,7 +271,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
 
     
 
-        const renderPoints = (points: {time:number, value:number}[], maxValue:number,  color:string) => {
+        const renderPoints = (points: {time:number|null, value:number|null}[], maxValue:number,  color:string) => {
             ctx.save();
             ctx.beginPath();
             ctx.rect(leftSpace,0,w-rightSpace-leftSpace,h);
@@ -281,16 +285,16 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
 
             points.push({time:null, value:null});
 
-            let x1:number = null;
-            let x2:number = null;
-            let y1:number = null;
-            let y1d:number = null;
-            let y2:number = null;
+            let x1:number | null = null;
+            let x2:number | null = null;
+            let y1:number | null = null;
+            let y1d:number | null = null;
+            let y2:number | null = null;
 
             for (let {time, value} of points) {
                 let x3 = null;
                 let y3 = null;
-                if (value != null) {
+                if (value != null && time != null) {
                     x3 = leftSpace + (time - startTime)* contentWidth / (this.endTime - startTime);
                     y3 = h - bottomSpace - (value / maxValue)*contentHeight;
                 }
@@ -298,6 +302,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                 if (y2 == null) {
 
                 } else if (y1 == null) {
+                    if (x2 === null) throw new Error("logic error");
                     if (y3 != null) {
                         ctx.moveTo(x2, y2);
                         y1d = y2 * 0.666 + y3 *0.333;
@@ -305,9 +310,12 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                         //Perhaps we should draw a point
                     }
                 } else if (y3 == null) {
+                    if (x1 === null || x2 == null || y1d == null) throw new Error("logic error");
                     ctx.bezierCurveTo(x1*0.666 + x2*0.333, y1d, x1*0.333 + x2*0.666, y1*0.333 + y2*0.666, x2, y2);
                     y1d = null;
                 } else {
+                    if (x1 === null || x2 == null || y1d == null || x3 == null) throw new Error("logic error");
+
                     let slope = 0;
                     if ((y1 < y2) != (y2 < y3)) {
                         //We are not at a top or a bottom
@@ -328,8 +336,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         const renderAxisY = (maxValue: number, unit: "%" | "" | "bs", right: boolean = false) => {
             ctx.save();
             ctx.font = '14px serif';
-            ctx.fillStyle = this.props.theme.palette.text.primary;
-            ctx.strokeStyle = this.props.theme.palette.text.primary;
+            ctx.fillStyle = theme.palette.text.primary;
+            ctx.strokeStyle = theme.palette.text.primary;
 
             const labels: {text:string, value:number}[] = [];
             let time = "";
@@ -464,7 +472,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
             el = el.offsetParent as HTMLElement;
         }
 
-        const dist = left + this.canvas.clientWidth - this.rightSpace - e.pageX;
+        const dist = left + nullCheck(this.canvas).clientWidth - nullCheck(this.rightSpace) - e.pageX;
         const zoomTime = this.endTime - dist*scale;
         this.zoom *= Math.pow(2, -e.deltaY/1500);
         const scale2 = Math.pow(2, 20-this.zoom) / preScale;
@@ -526,11 +534,12 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
             if (!(l in this.buckets[a.name])) this.buckets[a.name][l] = {};
             const ia = i >> 10;
             const ib = i & 1023;
-            if (!this.buckets[a.name][l][ia]) {
-                this.buckets[a.name][l][ia] = [];
-                for (let j=0; j < 1024; ++j) this.buckets[a.name][l][ia].push(0);
+            let b = this.buckets[a.name][l][ia];
+            if (!b) {
+                b = this.buckets[a.name][l][ia] = [];
+                for (let j=0; j < 1024; ++j) b.push(0);
             }
-            this.buckets[a.name][l][ia][ib] += a.value;
+            b[ib] += a.value;
             l -= 1;
             i = i >> 1;
         }

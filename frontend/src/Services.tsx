@@ -8,6 +8,7 @@ import { IService } from '../../shared/status';
 import { StyleRules, StyledComponentProps } from "@material-ui/core/styles/withStyles";
 import { observer } from "mobx-react";
 import { withStyles, Theme, createStyles } from "@material-ui/core";
+import nullCheck from '../../shared/nullCheck';
 
 const styles = (theme:Theme) : StyleRules => {
     return createStyles({
@@ -77,7 +78,7 @@ function ServiceImpl({ service, poke, logVisible, setLogVisibility, classes }: {
     else
         actions.push(<Button variant="contained" color="primary"  key="log" onClick={() => setLogVisibility(true)} style={{ marginRight: "5px" }}>Show log</Button>);
     return (
-        <tr key={service.name} className={classes.tr}>
+        <tr key={service.name} className={nullCheck(classes).tr}>
             <td>{service.name}</td>
             <td>{service.activeState}</td>
             <td>{service.StatusText}</td>
@@ -107,7 +108,10 @@ const ServicesImpl = observer(function Services({id, classes}: {id:number} & Sty
         state.serviceLogVisibility.set(id, lvs);
     }
     
-    const services = state.status.get(id).services;
+    const status = state.status.get(id);
+    if (!status) return null;
+
+    const services = status.services;
     const serviceNames = [];
     for (let [key, _] of services) {
         if (filter == "" 
@@ -129,21 +133,22 @@ const ServicesImpl = observer(function Services({id, classes}: {id:number} & Sty
     };
 
     let rows: JSX.Element[] = [];
-    console.log(classes);
     for (const key of serviceNames) {
         const service = services.get(key);
-        const lv = lvs.get(service.name)
-        rows.push(<Service key={"service_" + service.name} service={service} poke={pokeService} logVisible={lv} setLogVisibility={(b:boolean)=>lvs.set(service.name, b)} />);
+        if (!service) continue;
+        const lv = lvs.get(service.name) || false;
+        rows.push(<Service key={"service_" + service.name} service={service} poke={pokeService} logVisible={lv} setLogVisibility={(b:boolean)=>lvs && lvs.set(service.name, b)} />);
         if (lv)
             rows.push(<ServiceLog key={"log_" + service.name} host={id} service={service.name} />);
     }
+    const cls = nullCheck(classes);
     return (
         <div>
             <TextField placeholder="Filter" onChange={(e) => state.serviceListFilter.set(id, e.target.value)} value={filter} />
             <table>
                 <thead>
-                    <tr className={classes.tr}>
-                        <th className={classes.th}>Name</th><th className={classes.th}>Status</th><th className={classes.th}>Message</th><th className={classes.th}>Action</th>
+                    <tr className={cls.tr}>
+                        <th className={cls.th}>Name</th><th className={cls.th}>Status</th><th className={cls.th}>Message</th><th className={cls.th}>Action</th>
                     </tr>
                 </thead>
                 <tbody>

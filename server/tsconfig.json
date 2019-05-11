@@ -6,6 +6,15 @@
         "sourceMap": false,
         "downlevelIteration": true,
         "experimentalDecorators": true,
-         "lib": ["es6"]
-    }
+        "strict": true,
+        "lib": ["es6"]
+    },
+    "filesGlob": [
+        "src/crypt3.d.ts",
+        "src/**/*.ts",
+        "!./node_modules/**/*.ts"
+    ],
+    "files": [
+        ".d.ts"
+    ]
 }
