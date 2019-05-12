@@ -7,7 +7,7 @@ import {ACTION, IAddLogLines} from '../../../shared/actions'
 // Type only imports
 import {HostClient} from '../hostclient'
 import {WebClient} from '../webclient'
-import nullCheck from '../nullCheck';
+import nullCheck from '../../../shared/nullCheck';
 
 export class LogJob extends Job {  
     part: string = "";

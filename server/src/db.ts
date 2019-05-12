@@ -7,7 +7,7 @@ import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
 import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
 import { log } from 'winston';
-import nullCheck from './nullCheck';
+import nullCheck from '../../shared/nullCheck';
 
 export class DB {
     db: sqlite.Database | null = null;

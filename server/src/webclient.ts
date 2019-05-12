@@ -117,7 +117,7 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.RequestAuthStatus:
                 log('info', "AuthStatus", this.host, this.session, this.user);
-                this.sendAuthStatus(act.session);
+                this.sendAuthStatus(act.session || null);
                 break;
             case ACTION.Login:
                 let otp = false;
@@ -312,7 +312,7 @@ export class WebClient extends JobOwner {
                 }
                 break;
             case ACTION.DeployObject:
-                deployment.deployObject(act.id, act.redeploy).catch(errorHandler("Deployment::deployObject", this));
+                deployment.deployObject(nullCheck(act.id), act.redeploy).catch(errorHandler("Deployment::deployObject", this));
                 break;
             case ACTION.CancelDeployment:
                 deployment.cancel();
@@ -429,7 +429,6 @@ export class WebClients {
     webclients = new Set<WebClient>();
     httpServer: http.Server;
     wss: WebSocket.Server;
-    interval: NodeJS.Timer;
 
     broadcast(act: IAction) {
         this.webclients.forEach(client => {
@@ -451,6 +450,10 @@ export class WebClients {
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
             const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address);
+            if (!request.url) {
+                ws.close();
+                return;
+            }
             const u = url.parse(request.url, true);
             if (u.pathname == '/sysadmin') {
                 const wc = new WebClient(ws,  address);

@@ -14,8 +14,8 @@ import { HostClient } from './hostclient';
 import * as message from './messages';
 import * as shellQuote from 'shell-quote';
 import { config } from './config';
-import nullCheck from './nullCheck';
-import getOrInsert from './getOrInsert';
+import nullCheck from '../../shared/nullCheck';
+import getOrInsert from '../../shared/getOrInsert';
 
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";

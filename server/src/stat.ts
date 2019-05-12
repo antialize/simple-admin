@@ -2,8 +2,8 @@ import {db, webClients} from './instances'
 import { log } from 'winston';
 import { WebClient } from './webclient';
 import { ACTION, ISubscribeStatValues, IStatValueChanges} from '../../shared/actions';
-import nullCheck from './nullCheck';
-import getOrInsert from './getOrInsert';
+import nullCheck from '../../shared/nullCheck';
+import getOrInsert from '../../shared/getOrInsert';
 
 const epoc = 1514764800
 

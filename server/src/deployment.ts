@@ -12,7 +12,7 @@ import { errorHandler, descript } from './error'
 //Type only import
 import { HostClient } from './hostclient'
 import { IMonitor, IMonitorProp } from '../../shared/monitor';
-import nullCheck from './nullCheck';
+import nullCheck from '../../shared/nullCheck';
 
 interface IDeployContent {
     script: string;

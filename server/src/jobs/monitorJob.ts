@@ -4,7 +4,7 @@ import * as message from '../messages'
 import * as fs from 'fs';
 import {IStatusUpdate} from '../../../shared/status'
 import { docker } from '../docker';
-import nullCheck from '../nullCheck';
+import nullCheck from '../../../shared/nullCheck';
 
 export class MonitorJob extends Job {
     constructor(client: HostClient, script: string|null) {

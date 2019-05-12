@@ -14,7 +14,7 @@ import { log } from 'winston';
 import { Job } from './job';
 import { IMonitor, IMonitorProp, MonitorPropType, MonitorUnit } from '../../shared/monitor'
 import * as stat from './stat';
-import nullCheck from './nullCheck';
+import nullCheck from '../../shared/nullCheck';
 
 enum Interval {
     instante = 0,

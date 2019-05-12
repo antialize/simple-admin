@@ -4,8 +4,8 @@ import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, Modified
 import { WebClient } from "./webclient";
 import { Job } from "./job";
 import * as message from './messages';
-import getOrInsert from "./getOrInsert";
-import nullCheck from "./nullCheck";
+import getOrInsert from "../../shared/getOrInsert";
+import nullCheck from "../../shared/nullCheck";
 
 const cronId = 10240;
 const systemdServiceId = 10206;
