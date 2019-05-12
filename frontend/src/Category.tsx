@@ -17,8 +17,9 @@ const Category = observer(function Category({category, type, setCategory}:{categ
         placeholder="Category"
         create
         options={cat2}
+        type='single'
         value={{value:category, label:category}}
-        onChange={(value)=>setCategory((value as any).value)}
+        onChange={(value)=>value && setCategory(value.value)}
         />;
 });
 

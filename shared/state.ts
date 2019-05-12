@@ -104,7 +104,7 @@ export interface IObject2<T> {
     name: string;
     category: string;
     content: T;
-    version: number;
+    version: number | null;
     comment: string;
 }
 

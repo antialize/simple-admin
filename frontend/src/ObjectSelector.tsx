@@ -1,5 +1,5 @@
 import * as React from "react";
-import Select from "./Select";
+import {NumberSelect} from "./Select";
 import state from "./state";
 import { observer } from "mobx-react";
 import { rootId } from "../../shared/type";
@@ -28,8 +28,8 @@ const ObjectSelector = observer(function ObjectSelector(p:IProps) {
     }
 
     return (
-        <Select
-            isMulti
+        <NumberSelect
+            type='multi'
             fullWidth
             options={all}
             value={selected}

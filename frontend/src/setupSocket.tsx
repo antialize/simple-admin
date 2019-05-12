@@ -144,7 +144,7 @@ export const setupSocket = () => {
                             state.types.set(last.id, last);
                         const o = getOrInsert(state.objects, d.id, ()=>new ObjectState(d.id));
                         for (const obj of d.object)
-                            o.versions.set(obj.version, obj);
+                            o.versions.set(nullCheck(obj.version), obj);
                         o.loadStatus = "loaded";
                         o.loadCurrent();
                     }

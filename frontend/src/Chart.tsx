@@ -144,12 +144,14 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         let leftSpace = 0;
         let rightSpace = 0;
         let topSpace = 0;
+        type nn = number|null;
         
-        const getPoints = (names:string[], func: (...values:number[])=>number) => {
-            let points: {time:number, value:number}[] = [];
+        const getPoints = (names:string[], func: (...values:nn[])=>nn) => {
+            let points: {time:number, value:nn}[] = [];
             let maxValue = 0;
             for (const name of names) {
-                if (!(name in this.buckets) || !(level in this.buckets[name])) return;
+                if (!(name in this.buckets) || !(level in this.buckets[name])) 
+                    return {maxValue, points};
             }
 
             for (let index = start; index <= end; ++index) {
@@ -162,8 +164,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
     
                 for (let i=0; i < 1024; ++i) {
                     let time = ((index << 10) + i) * (5 << (20-level)) + epoc;
-                    let vs = [];
-                    for (const v of values) vs.push(v[i]);
+                    let vs: nn[] = [];
+                    for (const v of values) vs.push(v?v[i]:null);
                     let value = func(...vs);
                     if (time >= startTime && time <= this.endTime && value && value > maxValue) maxValue = value;
                     points.push({time, value});
@@ -425,9 +427,12 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
             ctx.restore();
         }
 
-        const cpu = getPoints(["common.cpu", "common.count"], (a, b) => {return b == 0?null: a/b});
-        const disk = getPoints(["common.diskread", "common.diskwrite", "common.count"], (a, b, c) => {return c == 0?null: (a+b)/c/5});
-        const net = getPoints(["common.netread", "common.netwrite", "common.count"], (a, b, c) => {return c == 0?null: (a+b)/c/5});
+        const cpu = getPoints(["common.cpu", "common.count"],
+            (a, b) => {return (a === null || !b)?null: a/b});
+        const disk = getPoints(["common.diskread", "common.diskwrite", "common.count"],
+            (a, b, c) => {return (a === null || b === null || !c)?null: (a+b)/c/5});
+        const net = getPoints(["common.netread", "common.netwrite", "common.count"],
+            (a, b, c) => {return (a === null || b === null || !c)?null: (a+b)/c/5});
         cpu.maxValue = Math.max(cpu.maxValue, 1.0)*1.05;
         const iomax = Math.max(disk.maxValue, net.maxValue)*1.05;
         renderAxisY(cpu.maxValue, "%", false);
@@ -466,10 +471,10 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         const scale = Math.pow(2, 20-this.zoom) / preScale;
 
         let left = 0;
-        let el:HTMLElement = this.canvas;
+        let el:HTMLElement | null = this.canvas;
         while (el) {
             left += el.offsetLeft;
-            el = el.offsetParent as HTMLElement;
+            el = el.offsetParent as HTMLElement | null;
         }
 
         const dist = left + nullCheck(this.canvas).clientWidth - nullCheck(this.rightSpace) - e.pageX;

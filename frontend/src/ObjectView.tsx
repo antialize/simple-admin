@@ -25,7 +25,8 @@ const ObjectView = observer(function ObjectView ({type, id, version}:{type:numbe
     let extra = null;
     let versions = 1;
     for (let [k,v] of o.versions)
-        versions = Math.max(versions, v.version+1);
+        if (v.version)
+            versions = Math.max(versions, v.version+1);
 
     const canDeploy = deployment.status == DEPLOYMENT_STATUS.Done || deployment.status == DEPLOYMENT_STATUS.InvilidTree || deployment.status == DEPLOYMENT_STATUS.BuildingTree || deployment.status == DEPLOYMENT_STATUS.ComputingChanges || deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
     const canCancel = deployment.status == DEPLOYMENT_STATUS.BuildingTree || deployment.status == DEPLOYMENT_STATUS.ComputingChanges || deployment.status == DEPLOYMENT_STATUS.ReviewChanges;

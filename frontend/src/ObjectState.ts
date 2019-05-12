@@ -21,6 +21,8 @@ class ObjectState {
     }
     @action.bound
     save() {
+        if (!this.current) return;
+
         const a: ISaveObject = {
             type: ACTION.SaveObject,
             id: this.id,
@@ -128,7 +130,7 @@ class ObjectState {
                 return; //We are allready modifying the right object
             this.current = { id: this.id, type: cp.objectType, name: "", version: null, category: "", content: {}, comment: "" };
         }
-        this.fillDefaults(state.types.get(cp.objectType).content);
+        this.fillDefaults(nullCheck(state.types.get(cp.objectType)).content);
     }
 }
 

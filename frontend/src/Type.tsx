@@ -17,6 +17,7 @@ import { InformationList, InformationListRow } from './InformationList';
 import { observer } from "mobx-react";
 import {TypePropType, hostId, rootId, typeId} from '../../shared/type';
 import Error from './Error';
+import nullCheck from '../../shared/nullCheck';
 
 const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:number}) {
     const obj = state.objects.get(id);
@@ -86,7 +87,7 @@ const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:numb
 
     return (
         <div>
-            <InformationList key={id + current.version}>
+            <InformationList key={id + nullCheck(current.version)}>
                 <InformationListRow name="Name"><TextField key="name" value={current.name} onChange={(e) => {current.name = e.target.value; obj.touched = true;}} /></InformationListRow>
                 <InformationListRow name="Comment"><TextField key="comment" fullWidth multiline value={current.comment} onChange={(e) => {current.comment = e.target.value; obj.touched = true;}}/></InformationListRow>
                 {type.hasCategory?<InformationListRow name="Category"><Category type={myType} category={current.category} setCategory={(cat:string) => {current.category = cat; obj.touched=true}} /></InformationListRow>:null}

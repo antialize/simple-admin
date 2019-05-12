@@ -47,7 +47,7 @@ const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}
             rows.push(<Message key={id} inGroup={true} id={id}/>);
         }
     }
-    return <>rows</>;
+    return <>{rows}</>;
 });
 
 export default MessageGroup;
