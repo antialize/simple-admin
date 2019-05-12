@@ -4,12 +4,14 @@ import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, Modified
 import { WebClient } from "./webclient";
 import { Job } from "./job";
 import * as message from './messages';
+import getOrInsert from "./getOrInsert";
+import nullCheck from "./nullCheck";
 
 const cronId = 10240;
 const systemdServiceId = 10206;
 
 export class ModifiedFiles {
-    lastScan: number = null;
+    lastScan: number | null = null;
     scanning: boolean = false;
     idc: number = 0;
     props = new Map<number, {dead: boolean, updated: boolean}>();
@@ -20,7 +22,7 @@ export class ModifiedFiles {
         const removed = [];
         for (const f of this.modifiedFiles) {
             const p = this.props.get(f.id);
-            if (!p.updated) continue;
+            if (!p || !p.updated) continue;
             if (p.dead)
                 removed.push(f.id);
             else
@@ -36,7 +38,8 @@ export class ModifiedFiles {
             removed
         })
         this.modifiedFiles = this.modifiedFiles.filter((f) => {
-            return !this.props.get(f.id).dead;
+            const x = this.props.get(f.id);
+            return x && !x.dead;
         })
     }
 
@@ -51,8 +54,8 @@ export class ModifiedFiles {
         for (const row of await db.all("SELECT `name`, `content`, `type`, `title`, `host` FROM `deployments` WHERE `type` in (?, ?, ?)", fileId, cronId, systemdServiceId)) {
             const content = JSON.parse(row.content);
             if (!content.content) continue;
-            let data: string = null;
-            let path: string = null;
+            let data: string | null = null;
+            let path: string | null = null;
             switch (+row.type) {
             case fileId: 
                 data = content.content.data; 
@@ -69,8 +72,7 @@ export class ModifiedFiles {
             }
            
             if (!data || !path) continue;
-            if (!objects.has(row.host)) objects.set(row.host, []);
-            objects.get(row.host).push({path, type: +row.type, host: row.host, data, object: content.object});
+            getOrInsert(objects, row.host, ()=>[]).push({path, type: +row.type, host: row.host, data, object: content.object});
         }
 
         let promises: Promise<{host: number; content: {path:string, data:string}[]}>[] = [];
@@ -114,7 +116,7 @@ sys.stdout.flush()
                             'stdout_type': 'text',
                             'stderr_type': 'none'
                         };
-                        this.client.sendMessage(msg);
+                        host.sendMessage(msg);
                         this.running = true;
                     }
     
@@ -142,7 +144,7 @@ sys.stdout.flush()
         for (const {host, content} of await Promise.all(promises)) {
             if (!content) throw new Error("Failed to run on host " + host);
             let objs = objects.get(host);
-            if(objs.length != content.length) 
+            if(!objs || objs.length != content.length) 
                 throw new Error("Not all files there");
             let modified = new Map<string, Obj>();;
             for (let i=0; i < objs.length; ++i) {
@@ -156,19 +158,19 @@ sys.stdout.flush()
             }
             for (let m of this.modifiedFiles) {
                 if (m.host != host) continue;
-                const p = this.props.get(m.id);
+                const p = nullCheck(this.props.get(m.id));
                 let alter = <A>(o: A, n: A) : A => {
                     if (o != n) p.updated =true;
                     return n;
                 }
-                if (!modified.has(m.path)) {
+                const o = modified.get(m.path);
+                if (o === undefined) {
                     p.dead = alter(p.dead, true);
                     continue;
                 }
-                const o = modified.get(m.path);
                 modified.delete(m.path);
                 p.dead = alter(p.dead, false);
-                m.actual = alter(m.actual, o.actual);
+                m.actual = alter(m.actual, nullCheck(o.actual));
                 m.deployed = alter(m.deployed, o.data);
                 m.object = alter(m.object, o.object);
                 m.path = alter(m.path, o.path);
@@ -180,7 +182,7 @@ sys.stdout.flush()
                     {
                         id,
                         type: o.type,
-                        actual: o.actual,
+                        actual: nullCheck(o.actual),
                         deployed: o.data,
                         host: o.host,
                         path: o.path,
@@ -203,8 +205,9 @@ sys.stdout.flush()
                 m.set(row.id, row.content);
             
             for (const f of this.modifiedFiles) {
-                if (!m.has(f.object)) continue;
-                const content = JSON.parse(m.get(f.object));
+                const c = m.get(f.object);
+                if (c === undefined) continue;
+                const content = JSON.parse(c);
                 switch (f.type) {
                 case fileId:
                     f.current = content.data;
@@ -224,7 +227,7 @@ sys.stdout.flush()
     }
 
     async resolve(client: WebClient, act:IModifiedFilesResolve) {
-        let f: ModifiedFile = null;
+        let f: ModifiedFile | null = null;
         for (const o of this.modifiedFiles)
             if (o.id == act.id)
                 f = o;
@@ -232,10 +235,11 @@ sys.stdout.flush()
         if (act.action == 'redeploy') {
             const host = hostClients.hostClients[f.host];
             if (!host) throw new Error("Host is not up");
+            const f2 = f;
             await new Promise((accept, reject) => {
                 let script = `
 import sys
-o = ${JSON.stringify({'path': f.path, 'content': f.deployed})}
+o = ${JSON.stringify({'path': f2.path, 'content': f2.deployed})}
 with open(o['path'], 'w', encoding='utf-8') as f:
     f.write(o['content'])
 `;
@@ -253,7 +257,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                             'stdout_type': 'none',
                             'stderr_type': 'text'
                         };
-                        this.client.sendMessage(msg1);
+                        host.sendMessage(msg1);
                         this.running = true;
                     }
     
@@ -272,7 +276,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                 };
                 new RevertJob();
             });
-            const pp = this.props.get(act.id);
+            const pp = nullCheck(this.props.get(act.id));
             pp.dead = true;
             pp.updated = true;
             await this.broadcast_changes();
@@ -314,7 +318,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
             full: true,
             scanning: this.scanning,
             lastScanTime: this.lastScan,
-            changed: this.modifiedFiles.filter((f)=>!this.props.get(f.id).dead),
+            changed: this.modifiedFiles.filter((f)=>{const p = this.props.get(f.id); return p && !p.dead}),
             removed: [],
         })
     }

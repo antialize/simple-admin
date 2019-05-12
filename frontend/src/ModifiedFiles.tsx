@@ -13,22 +13,23 @@ import * as Diff from 'diff';
 import Editor from './Editor';
 import Switch from '@material-ui/core/Switch';
 import Typography from '@material-ui/core/Typography';
-import { number } from 'prop-types';
 import Remote from './Remote';
 import extractRemote from './extractRemote';
+import Error from "./Error";
+import nullCheck from "../../shared/nullCheck";
 
 export class ModifiedFilesState {
     @observable
     modifiedFiles: Remote< Map<number, ModifiedFile> > = {state: 'initial'};
 
     @observable
-    scanning: boolean;
+    scanning: boolean = false;
 
     @observable
-    lastScanTime: number;
+    lastScanTime: number | null = null;
 
     @observable
-    saveTime: number = null;
+    saveTime: number | null = null;
 
 
     private saveInterval: any = null;
@@ -69,12 +70,14 @@ export class ModifiedFilesState {
             action: "redeploy",
             newCurrent: null
         });
-        state.page.set({type: PAGE_TYPE.ModifiedFiles});
+        nullCheck(state.page).set({type: PAGE_TYPE.ModifiedFiles});
     }
 
     save(id:number, newCurrent:string) {
         if (!newCurrent) return;
         if (this.modifiedFiles.state != 'data') return;
+        const f = this.modifiedFiles.data.get(id);
+        if (!f) return;
         if (!confirm("Are you sure you want save the current object?")) return;
         state.sendMessage({
             type: ACTION.ModifiedFilesResolve,
@@ -82,14 +85,15 @@ export class ModifiedFilesState {
             action: "updateCurrent",
             newCurrent
         });
-        const f = this.modifiedFiles.data.get(id);
+
         this.saveTime = 10;
 
         this.saveInterval = setInterval(()=>{
+            if (this.saveTime === null) return;
             --this.saveTime;
             if (this.saveTime > 0) return;
             clearInterval(this.saveInterval);
-            state.page.set({type: PAGE_TYPE.Object, objectType: f.type, id: f.object, version: null});
+            nullCheck(state.page).set({type: PAGE_TYPE.Object, objectType: f.type, id: f.object});
             this.saveTime = null;
             this.saveInterval = null;
         }, 500);
@@ -136,7 +140,7 @@ const styles = (theme:Theme) : StyleRules => {
 };
 
 @observer
-export class ModifiedFileRevolver extends React.Component<{id:number}, {content:string, patch:boolean, lang: string}> {
+export class ModifiedFileRevolver extends React.Component<{id:number}, {content:string | null, patch:boolean, lang: string}> {
     constructor(props: {id:number}) {
         super(props);
         this.state = {content: null, patch:true, lang: ""}
@@ -144,10 +148,11 @@ export class ModifiedFileRevolver extends React.Component<{id:number}, {content:
 
     render() {
         const s = state.modifiedFiles;
+        if (s === null) return <Error>Missing state.modifiedFiles</Error>;
         const r = extractRemote(s.modifiedFiles);
         if (r.state != 'good') return r.error;
         const o = r.data.get(this.props.id);
-        if (!o) return <span>Not found</span>;
+        if (!o) return <Error>Not found</Error>;
         const current = o.current || "";
         const content = this.state.content === null?current:this.state.content;
         const patch = Diff.createPatch(o.path, o.deployed, o.actual || "", "","");
@@ -181,27 +186,36 @@ export class ModifiedFileRevolver extends React.Component<{id:number}, {content:
 };
 
 export const ModifiedFiles = withStyles(styles)(observer(function ModifiedFiles(p: StyledComponentProps) {
+    const classes = p.classes;
+    if (!classes) return <Error>Missing p.classes</Error>;
     const s = state.modifiedFiles;
+    if (!s) return <Error>Missing state.modifiedFiles</Error>;
     const r = extractRemote(s.modifiedFiles);
     if (r.state != 'good') return r.error;
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>;
     let rows = [];
     for (const [id, f] of r.data) {
-        const oo = state.objectDigests.get(f.type);
+        const digests = state.objectDigests.get(f.type);
         const a : IModifiedFilePage = {type: PAGE_TYPE.ModifiedFile, id: id};
+        const hosts = state.objectDigests.get(hostId);
+        const host = hosts && hosts.get(f.host);
+        const type = state.types.get(f.type);
+        const digest = digests && digests.get(f.object);
         rows.push(<tr key={id}>
-            <td>{state.objectDigests.get(hostId).get(f.host).name}</td>
-            <td>{state.types.has(f.type) ? state.types.get(f.type).name : f.type}</td>
+            <td>{host && host.name}</td>
+            <td>{type ? type.name : f.type}</td>
             <td>{f.path}</td>
-            <td>{oo && oo.has(f.object)?oo.get(f.object).name:f.object}</td>
-            <td><Button onClick={(e) => state.page.onClick(e, a)} href={state.page.link(a)}>Details</Button></td>
+            <td>{digest ? digest.name : f.object}</td>
+            <td><Button onClick={(e) => page.onClick(e, a)} href={page.link(a)}>Details</Button></td>
             </tr>);
     }
     return <Box title="Modified Files" expanded={true} collapsable={false}>
             {s.scanning
-                ?<div><CircularProgress /><span className={p.classes.scan}>Scanning</span></div>
-                :<div><Button variant="contained" onClick={()=>s.scan()}>scan</Button><span className={p.classes.scan}>Last scan: {new Date(s.lastScanTime*1000).toISOString()}</span></div>
+                ?<div><CircularProgress /><span className={classes.scan}>Scanning</span></div>
+                :<div><Button variant="contained" onClick={()=>s.scan()}>scan</Button><span className={classes.scan}>Last scan: {s.lastScanTime ? new Date(s.lastScanTime*1000).toISOString() : "Never"}</span></div>
             }
-            <table className={p.classes.table}>
+            <table className={classes.table}>
                 <thead>
                     <tr>
                         <th>Host</th>

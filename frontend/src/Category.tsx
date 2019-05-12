@@ -5,8 +5,9 @@ import { observer } from "mobx-react";
 
 const Category = observer(function Category({category, type, setCategory}:{category:string, type:number, setCategory: (category:string) => void}) {
     let catagories = new Set();
-    if (state.objectDigests.has(type))
-        for (const [key, val] of state.objectDigests.get(type))
+    const digests = state.objectDigests.get(type);
+    if (digests)
+        for (const [key, val] of digests)
             catagories.add(val.category)
     let cat2 = [];
     for (const cat of catagories) {
@@ -16,8 +17,9 @@ const Category = observer(function Category({category, type, setCategory}:{categ
         placeholder="Category"
         create
         options={cat2}
+        type='single'
         value={{value:category, label:category}}
-        onChange={(value)=>setCategory((value as any).value)}
+        onChange={(value)=>value && setCategory(value.value)}
         />;
 });
 

@@ -6,32 +6,40 @@ import state from "../state";
 import { IType, TypePropType } from '../../../shared/type';
 import { InformationList, InformationListRow } from '../InformationList';
 import { observer } from "mobx-react";
+import nullCheck from '../../../shared/nullCheck';
+import Error from '../Error';
 
-function CententInfo(p: {c:{[key:string]:any}, t: State.IObject2<IType>}) {
-    if (!p.c) return <span>None</span>;
+function CententInfo(p: {c:{[key:string]:any} | null, t: State.IObject2<IType>}) {
+    if (!p.c) return <Error>Missing p.c</Error>;
+    const i = p.c[p.t.name];
+    if (!i) return <Error>missing i</Error>;
 
     return (
         <InformationList>
             <InformationListRow name="Name"><Typography>{p.c.name}</Typography></InformationListRow>
-            {p.t.content.content.map(v => {
+            {nullCheck(p.t.content.content).map(v => {
                 switch (v.type) {
                 case TypePropType.bool:
-                    return <InformationListRow name={v.title}><Typography>{p.c[v.name]?"true":false}</Typography></InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{i?"true":false}</Typography></InformationListRow>;
                 case TypePropType.text:
                 case TypePropType.choice:
-                    return <InformationListRow name={v.title}><Typography>{p.c[v.name] || ""}</Typography></InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{i || ""}</Typography></InformationListRow>;
                 case TypePropType.number:
-                    return <InformationListRow name={v.title}><Typography>{""+(p.c[v.name] || "")}</Typography></InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{""+(i || "")}</Typography></InformationListRow>;
                 case TypePropType.document:
-                    return <InformationListRow name={v.title}><Typography>{p.c[v.name] || ""}</Typography></InformationListRow>;
+                    return <InformationListRow name={v.title}><Typography>{i || ""}</Typography></InformationListRow>;
                 }
             })}
         </InformationList>);
 }
 
 const Details = observer(function Details({index}:{index:number}) {
-    const o = state.deployment.objects[index];
+    const p = state.deployment;
+    if (p === null) return <Error>Missing state.deployment</Error>;
+    const o = p.objects[index];
     const t = o && o.typeId !== null && state.types.get(o.typeId);
+    if (!t) return <Error>Missing type</Error>;
+
     return <div>
             <Typography variant="h4">Information</Typography>
             <InformationList>

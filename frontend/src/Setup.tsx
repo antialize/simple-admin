@@ -4,7 +4,8 @@ import { Typography } from "@material-ui/core";
 import { observer } from "mobx-react";
 
 const Setup = observer(function Setup({hostid}:{hostid:number}) {
-    let c = state.objects.get(hostid).current;
+    let h = state.objects.get(hostid)
+    const c = h && h.current;
     if (!c || !c.content) return <div>No content</div>;
     let host = window.location.hostname;
     let name = encodeURIComponent(c.name);

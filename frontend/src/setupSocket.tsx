@@ -9,8 +9,10 @@ import { add, clear } from './deployment/Log';
 import { remoteHost } from './config';
 import { runInAction } from "mobx";
 import { typeId } from "../../shared/type";
+import nullCheck from "../../shared/nullCheck";
+import getOrInsert from "../../shared/getOrInsert";
 
-export let socket: WebSocket;
+export let socket: WebSocket | null = null;
 let reconnectTime = 1;
 
 export const setupSocket = () => {
@@ -21,10 +23,12 @@ export const setupSocket = () => {
     socket.onmessage = data => {
         const loaded = state.loaded;
         const d = JSON.parse(data.data) as IAction;
-        if (d.type in state.actionTargets) {
-            for (const t of state.actionTargets.targets.get(d.type))
-                if (t.handle(d))
-                    return;
+        if (d.type in nullCheck(state.actionTargets)) {
+            const tt = nullCheck(state.actionTargets).targets.get(d.type);
+            if (tt)
+                for (const t of tt)
+                    if (t.handle(d))
+                        return;
         }
         if (d.type == ACTION.ClearDeploymentLog) {
             clear();
@@ -36,7 +40,7 @@ export const setupSocket = () => {
         }
         switch (d.type) {
             case ACTION.SetPage:
-                state.page.set(d.page);
+                nullCheck(state.page).set(d.page);
                 break;
             case ACTION.Alert:
                 alert(d.message);
@@ -47,15 +51,13 @@ export const setupSocket = () => {
                 break;
             case ACTION.UpdateStatus:
                 runInAction(() => {
-                    if (!state.status.has(d.host))
-                        state.status.set(d.host, new StatusState());
-                    state.status.get(d.host).applyStatusUpdate(d.update);
+                    getOrInsert(state.status, d.host, ()=>new StatusState()).applyStatusUpdate(d.update);
                 });
                 break;
             case ACTION.HostDown:
                 runInAction(() => {
-                    if (state.status.has(d.id))
-                        state.status.get(d.id).up = false;
+                    const h = state.status.get(d.id);
+                    if (h) h.up = false;
                 });
                 break;
                 ;
@@ -66,7 +68,7 @@ export const setupSocket = () => {
                     else
                         state.connectionStatus = CONNECTION_STATUS.LOGIN;
                     if (d.user)
-                        state.login.user = d.user;
+                        nullCheck(state.login).user = d.user;
                     state.authMessage = d.message;
                     state.authOtp = d.otp;
                     state.authUser = d.user;
@@ -80,14 +82,14 @@ export const setupSocket = () => {
                 break;
             case ACTION.SetInitialState:
                 runInAction(() => {
-                    state.modifiedFiles.modifiedFiles = {state: 'initial'};
-                    state.dockerImages.imageHistory.clear();
-                    state.dockerImages.projects = {state: 'initial'};
-                    state.dockerContainers.containerHistory.clear();
-                    state.dockerContainers.hosts = {state: 'initial'};
-                    state.deployment.objects = d.deploymentObjects;
-                    state.deployment.message = d.deploymentMessage;
-                    state.deployment.status = d.deploymentStatus;
+                    nullCheck(state.modifiedFiles).modifiedFiles = {state: 'initial'};
+                    nullCheck(state.dockerImages).imageHistory.clear();
+                    nullCheck(state.dockerImages).projects = {state: 'initial'};
+                    nullCheck(state.dockerContainers).containerHistory.clear();
+                    nullCheck(state.dockerContainers).hosts = {state: 'initial'};
+                    nullCheck(state.deployment).objects = d.deploymentObjects;
+                    nullCheck(state.deployment).message = d.deploymentMessage;
+                    nullCheck(state.deployment).status = d.deploymentStatus;
                     reconnectTime = 1;
                     for (const b of (d.deploymentLog || []))
                         add(b);
@@ -109,13 +111,15 @@ export const setupSocket = () => {
                         state.status.set(+status, s);
                     }
                     if (!loaded)
-                        state.page.setFromUrl();
+                        nullCheck(state.page).setFromUrl();
                 });
                 break;
             case ACTION.SetMessagesDismissed:
                 runInAction(() => {
-                    for (let id of d.ids)
-                        state.messages.get(id).dismissed = d.dismissed;
+                    for (let id of d.ids) {
+                        const msg = state.messages.get(id);
+                        if (msg) msg.dismissed = d.dismissed;
+                    }
                 });
                 break;
             case ACTION.AddMessage:
@@ -134,62 +138,59 @@ export const setupSocket = () => {
                     }
                     else {
                         const last = d.object[d.object.length - 1];
-                        if (!state.objectDigests.has(last.type))
-                            state.objectDigests.set(last.type, new Map());
-                        state.objectDigests.get(last.type).set(d.id, { id: d.id, name: last.name, type: last.type, category: last.category });
+                        getOrInsert(state.objectDigests, last.type, ()=>new Map())
+                            .set(d.id, { id: d.id, name: last.name, type: last.type, category: last.category });
                         if (last.type == typeId)
                             state.types.set(last.id, last);
-                        if (!state.objects.has(d.id))
-                            state.objects.set(d.id, new ObjectState(d.id));
-                        const o = state.objects.get(d.id);
+                        const o = getOrInsert(state.objects, d.id, ()=>new ObjectState(d.id));
                         for (const obj of d.object)
-                            o.versions.set(obj.version, obj);
+                            o.versions.set(nullCheck(obj.version), obj);
                         o.loadStatus = "loaded";
                         o.loadCurrent();
                     }
                 });
                 break;
             case ACTION.SetDeploymentStatus:
-                state.deployment.status = d.status;
+                nullCheck(state.deployment).status = d.status;
                 break;
             case ACTION.SetDeploymentMessage:
-                state.deployment.message = d.message;
+                nullCheck(state.deployment).message = d.message;
                 break;
             case ACTION.SetDeploymentObjects:
-                state.deployment.objects = d.objects;
+                nullCheck(state.deployment).objects = d.objects;
                 break;
             case ACTION.SetDeploymentObjectStatus:
-                state.deployment.objects[d.index].status = d.status;
+                nullCheck(state.deployment).objects[d.index].status = d.status;
                 break;
             case ACTION.ToggleDeploymentObject:
                 runInAction(() => {
                     if (d.index === null)
-                        for (let o of state.deployment.objects)
+                        for (let o of nullCheck(state.deployment).objects)
                             o.enabled = d.enabled;
                     else
-                        state.deployment.objects[d.index].enabled = d.enabled;
+                        nullCheck(state.deployment).objects[d.index].enabled = d.enabled;
                 });
                 break;
             case ACTION.DockerListImageTagsRes:
-                state.dockerImages.handleLoad(d);
+                nullCheck(state.dockerImages).handleLoad(d);
                 break;
             case ACTION.DockerListImageTagsChanged:
-                state.dockerImages.handleChange(d);
+                nullCheck(state.dockerImages).handleChange(d);
                 break;
             case ACTION.DockerListImageTagHistoryRes:
-                state.dockerImages.handleLoadHistory(d);
+                nullCheck(state.dockerImages).handleLoadHistory(d);
                 break;
             case ACTION.DockerListDeploymentsRes:
-                state.dockerContainers.handleLoad(d);
+                nullCheck(state.dockerContainers).handleLoad(d);
                 break;
             case ACTION.DockerListDeploymentHistoryRes:
-                state.dockerContainers.handleLoadHistory(d);
+                nullCheck(state.dockerContainers).handleLoadHistory(d);
                 break;
             case ACTION.DockerDeploymentsChanged:
-                state.dockerContainers.handleChange(d);
+                nullCheck(state.dockerContainers).handleChange(d);
                 break;
             case ACTION.ModifiedFilesChanged:
-                state.modifiedFiles.handleChange(d);
+                nullCheck(state.modifiedFiles).handleChange(d);
                 break;
         }
     };

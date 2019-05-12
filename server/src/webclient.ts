@@ -24,12 +24,14 @@ import { config } from './config'
 import * as speakeasy from 'speakeasy';
 import * as stat from './stat';
 import {docker} from './docker';
+import nullCheck from '../../shared/nullCheck';
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
 }
 
-async function getAuth(host: string, sid: string) {
+async function getAuth(host: string, sid: string | null) {
+    if (sid === null) return { auth: false, pwd: false, otp: false, sid: null, user: null };
     try {
         let row = await db.get("SELECT `pwd`, `otp`, `user`, `host` FROM `sessions` WHERE `sid`=?", sid);
         if (row['host'] != host || row['user'] === "docker_client") {
@@ -73,7 +75,7 @@ export class WebClient extends JobOwner {
         stat.subscribe(this, null);
     }
 
-    async sendAuthStatus(sid: string) {
+    async sendAuthStatus(sid: string | null) {
         this.session = null;
         this.auth = false;
         this.user = null;
@@ -131,14 +133,16 @@ export class WebClient extends JobOwner {
                 }
 
                 let found = false;
-                for (const u of config.users) {
-                    if (u.name == act.user) {
-                        found = true;
-                        if (u.password == act.pwd) {
-                            otp = true;
-                            pwd = true;
-                            newOtp = true;
-                            break;
+                if (config.users) {
+                    for (const u of config.users) {
+                        if (u.name == act.user) {
+                            found = true;
+                            if (u.password == act.pwd) {
+                                otp = true;
+                                pwd = true;
+                                newOtp = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -242,7 +246,7 @@ export class WebClient extends JobOwner {
                     this.logJobs[act.id].kill();
                 break;
             case ACTION.SetMessagesDismissed:
-                msg.setDismissed(act.ids, act.dismissed);
+                await msg.setDismissed(act.ids, act.dismissed);
                 break;
             case ACTION.MessageTextReq:
                 {
@@ -253,6 +257,7 @@ export class WebClient extends JobOwner {
             case ACTION.SaveObject:
                 {
                     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
+                    if (!act.obj) throw Error("Missing object in action");
                     let c = act.obj.content;
                     const typeRow = await db.getNewestObjectByID(act.obj.type);
                     let type = JSON.parse(typeRow.content) as IType;
@@ -363,7 +368,7 @@ export class WebClient extends JobOwner {
     }
 
     sendMessage(obj: IAction) {
-        this.connection.send(JSON.stringify(obj), (err: Error) => {
+        this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
                 log("warning", "Web client error sending message", { err });
                 this.connection.terminate();
@@ -383,7 +388,7 @@ async function sendInitialState(c: WebClient) {
         messages: await msgs,
         deploymentObjects: deployment.getView(),
         deploymentStatus: deployment.status,
-        deploymentMessage: deployment.message,
+        deploymentMessage: deployment.message || "",
         deploymentLog: deployment.log,
         types: {},
     };
@@ -405,7 +410,7 @@ async function sendInitialState(c: WebClient) {
 
     for (const id in hostClients.hostClients) {
         const c = hostClients.hostClients[id];
-        action.statuses[c.id] = c.status;
+        action.statuses[nullCheck(c.id)] = nullCheck(c.status);
     }
 
     const m: { [key: string]: number } = {};

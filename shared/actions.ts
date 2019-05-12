@@ -98,7 +98,7 @@ export interface IMessage {
     message: string;
     fullMessage: boolean;
     time: number;
-    url: string;
+    url: string | null;
     dismissed: boolean;
 }
 
@@ -185,7 +185,7 @@ export interface IHostDown {
 
 export interface IDeployObject {
     type: ACTION.DeployObject;
-    id: number;
+    id: number | null;
     redeploy: boolean;
 }
 
@@ -226,7 +226,7 @@ export interface ISetDeploymentObjectStatus {
 
 export interface IToggleDeploymentObject {
     type: ACTION.ToggleDeploymentObject;
-    index: number;
+    index: number | null;
     enabled: boolean;
     source: "server" | "webclient";
 }
@@ -251,7 +251,7 @@ export interface IAlert {
     
 export interface IRequestAuthStatus {
     type: ACTION.RequestAuthStatus;
-    session: string;
+    session?: string;
 }
 
 export interface IAuthStatus {
@@ -260,7 +260,7 @@ export interface IAuthStatus {
     user: string;
     pwd: boolean;
     otp: boolean;
-    message: string;
+    message: string | null;
 };
 
 export interface ILogin {
@@ -296,14 +296,14 @@ export interface IStatBucket {
     name: string;
     index: number;
     level: number;
-    values: number[];
+    values: number[] | null;
 }
 
 export interface ISubscribeStatValues {
     type: ACTION.SubscribeStatValues;
     target: number;
     host: number;
-    values: string[];
+    values: string[] | null;
 };
 
 export interface IStatValueChanges {
@@ -395,7 +395,7 @@ export interface DockerDeployment {
     name: string;
     user: string;
     start: number;
-    end: number;
+    end: number | null
     host: number;
     state?: string;
     config: string;
@@ -474,7 +474,7 @@ export interface ModifiedFile {
     object: number;
     deployed: string;
     actual: string;
-    current: string;
+    current: string | null;
     path: string;
 }
 
@@ -488,7 +488,7 @@ export interface IModifiedFilesList {
 
 export interface IModifiedFilesChanged {
     type: ACTION.ModifiedFilesChanged;
-    lastScanTime: number;
+    lastScanTime: number | null;
     scanning: boolean;
     full: boolean;
     changed: ModifiedFile[];
@@ -499,7 +499,7 @@ export interface IModifiedFilesResolve {
     type: ACTION.ModifiedFilesResolve;
     id: number;
     action: "redeploy" | "updateCurrent";
-    newCurrent: string;
+    newCurrent: string | null;
 }
 
 export type IAction =

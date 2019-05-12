@@ -12,44 +12,50 @@ import * as State from '../../shared/state';
 import { DockerImages, DockerImageHistory } from './DockerImages';
 import { DockerContainers, DockerContainerDetails, DockerContainerHistory } from './DockerContainers';
 import { ModifiedFiles, ModifiedFileRevolver } from './ModifiedFiles';
+import Error from './Error';
 
 function never(n: never, message: string) {
     console.error(message);
 }
 export const MainPage = observer(function MainPage() {
-    const p = state.page.current;
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>;
+
+    const p = page.current;
     switch (p.type) {
-        case State.PAGE_TYPE.Dashbord:
-            return <>
-                <Typography variant="h4" component="h3">
-                    Dashbord
-                </Typography>
-                <Messages />
-                <Statuses />
-            </>;
-        case State.PAGE_TYPE.ObjectList:
-            return <ObjectList type={p.objectType} />;
-        case State.PAGE_TYPE.Object:
-            return <div><ObjectView type={p.objectType} id={p.id} version={p.version} /> </div>;
-        case State.PAGE_TYPE.Deployment:
-            return <Deployment />;
-        case State.PAGE_TYPE.DeploymentDetails:
-            return <div><DeploymentDetails index={p.index} /></div>;
-        case State.PAGE_TYPE.DockerImages:
-            return <DockerImages/>;
-        case State.PAGE_TYPE.DockerContainers:
-            return <DockerContainers />;
-        case State.PAGE_TYPE.ModifiedFiles:
-            return <ModifiedFiles />;
-        case State.PAGE_TYPE.ModifiedFile:
-            return <ModifiedFileRevolver id={p.id} />;
-        case State.PAGE_TYPE.DockerContainerDetails:
-            return <DockerContainerDetails />;
-        case State.PAGE_TYPE.DockerContainerHistory:
-            return <DockerContainerHistory />;
-        case State.PAGE_TYPE.DockerImageHistory:
-            return <DockerImageHistory />;
-        default:
-            never(p, "Unhandled page type");
+    case State.PAGE_TYPE.Dashbord:
+        return <>
+            <Typography variant="h4" component="h3">
+                Dashbord
+            </Typography>
+            <Messages />
+            <Statuses />
+        </>;
+    case State.PAGE_TYPE.ObjectList:
+        return <ObjectList type={p.objectType} />;
+    case State.PAGE_TYPE.Object:
+        if (!p.id) return <Error>Missing id</Error>;
+        return <div><ObjectView type={p.objectType} id={p.id} version={p.version} /> </div>;
+    case State.PAGE_TYPE.Deployment:
+        return <Deployment />;
+    case State.PAGE_TYPE.DeploymentDetails:
+        return <div><DeploymentDetails index={p.index} /></div>;
+    case State.PAGE_TYPE.DockerImages:
+        return <DockerImages/>;
+    case State.PAGE_TYPE.DockerContainers:
+        return <DockerContainers />;
+    case State.PAGE_TYPE.ModifiedFiles:
+        return <ModifiedFiles />;
+    case State.PAGE_TYPE.ModifiedFile:
+        return <ModifiedFileRevolver id={p.id} />;
+    case State.PAGE_TYPE.DockerContainerDetails:
+        return <DockerContainerDetails />;
+    case State.PAGE_TYPE.DockerContainerHistory:
+        return <DockerContainerHistory />;
+    case State.PAGE_TYPE.DockerImageHistory:
+        return <DockerImageHistory />;
+    default:
+        never(p, "Unhandled page type");
     }
+    return <Error>I should not get here</Error>;
 });

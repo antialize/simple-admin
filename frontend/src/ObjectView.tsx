@@ -11,19 +11,25 @@ import state from './state';
 import { DEPLOYMENT_STATUS } from '../../shared/state'
 import { hostId, userId} from '../../shared/type'
 import { observer } from 'mobx-react';
+import Error from "./Error";
 
 const ObjectView = observer(function ObjectView ({type, id, version}:{type:number, id:number, version?:number}) {
-    if (!state.objects.has(id) || !state.objects.get(id).current)
+    const deployment = state.deployment;
+    if (!deployment) return <Error>Missing state.deployment</Error>;
+    const o = state.objects.get(id);
+    if (!o || !o.current)
         return <CircularProgress />;
-    let o = state.objects.get(id);
-    let typeName = state.types.get(type).name;
+    const stype = state.types.get(type);
+    if (!stype) return <Error>Missing type></Error>;
+    let typeName = stype.name;
     let extra = null;
     let versions = 1;
     for (let [k,v] of o.versions)
-        versions = Math.max(versions, v.version+1);
+        if (v.version)
+            versions = Math.max(versions, v.version+1);
 
-    const canDeploy = state.deployment.status == DEPLOYMENT_STATUS.Done || state.deployment.status == DEPLOYMENT_STATUS.InvilidTree || state.deployment.status == DEPLOYMENT_STATUS.BuildingTree || state.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || state.deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
-    const canCancel =  state.deployment.status == DEPLOYMENT_STATUS.BuildingTree || state.deployment.status == DEPLOYMENT_STATUS.ComputingChanges || state.deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
+    const canDeploy = deployment.status == DEPLOYMENT_STATUS.Done || deployment.status == DEPLOYMENT_STATUS.InvilidTree || deployment.status == DEPLOYMENT_STATUS.BuildingTree || deployment.status == DEPLOYMENT_STATUS.ComputingChanges || deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
+    const canCancel = deployment.status == DEPLOYMENT_STATUS.BuildingTree || deployment.status == DEPLOYMENT_STATUS.ComputingChanges || deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
     const touched = o.touched;
 
 

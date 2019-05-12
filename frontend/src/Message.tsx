@@ -4,10 +4,11 @@ import state from "./state";
 import { ISetMessagesDismissed, ACTION, IMessageTextReqAction } from '../../shared/actions';
 import { hostId} from '../../shared/type';
 import { observer } from "mobx-react";
+import nullCheck from '../../shared/nullCheck';
 
 const Message = observer(function Message({id, inGroup}: {id:number, inGroup:boolean}) {
-    const message = state.messages.get(id);
-    const hostObject = state.objectDigests.get(hostId).get(message.host);
+    const message = nullCheck(state.messages.get(id));
+    const hostObject = nullCheck(state.objectDigests.get(hostId)).get(nullCheck(message.host));
     const hostname = hostObject?hostObject.name:"";
     const newDate = new Date(message.time * 1000);
 

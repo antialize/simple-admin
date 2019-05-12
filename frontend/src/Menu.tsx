@@ -25,7 +25,7 @@ import derivedState from './derivedState';
 import {HotKeyListener, HotKeyPortal} from "./HotKey";
 import ClickAwayListener from "@material-ui/core/ClickAwayListener";
 import Badge from '@material-ui/core/Badge';
-import MailIcon from '@material-ui/icons/Mail';
+import Error from "./Error";
 
 function matchText(text:string, key:string) {
     if (!key || key.length == 0) return false;
@@ -65,21 +65,25 @@ function MatchedText({search, text}:{search:string, text:string}) {
 
 const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{search: string, type:number, clearSearch: ()=>void}) {
     let ans = [];
-    for (let [id, p] of state.objectDigests.get(type)) {
+    const digests = state.objectDigests.get(type);
+    if (!digests) return <Error>Missing digests</Error>;
+    const page = state.page;
+    if (page === null) return <Error>Missing state.page</Error>;
+    for (let [id, p] of digests) {
         if (!matchText(p.name, search)) continue;
         ans.push(
             <ListItem>
                 <Link color={"textPrimary" as any} 
-                    href={state.page.link({type: State.PAGE_TYPE.Object, objectType: type, id, version:null})}
-                    onClick={(e:any)=>{clearSearch(); return state.page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type, id, version:null});}}>
+                    href={page.link({type: State.PAGE_TYPE.Object, objectType: type, id})}
+                    onClick={(e:any)=>{clearSearch(); return page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type, id});}}>
                     <MatchedText search={search} text={p.name} />
                 </Link>
             </ListItem>);
     }
     if (!ans.length) return <> </>;
-
+    const t = state.types.get(type);
     return <>
-        <Typography variant="h4">Type {state.types.has(type)?state.types.get(type).name:"??"}</Typography>
+        <Typography variant="h4">Type {t?t.name:"??"}</Typography>
         <List>
             {ans}
         </List>
@@ -87,17 +91,21 @@ const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{s
 });
 
 
-let searchInput: HTMLInputElement = null;
+let searchInput: HTMLInputElement | null = null;
 function SearchImpl(props:ThemedComponentProps) {
     const [key, setKey] = useState("");
-    const [anchor, setAnchor] = useState(null);
+    const [anchor, setAnchor] = useState<HTMLElement | null >(null);
+    const theme = props.theme;
+    if (!theme) return <Error>Missing theme</Error>;
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>
 
     const typeFind = [];
-    let first: [number, number] = null;
+    let first: [number, number] | null = null;
     if (key != "") {
         for (let [type, members] of state.objectDigests) {
             if (!first) {
-                for (let [id, p] of state.objectDigests.get(type)) {
+                for (let [id, p] of members) {
                     if (!matchText(p.name, key)) continue;
                     first = [type, id];
                     break;
@@ -107,19 +115,23 @@ function SearchImpl(props:ThemedComponentProps) {
         }
     }
     return <HotKeyListener handlers={{
-            'search': (e)=>{searchInput.focus(); setKey(""); return false;}
+            'search': (e)=>{searchInput && searchInput.focus(); setKey(""); return false;}
         }}>
-            <div ref={e=>setAnchor(e)} style={{backgroundColor: props.theme.palette.primary.light, borderRadius: props.theme.shape.borderRadius, paddingLeft: 10}}>
+            <div ref={e=>setAnchor(e)} style={{backgroundColor: theme.palette.primary.light, borderRadius: theme.shape.borderRadius, paddingLeft: 10}}>
                 <InputBase inputRef={(e)=>searchInput=e} placeholder="Search" value={key} onChange={e=>setKey(e.target.value)}  />
-                <IconButton  aria-label="Search" onClick={()=>{searchInput.focus(); searchInput.select();}}>
+                <IconButton  aria-label="Search" onClick={()=>{searchInput && searchInput.focus(); searchInput && searchInput.select();}}>
                     <SearchIcon />
                 </IconButton>
                 <Popper open={key != ""} anchorEl={anchor} placement="bottom-end" style={{zIndex: 99999}}>
                     <HotKeyPortal hotkeys={{close: '!esc', first: '!return'}} >
                         <HotKeyListener
                             handlers={{
-                                close: ()=> {setKey(""); searchInput.blur(); },
-                                first: ()=> {state.page.set({type: State.PAGE_TYPE.Object, objectType: first[0], id: first[1], version:null}); setKey(""); searchInput.blur();}}} >
+                                close: ()=> {setKey(""); searchInput && searchInput.blur(); },
+                                first: ()=> {if (first && searchInput) {
+                                    page.set({type: State.PAGE_TYPE.Object, objectType: first[0], id: first[1]});
+                                    setKey(""); 
+                                    searchInput.blur();}
+                                }}} >
                             <ClickAwayListener onClickAway={()=>setKey("")}>
                                 <Paper style={{padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto"}}>
                                     <Typography variant="h5" style={{marginBottom: 10}}>Search results</Typography>
@@ -137,41 +149,45 @@ function SearchImpl(props:ThemedComponentProps) {
 const Search = withTheme()(SearchImpl);
 
 const Menu = observer(function Menu() {
+    const page = state.page;
+    if (!page) return <Error>Missing state.page</Error>;
+    const login = state.login;
+    if (!login) return <Error>Missing state.login</Error>;
     const types = derivedState.menuTypes;
     return (
         <AppBar position="static">
             <Toolbar>
                 <HotKeyListener
                     handlers={{
-                        dashbord: (e)=>state.page.set({type:State.PAGE_TYPE.Dashbord}),
-                        images: (e)=>state.page.set({type:State.PAGE_TYPE.DockerImages}),
-                        containers: (e)=>state.page.set({type:State.PAGE_TYPE.DockerContainers}),
+                        dashbord: (e)=>page.set({type:State.PAGE_TYPE.Dashbord}),
+                        images: (e)=>page.set({type:State.PAGE_TYPE.DockerImages}),
+                        containers: (e)=>page.set({type:State.PAGE_TYPE.DockerContainers}),
                     }}>
                     <MenuDropdown hotkey='menu'>
                         {types.map(t =>
                             t.id == rootId
                             ? <DropDownItem key={rootInstanceId}
-                                onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}
-                                href={state.page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId, version:null})}>Root</DropDownItem>
+                                onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId})}
+                                href={page.link({type:State.PAGE_TYPE.Object, objectType: rootId, id: rootInstanceId})}>Root</DropDownItem>
                             : <SubMenu title={t.name} key={t.name}>  <ObjectMenuList type={t.id} /> </SubMenu>
                         )}
                     </MenuDropdown>
                     <Badge color="secondary" badgeContent={state.activeMessages}>
-                        <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={state.page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
+                        <Button onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Dashbord})} href={page.link({type:State.PAGE_TYPE.Dashbord})}>Dashbord</Button>
                     </Badge>
-                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={state.page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>
+                    <Button onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Deployment})} href={page.link({type:State.PAGE_TYPE.Deployment})}>Deployment</Button>
                     <div style={{width: "10px"}} />
                     <TypeMenuItem key={hostId} id={hostId} />
                     <TypeMenuItem key={userId} id={userId} />
                     <div style={{width: "10px"}} />
-                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerImages})} href={state.page.link({type:State.PAGE_TYPE.DockerImages})}>Images</Button>
-                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.DockerContainers})} href={state.page.link({type:State.PAGE_TYPE.DockerContainers})}>Containers</Button>
-                    <Button onClick={(e)=>state.page.onClick(e, {type:State.PAGE_TYPE.ModifiedFiles})} href={state.page.link({type:State.PAGE_TYPE.ModifiedFiles})}>Modified Files</Button>
+                    <Button onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.DockerImages})} href={page.link({type:State.PAGE_TYPE.DockerImages})}>Images</Button>
+                    <Button onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.DockerContainers})} href={page.link({type:State.PAGE_TYPE.DockerContainers})}>Containers</Button>
+                    <Button onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.ModifiedFiles})} href={page.link({type:State.PAGE_TYPE.ModifiedFiles})}>Modified Files</Button>
                     <div style={{flexGrow: 1}} />
                     <Search />
                     <div style={{width: "10px"}} />
-                    <Button onClick={()=>state.login.logout(false)}>Logout</Button>
-                    <Button onClick={()=>state.login.logout(true)}>Full logout</Button>
+                    <Button onClick={()=>login.logout(false)}>Logout</Button>
+                    <Button onClick={()=>login.logout(true)}>Full logout</Button>
                 </HotKeyListener>
             </Toolbar>
     </AppBar>);

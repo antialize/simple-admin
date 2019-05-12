@@ -5,6 +5,8 @@ import ObjectState from "./ObjectState";
 import state from "./state";
 import { action, observable, runInAction } from "mobx";
 import { hostId } from '../../shared/type';
+import getOrInsert from '../../shared/getOrInsert';
+import nullCheck from '../../shared/nullCheck';
 
 function never(n:never, message:string) {
     console.error(message);
@@ -32,28 +34,28 @@ class PageState {
             case State.PAGE_TYPE.DeploymentDetails:
                 break;
             case State.PAGE_TYPE.Object:
-                if (!state.objects.has(p.id))
-                    state.objects.set(p.id, new ObjectState(p.id));
-                state.objects.get(p.id).loadCurrent();
+                const id = p.id;
+                if (id)
+                    getOrInsert(state.objects, id, ()=>new ObjectState(id)).loadCurrent();
                 if (p.objectType == hostId)
-                    state.dockerContainers.load();
+                    nullCheck(state.dockerContainers).load();
                 break;
             case State.PAGE_TYPE.DockerImages:
-                state.dockerImages.load();
+                nullCheck(state.dockerImages).load();
                 break;
             case State.PAGE_TYPE.DockerContainers:
-                state.dockerContainers.load();
+                nullCheck(state.dockerContainers).load();
                 break;
             case State.PAGE_TYPE.ModifiedFiles:
             case State.PAGE_TYPE.ModifiedFile:
-                state.modifiedFiles.load();
+                nullCheck(state.modifiedFiles).load();
                 break;
             case State.PAGE_TYPE.DockerContainerDetails:
             case State.PAGE_TYPE.DockerContainerHistory:
-                state.dockerContainers.loadHistory(p.host, p.container);
+                nullCheck(state.dockerContainers).loadHistory(p.host, p.container);
                 break;
             case State.PAGE_TYPE.DockerImageHistory:
-                state.dockerImages.loadImageHistory(p.project, p.tag);
+                nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
                 break;
             default:
                 never(p, "Unhandled page");
@@ -74,7 +76,7 @@ class PageState {
             pg.id = this.nextNewObjectId;
             --this.nextNewObjectId;
         }
-        history.pushState(pg, null, this.link(pg));
+        history.pushState(pg, "", this.link(pg));
 
         this.current = pg;
     }
@@ -172,7 +174,7 @@ class PageState {
             break;
         case 'object':
             let v = getUrlParameter('version');
-            this.current = {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:null)};
+            this.current = {type: State.PAGE_TYPE.Object, objectType: +getUrlParameter('type'), id: +getUrlParameter('id'), version: (v?+v:undefined)};
             break;
         case 'deploymentDetails':
             this.current = {type: State.PAGE_TYPE.DeploymentDetails, index: +getUrlParameter('index')};

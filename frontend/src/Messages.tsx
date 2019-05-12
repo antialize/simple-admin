@@ -5,6 +5,8 @@ import MessageGroup from './MessageGroup';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
+import nullCheck from "../../shared/nullCheck";
+
 
 interface MGroup {
     ids : number[];
@@ -27,13 +29,13 @@ const Messages = observer(function Messages({host}: {host?:number}) {
 
     let messageGroups: MGroup[] = [];
     for (const m of messages) {
-        const t = state.messages.get(m.id);
+        const t = nullCheck(state.messages.get(m.id));
         if (messageGroups.length == 0) {
             messageGroups.push({ids:[m.id], start: m.time, end:m.time, dismissed: t.dismissed?1:0});
             continue;
         }
         const g = messageGroups[messageGroups.length-1];
-        const o = state.messages.get(g.ids[0]);
+        const o = nullCheck(state.messages.get(g.ids[0]));
         if (o.host != t.host || o.type != t.type || o.subtype != t.subtype) {
             messageGroups.push({ids:[m.id], start: m.time, end:m.time, dismissed: t.dismissed?1:0});
         } else {

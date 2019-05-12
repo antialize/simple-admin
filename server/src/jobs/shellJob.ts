@@ -6,8 +6,10 @@ import * as WebSocket from 'ws';
 
 
 export class ShellJob extends Job {
-    constructor(client: HostClient, public sock:WebSocket, cols:number, rows:number) {
+    public sock: WebSocket | null;
+    constructor(client: HostClient, sock:WebSocket, cols:number, rows:number) {
         super(client, null, null);
+        this.sock = sock;
 
         let msg: message.RunScript = {
             'type': 'run_script',
@@ -20,7 +22,7 @@ export class ShellJob extends Job {
             'stdout_type': 'binary',
             'stderr_type': 'binary'
         }
-        this.client.sendMessage(msg);
+        client.sendMessage(msg);
         this.running = true;
         sock.on('message',(data:any)=>{
             let msg: message.Data = {
@@ -28,7 +30,7 @@ export class ShellJob extends Job {
                 'id': this.id,
                 'data': Buffer.from(data).toString('base64'),         
             }
-            this.client.sendMessage(msg);
+            client.sendMessage(msg);
         });
         sock.on('close', (code:number, message:string) => {this.sock = null; this.kill();});
     }
@@ -45,6 +47,7 @@ export class ShellJob extends Job {
         switch(obj.type) {
         case 'data':
             if (obj.source == 'stdout') {
+                if (!this.sock) throw Error("Socket is missig");
                 this.sock.send(
                     Buffer.from(obj.data, 'base64').toString('binary')
                 );

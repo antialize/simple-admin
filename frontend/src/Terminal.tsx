@@ -8,6 +8,7 @@ import Button from "@material-ui/core/Button";
 import Chip from "@material-ui/core/Chip";
 import { Terminal as T}  from 'xterm';
 import { remoteHost } from './config';
+import nullCheck from '../../shared/nullCheck';
 
 T.applyAddon(fit);
 T.applyAddon(fullscreen);
@@ -29,37 +30,40 @@ class Connection {
 
     connect() {
         if (this.connected) return;
+        const term = nullCheck(this.term);
         this.connected = true;
-        this.socket = new WebSocket('wss://' + remoteHost + '/terminal?server=' + this.hostId + '&cols=80&rows=150&session=' + Cookies.get("simple-admin-session"));
-        let buffer: string[] = [];
+        const socket = new WebSocket('wss://' + remoteHost + '/terminal?server=' + this.hostId + '&cols=80&rows=150&session=' + Cookies.get("simple-admin-session"));
+        this.socket = socket;
+        let buffer: string[] | null = [];
 
-        this.socket.onmessage = (msg) => {
-            this.term.write(msg.data);
+        socket.onmessage = (msg) => {
+            term.write(msg.data);
         }
 
-        this.socket.onopen = () => {
-            for (const item of buffer) {
-                this.socket.send(item);
-            }
+        socket.onopen = () => {
+            if (buffer)
+                for (const item of buffer) {
+                    socket.send(item);
+                }
             buffer = null;
         };
 
         let send = (msg: string) => {
             if (buffer === null)
-                this.socket.send(msg);
+                socket.send(msg);
             else
                 buffer.push(msg);
         }
 
-        this.term.on('data', (data: string) => {
+        term.on('data', (data: string) => {
             send('d' + data + "\0");
         });
 
-        this.term.on('title', (title: string) => {
+        term.on('title', (title: string) => {
             this.name = title;
             this.nameChanged(this.connectionId, title);
         });
-        this.term.on('resize', (size: any) => {
+        term.on('resize', (size: any) => {
             if (this.oldsize[0] == size.rows && this.oldsize[1] == size.cols) return;
             this.oldsize = [size.rows, size.cols];
             send('r' + size.rows + "," + size.cols + '\0');
@@ -67,37 +71,38 @@ class Connection {
     }
 
     disconnect() {
-        this.socket.close();
+        if (this.socket)
+            this.socket.close();
         delete this.socket;
         delete this.term;
     }
 
     reset() {
-        this.term.reset();
+        this.term && this.term.reset();
     }
 
     oldsize: [number, number] = [0, 0]
     term?: T;
     termDiv?: HTMLDivElement;
     socket?: WebSocket;
-    name: string;
+    name: string = "";
 }
 
 class HostInfo {
     next: number = 1;
-    cachedCurrent: number = null;
+    cachedCurrent: number | null = null;
     connections: { [id: number]: Connection } = {}
 };
 
 interface State {
-    current: number;
+    current: number | null;
     names: { [id: number]: string };
 }
 
 class HostTerminals extends React.Component<Props, State> {
-    outerDiv: HTMLDivElement;
-    termContainerDiv: HTMLDivElement;
-    interval: any;
+    outerDiv: HTMLDivElement | null = null;
+    termContainerDiv: HTMLDivElement | null = null;
+    interval: any = null;
     state: State = { current: null, names: {} }
     info: HostInfo;
     mounted: boolean = false;
@@ -140,7 +145,7 @@ class HostTerminals extends React.Component<Props, State> {
         conn.reset();
     }
 
-    setCurrent(id: number) {
+    setCurrent(id: number | null) {
         if (this.state.current !== null) {
             const conn = this.info.connections[this.state.current];
             if (conn/* && conn.termDiv === this.outerDiv*/) {
@@ -157,7 +162,7 @@ class HostTerminals extends React.Component<Props, State> {
                 })
             const conn = this.info.connections[id];
             conn.name = "Terminal " + id;
-            conn.term.open(this.outerDiv);
+            conn.term && this.outerDiv && conn.term.open(this.outerDiv);
             conn.connect();
 
             $(window).resize(() => {
@@ -202,7 +207,7 @@ class HostTerminals extends React.Component<Props, State> {
         const names = Object.assign({}, this.state.names);
         delete names[id];
 
-        let other: number = null;
+        let other: number | null = null;
         for (const id2 in names) other = +id2;
         this.setCurrent(other);
         this.setState({ names: names });

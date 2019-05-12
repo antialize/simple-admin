@@ -4,12 +4,15 @@ import CircularProgress from "@material-ui/core/CircularProgress";
 import Typography from "@material-ui/core/Typography";
 import state from "../state";
 import { observer } from "mobx-react";
+import Error from "../Error";
 
 const Header = observer(function Header() {
+    const deployment = state.deployment;
+    if (deployment === null) return <Error>Missing state.deployment</Error>;
     let spin = false;
     let status = "";
 
-    switch (state.deployment.status) {
+    switch (deployment.status) {
     case State.DEPLOYMENT_STATUS.BuildingTree:
         status = " - Building tree";
         spin = true;

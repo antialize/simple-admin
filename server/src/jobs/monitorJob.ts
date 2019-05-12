@@ -4,6 +4,7 @@ import * as message from '../messages'
 import * as fs from 'fs';
 import {IStatusUpdate} from '../../../shared/status'
 import { docker } from '../docker';
+import nullCheck from '../nullCheck';
 
 export class MonitorJob extends Job {
     constructor(client: HostClient, script: string|null) {
@@ -18,28 +19,29 @@ export class MonitorJob extends Job {
             'stdin_type': 'none',
             'stdout_type': 'blocked_json'
         };
-        this.client.sendMessage(msg);
+        client.sendMessage(msg);
         this.running = true;
     }
 
-    error: string;
+    error: string = "";
 
     handleMessage(obj: message.Incomming) {
+        const client = nullCheck(this.client);
         switch(obj.type) {
         case 'data':
             if (obj.source == 'stdout') {
                 if (!obj.data) return;
                 const type = obj.data.type;
                 if (type === undefined || type === "status")
-                    this.client.updateStatus(obj.data as IStatusUpdate).catch( (err) => {
+                    client.updateStatus(obj.data as IStatusUpdate).catch( (err) => {
                         console.log("Error updating stats", err);
                     });
                 else if (type == 'docker_containers')
-                    docker.handleHostDockerContainers(this.client, obj.data);
+                    docker.handleHostDockerContainers(client, obj.data);
                 else if (type == 'docker_container_state')
-                    docker.handleHostDockerContainerState(this.client, obj.data);
+                    docker.handleHostDockerContainerState(client, obj.data);
                 else if (type == 'docker_images')
-                    docker.handleHostDockerImages(this.client, obj.data);
+                    docker.handleHostDockerImages(client, obj.data);
             }
             if (obj.source == 'stderr') {
                 //console.log(obj.data);

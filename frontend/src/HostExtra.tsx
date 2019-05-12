@@ -12,8 +12,9 @@ import { observer } from "mobx-react";
 import { HostDockerContainers, DockerContainers } from "./DockerContainers";
 
 const HostExtra = observer(function HostExtra({id}:{id:number}) {
-    const up = state.status.has(id) && state.status.get(id).up;
-    let c: JSX.Element = null;
+    const status = state.status.get(id);
+    const up = status && status.up;
+    let c: JSX.Element | null = null;
     if (up) {
         c = (<div>
                 <Box title="Smart" collapsable={true}>

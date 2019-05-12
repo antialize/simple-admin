@@ -14,6 +14,7 @@ import { log } from 'winston';
 import { Job } from './job';
 import { IMonitor, IMonitorProp, MonitorPropType, MonitorUnit } from '../../shared/monitor'
 import * as stat from './stat';
+import nullCheck from './nullCheck';
 
 enum Interval {
     instante = 0,
@@ -36,17 +37,17 @@ export class HostClient extends JobOwner {
     nextJobId = 100;
     monitorRestartTime = 1000;
     reloadingMonitor = false;
-    auth: boolean = null;
-    hostname: string = null;
-    id: number = null;
+    auth: boolean | null = null;
+    hostname: string | null = null;
+    id: number | null = null;
     pingId: number = 10;
-    status: IStatus = null;
-    pingTimer: NodeJS.Timer = null;
-    pingStart: number = null;
+    status: IStatus | null = null;
+    pingTimer: NodeJS.Timer | null = null;
+    pingStart: number | null = null;
     closeHandled = false;
-    private monitorScript: string = null;
-    private monitorJob: MonitorJob = null;
-    private monitorContent: IMonitor[] = null;
+    private monitorScript: string | null = null;
+    private monitorJob: MonitorJob | null = null;
+    private monitorContent: IMonitor[] | null = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -68,6 +69,7 @@ export class HostClient extends JobOwner {
     }
 
     onPingTimeout() {
+        if (this.id == null) throw Error("Missing host id");
         this.pingTimer = null;
         msg.emit(this.id, "Host down", "Did not respond to ping within 20 seconds.");
         this.closeHandled = true;
@@ -76,6 +78,7 @@ export class HostClient extends JobOwner {
     }
 
     onPingResponce(id: number) {
+        if (!this.pingTimer) return;
         clearTimeout(this.pingTimer);
         const time = process.hrtime();
         const pingEnd = time[0] + time[1] * 1e-9;
@@ -92,6 +95,8 @@ export class HostClient extends JobOwner {
             return;
         }
 
+        if (this.id == null) throw Error("Missing host id");
+
         if (!this.closeHandled)
             msg.emit(this.id, "Host down", "Connection closed.");
 
@@ -107,6 +112,8 @@ export class HostClient extends JobOwner {
     }
 
     removeJob(job: Job, m: message.Failure | message.Success | null) {
+        if (this.id == null) throw Error("Missing host id");
+
         if (job == this.monitorJob) {
             if (this.reloadingMonitor) {
                 this.reloadingMonitor = false;
@@ -126,7 +133,7 @@ export class HostClient extends JobOwner {
         super.removeJob(job, m);
     }
 
-    monitorChanged(script: string, content: IMonitor[]) {
+    monitorChanged(script: string | null, content: IMonitor[] | null) {
         let md = this.monitorJob;
         this.monitorJob = null;
         log('info', "New monitor", { hostname: this.hostname, /*content*/ });
@@ -142,6 +149,8 @@ export class HostClient extends JobOwner {
     }
 
     async setMonitor(script: string, content: IMonitor[]) {
+        if (this.id == null) throw Error("Missing host id");
+
         await db.setHostMonitor(this.id, script, JSON.stringify(content));
         this.monitorChanged(script, content);
     }
@@ -149,7 +158,7 @@ export class HostClient extends JobOwner {
 
     async validateAuth(obj: message.Auth) {
         let res = await db.getHostContentByName(obj.hostname);
-        if (await crypt.validate(obj.password, res && res.content && (res.content as any).password))
+        if (res && await crypt.validate(obj.password, res && res.content && (res.content as any).password))
             return res.id;
         return null;
     }
@@ -164,7 +173,7 @@ export class HostClient extends JobOwner {
                 return;
             }
 
-            let [id, _] = await Promise.all<number, void>([this.validateAuth(obj), delay(1000)]);
+            let [id, _] = await Promise.all<number | null, void>([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
                 log('info', "Client authorized", { hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort });
                 this.hostname = obj['hostname'];
@@ -222,8 +231,9 @@ export class HostClient extends JobOwner {
 
     async updateStatus(update: IStatusUpdate) {
         if (!update) return;
+        if (this.id == null) throw Error("Missing host id");
 
-        if (this.hostname == "cccg") {
+        if (this.hostname == "cccg" && this.monitorContent) {
             await stat.register(this.id, "up", update.time, 1, 1);
             for (const {name, interval, content} of this.monitorContent) {
                 if (!(name in update)) continue;
@@ -285,7 +295,7 @@ export class HostClient extends JobOwner {
                 const o_mount = this.status.mounts[target];
                 const o_free = o_mount.free_blocks / o_mount.blocks;
 
-                const n_mount = update.mounts[target];
+                const n_mount = nullCheck(update.mounts[target]);
                 const n_free = n_mount.free_blocks / n_mount.blocks;
 
                 if (n_free < 0.1 && o_free >= 0.1) {
@@ -309,25 +319,23 @@ export class HostClient extends JobOwner {
 
 export class HostClients {
     hostClients: { [id: number]: HostClient } = {};
-    private hostServer: net.Server;
-
     start() {
         const privateKey = fs.readFileSync('domain.key', 'utf8');
         const certificate = fs.readFileSync('chained.pem', 'utf8');
         const options = { key: privateKey, cert: certificate };
 
-        this.hostServer = tls.createServer(options, socket => {
+        const hostServer = tls.createServer(options, socket => {
             log('info', "Client connected", {address: socket.remoteAddress, port: socket.remotePort});
             new HostClient(socket);
         });
-        this.hostServer.on('error', (err) => {
+        hostServer.on('error', (err) => {
             log('error', "Host server error", {err});
         });
-        this.hostServer.listen(8888, '0.0.0.0');
-        this.hostServer.on('listening' , () => {
+        hostServer.listen(8888, '0.0.0.0');
+        hostServer.on('listening' , () => {
             log('info', "Host server started on port 8888");
         });
-        this.hostServer.on('close' , () => {
+        hostServer.on('close' , () => {
             log('info', "Host server stopped");
         });
     }

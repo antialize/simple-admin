@@ -8,7 +8,7 @@ function SubMenu({ title, children }: {
     children: any;
 }) {
     const [open, setOpen] = useState(false);
-    const [anchor, setAnchor] = useState(null);
+    const [anchor, setAnchor] = useState<HTMLElement | null>(null);
     return <>
         <MenuItem aria-owns={open ? 'render-props-menu' : undefined} aria-haspopup="true" onClick={(event) => { setAnchor(event.currentTarget); setOpen(true); }}>
             {title}

@@ -18,7 +18,7 @@ export interface ErrorDescription {
 export function descript(err:any) {
     let type: ErrorType;
     let description: string;
-    let typeName: string;
+    let typeName: string = "Unknown";
 
     if (err instanceof SyntaxError) {
         type = ErrorType.SyntaxError;

@@ -126,7 +126,7 @@ class Editor extends React.Component<IProps, IState> {
                     <Typography><b>{this.props.title}</b>&nbsp;&nbsp;Language:</Typography>
                     {this.props.fixedLang
                         ? <Typography><span style={{marginLeft:10,marginRight:30}}>{this.props.lang}</span></Typography>
-                        : <Select value={this.props.lang} onChange={(e) => this.props.setLang(e.target.value)}>
+                        : <Select value={this.props.lang} onChange={(e) => this.props.setLang && this.props.setLang(e.target.value)}>
                             {lang}
                         </Select>}
                     <Typography>Theme:</Typography>

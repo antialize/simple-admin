@@ -11,6 +11,7 @@ import classNames from 'classnames';
 import { Theme, StyleRules, createStyles, StyledComponentProps, withStyles } from "@material-ui/core/styles";
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 import { emphasize } from '@material-ui/core/styles/colorManipulator';
+import nullCheck from '../../shared/nullCheck';
 
 function NoOptionsMessage(props:any) {
     return (
@@ -161,56 +162,49 @@ const styles = (theme:Theme) : StyleRules => {
     });
 }
 
-interface Item {
-    label:string;
-    value: number | string;
+interface Item<T> {
+    label: string;
+    value: T;
 }
-interface IProps {
-    isMulti?: boolean;
+
+interface IMultiProps<T> {
+    type: 'multi';
     placeholder?: string;
-    options: Item[];
-    value: Item | Item[];
+    options: Item<T>[];
+    value: Item<T>[];
     create?: boolean;
     fullWidth?: boolean;
-    onChange?: (value: Item | Item[]) => void;
+    onChange?: (value: Item<T>[]) => void;
 }
 
-function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps) {
+interface ISingleProps<T> {
+    type: 'single';
+    placeholder?: string;
+    options: Item<T>[];
+    value: Item<T> | null;
+    create?: boolean;
+    fullWidth?: boolean;
+    onChange?: (value: Item<T> | null) => void;
+}
+
+type IProps<T> = (IMultiProps<T> | ISingleProps<T>) & StyledComponentProps & ThemedComponentProps;
+
+function selectInner<T>(props: IProps<T>) {
     const selectStyles = {
-        input: (base:any) => {
-            return ({
-                ...base,
-                color: props.theme.palette.text.primary,
-                '& input': {
-                    font: 'inherit',
-                },
-            });
-        },
-      };
+      input: (base:any) => {
+          return ({
+              ...base,
+              color: nullCheck(props.theme).palette.text.primary,
+              '& input': {
+
+                  font: 'inherit',
+              },
+          });
+      },
+    };
 
     if (props.create)
-        <CreatableSelect
-            classes={props.classes}
-            styles={selectStyles}
-            components={{Control:Control(props.fullWidth),
-                Menu,
-                MultiValue,
-                NoOptionsMessage,
-                Option,
-                Placeholder,
-                SingleValue,
-                ValueContainer,}}
-            placeholder={props.placeholder}
-            isMulti={props.isMulti}
-            options={props.options}
-            isClearable={false}
-            value={props.value}
-            onChange={(v) => {
-                console.log("On change", v);
-                props.onChange(v)
-            }} />;
-
-    return <RSelect
+    return <CreatableSelect
         classes={props.classes}
         styles={selectStyles}
         components={{Control:Control(props.fullWidth),
@@ -222,17 +216,43 @@ function SelectImpl(props: IProps & StyledComponentProps & ThemedComponentProps)
             SingleValue,
             ValueContainer,}}
         placeholder={props.placeholder}
-        isMulti={props.isMulti}
+        isMulti={props.type == 'multi'}
         options={props.options}
         isClearable={false}
         value={props.value}
         onChange={(v) => {
-            console.log("On change", v);
-            props.onChange(v)
-        }}
-    />;
+            props.onChange && props.onChange(v as any)
+        }} />;
+
+    return <RSelect
+    classes={props.classes}
+    styles={selectStyles}
+    components={{Control:Control(props.fullWidth),
+        Menu,
+        MultiValue,
+        NoOptionsMessage,
+        Option,
+        Placeholder,
+        SingleValue,
+        ValueContainer,}}
+    placeholder={props.placeholder}
+    isMulti={props.type === 'multi'}
+    options={props.options}
+    isClearable={false}
+    value={props.value}
+    onChange={(v) => {
+        props.onChange && props.onChange(v as any)
+    }} />;
 }
 
-const Select = withStyles(styles, {withTheme: true})(SelectImpl);
+export const Select = withStyles(styles, {withTheme: true})(
+  function SelectImpl(props: IProps<string>) {
+    return selectInner<string>(props);
+  });
+
+export const NumberSelect = withStyles(styles, {withTheme: true})(
+  function NumberSelectImpl(props: IProps<number>) {
+    return selectInner<number>(props);
+  });
 
 export default Select;

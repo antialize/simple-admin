@@ -5,7 +5,9 @@ import { observer } from "mobx-react";
 const Smart = observer(function Smart({host}:{host:number}) {
     let rows: JSX.Element[] = [];
     const importantSmart = new Set([5,103,171,172,175,176,181,182,184,187,188,191,197,198,200,221]);
-    const smart = state.status.get(host).smart;
+    const hi = state.status.get(host);
+    if (!hi) return null;
+    const smart = hi.smart;
     for (const [dev, values] of smart) {
         rows.push(<tr key={dev} className="smart_device"><td colSpan={3}>{dev}</td></tr>);
         for (const status of values) {

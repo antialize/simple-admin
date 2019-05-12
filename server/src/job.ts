@@ -5,8 +5,9 @@ import {JobOwner} from './jobowner'
 export abstract class Job {
     id: number;
     running: boolean = false;
-
-    constructor(public client: HostClient, id:number = null, public owner:JobOwner = null) {
+    client: HostClient | null;
+    constructor(client: HostClient, id:number | null = null, public owner:JobOwner | null = null) {
+        this.client = client;
         if (id === null)
             this.id = client.nextJobId++;
         else

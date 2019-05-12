@@ -7,6 +7,7 @@ import {ACTION, IAddLogLines} from '../../../shared/actions'
 // Type only imports
 import {HostClient} from '../hostclient'
 import {WebClient} from '../webclient'
+import nullCheck from '../nullCheck';
 
 export class LogJob extends Job {  
     part: string = "";
@@ -26,7 +27,7 @@ export class LogJob extends Job {
             'stdin_type': 'none',
             'stdout_type': 'text'
         };
-        this.client.sendMessage(msg);
+        hostClient.sendMessage(msg);
         this.running = true;
     }
 
@@ -35,7 +36,7 @@ export class LogJob extends Job {
         case 'data':
             if (obj.source == 'stdout') {
                 const lines = (this.part + obj.data).split('\n');
-                this.part = lines.pop();
+                this.part = nullCheck(lines.pop());
                 if (lines.length != 0) {
                     const msg:IAddLogLines = {
                         type: ACTION.AddLogLines,

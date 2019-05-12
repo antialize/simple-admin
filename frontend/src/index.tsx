@@ -12,19 +12,20 @@ import { socket, setupSocket } from "./setupSocket";
 import { MainPage } from "./MainPage";
 import * as State from '../../shared/state';
 import {HotKeyPortal} from "./HotKey"
+import nullCheck from '../../shared/nullCheck';
 
 setupState();
 setupSocket();
-state.sendMessage = (action: IAction) => {
-    socket.send(JSON.stringify(action));
+state.doSendMessage = (action: IAction) => {
+    nullCheck(socket).send(JSON.stringify(action));
 };
 
 window.onpopstate = (e) => {
-    state.page.set(e.state as State.IPage);
+    nullCheck(state.page).set(e.state as State.IPage);
 };
 
 const Content = observer(function Content () {
-    let dialog: JSX.Element = null;
+    let dialog: JSX.Element | null = null;
     if (state.connectionStatus != CONNECTION_STATUS.INITED) {
         dialog = <Login />;
     }

@@ -97,7 +97,7 @@ export interface IStatus {
 }
 
 export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate|null) {
-    if (!update) return;
+    if (!update) return null;
     
     if (status == null) {
         status = {

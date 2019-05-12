@@ -7,14 +7,15 @@ import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
 import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
 import { log } from 'winston';
+import nullCheck from './nullCheck';
 
 export class DB {
-    db: sqlite.Database = null
+    db: sqlite.Database | null = null;
     nextObjectId = 10000;
 
     async init() {
-        this.db = new sqlite.Database("sysadmin.db");
-        let db = this.db;
+        const db = new sqlite.Database("sysadmin.db");
+        this.db = db;
 
         const i = (stmt: string, args: any[] = []) => {
             return new Promise<void>((cb, cbe) =>
@@ -95,7 +96,7 @@ export class DB {
 
 
     all(sql: string, ...params: any[]) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<any[]>((cb, cbe) => {
             db.all(sql, params,
                 (err, rows) => {
@@ -109,7 +110,7 @@ export class DB {
     }
 
     get(sql: string, ...params: any[]) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<any>((cb, cbe) => {
             db.get(sql, params,
                 (err, row) => {
@@ -123,7 +124,7 @@ export class DB {
     }
 
     insert(sql: string, ...params: any[]) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<number>((cb, cbe) => {
             db.run(sql, params, function(err) {
                 if (err)
@@ -146,7 +147,7 @@ export class DB {
     }
 
     run(sql: string, ...params: any[]) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<number|undefined>((cb, cbe) => {
             db.run(sql, params, function(err) {
                 if (err)
@@ -169,11 +170,11 @@ export class DB {
     }
 
     prepare(sql:string) {
-        return this.db.prepare(sql);
+        return nullCheck(this.db).prepare(sql);
     }
 
     getHostMonitor(host: number) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{ host: number, script: string, content: string } | null>((cb, cbe) => {
             db.get("SELECT `host`, `script`, `content` FROM `host_monitor` WHERE `host`=?", [host],
                 (err, row) => {
@@ -185,7 +186,7 @@ export class DB {
         });
     }
     setHostMonitor(host: number, script: string, content: string) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{}[]>((cb, cbe) => {
             db.run("REPLACE INTO `host_monitor` (`host`, `script`, `content`, `time`) VALUES (?, ?, ?, datetime('now'))", [host, script, content], (err) => {
                 if (err)
@@ -196,7 +197,7 @@ export class DB {
         });
     }
     getDeployments(host: number) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{ name: string, type: number, title: string, content: string }[]>((cb, cbe) => {
             db.all("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],
                 (err, rows) => {
@@ -211,7 +212,7 @@ export class DB {
     }
 
     setDeployment(host: number, name: string, content: string, type: number, title: string) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         if (content) {
             return new Promise<{}[]>((cb, cbe) => {
                 db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?)", [host, name, content, type, title],
@@ -236,8 +237,8 @@ export class DB {
     }
 
     getUserContent(name: string) {
-        let db = this.db;
-        return new Promise<string>((cb, cbe) => {
+        let db = nullCheck(this.db);
+        return new Promise<string | null>((cb, cbe) => {
             db.get("SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1", [userId, name],
                 (err, row) => {
                     if (err)
@@ -251,7 +252,7 @@ export class DB {
     }
 
     getAllObjects() {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{ id: number, type: number, name: string, category: string }[]>((cb, cbe) => {
             db.all("SELECT `id`, `type`, `name`, `category` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
@@ -266,7 +267,7 @@ export class DB {
     }
 
     getAllObjectsFull() {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{ id: number, type: number, name: string, content: string, category: string, version: number, comment: string }[]>((cb, cbe) => {
             db.all("SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
@@ -281,7 +282,7 @@ export class DB {
     }
 
     getObjectByID(id: number) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{ version: number, type: number, name: string, content: string, category: string, comment: string }[]>((cb, cbe) => {
             db.all("SELECT `version`, `type`, `name`, `content`, `category`, `comment` FROM `objects` WHERE `id`=?", [id],
                 (err, rows) => {
@@ -296,7 +297,7 @@ export class DB {
     }
 
     getNewestObjectByID(id: number) {
-        let db = this.db;
+        let db = nullCheck(this.db);
         return new Promise<{ version: number, type: number, name: string, content: string, category: string, comment: string}>((cb, cbe) => {
             db.get("SELECT `version`, `type`, `name`, `content`, `category`, `comment` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
                 (err, row) => {
@@ -308,10 +309,12 @@ export class DB {
         });
     }
 
-    changeObject(id: number, object: IObject2<any>) {
-        let db = this.db;
+    changeObject(id: number, object: IObject2<any> | null) {
+        let db = nullCheck(this.db);
         let ins = ({ id, version }: IV) => (cb: (res: IV) => void, cbe: (error: SAError) => void) => {
-            db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, ?, ?, ?, ?, datetime('now'), 1, ?, ?)", [id, version, object.type, object.name, JSON.stringify(object.content), object.category, object.comment], (err) => {
+            db.run("INSERT INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, ?, ?, ?, ?, datetime('now'), 1, ?, ?)", [
+                id, version, object ? object.type : null , object ? object.name : null, 
+                  object ? JSON.stringify(object.content) : null, object ? object.category : null, object ? object.comment : null], (err) => {
                 if (err)
                     cbe(new SAError(ErrorType.Database, err));
                 else
@@ -345,8 +348,8 @@ export class DB {
     }
 
     getHostContentByName(hostname: string) {
-        let db = this.db;
-        return new Promise<{ id: number, content: Host, version: number, type: number, name: string, category: string, comment: string }>((cb, cbe) => {
+        let db = nullCheck(this.db);
+        return new Promise<{ id: number, content: Host, version: number, type: number, name: string, category: string, comment: string } | null>((cb, cbe) => {
             db.get("SELECT `id`, `content`, `version`, `name`, `category`, `comment` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
                 (err, row) => {
                     if (err)

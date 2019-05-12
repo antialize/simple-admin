@@ -27,11 +27,12 @@ function MenuDropdown({ title, children, hotkey }: {
     children: React.ReactNode;
 }) {
     const [open, setOpen] = useState(false);
-    const [anchor, setAnchor] = useState(null);
+    const [anchor, setAnchor] = useState<HTMLElement | null>(null);
     const handlers: {[key:string]: (e:KeyboardEvent)=>void} = {};
-    handlers[hotkey] = (e)=>{
-        setOpen(true);
-    }
+    if (hotkey)
+        handlers[hotkey] = (e)=>{
+            setOpen(true);
+        }
     return (
         <DropDownOpen.Provider value={{open, setOpen}}>
             <HotKeyListener handlers={handlers}>

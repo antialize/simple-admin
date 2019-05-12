@@ -12,6 +12,7 @@ import { errorHandler, descript } from './error'
 //Type only import
 import { HostClient } from './hostclient'
 import { IMonitor, IMonitorProp } from '../../shared/monitor';
+import nullCheck from './nullCheck';
 
 interface IDeployContent {
     script: string;
@@ -26,9 +27,9 @@ function never(n: never, message: string) { throw new Error(message); }
 
 export class Deployment {
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
-    message: string;
+    message: string | null = null;
     deploymentObjects: IDeploymentObject[] = [];
-    log: string[];
+    log: string[] = [];
 
     setStatus(s: DEPLOYMENT_STATUS) {
         this.status = s;
@@ -202,7 +203,7 @@ export class Deployment {
                 type DagNode = SentinalDagNode | NormalDagNode;
 
                 const hostObject = objects[hostId];
-                const hostVariables = visitObject(hostId, rootVariable).variables;
+                const hostVariables = nullCheck(visitObject(hostId, rootVariable)).variables;
                 const nodes = new Map<string, { node: NormalDagNode, sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode, sentinal: SentinalDagNode }>();
                 const topVisiting = new Set<number>();
@@ -217,7 +218,7 @@ export class Deployment {
                         return null;
                     }
                     topVisiting.add(id);
-                    const c = visit(id, [], [], hostVariables);
+                    const c = nullCheck(visit(id, [], [], hostVariables));
                     tops.set(id, c)
                     topVisiting.delete(id);
                     return c;
@@ -225,7 +226,7 @@ export class Deployment {
 
                 // Visit any object
                 let visit = (id: number, path: number[], prefix: number[], /*sentinal: DagNode,*/ variables: { [key: string]: string }) => {
-                    if (id == null) return;
+                    if (id == null) return null;
                     const name = prefix.join(".") + "." + id;
                     if (nodes.has(name)) return nodes.get(name);
 
@@ -264,23 +265,23 @@ export class Deployment {
                         name: prefix.join(".") + "." + id,
                         id,
                         inCount: 0,
-                        typeOrder: type.content.deployOrder,
+                        typeOrder: nullCheck(type.content.deployOrder),
                         triggers: [],
                         deploymentTitle: v.deploymentTitle,
-                        script: v.script,
+                        script: nullCheck(v.script),
                         content: v.content,
                         typeId: obj.type,
                     };
                     sentinal.prev.push(node);
                     node.next.push(sentinal);
-                    nodes.set(node.name, { node, sentinal });
+                    nodes.set(nullCheck(node.name), { node, sentinal });
 
                     const handleTriggers = (triggers: ITrigger[]) => {
                         for (const trigger of triggers) {
                             if (!objects[trigger.id]) continue;
                             let x = visitContent("trigger", trigger.values, Object.assign({}, v.variables), (objects[trigger.id] as IObject2<IType>).content, false, {})
                             if (!x) continue;
-                            let t: IDeploymentTrigger = { typeId: trigger.id, script: x.script, content: x.content, title: x.deploymentTitle };
+                            let t: IDeploymentTrigger = { typeId: trigger.id, script: nullCheck(x.script), content: x.content, title: x.deploymentTitle };
                             node.triggers.push(t);
                         }
                     };
@@ -363,8 +364,9 @@ export class Deployment {
                 if (toVisit.length == 0 && !hostFull) continue;
 
                 // Perform topsort and construct deployment objects
-                while (toVisit.length !== 0) {
+                while (true) {
                     const node = toVisit.pop();
+                    if (!node) break;                 
                     for (const prev of node.prev) {
                         if (!prev) continue;
                         node.inCount++;
@@ -406,13 +408,13 @@ export class Deployment {
                         if (next.inCount == 0)
                             pq.enq(next);
                     }
-
                     if (node.id == null || node.type == NodeType.sentinal) continue;
                     const obj = objects[node.id];
                     if (!obj) continue;
                     const type = objects[obj.type] as IObject2<IType>;
                     if (type.content.kind == "collection" || type.content.kind == "root" || type.content.kind == "host") continue;
-
+                    const name =  nullCheck(node.name);
+                    
                     const o: IDeploymentObject = {
                         index: 0,
                         enabled: true,
@@ -420,7 +422,7 @@ export class Deployment {
                         action: DEPLOYMENT_OBJECT_ACTION.Add,
                         hostName: hostObject.name,
                         title: node.deploymentTitle,
-                        name: node.name,
+                        name,
                         script: node.script,
                         prevScript: "",
                         nextContent: node.content,
@@ -433,13 +435,13 @@ export class Deployment {
                         deploymentOrder: node.typeOrder,
                     };
 
-                    if (node.name in oldContent) {
+                    if (name in oldContent) {
                         if (!redeploy) {
-                            o.prevContent = oldContent[node.name].content.content;
-                            o.prevScript = oldContent[node.name].content.script;
+                            o.prevContent = oldContent[name].content.content;
+                            o.prevScript = oldContent[name].content.script;
                             o.action = DEPLOYMENT_OBJECT_ACTION.Modify;
                         }
-                        delete oldContent[node.name];
+                        delete oldContent[name];
                     }
                     hostDeploymentObjects.push(o);
                 }
@@ -459,12 +461,13 @@ export class Deployment {
 
                     for (let o of hostDeploymentObjects) {
                         if (o.typeId != monitorId) continue;
-                        monitorContent += o.nextContent.script + "\n\n";
+                        const nextContent = nullCheck(o.nextContent);
+                        monitorContent += nextContent.script + "\n\n";
 
                         content.push({
-                            name: o.nextContent.name,
-                            interval: o.nextContent.interval,
-                            content: o.nextContent.content
+                            name: nextContent.name,
+                            interval: nextContent.interval,
+                            content: nextContent.content
                         });
                     }
 
@@ -693,19 +696,20 @@ export class Deployment {
                 hostClient.setMonitor(o.script, o.nextContent as IMonitor[]);
                 continue;
             }
+            const typeId = nullCheck(o.typeId);
 
-            let type = types[o.typeId];
+            let type = types[typeId];
 
             if (type.content.kind == "sum") {
                 let j = i;
 
-                let curObjects = hostObjects[o.typeId] || {};
+                let curObjects = hostObjects[typeId] || {};
                 let nextObjects = Object.assign({}, curObjects);
 
                 for (; j < this.deploymentObjects.length; ++j) {
                     let o2 = this.deploymentObjects[j];
                     if (!o2.enabled) continue;
-                    if (o2.typeId !== o.typeId) break;
+                    if (o2.typeId !== typeId) break;
                     if (o2.host != o.host) break;
                     this.setObjectStatus(j, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
@@ -730,21 +734,21 @@ export class Deployment {
                         this.addLog("\r\nFailed\r\n");
                     badHosts.add(o.host);
                 } else {
-                    hostObjects[o.typeId] = nextObjects;
+                    hostObjects[typeId] = nextObjects;
 
                     for (let k = i; k < j; ++k) {
                         let o2 = this.deploymentObjects[k];
                         if (!o2.enabled) continue;
 
                         let c: IDeployContent = {
-                            content: o2.nextContent,
+                            content: nullCheck(o2.nextContent),
                             script: o2.script,
                             triggers: o2.triggers,
                             deploymentOrder: o2.deploymentOrder,
                             typeName: o2.typeName,
-                            object: o2.id,
+                            object: nullCheck(o2.id),
                         };
-                        await db.setDeployment(o2.host, o2.name, JSON.stringify(c), o2.typeId, o2.title);
+                        await db.setDeployment(o2.host, o2.name, JSON.stringify(c), typeId, o2.title);
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Success);
                     }
                 }
@@ -776,14 +780,14 @@ export class Deployment {
                     badHosts.add(o.host);
             } else if (type.content.kind != "trigger") {
                 let c: IDeployContent = {
-                    content: o.nextContent,
+                    content: nullCheck(o.nextContent),
                     script: o.script,
                     triggers: o.triggers,
                     deploymentOrder: o.deploymentOrder,
                     typeName: o.typeName,
-                    object: o.id,
+                    object: nullCheck(o.id),
                 };
-                await db.setDeployment(o.host, o.name, JSON.stringify(c), o.typeId, o.title);
+                await db.setDeployment(o.host, o.name, JSON.stringify(c), typeId, o.title);
             }
             this.setObjectStatus(o.index, ok ? DEPLOYMENT_OBJECT_STATUS.Success : DEPLOYMENT_OBJECT_STATUS.Failure);
         }

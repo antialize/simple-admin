@@ -104,7 +104,7 @@ export interface IObject2<T> {
     name: string;
     category: string;
     content: T;
-    version: number;
+    version: number | null;
     comment: string;
 }
 
@@ -133,10 +133,10 @@ export interface IDeploymentObject {
 
     script: string;
     prevScript: string;
-    nextContent: {[key:string]: any};
-    prevContent: {[key:string]: any};
-    id: number;
-    typeId: number;
+    nextContent: {[key:string]: any} | null;
+    prevContent: {[key:string]: any} | null;
+    id: number | null;
+    typeId: number | null;
     typeName: string;
     triggers: IDeploymentTrigger[];
     deploymentOrder: number;
