@@ -44,7 +44,7 @@ const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:numb
 
         switch (ct.type) {
         case TypePropType.password:
-            rows.push(<InformationListRow key={ct.name} name={ct.title}><Password value={v==undefined?"":v} onChange={value => c[ct.name] = setProp(ct.name,value)}/></InformationListRow>);
+            rows.push(<InformationListRow key={ct.name} name={ct.title}><Password value={v==undefined?"":v} onChange={value => setProp(ct.name,value)}/></InformationListRow>);
             break;
         case TypePropType.bool:
             rows.push(<InformationListRow key={ct.name} name={ct.title}><Switch title={ct.description} checked={v==undefined?ct.default:v} onChange={(e) => setProp(ct.name,e.target.checked)}/></InformationListRow>);
