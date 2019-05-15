@@ -13,11 +13,11 @@ import { hostId, userId} from '../../shared/type'
 import { observer } from 'mobx-react';
 import Error from "./Error";
 
-const ObjectView = observer(function ObjectView ({type, id, version}:{type:number, id:number, version?:number}) {
+const ObjectView = observer(function ObjectView ({type, id, version}:{type:number, id?:number, version?:number}) {
     const deployment = state.deployment;
     if (!deployment) return <Error>Missing state.deployment</Error>;
-    const o = state.objects.get(id);
-    if (!o || !o.current)
+    const o = id && state.objects.get(id);
+    if (!id || !o || !o.current)
         return <CircularProgress />;
     const stype = state.types.get(type);
     if (!stype) return <Error>Missing type></Error>;

@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 export function Error({children}:{children:string}) {
-    return <span>{children}</span>;
+    return <span style={{background: "red"}}>{children}</span>;
 }
 
 export default Error;

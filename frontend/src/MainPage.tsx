@@ -34,7 +34,6 @@ export const MainPage = observer(function MainPage() {
     case State.PAGE_TYPE.ObjectList:
         return <ObjectList type={p.objectType} />;
     case State.PAGE_TYPE.Object:
-        if (!p.id) return <Error>Missing id</Error>;
         return <div><ObjectView type={p.objectType} id={p.id} version={p.version} /> </div>;
     case State.PAGE_TYPE.Deployment:
         return <Deployment />;

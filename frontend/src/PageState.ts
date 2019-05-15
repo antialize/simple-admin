@@ -72,12 +72,11 @@ class PageState {
     @action
     set(page: State.IPage) {
         let pg = Object.assign({}, page);
-        if (pg.type == State.PAGE_TYPE.Object && pg.id === null) {
+        if (pg.type == State.PAGE_TYPE.Object && !pg.id ) {
             pg.id = this.nextNewObjectId;
             --this.nextNewObjectId;
         }
         history.pushState(pg, "", this.link(pg));
-
         this.current = pg;
     }
 

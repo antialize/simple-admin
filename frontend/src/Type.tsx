@@ -87,7 +87,7 @@ const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:numb
 
     return (
         <div>
-            <InformationList key={id + nullCheck(current.version)}>
+            <InformationList key={id + "_" + (current.version || 0)}>
                 <InformationListRow name="Name"><TextField key="name" value={current.name} onChange={(e) => {current.name = e.target.value; obj.touched = true;}} /></InformationListRow>
                 <InformationListRow name="Comment"><TextField key="comment" fullWidth multiline value={current.comment} onChange={(e) => {current.comment = e.target.value; obj.touched = true;}}/></InformationListRow>
                 {type.hasCategory?<InformationListRow name="Category"><Category type={myType} category={current.category} setCategory={(cat:string) => {current.category = cat; obj.touched=true}} /></InformationListRow>:null}
