@@ -49,7 +49,7 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    async setupDeploy(deployId: number, redeploy: boolean) {
+    async setupDeploy(deployId: number | null, redeploy: boolean) {
         try {
             const objects: { [id: number]: IObject2<any> } = {};
             const hosts: number[] = [];
@@ -195,7 +195,7 @@ export class Deployment {
                     name: string | null;
                     triggers: IDeploymentTrigger[];
                     deploymentTitle: string;
-                    script: string;
+                    script: string | undefined;
                     content: { [key: string]: any }
                     typeId: number;
 
@@ -265,10 +265,10 @@ export class Deployment {
                         name: prefix.join(".") + "." + id,
                         id,
                         inCount: 0,
-                        typeOrder: nullCheck(type.content.deployOrder),
+                        typeOrder: type.content.deployOrder || 0,
                         triggers: [],
                         deploymentTitle: v.deploymentTitle,
-                        script: nullCheck(v.script),
+                        script: v.script,
                         content: v.content,
                         typeId: obj.type,
                     };
@@ -423,7 +423,7 @@ export class Deployment {
                         hostName: hostObject.name,
                         title: node.deploymentTitle,
                         name,
-                        script: node.script,
+                        script: nullCheck(node.script),
                         prevScript: "",
                         nextContent: node.content,
                         prevContent: null,
@@ -798,7 +798,7 @@ export class Deployment {
         return this.deploymentObjects;
     }
 
-    async deployObject(id: number, redeploy: boolean) {
+    async deployObject(id: number | null, redeploy: boolean) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.clearLog();
         this.setMessage("");

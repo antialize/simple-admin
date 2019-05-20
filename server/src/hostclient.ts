@@ -69,9 +69,9 @@ export class HostClient extends JobOwner {
     }
 
     onPingTimeout() {
-        if (this.id == null) throw Error("Missing host id");
         this.pingTimer = null;
-        msg.emit(this.id, "Host down", "Did not respond to ping within 20 seconds.");
+        if (this.id != null)
+            msg.emit(this.id, "Host down", "Did not respond to ping within 20 seconds.");
         this.closeHandled = true;
         log('warning', "Client ping timeout", { hostname: this.hostname });
         this.socket.end();

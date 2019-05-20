@@ -309,10 +309,10 @@ export class WebClient extends JobOwner {
                         let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Dashbord } };
                         this.sendMessage(res3);
                     }
+                    break;
                 }
-                break;
             case ACTION.DeployObject:
-                deployment.deployObject(nullCheck(act.id), act.redeploy).catch(errorHandler("Deployment::deployObject", this));
+                deployment.deployObject(act.id, act.redeploy).catch(errorHandler("Deployment::deployObject", this));
                 break;
             case ACTION.CancelDeployment:
                 deployment.cancel();
@@ -410,7 +410,7 @@ async function sendInitialState(c: WebClient) {
 
     for (const id in hostClients.hostClients) {
         const c = hostClients.hostClients[id];
-        action.statuses[nullCheck(c.id)] = nullCheck(c.status);
+        action.statuses[nullCheck(c.id, "Expected id")] = nullCheck(c.status, "Expected status");
     }
 
     const m: { [key: string]: number } = {};

@@ -75,7 +75,7 @@ export async function get(host:number, name:string, level:number, index:number, 
     const res: StatBucket = {
         id: values?row.id: null, 
         host, name, level, index, dirty:false,
-        values: values || new Buffer(4*1024), ttl:max_ttl};
+        values: values || Buffer.alloc(4*1024), ttl:max_ttl};
     cache.set(k, res);
     return res;
 }
