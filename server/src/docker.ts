@@ -445,7 +445,8 @@ class Docker {
                     o.push(pyStr(""+args[i]));
                 }
             }
-            o.push(pyStr(config.hostname + "/" + image + "@" + hash));
+            const deployImage = config.hostname + "/" + image + "@" + hash;
+            o.push(pyStr(deployImage));
 
 
             let script = `
@@ -483,10 +484,13 @@ t = tempfile.mkdtemp()
 try:
     with open(t+'/config.json', 'w') as f:
         f.write(${pyStr(JSON.stringify(dockerConf))})
-    print('$ docker container stop %s'%(container))
+    print('$ docker pull %s' % (${pyStr(deployImage)},))
+    sys.stdout.flush()
+    subprocess.call(['docker', '--config', t, 'pull', ${pyStr(deployImage)}])
+    print('$ docker stop %s'%(container))
     sys.stdout.flush()
     subprocess.call(['docker', '--config', t, 'stop', container])
-    print('$ docker container rm %s'%(container))
+    print('$ docker rm %s'%(container))
     sys.stdout.flush()
     subprocess.call(['docker', '--config', t, 'rm', container])
 ${envs.join("\n")}
