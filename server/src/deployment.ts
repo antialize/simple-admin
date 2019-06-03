@@ -700,7 +700,7 @@ export class Deployment {
 
             let type = types[typeId];
 
-            if (type.content.kind == "sum") {
+            if (type && type.content.kind == "sum") {
                 let j = i;
 
                 let curObjects = hostObjects[typeId] || {};
@@ -764,9 +764,9 @@ export class Deployment {
 
             let ans = { success: false, code: 0 };
 
-            if (type.content.kind == "trigger") {
+            if (type && type.content.kind == "trigger") {
                 ans = await this.deploySingle(hostClient, o.script, o.nextContent)
-            } else if (type.content.kind == "delta") {
+            } else if (!type || type.content.kind == "delta") {
                 ans = await this.deploySingle(hostClient, o.script, { old: o.prevContent, new: o.nextContent });
             }
 
@@ -776,9 +776,9 @@ export class Deployment {
                     this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
                 else
                     this.addLog("\r\nFailed\r\n");
-                if (type.content.kind != "trigger")
+                if (type && type.content.kind != "trigger")
                     badHosts.add(o.host);
-            } else if (type.content.kind != "trigger") {
+            } else if (type && type.content.kind != "trigger") {
                 let c: IDeployContent = {
                     content: nullCheck(o.nextContent),
                     script: o.script,
