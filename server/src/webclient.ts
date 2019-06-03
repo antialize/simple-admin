@@ -410,7 +410,9 @@ async function sendInitialState(c: WebClient) {
 
     for (const id in hostClients.hostClients) {
         const c = hostClients.hostClients[id];
-        action.statuses[nullCheck(c.id, "Expected id")] = nullCheck(c.status, "Expected status");
+        if (c.status) {
+            action.statuses[nullCheck(c.id, "Expected id")] = nullCheck(c.status, "Expected status");
+        }
     }
 
     const m: { [key: string]: number } = {};

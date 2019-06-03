@@ -178,6 +178,10 @@ sys.stdout.flush()
             }
             for (const [path, o] of modified) {
                 const id = this.idc++;
+                if (!o.actual) {
+                    console.log("Actual is missing!", o);
+                    continue;
+                }
                 this.modifiedFiles.push(
                     {
                         id,
