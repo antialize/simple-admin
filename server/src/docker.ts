@@ -1031,9 +1031,26 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
             const now = +new Date() / 1000;
             const grace = 60*60*24 * 14; // Number of seconds to keep something around
 
-            for (const row of await db.all("SELECT `docker_images`.`manifest`, `docker_images`.`id`, `docker_images`.`tag`, `docker_images`.`time`, MIN(`docker_deployments`.`startTime`) as start, MAX(`docker_deployments`.`endTime`) as end, `pin` FROM `docker_images` LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash` WHERE `removed` IS NULL GROUP BY `docker_images`.`id`")) {
+            for (const row of await db.all(
+                "SELECT \
+                  `docker_images`.`manifest`, \
+                  `docker_images`.`id`, \
+                  `docker_images`.`tag`, \
+                  `docker_images`.`time`, \
+                  `docker_images`.`project`, \
+                  MIN(`docker_deployments`.`startTime`) AS `start`, \
+                  MAX(`docker_deployments`.`endTime`) AS `end`, \
+                  `docker_images`.`pin`, \
+                  (SELECT MAX(`x`.`id`) \
+                   FROM `docker_images` AS `x` \
+                   WHERE `x`.`project`=`docker_images`.`project` AND `x`.`tag`=`docker_images`.`tag`) AS `newest` \
+                FROM `docker_images` \
+                LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash` \
+                WHERE `removed` IS NULL \
+                GROUP BY `docker_images`.`id`")) {
                 let keep =
                     row.pin
+                    || ((row.tag == 'latest' || row.tag == 'master') && row.newest == row.id)
                     || (row.start && !row.end)
                     || (row.start && row.end &&  row.end + (row.end - row.start) + grace > now)
                     || row.time + grace > now;
