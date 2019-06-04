@@ -7,7 +7,7 @@ import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
 import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove } from '../../shared/actions';
 import { WebClient } from './webclient';
-import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
+import { rootId, hostId, rootInstanceId, IVariables, userId } from '../../shared/type';
 import * as Mustache from 'mustache'
 import { Job } from './job';
 import { HostClient } from './hostclient';
@@ -16,6 +16,7 @@ import * as shellQuote from 'shell-quote';
 import { config } from './config';
 import nullCheck from '../../shared/nullCheck';
 import getOrInsert from '../../shared/getOrInsert';
+import { getAuth } from './getAuth';
 
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
@@ -118,33 +119,16 @@ class Docker {
         return undefined;
     }
 
-    async checkAuth(req: express.Request, res: express.Response) {
+    async checkAuth(req: express.Request, res: express.Response, push: boolean) {
         if (req.headers['authorization']) {
             const auth = Buffer.from((req.headers['authorization'] as string).substr(6), 'base64').toString('utf8');
-            const [user, cookie] = auth.split(":");
-            let row;
-            try {
-                row = await db.get("SELECT `pwd`, `otp`, `host`, `user` FROM `sessions` WHERE `sid`=?", cookie);
-            } catch (e) {
-                row = undefined;
-            }
-            const now = +new Date() / 1000;
 
-            if (row && row['user'] == 'docker_client') {
-                if ( row['pwd'] + 60 * 60 > now
-                    && row['otp'] + 60 * 60 > now
-                    && row['user'] == user)
-                    return row['user'];
-            } else {
-                if (row
-                    && row['pwd'] + 24 * 60 * 60 > now
-                    && row['otp'] + 64 * 24 * 60 * 60 > now
-                    //&& row['host'] == req.connection.remoteAddress
-                    && row['user'] == user)
-                    return row['user'];
-            }
+            // req.connection.remoteAddress
 
-            log('error', "Auth failure", req.connection.remoteAddress, user, now, row);
+            const a = await getAuth(null, auth);
+            if (push ? a.dockerPush : a.dockerPull)
+                return a.user;
+            log('error', "Auth failure", req.connection.remoteAddress, a.user);
             res.status(404)
                 .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
                 .header('Content-Type', 'application/json; charset=utf-8')
@@ -163,7 +147,7 @@ class Docker {
 
     async get(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
-        const user = await this.checkAuth(req, res);
+        const user = await this.checkAuth(req, res, false);
         if (user === null) return;
 
         const p = req.url.split("?")[0].split("/");
@@ -237,7 +221,7 @@ class Docker {
 
     async putInner(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
-        const user = await this.checkAuth(req, res);
+        const user = await this.checkAuth(req, res, true);
         if (user === null || user === "docker_client") return;
 
         const p = req.url.split("?")[0].split("/");
@@ -352,7 +336,7 @@ class Docker {
 
     async patch(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
-        const user = await this.checkAuth(req, res);
+        const user = await this.checkAuth(req, res, true);
         if (user === null || user === "docker_client") return;
 
         const p = req.url.split("?")[0].split("/");
@@ -383,7 +367,7 @@ class Docker {
 
     async post(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
-        const user = await this.checkAuth(req, res);
+        const user = await this.checkAuth(req, res, true);
         if (user === null || user === "docker_client") return;
 
         const p = req.url.split("?")[0].split("/");
@@ -408,7 +392,7 @@ class Docker {
 
     async delete(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
-        const user = await this.checkAuth(req, res);
+        const user = await this.checkAuth(req, res, true);
         if (user === null || user === "docker_client") return;
         // DELETE /v2/<name>/manifests/<reference> Manifest	Delete the manifest identified by name and reference. Note that a manifest can only be deleted by digest.
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
@@ -553,7 +537,7 @@ finally:
                 const cl = hostClients.hostClients[id];
                 if (cl.hostname == act.host || cl.id == act.host) host = cl;
             }
-            const user = nullCheck(client.user, "Missing user");
+            const user = nullCheck(client.auth.user, "Missing user");
 
             if (!host || !host.id) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Invalid hostname or host is not up"});
