@@ -113,7 +113,8 @@ export async function register(host:number, name:string, time:number, interval:n
                     level,
                     index
                 };
-                s.client.sendMessage(a);
+                if (s.client.auth.admin)
+                    s.client.sendMessage(a);
             });
         }
     }

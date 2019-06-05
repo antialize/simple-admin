@@ -518,7 +518,7 @@ export class WebClients {
 
     broadcast(act: IAction) {
         this.webclients.forEach(client => {
-            if (client.auth)
+            if (client.auth.admin)
                 client.sendMessage(act)
         });
     }

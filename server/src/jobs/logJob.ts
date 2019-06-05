@@ -43,7 +43,8 @@ export class LogJob extends Job {
                         id: this.wcid,
                         lines: lines
                     }
-                    this.webclient.sendMessage(msg);
+                    if (this.webclient.auth.admin)
+                        this.webclient.sendMessage(msg);
                 }             
             }
             break;
