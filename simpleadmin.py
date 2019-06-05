@@ -79,11 +79,13 @@ async def login(c, user, pwd, otp):
 async def auth(user):
     c = Connection()
     await c.setup(requireAuth=False)
+    if c.user:
+        user = c.user
     if c.authenticated:
-        print("Already authenticated as %s." % c.user)
+        print("Already authenticated as %s." % user)
         return
 
-    pwd = getpass.getpass("Password for %s: " % c.user)
+    pwd = getpass.getpass("Password for %s: " % user)
     if not pwd:
         return
 
