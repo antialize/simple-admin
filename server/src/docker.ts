@@ -416,11 +416,15 @@ class Docker {
 
             const envs = [];
             client.sendMessage({type: ACTION.DockerDeployLog, ref, message: "Deploying image "+hash});
-            conf += "\n-e DOCKER_HASH=\""+hash+"\"";
-            const args = shellQuote.parse(conf.split("\n").join(" "));
+            conf = "-e DOCKER_HASH=\""+hash+"\"\n" + conf;
+            const args = shellQuote.parse(conf.split("\n").join(" ")).map(i => ""+i);
+            if (!args.includes("IMAGE")) args.push("IMAGE");
+            const deployImage = config.hostname + "/" + image + "@" + hash;
             const o = [pyStr('docker'), pyStr('--config'), 't', pyStr('run'), pyStr('-d'), pyStr('--name'), pyStr(container)];
             for (let i=0; i < args.length; ++i) {
-                if (args[i] == "-e") {
+                if (args[i] == "IMAGE") {
+                    o.push(pyStr(deployImage));
+                } else if (args[i] == "-e") {
                     ++i;
                     o.push("'-e'");
                     const parts = args[i].toString().split("=", 2);
@@ -428,11 +432,11 @@ class Docker {
                         envs.push("    os.environ[" + pyStr(parts[0]) + "] = " + pyStr(parts[1]))
                     o.push(pyStr(parts[0]));
                 } else {
-                    o.push(pyStr(""+args[i]));
+                    o.push(pyStr(args[i]));
                 }
             }
-            const deployImage = config.hostname + "/" + image + "@" + hash;
-            o.push(pyStr(deployImage));
+
+
 
 
             let script = `
@@ -619,7 +623,7 @@ finally:
                         );
 
                 } catch (e) {
-                    client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find root or host"});
+                    client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed"});
                     log('error', "Deployment failed", e)
                     
                     if (act.restoreOnFailure && oldDeploy) {
