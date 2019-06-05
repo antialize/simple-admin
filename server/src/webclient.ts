@@ -57,7 +57,7 @@ export class WebClient extends JobOwner {
 
     async sendAuthStatus(sid: string | null) {
         this.auth = await getAuth(this.host, sid);
-        this.sendMessage({ type: ACTION.AuthStatus, pwd: this.auth.pwd, otp: this.auth.otp, session: this.auth.session, user: this.auth.user || "", message: null });
+        this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 
     async onMessage(str: string) {
@@ -139,10 +139,10 @@ export class WebClient extends JobOwner {
                     }
                 }
                 if (!found) {
-                    this.sendMessage({ type: ACTION.AuthStatus, pwd: false, otp, session: session, user: act.user, message: "Invalid user name" });
+                    this.sendMessage({ type: ACTION.AuthStatus, pwd: false, otp, session: session, user: act.user, auth: false, admin:false, dockerPull: false, dockerPush:false, message: "Invalid user name" });
                     this.auth = noAccess;
                 } else if (!pwd || !otp) {
-                    this.sendMessage({ type: ACTION.AuthStatus, pwd: false, otp, session: session, user: act.user, message: "Invalid password or one time password" });
+                    this.sendMessage({ type: ACTION.AuthStatus, pwd: false, otp, session: session, user: act.user, auth: false, admin:false, dockerPull: false, dockerPush:false, message: "Invalid password or one time password" });
                     this.auth = noAccess;
                 } else {
                     const now = Date.now() / 1000 | 0;
@@ -157,7 +157,7 @@ export class WebClient extends JobOwner {
                     this.auth = await getAuth(this.host, session);
                     if (!this.auth.auth)
                         throw Error("Internal auth error");
-                    this.sendMessage({ type: ACTION.AuthStatus, pwd: true, otp, session: session, user: act.user, message: null });
+                    this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
                 }
                 break;
             case ACTION.RequestInitialState:

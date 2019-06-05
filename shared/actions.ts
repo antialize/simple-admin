@@ -256,11 +256,15 @@ export interface IRequestAuthStatus {
 
 export interface IAuthStatus {
     type: ACTION.AuthStatus;
-    session: string | null;
-    user: string;
+    message: string | null;
+    auth: boolean;
+    user: string | null;
     pwd: boolean;
     otp: boolean;
-    message: string | null;
+    admin: boolean;
+    dockerPull: boolean;
+    dockerPush: boolean;
+    session: string | null;
 };
 
 export interface ILogin {
