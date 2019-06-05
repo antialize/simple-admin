@@ -8,8 +8,11 @@ import {errorHandler} from './error'
 import * as stat from './stat';
 import {log} from 'winston';
 import { ModifiedFiles } from './modifiedfiles';
+import winston = require('winston');
+
 const exitHook = require('async-exit-hook');
 
+winston.add(new winston.transports.Console());
 log("info", "STARTING SERVER");
 
 async function setup() {
