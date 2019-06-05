@@ -124,11 +124,13 @@ class Docker {
             const auth = Buffer.from((req.headers['authorization'] as string).substr(6), 'base64').toString('utf8');
 
             // req.connection.remoteAddress
-
-            const a = await getAuth(null, auth);
-            if (push ? a.dockerPush : a.dockerPull)
-                return a.user;
-            log('error', "Auth failure", req.connection.remoteAddress, a.user);
+            let parts = auth.split(":");
+            if (parts.length > 1) {
+                const a = await getAuth(null, parts.slice(1).join(":"));
+                if (parts[0] == a.user && push ? a.dockerPush : a.dockerPull)
+                    return a.user;
+            }
+            log('error', "Auth failure", req.connection.remoteAddress, parts);
             res.status(404)
                 .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
                 .header('Content-Type', 'application/json; charset=utf-8')
