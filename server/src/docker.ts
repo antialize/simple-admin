@@ -94,6 +94,7 @@ interface DeploymentInfo {
     start: number;
     end: number | null;
     id: number | null;
+    setup: string | null;
 }
 
 class Docker {
@@ -403,10 +404,18 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null) {
         return new Promise((accept, reject) => {
-            const pyStr = (v:string) => {
-                return "r'" + v.replace("'", "\\'") + "'";
+            const pyStr = (v:string | null) => {
+                if (v === null)
+                    return "None";
+                return "'" + v.replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\0", "\\0")
+                + "'";
             };
         
             const dockerConf: any = {auths: {}};
@@ -437,12 +446,11 @@ class Docker {
             }
 
 
-
-
             let script = `
 import os, subprocess, shlex, sys, tempfile, shutil, asyncio
 started_ok = False
 container = ${pyStr(container)}
+setup = ${pyStr(setup)}
 
 async def passthrough(i, o):
     global started_ok
@@ -469,6 +477,10 @@ def run(*args):
     print('$ ' + ' '.join([shlex.quote(arg) for arg in args]))
     sys.stdout.flush()
     subprocess.check_call(args)
+
+if setup:
+    print("$ %s"%setup)
+    os.system(setup)
 
 t = tempfile.mkdtemp()
 try:
@@ -564,8 +576,9 @@ finally:
             }
 
             const container = act.container || image;
-            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
+            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
             let conf: string | null = null;
+            let setup: string | null = null;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
                 const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
@@ -583,9 +596,16 @@ finally:
                     variables[v.key] = v.value;
                 for (const v of (JSON.parse(hostRow.content) as IVariables).variables)
                     variables[v.key] = v.value;
-                conf = Mustache.render(JSON.parse(configRow.content).content, variables)
+
+                const content = JSON.parse(configRow.content);
+                conf = Mustache.render(content.content, variables);
+
+                if (content.setup && (content.setup as string).trim())
+                    setup =  Mustache.render(content.setup, variables);
+
             } else if (!oldDeploy || !oldDeploy.config) {
                 conf = oldDeploy.config;
+                setup = oldDeploy.setup;
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
             }
@@ -605,6 +625,7 @@ finally:
                         image,
                         hash,
                         config: conf,
+                        setup,
                         user: user,
                         restore: null,
                         timeout: null,
@@ -613,7 +634,7 @@ finally:
                         id: null
                     });
                       
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session);
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -636,6 +657,7 @@ finally:
                                 image,
                                 hash: oldDeploy.hash,
                                 config: oldDeploy.config,
+                                setup: oldDeploy.setup,
                                 user: user,
                                 restore: oldDeploy.id,
                                 timeout: null,
@@ -643,7 +665,7 @@ finally:
                                 end: null,
                                 id: oldDeploy.id,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, setup);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -840,7 +862,7 @@ finally:
             const oldDeploy = await db.get("SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", o.host, o.image, o.container);
             if (oldDeploy && !oldDeploy.endTime)
                 await db.run("UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?", o.start, oldDeploy.id);
-            o.id = await db.insert("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.hash, o.user);
+            o.id = await db.insert("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.setup, o.hash, o.user);
         }
         await this.broadcastDeploymentChange(o);
     }
@@ -888,6 +910,7 @@ finally:
                     hash: row.hash,
                     user: row.user,
                     config: row.config,
+                    setup: row.setup,
                     timeout: null,
                     start: row.start,
                     end: now
@@ -934,14 +957,16 @@ finally:
                     }
                     if (row.endTime)
                         keep = false;
+
                     deploymentInfo = {
                         host: host.id,
                         restore: null,
                         image: project,
                         container,
                         hash: keep ? row.hash : image.digests[0].split('@')[1],
-                        user: keep?row.user:null,
+                        user: keep ? row.user:null,
                         config: keep ? row.config : null,
+                        setup: keep ? row.setup : null,
                         timeout: null,
                         start: keep ? row.startTime : now,
                         end: null,
