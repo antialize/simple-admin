@@ -16,7 +16,7 @@ import nullCheck from '../../shared/nullCheck';
 
 interface IDeployContent {
     script: string;
-    content: { [key: string]: any };
+    content: { [key: string]: any } | null;
     triggers: any[];
     deploymentOrder: number;
     typeName: string;
@@ -780,7 +780,7 @@ export class Deployment {
                     badHosts.add(o.host);
             } else if (type && type.content.kind != "trigger") {
                 let c: IDeployContent = {
-                    content: nullCheck(o.nextContent),
+                    content: o.nextContent,
                     script: o.script,
                     triggers: o.triggers,
                     deploymentOrder: o.deploymentOrder,
