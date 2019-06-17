@@ -233,7 +233,7 @@ export class HostClient extends JobOwner {
         if (!update) return;
         if (this.id == null) throw Error("Missing host id");
 
-        if (this.hostname == "cccg" && this.monitorContent) {
+        if (this.monitorContent) {
             await stat.register(this.id, "up", update.time, 1, 1);
             for (const {name, interval, content} of this.monitorContent) {
                 if (!(name in update)) continue;
