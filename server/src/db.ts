@@ -79,6 +79,9 @@ export class DB {
         await r("DELETE FROM `sessions` WHERE `user`=?", ["docker_client"]);
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
+        await r("CREATE TABLE IF NOT EXISTS `smart` (`host` INTEGER NOT NULL, `dev` TEXT NOT NULL, `smart_id` INTEGER NOT NULL, `count` INTEGER NOT NULL)")
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `smart_unique` ON `smart` (`host`, `dev`, `smart_id`)");
+
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }

@@ -280,10 +280,14 @@ export class HostClient extends JobOwner {
                     for (const entry of newSmart) {
                         if (!importantSmart.has(entry.id)) continue;
                         const oldVal = oc[entry.id] ? oc[entry.id] : 0;
-                        if (oldVal >= entry.raw_value) continue;
+                        if (oldVal == entry.raw_value) continue;
+
+                        const row = await db.get("SELECT `count` FROM `smart` WHERE `host`=? AND `dev`=? AND `smart_id`=?", this.id, dev, entry.id)
+                        if (row && row['count'] == entry.raw_value) continue;
                         msg.emit(this.id, "S.M.A.R.T",
                             "Disk " + dev + ": " + entry.name + "(" + entry.id + ")"
                             + " increased to " + entry.raw_value + " from " + oldVal);
+                        await db.run("REPLACE INTO `smart` (`host`, `dev`, `smart_id`, `count`) VALUES (?, ?, ?, ?)", this.id, dev, entry.id, entry.raw_value);
                     }
                 }
             }
