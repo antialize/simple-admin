@@ -229,16 +229,17 @@ def group_deployments(deployments, host_names):
             (host_names.get(host_id, host_id), list(g)) for host_id, g in by_host
         ]
         x = set(tuple(d["name"] for d in group) for host, group in by_host)
-        y = next(iter(x))
-        if len(x) == len(y) == 1 and len(by_host) > 1:
+        if all(len(n) == 1 for n in x) and len(x) <= 2 and len(by_host) > len(x):
             # There is only one deployment on each host,
-            # and the deployment name is the same on all hosts.
+            # and there are at most two deployment names among all hosts.
             # Switch the layout from {host: {name: deployment}}
             # to {name: {host: deployment}}
-            name = y[0]
+            by_name = {}
             for host, (deployment,) in by_host:
+                y = by_name.setdefault(deployment["name"], [])
                 deployment["name"] = host
-            groups.append((name, [deployment for host, (deployment,) in by_host]))
+                y.append(deployment)
+            groups.extend(sorted(by_name.items()))
         else:
             groups += [("%s on %s" % (image, host), group) for host, group in by_host]
     return groups
