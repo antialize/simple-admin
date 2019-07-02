@@ -131,7 +131,8 @@ class Docker {
                 if (parts[0] == a.user && push ? a.dockerPush : a.dockerPull)
                     return a.user;
             }
-            log('error', "Auth failure", req.connection.remoteAddress, parts);
+
+            log('error', "Auth failure", {address: req.connection.remoteAddress, parts});
             res.status(404)
                 .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
                 .header('Content-Type', 'application/json; charset=utf-8')

@@ -10,10 +10,11 @@ export interface AuthInfo {
     admin: boolean;
     dockerPull: boolean;
     dockerPush: boolean;
+    dockerDeploy: boolean;
     session: string | null;
 }
 
-export const noAccess: AuthInfo = { auth: false, user: null, pwd: false, otp: false, admin: false, dockerPull: false, dockerPush: false, session: null };
+export const noAccess: AuthInfo = { auth: false, user: null, pwd: false, otp: false, admin: false, dockerPull: false, dockerPush: false, dockerDeploy: false, session: null };
 
 export async function getAuth(host: string | null, sid: string | null): Promise<AuthInfo> {
     if (sid === null)
@@ -50,10 +51,12 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
     let found = false;
     let admin = false;
     let dockerPull = false;
+    let dockerPush = false;
     let dockerDeploy = false;
     if (!found && !specialSession && user == "docker_client") {
         found = true;
         dockerPull = true;
+        dockerPush = true;
     }
     if (!found && !specialSession && config.users) {
         for (const u of config.users) {
@@ -61,6 +64,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 found = true;
                 admin = true;
                 dockerPull = true;
+		dockerPush = true;
                 dockerDeploy = true;
             }
         }
@@ -76,6 +80,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 const sessions = content.sessions;
                 if (sessions && sessions.split(",").includes(sid)) {
                     dockerPull = content.dockerPull;
+                    dockerPush = content.dockerPush;
                     otp = true;
                     pwd = true;
                 } else {
@@ -85,6 +90,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
             else {
                 admin = content.admin;
                 dockerPull = content.dockerPull;
+		dockerPush = content.dockerPush;
                 dockerDeploy = content.dockerDeploy;
             }
         }
@@ -100,7 +106,8 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
         otp,
         admin: admin && pwd && otp,
         dockerPull: pwd && otp && (admin || dockerDeploy || dockerPull),
-        dockerPush: pwd && otp && (admin || dockerDeploy),
+        dockerPush: pwd && otp && (admin || dockerDeploy || dockerPush),
+        dockerDeploy: pwd && otp && (admin || dockerDeploy),
         session: sid
     };
 }
