@@ -12,6 +12,7 @@ import random
 import subprocess
 import time
 import websockets
+import sys
 from tempfile import NamedTemporaryFile
 
 remote = json.load(open("/etc/simpleadmin_client.json", "r"))['server_host']
@@ -112,14 +113,16 @@ async def deploy(server, image, container=None, config=None, restore_on_failure=
     c = Connection()
     await c.setup(requireAuth=True)
     ref = random.randint(0, 2**48-1)
+    print("%s> %s <%s"%( "="*(38 - len(server) // 2), server, "="*(37 - (len(server) + 1) // 2)))
     await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref, "container": container}))
-
     while True:
         res = json.loads(await c.socket.recv())
         if res['type'] == 'DockerDeployLog' and res['ref'] == ref:
             print(res['message'])
         if res['type'] == 'DockerDeployEnd' and res['ref'] == ref:
             print(res['message'])
+            if not res['status']:
+                sys.exit(1)
             break
 
 async def edit(path):
