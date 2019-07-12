@@ -9,6 +9,7 @@ export enum PAGE_TYPE {
     DockerContainers,
     DockerImageHistory,
     DockerImages,
+    DockerDeploy,
     ModifiedFile,
     ModifiedFiles,
     Object,
@@ -73,6 +74,9 @@ export interface IDockerContainerHistory {
     container: string;
 }
 
+export interface IDockerDeploy {
+    type: PAGE_TYPE.DockerDeploy;
+}
 
 export interface IModifiedFilesPage {
     type: PAGE_TYPE.ModifiedFiles;
@@ -92,6 +96,7 @@ export type IPage =
     | IDockerContainersPage
     | IDockerImageHistory
     | IDockerImagesPage
+    | IDockerDeploy
     | IModifiedFilePage
     | IModifiedFilesPage
     | IObjectListPage

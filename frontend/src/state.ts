@@ -11,6 +11,7 @@ import { ActionTargets } from "./ActionTargets";
 import { DockerImagesState } from "./DockerImages";
 import { DockerContainersState } from "./DockerContainers";
 import { ModifiedFilesState } from "./ModifiedFiles";
+import { DockerDeployState} from "./DockerDeploy";
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
@@ -81,6 +82,9 @@ class State {
 
     @observable.shallow
     modifiedFiles: ModifiedFilesState | null = null;
+
+    @observable.shallow
+    dockerDeploy: DockerDeployState | null = null;
 
     doSendMessage: null | ((act:IAction)=>void)  = null;
 

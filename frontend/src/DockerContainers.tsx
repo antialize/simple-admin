@@ -18,6 +18,8 @@ import styles from './styles'
 import extractRemote from './extractRemote';
 import getOrInsert from '../../shared/getOrInsert';
 import Error from "./Error";
+import * as dockerDeploy from './DockerDeploy';
+import nullCheck from '../../shared/nullCheck';
 
 export class DockerContainersState {
     @observable
@@ -308,6 +310,7 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
                 <td>{container.end?<UnixTime time={container.end} />:null}</td>
                 <td>
                     <Button onClick={(e)=>spage.onClick(e, detailsPage)} href={spage.link(detailsPage)}>Details</Button>
+                    <Button onClick={(event)=>nullCheck(state.dockerDeploy).deploy({host: page.host, container: container.name, image: container.image, config: container.config, event})} disabled={nullCheck(state.dockerDeploy).deploying}>Redeploy</Button>
                 </td>
             </tr>
         )
@@ -318,7 +321,7 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
                 <tr>
                     <th>Commit</th>
                     <th>User</th>
-                    <th>Hash</th>
+                    <th>Image</th>
                     <th>Start</th>
                     <th>End</th>
                     <td>Actions</td>

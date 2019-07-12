@@ -57,6 +57,10 @@ class PageState {
             case State.PAGE_TYPE.DockerImageHistory:
                 nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
                 break;
+            case State.PAGE_TYPE.DockerDeploy:
+                nullCheck(state.dockerImages).load();
+                nullCheck(state.dockerContainers).load();
+                break;
             default:
                 never(p, "Unhandled page");
             }
@@ -109,6 +113,9 @@ class PageState {
             break;
         case State.PAGE_TYPE.DockerContainers:
             o['page'] = 'dockerContainers';
+            break;
+        case State.PAGE_TYPE.DockerDeploy:
+            o['page'] = 'dockerDeploy';
             break;
         case State.PAGE_TYPE.ModifiedFiles:
             o['page'] = 'modifiedFiles';
@@ -186,6 +193,9 @@ class PageState {
             break;
         case 'dockerImageHistory':
             this.current = {type: State.PAGE_TYPE.DockerImageHistory, project: getUrlParameter("project"), tag: getUrlParameter("tag")};
+            break;
+        case 'dockerDeploy':
+            this.current = {type: State.PAGE_TYPE.DockerDeploy};
             break;
         }
     }

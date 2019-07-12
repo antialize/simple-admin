@@ -12,6 +12,7 @@ import * as State from '../../shared/state';
 import { DockerImages, DockerImageHistory } from './DockerImages';
 import { DockerContainers, DockerContainerDetails, DockerContainerHistory } from './DockerContainers';
 import { ModifiedFiles, ModifiedFileRevolver } from './ModifiedFiles';
+import DockerDeploy from './DockerDeploy';
 import Error from './Error';
 
 function never(n: never, message: string) {
@@ -53,6 +54,8 @@ export const MainPage = observer(function MainPage() {
         return <DockerContainerHistory />;
     case State.PAGE_TYPE.DockerImageHistory:
         return <DockerImageHistory />;
+    case State.PAGE_TYPE.DockerDeploy:
+        return <DockerDeploy />;
     default:
         never(p, "Unhandled page type");
     }
