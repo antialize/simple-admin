@@ -570,5 +570,5 @@ export function handleAction(a:IStatBucket|IStatValueChanges) {
     }
 };
 
-const Chart = withTheme()(ChartImpl);
+const Chart = withTheme(ChartImpl);
 export default Chart;

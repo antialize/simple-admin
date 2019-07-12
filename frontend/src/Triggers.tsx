@@ -57,9 +57,9 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
                         value={(v && v.id) || 0}
                         onChange={(e) => {
                             if (v)
-                                triggers[i] = {id:+e.target.value, values: []};
+                                triggers[i] = {id:+(e.target.value as any), values: []};
                             else
-                                triggers.push({id:+e.target.value, values:[]});
+                                triggers.push({id:+(e.target.value as any), values:[]});
                             setTriggers();
                         }}>
                         <MenuItem value={0}>None</MenuItem>

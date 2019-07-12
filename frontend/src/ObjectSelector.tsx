@@ -1,5 +1,5 @@
 import * as React from "react";
-import {NumberSelect} from "./Select";
+import Select from "./Select";
 import state from "./state";
 import { observer } from "mobx-react";
 import { rootId } from "../../shared/type";
@@ -28,7 +28,7 @@ const ObjectSelector = observer(function ObjectSelector(p:IProps) {
     }
 
     return (
-        <NumberSelect
+        <Select
             type='multi'
             fullWidth
             options={all}

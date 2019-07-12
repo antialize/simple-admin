@@ -33,7 +33,7 @@ const ObjectList = observer(function ObjectList({type}:{type:number}) {
                     <ListItem
                         key={v.id}
                         onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id})}
-                        href={page.link({type:State.PAGE_TYPE.Object, objectType: type, id: v.id})}>
+                        >
                         <Link color={"textPrimary" as any}>{v.name}</Link>
                     </ListItem>)}
             </List>

@@ -34,7 +34,7 @@ function MonitorContent(p: {content: IMonitorProp[], onChange: (v: IMonitorProp[
         rows.push(
             <tr key={i}>
                 <td>
-                    <Select value={r.type} onChange={(e) => changeType(+e.target.value)}>
+                    <Select value={r.type} onChange={(e) => changeType(+(e.target.value as any))}>
                         <MenuItem value={MonitorPropType.aOfB}>A of b</MenuItem>
                         <MenuItem value={MonitorPropType.distribution}>Distribution</MenuItem>
                         <MenuItem value={MonitorPropType.number}>Number</MenuItem>
@@ -47,7 +47,7 @@ function MonitorContent(p: {content: IMonitorProp[], onChange: (v: IMonitorProp[
                 </td>
                 <td><TextField value={r.type != MonitorPropType.none && r.identifier || ""} disabled={r.type == MonitorPropType.none} onChange={(e) => change({identifier: e.target.value})}/></td>
                 <td>
-                    <Select value={unit} disabled={!hasUnit} onChange={(e) => change({unit: +e.target.value})}>
+                    <Select value={unit} disabled={!hasUnit} onChange={(e) => change({unit: +(e.target.value as any)})}>
                         <MenuItem value={MonitorUnit.count} disabled={r.type == MonitorPropType.sumAndCount}>Count</MenuItem>
                         <MenuItem value={MonitorUnit.bytes}>Bytes</MenuItem>
                         <MenuItem value={MonitorUnit.fraction}>Fraction</MenuItem>

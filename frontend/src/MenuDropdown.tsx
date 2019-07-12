@@ -15,7 +15,7 @@ const DropDownOpen = React.createContext({
 export class DropDownItem extends React.Component<{onClick?: (e : React.MouseEvent)=>void, children?: React.ReactNode, href?:string}, {}> {
     render() {
         const p=this.props;
-        return <MenuItem onClick={(e)=>{this.context.setOpen(false); p.onClick && p.onClick(e)}} href={p.href}>{p.children}</MenuItem>;
+        return <MenuItem onClick={(e)=>{this.context.setOpen(false); p.onClick && p.onClick(e)}}>{p.children}</MenuItem>;
     }
 };
 DropDownItem.contextType = DropDownOpen;

@@ -4,7 +4,7 @@ import state from "./state";
 import { observer } from "mobx-react";
 
 const Category = observer(function Category({category, type, setCategory}:{category:string, type:number, setCategory: (category:string) => void}) {
-    let catagories = new Set();
+    let catagories: Set<string> = new Set();
     const digests = state.objectDigests.get(type);
     if (digests)
         for (const [key, val] of digests)

@@ -146,7 +146,7 @@ function SearchImpl(props:ThemedComponentProps) {
        
 }
 
-const Search = withTheme()(SearchImpl);
+const Search = withTheme(SearchImpl);
 
 const Menu = observer(function Menu() {
     const page = state.page;

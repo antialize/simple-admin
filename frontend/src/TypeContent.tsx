@@ -83,7 +83,7 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
         else if (r.type == TypePropType.text)
             extra = (
                 <span style={{verticalAlign:"middle"}}>
-                    <Select value={r.lines || 0} onChange={(e) => change({lines: +e.target.value})} style={{width:"120px", display:'inline-block', verticalAlign:"middle"}}> // hintText="Size"
+                    <Select value={r.lines || 0} onChange={(e) => change({lines: +(e.target.value as any)})} style={{width:"120px", display:'inline-block', verticalAlign:"middle"}}> // hintText="Size"
                         <MenuItem key={0} value={0}>Normal</MenuItem>
                         <MenuItem key={1} value={1}>1 Line</MenuItem>
                         <MenuItem key={2} value={2}>2 Lines</MenuItem>
@@ -102,7 +102,7 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
         rows.push(
             <tr key={i}>
                 <td>
-                    <Select value={r.type} onChange={(e) => changeType(+e.target.value)}>
+                    <Select value={r.type} onChange={(e) => changeType(+(e.target.value as any))}>
                         <MenuItem value={TypePropType.bool}>Bool</MenuItem>
                         <MenuItem value={TypePropType.text}>Text</MenuItem>
                         <MenuItem value={TypePropType.password}>Password</MenuItem>
