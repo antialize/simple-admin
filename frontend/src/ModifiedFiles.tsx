@@ -17,6 +17,7 @@ import Remote from './Remote';
 import extractRemote from './extractRemote';
 import Error from "./Error";
 import nullCheck from "../../shared/nullCheck";
+import UnixTime from './UnixTime';
 
 export class ModifiedFilesState {
     @observable
@@ -213,7 +214,7 @@ export const ModifiedFiles = withStyles(styles)(observer(function ModifiedFiles(
     return <Box title="Modified Files" expanded={true} collapsable={false}>
             {s.scanning
                 ?<div><CircularProgress /><span className={classes.scan}>Scanning</span></div>
-                :<div><Button variant="contained" onClick={()=>s.scan()}>scan</Button><span className={classes.scan}>Last scan: {s.lastScanTime ? new Date(s.lastScanTime*1000).toISOString() : "Never"}</span></div>
+                :<div><Button variant="contained" onClick={()=>s.scan()}>scan</Button><span className={classes.scan}>Last scan: {s.lastScanTime ? <UnixTime time={s.lastScanTime} /> : "Never"}</span></div>
             }
             <table className={classes.table}>
                 <thead>

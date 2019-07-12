@@ -7,7 +7,7 @@ import Box from './Box';
 import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { hostId } from '../../shared/type';
 import Button from '@material-ui/core/Button';
-import Time from './Time';
+import UnixTime from './UnixTime';
 import { IPage } from '../../shared/state';
 import state from "./state";
 import * as State from '../../shared/state'
@@ -127,7 +127,6 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
     containers.sort((a, b)=> {
         return a.name < b.name ? -1 : 1;
     });
-    const now = +new Date()/1000;
 
     let rows = [];
     for (const container of containers) {
@@ -145,8 +144,8 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
                 <td>{commit}</td>
                 <td>{container.user}</td>
                 <td>{container.hash? container.hash.substr(7,12) : ""}</td>
-                <td>{container.start?<><Time seconds={now - container.start} /><span> ago</span></>:null}</td>
-                <td>{container.end?<><Time seconds={now - container.end} /><span> ago</span></>:null}</td>
+                <td>{container.start?<UnixTime time={container.start} />:null}</td>
+                <td>{container.end?<UnixTime time={container.end} />:null}</td>
                 <td>
                     {container.state == "running" ? <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStop, host: p.host, container: container.name})}>Stop</Button> : null}
                     {container.state != "running" ? <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStart, host: p.host, container: container.name})}>Start</Button> : null}
@@ -252,11 +251,11 @@ export const DockerContainerDetails = withStyles(styles)(observer(function Docke
         <InformationList>
             <InformationListRow name="Project"><Typography>{container.image}</Typography></InformationListRow>
             <InformationListRow name="Deploy user"><Typography>{container.user}</Typography></InformationListRow>
-            <InformationListRow name="Deploy start"><Typography>{container.start?<><Time seconds={now - container.start} /><span> ago</span></>:null}</Typography></InformationListRow>
-            <InformationListRow name="Deploy end"><Typography>{container.end?<><Time seconds={now - container.end} /><span> ago</span></>:null}</Typography></InformationListRow>
+            <InformationListRow name="Deploy start"><Typography>{container.start?<UnixTime time={container.start} />:null}</Typography></InformationListRow>
+            <InformationListRow name="Deploy end"><Typography>{container.end?<UnixTime time={container.end} />:null}</Typography></InformationListRow>
             <InformationListRow name="Deploy state"><Typography>{container.state}</Typography></InformationListRow>
             <InformationListRow name="Push user"><Typography>{img?img.user:null}</Typography></InformationListRow>
-            <InformationListRow name="Push time"><Typography>{img && img.time?<><Time seconds={now - img.time} /><span> ago</span></>:null}</Typography></InformationListRow>
+            <InformationListRow name="Push time"><Typography>{img && img.time?<UnixTime time={img.time} />:null}</Typography></InformationListRow>
             <InformationListRow name="Push tag"><Typography>{img ? img.tag : null}</Typography></InformationListRow>
             <InformationListRow name="Build user"><Typography>{img ? img.labels.BUILD_USER : null}</Typography></InformationListRow>
             <InformationListRow name="Build host"><Typography>{img ? img.labels.BUILD_HOST : null}</Typography></InformationListRow>
@@ -293,8 +292,6 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
         return a.id < b.id ? 1 : -1;
     });
 
-    const now = +new Date()/1000;
-
     let rows = [];
     for (const container of containers) {
         let commit = "";
@@ -307,8 +304,8 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
                 <td>{commit}</td>
                 <td>{container.user}</td>
                 <td>{container.hash}</td>
-                <td>{container.start?<><Time seconds={now - container.start} /><span> ago</span></>:null}</td>
-                <td>{container.end?<><Time seconds={now - container.end} /><span> ago</span></>:null}</td>
+                <td>{container.start?<UnixTime time={container.start} />:null}</td>
+                <td>{container.end?<UnixTime time={container.end} />:null}</td>
                 <td>
                     <Button onClick={(e)=>spage.onClick(e, detailsPage)} href={spage.link(detailsPage)}>Details</Button>
                 </td>

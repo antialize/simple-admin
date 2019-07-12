@@ -15,6 +15,7 @@ import Button from '@material-ui/core/Button';
 import getOrInsert from '../../shared/getOrInsert';
 import Error from "./Error";
 import nullCheck from "../../shared/nullCheck"
+import UnixTime from './UnixTime';
 
 export class DockerImagesState {
     @observable
@@ -133,11 +134,11 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                     <td>{tag.tag}</td>
                     <td>{commit}</td>
                     <td>{tag.hash}</td>
-                    <td>{new Date(tag.time*1000).toISOString()}</td>
+                    <td><UnixTime time={tag.time} /></td>
                     <td>{tag.user}</td>
                     <td>{
                         tag.removed
-                        ? new Date(tag.removed*1000).toISOString()
+                        ? <UnixTime time={tag.removed} />
                         : <Switch checked={tag.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: tag.id, pin: e.target.checked})} />
                         }
                     </td>
@@ -197,8 +198,6 @@ export const DockerImageHistory = withStyles(styles)(observer(function DockerIma
         return a.id < b.id ? 1 : -1;
     });
 
-    const now = +new Date()/1000;
-
     let rows = [];
     for (const image of images) {
         let commit = "";
@@ -209,11 +208,11 @@ export const DockerImageHistory = withStyles(styles)(observer(function DockerIma
             <tr className={image.removed?"disabled":undefined} key={image.id}>
                 <td>{commit}</td>
                 <td>{image.hash}</td>
-                <td>{new Date(image.time*1000).toISOString()}</td>
+                <td><UnixTime time={image.time} /></td>
                 <td>{image.user}</td>
                 <td>
                     {image.removed
-                    ? new Date(image.removed*1000).toISOString()
+                    ? <UnixTime time={image.removed} />
                     : <Switch checked={image.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: image.id, pin: e.target.checked})} />
                     }
                 </td>
