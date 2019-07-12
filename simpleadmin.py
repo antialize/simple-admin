@@ -3,12 +3,12 @@
 import argparse
 import asyncio
 import base64
-import datetime
 import getpass
 import itertools
 import json
 import os
 import random
+import re
 import subprocess
 import time
 import websockets
@@ -222,6 +222,23 @@ async def list_deployments():
     list_deployment_groups(group_deployments(deployments, host_names))
 
 
+class numeric_sort_key:
+    def __init__(self, s):
+        self.s = re.findall(r"[0-9]+|[^0-9]+", s)
+
+    def __lt__(self, o):
+        if self.__class__ is not o.__class__:
+            return NotImplemented
+        i = 0
+        while i < len(self.s) and i < len(o.s) and self.s[i] == o.s[i]:
+            i += 1
+        try:
+            return int(self.s[i]) < int(o.s[i])
+        except ValueError:
+            pass
+        return "".join(self.s[i:]) < "".join(o.s[i:])
+
+
 def group_deployments(deployments, host_names):
     deployments.sort(key=lambda d: (d["image"], d["host"]))
     image_groups = itertools.groupby(deployments, key=lambda d: d["image"])
@@ -242,8 +259,12 @@ def group_deployments(deployments, host_names):
                 y = by_name.setdefault(deployment["name"], [])
                 deployment["name"] = host
                 y.append(deployment)
+            for y in by_name.values():
+                y.sort(key=lambda o: numeric_sort_key(o["name"]))
             groups.extend(sorted(by_name.items()))
         else:
+            for host, group in by_host:
+                group.sort(key=lambda o: numeric_sort_key(o["name"]))
             groups += [("%s on %s" % (image, host), group) for host, group in by_host]
     return groups
 
