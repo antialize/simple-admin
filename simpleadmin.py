@@ -77,7 +77,7 @@ async def login(c, user, pwd, otp):
     c.otp = True
 
 
-async def auth(user):
+async def main_auth(user):
     c = Connection()
     await c.setup(requireAuth=False)
     if c.user:
@@ -86,18 +86,27 @@ async def auth(user):
         print("Already authenticated as %s." % user)
         return
 
+    await prompt_auth(c, user)
+    print("Successfully authenticated.")
+
+
+async def prompt_auth(c, user):
+    if c.authenticated:
+        return
+
+    if not user:
+        user = input("Username: ")
     pwd = getpass.getpass("Password for %s: " % user)
     if not pwd:
-        return
+        raise SystemExit("No password provided")
 
     otp = None
     if not c.otp:
-        otp = getpass.getpass("One time password: ")
+        otp = input("One time password: ")
         if not otp:
-            return
+            raise SystemExit("No one time password provided")
 
     await login(c, user, pwd, otp)
-    print("Successfully authenticated.")
 
 
 async def deauth(full):
@@ -197,9 +206,7 @@ def rel_time(timestamp):
 async def list_deployments():
     c = Connection()
     await c.setup(requireAuth=False)
-    if not c.authenticated:
-        print("Run sadmin auth first.")
-        return
+    await prompt_auth(c, c.user)
     ref = random.randint(0, 2 ** 48 - 1)
 
     await c.socket.send(json.dumps({"type": "RequestInitialState"}))
@@ -683,7 +690,7 @@ def main():
 
     args = parser.parse_args()
     if args.command == 'auth':
-        asyncio.get_event_loop().run_until_complete(auth(args.user))
+        asyncio.get_event_loop().run_until_complete(main_auth(args.user))
     elif args.command == 'deauth':
         asyncio.get_event_loop().run_until_complete(deauth(args.full))
     elif args.command == 'dockerDeploy':
