@@ -15,7 +15,7 @@ import { IMonitor, IMonitorProp } from '../../shared/monitor';
 import nullCheck from '../../shared/nullCheck';
 
 interface IDeployContent {
-    script: string;
+    script: string | null;
     content: { [key: string]: any } | null;
     triggers: any[];
     deploymentOrder: number;
@@ -437,8 +437,9 @@ export class Deployment {
 
                     if (name in oldContent) {
                         if (!redeploy) {
-                            o.prevContent = oldContent[name].content.content;
-                            o.prevScript = oldContent[name].content.script;
+                            let content = nullCheck(oldContent[name].content);
+                            o.prevContent = content.content;
+                            o.prevScript = content.script;
                             o.action = DEPLOYMENT_OBJECT_ACTION.Modify;
                         }
                         delete oldContent[name];
@@ -535,6 +536,7 @@ export class Deployment {
                     })
 
                     for (const v of values) {
+                        let content = nullCheck(v.content);
                         const o: IDeploymentObject = {
                             index: 0,
                             enabled: true,
@@ -543,16 +545,16 @@ export class Deployment {
                             hostName: hostObject.name,
                             title: v.title,
                             name: v.name,
-                            script: v.content.script,
+                            script: nullCheck(content.script),
                             prevScript: "",
                             nextContent: null,
-                            prevContent: v.content.content,
+                            prevContent: content.content,
                             host: hostId,
-                            triggers: v.content.triggers,
-                            typeName: v.content.typeName,
-                            id: v.content.object,
+                            triggers: content.triggers,
+                            typeName: content.typeName,
+                            id: content.object,
                             typeId: v.type,
-                            deploymentOrder: v.content.deploymentOrder
+                            deploymentOrder: content.deploymentOrder
                         };
                         hostDeploymentObjects.push(o);
                     }
@@ -741,7 +743,7 @@ export class Deployment {
                         if (!o2.enabled) continue;
 
                         let c: IDeployContent = {
-                            content: nullCheck(o2.nextContent),
+                            content: o2.nextContent,
                             script: o2.script,
                             triggers: o2.triggers,
                             deploymentOrder: o2.deploymentOrder,

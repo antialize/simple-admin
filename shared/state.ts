@@ -137,7 +137,7 @@ export interface IDeploymentObject {
     action: DEPLOYMENT_OBJECT_ACTION;
 
     script: string;
-    prevScript: string;
+    prevScript: string | null;
     nextContent: {[key:string]: any} | null;
     prevContent: {[key:string]: any} | null;
     id: number | null;
