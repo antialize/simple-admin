@@ -133,7 +133,7 @@ class Docker {
             }
 
             log('error', "Auth failure", {address: req.connection.remoteAddress, parts});
-            res.status(404)
+            res.status(403)
                 .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
                 .header('Content-Type', 'application/json; charset=utf-8')
 
@@ -147,6 +147,42 @@ class Docker {
 
             .json({ errors: [{ 'code': 'UNAUTHORIZED', 'message': 'authentication required', 'detail': 'null' }] }).end();
         return null;
+    }
+
+    async images(req: express.Request, res: express.Response) {
+        try {
+            const user = await this.checkAuth(req, res, false);
+            if (user === null) return;
+
+            const p = req.url.split("?")[0].split("/");
+            // GET /docker/images/image
+            if (p.length == 4 && p[0] == "" && p[1] == "docker" && p[2] == "images") {
+                let images = [];
+                const q = "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`";
+                for (const row of await db.all(q, p[3])) {
+                    images.push(
+                        {
+                            id: row.id,
+                            image: row.project,
+                            hash: row.hash,
+                            tag: row.tag,
+                            user: row.user,
+                            time: row.time,
+                            pin: row.pin,
+                            labels: JSON.parse(row.labels || "{}"),
+                            removed: row.removed
+                        }
+                    );
+                }
+                res.header('Content-Type', 'application/json; charset=utf-8')
+                .json({ 'images': images }).end();
+            } else {
+                res.status(404).end();
+            }
+        } catch (e) {
+            log('error', "EXCEPTION", {e});
+            res.status(500).end();
+        }
     }
 
     async get(req: express.Request, res: express.Response) {

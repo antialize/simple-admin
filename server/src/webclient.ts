@@ -531,6 +531,8 @@ export class WebClients {
         this.httpApp.post("/v2/*", docker.post.bind(docker));
         this.httpApp.delete("/v2/*", docker.delete.bind(docker));
         this.httpApp.patch("/v2/*", docker.patch.bind(docker));
+        this.httpApp.get("/docker/*", docker.images.bind(docker));
+
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
             const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address);
