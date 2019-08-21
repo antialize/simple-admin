@@ -309,8 +309,6 @@ def list_deployment_groups(groups):
                     status = "pushed %s, deployed %s" % (push_status, status)
             git = ""
             if commit is not None:
-                commit = labels.get("GIT_COMMIT")
-                branch = labels.get("GIT_BRANCH")
                 git = "%s (%s %s)%s" % (reset + green, commit, branch, reset)
             print("- %s %s%s" % (bold + red + name + reset, status, git))
 
