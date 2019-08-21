@@ -82,5 +82,10 @@ export class Msg {
         }
         return res;
     }
+
+    async getCount() {
+        let row = await db.get("SELECT count(*) as `count` FROM `messages` WHERE `dismissed` = 0 AND `message` IS NOT NULL");
+        return row['count'];
+    }
 }
 

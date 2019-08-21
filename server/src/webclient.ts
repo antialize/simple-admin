@@ -521,6 +521,11 @@ export class WebClients {
         });
     }
 
+    async countMessages(req: express.Request, res: express.Response) {
+        res.header('Content-Type', 'application/json; charset=utf-8')
+            .json({ 'count': await msg.getCount() }).end();
+    }    
+
     constructor() {
         this.httpApp.use(helmet());
         this.httpServer = http.createServer(this.httpApp);
@@ -532,7 +537,7 @@ export class WebClients {
         this.httpApp.delete("/v2/*", docker.delete.bind(docker));
         this.httpApp.patch("/v2/*", docker.patch.bind(docker));
         this.httpApp.get("/docker/*", docker.images.bind(docker));
-
+        this.httpApp.get('/messages', this.countMessages.bind(this));
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
             const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address);
