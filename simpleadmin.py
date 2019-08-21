@@ -279,23 +279,36 @@ def group_deployments(deployments, host_names):
 def list_deployment_groups(groups):
     for name, group in groups:
         print("\n%s" % name)
+        deployments = []
         for deployment in group:
             image_info = deployment.get("imageInfo", {})
             labels = image_info.get("labels", {})
             name = deployment["name"]
+            deploy_time = rel_time(deployment["start"])
+            deploy_user = deployment["user"]
+            push_time = rel_time(image_info["time"]) if image_info else None
+            push_user = image_info["user"] if image_info else None
+            commit = labels.get("GIT_COMMIT") if labels else None
+            branch = labels.get("GIT_BRANCH") if labels else None
+            key = (deploy_time, deploy_user, push_time, push_user, commit, branch)
+            deployments.append((name, key))
+        grouped = itertools.groupby(deployments, key=lambda x: x[1])
+        for key, g in grouped:
+            name = ", ".join(n for n, _ in g)
+            deploy_time, deploy_user, push_time, push_user, commit, branch = key
             bold = "\x1b[1m"
             red = "\x1b[31m"
             green = "\x1b[32m"
             reset = "\x1b[0m"
-            deploy_time = green + bold + rel_time(deployment["start"]) + reset
-            status = "%s by %s" % (deploy_time, deployment["user"])
-            if image_info:
-                push_time = green + bold + rel_time(image_info["time"]) + reset
-                push_status = "%s by %s" % (push_time, image_info["user"])
+            deploy_time = green + bold + deploy_time + reset
+            status = "%s by %s" % (deploy_time, deploy_user)
+            if push_time is not None:
+                push_time = green + bold + push_time + reset
+                push_status = "%s by %s" % (push_time, push_user)
                 if status != push_status:
                     status = "pushed %s, deployed %s" % (push_status, status)
             git = ""
-            if labels:
+            if commit is not None:
                 commit = labels.get("GIT_COMMIT")
                 branch = labels.get("GIT_BRANCH")
                 git = "%s (%s %s)%s" % (reset + green, commit, branch, reset)
