@@ -445,14 +445,14 @@ export class WebClient extends JobOwner {
                 await modifiedFiles.resolve(this, act);
                 break;
             default:
-                log("warning", "Web client unknown message", { act });
+                log("warn", "Web client unknown message", { act });
         }
     }
 
     sendMessage(obj: IAction) {
         this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
-                log("warning", "Web client error sending message", { err });
+                log("warn", "Web client error sending message", { err });
                 this.connection.terminate();
             }
         })

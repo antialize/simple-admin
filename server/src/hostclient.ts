@@ -296,16 +296,25 @@ export class HostClient extends JobOwner {
         if (this.status && update.mounts) {
             for (const target in update.mounts) {
                 if (!(target in this.status.mounts)) continue;
+                const gig_bytes = 1024 * 1024 * 1024;
+                const block_bytes = 4096;
+
                 const o_mount = this.status.mounts[target];
-                const o_free = o_mount.free_blocks / o_mount.blocks;
+                const o_total = o_mount.blocks * block_bytes / gig_bytes;
+                const o_free = o_mount.free_blocks * block_bytes / gig_bytes;
+                const o_t1 = Math.min(o_total * 0.1, 75);
+                const o_t2 = Math.min(o_total * 0.01, 8);
 
                 const n_mount = nullCheck(update.mounts[target]);
-                const n_free = n_mount.free_blocks / n_mount.blocks;
+                const n_total = n_mount.blocks * block_bytes / gig_bytes;
+                const n_free = n_mount.free_blocks * block_bytes / gig_bytes;
+                const n_t1 = Math.min(n_total * 0.1, 75);
+                const n_t2 = Math.min(n_total * 0.01, 8);
 
-                if (n_free < 0.1 && o_free >= 0.1) {
-                    msg.emit(this.id, "File system", "Mount " + target + " has less than 10% free disk space");
-                } else if (n_free < 0.01 && o_free >= 0.01) {
-                    msg.emit(this.id, "File system", "Mount " + target + " has less than 1% free disk space");
+                if (n_free < n_t1 && o_free >= o_t1) {
+                    msg.emit(this.id, "File system", "Mount " + target + " has less than " + n_t1.toFixed(1)+ " GiB free disk space");
+                } else if (n_free < n_t2 && o_free >= o_t2) {
+                    msg.emit(this.id, "File system", "Mount " + target + " has less than " + n_t2.toFixed(1)+ " GiB free disk space");
                 }
             }
         }
