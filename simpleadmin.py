@@ -203,7 +203,7 @@ def rel_time(timestamp):
     return "%s seconds ago" % int(seconds)
 
 
-async def list_deployments():
+async def list_deployments(porcelain_version):
     c = Connection()
     await c.setup(requireAuth=False)
     await prompt_auth(c, c.user)
@@ -226,6 +226,16 @@ async def list_deployments():
         if res["type"] == "DockerListDeploymentsRes" and res["ref"] == ref:
             break
     deployments = res["deployments"]
+    if porcelain_version:
+        if porcelain_version != "v1":
+            raise Exception("Unknown porcelain version")
+        porcelain_data = {
+            "version": porcelain_version,
+            "deployments": deployments,
+            "host_names": host_names,
+        }
+        print(json.dumps(porcelain_data, indent=2))
+        return
     list_deployment_groups(group_deployments(deployments, host_names))
 
 
@@ -697,7 +707,8 @@ def main():
     parser_deploy = subparsers.add_parser('edit', help='Edit', description="Edit an object")
     parser_deploy.add_argument('path', help="Path of object to edit")
 
-    subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
+    parser_list = subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
+    parser_list.add_argument("--porcelain", choices=["v1"], help="Give the output in an easy-to-parse format for scripts.")
 
     args = parser.parse_args()
     if args.command == 'auth':
@@ -709,7 +720,7 @@ def main():
     elif args.command == 'edit':
         asyncio.get_event_loop().run_until_complete(edit(args.path))
     elif args.command == 'listDeployments':
-        asyncio.get_event_loop().run_until_complete(list_deployments())
+        asyncio.get_event_loop().run_until_complete(list_deployments(args.porcelain))
     else:
         asyncio.get_event_loop().run_until_complete(ui())
 
