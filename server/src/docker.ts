@@ -584,6 +584,27 @@ finally:
         });
     }
 
+    async findImage(id: string) {
+        if (id.includes("@")) {
+            const p = id.split("@");
+            const image = p[0];
+            const reference = p[1];
+            let hash: string | null = null;
+            for (const row of await db.all("SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `hash`=? ORDER BY `time` DESC LIMIT 1", image, reference)) {
+                hash = row.hash;
+            }
+            return {image, hash};
+        } 
+        const p = id.split(":");
+        const image = p[0];
+        const reference = p[1] || "latest";
+        let hash: string | null = null;
+        for (const row of await db.all("SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `tag`=? ORDER BY `time` DESC LIMIT 1", image, reference)) {
+            hash = row.hash;
+        }
+        return {image, hash};
+    }
+
     async deploy(client: WebClient, act: IDockerDeployStart) {
         try {
             log('info', "Docker deploy start", act.ref);
@@ -599,14 +620,8 @@ finally:
                 return;
             }
 
-            const p = act.image.split(":");
-            const image = p[0];
-            const reference = p[1] || "latest";
-            let hash: string | null = null;
-            for (const row of await db.all("SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND (`hash`=? OR `tag`=?) ORDER BY `time` DESC LIMIT 1", image, reference, reference)) {
-                hash = row.hash;
-            }
-            
+            const {image, hash} = await this.findImage(act.image);
+
             if (!hash) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find image to deploy"});
                 return;
