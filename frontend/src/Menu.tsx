@@ -70,10 +70,10 @@ const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{s
     const page = state.page;
     if (page === null) return <Error>Missing state.page</Error>;
     for (let [id, p] of digests) {
-        if (!matchText(p.name, search)) continue;
+        if (p.name === null || !matchText(p.name, search)) continue;
         ans.push(
             <ListItem>
-                <Link color={"textPrimary" as any} 
+                <Link color={"textPrimary" as any}
                     href={page.link({type: State.PAGE_TYPE.Object, objectType: type, id})}
                     onClick={(e:any)=>{clearSearch(); return page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type, id});}}>
                     <MatchedText search={search} text={p.name} />
