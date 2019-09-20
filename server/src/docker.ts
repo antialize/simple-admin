@@ -307,7 +307,6 @@ class Docker {
 
             // Validate that manifest is JSON.
             const manifest = JSON.parse(content);
-            content = JSON.stringify(manifest);
 
             // Validate that we have all the parts.
             for (const layer of manifest.layers) {
