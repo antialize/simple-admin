@@ -90,19 +90,29 @@ async def main_auth(user):
     print("Successfully authenticated.")
 
 
+def input_stderr_prompt(prompt):
+    # The builtin input() writes the prompt to stdout.
+    # Tools should be able to parse the output of listDeployments --porcelain
+    # and still have the prompt be shown properly, so use stderr instead.
+    # Note that getpass prints the prompt to stderr already.
+    sys.stderr.write(prompt)
+    sys.stderr.flush()
+    return input("")
+
+
 async def prompt_auth(c, user):
     if c.authenticated:
         return
 
     if not user:
-        user = input("Username: ")
+        user = input_stderr_prompt("Username: ")
     pwd = getpass.getpass("Password for %s: " % user)
     if not pwd:
         raise SystemExit("No password provided")
 
     otp = None
     if not c.otp:
-        otp = input("One time password: ")
+        otp = input_stderr_prompt("One time password: ")
         if not otp:
             raise SystemExit("No one time password provided")
 
