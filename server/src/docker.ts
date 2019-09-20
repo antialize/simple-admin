@@ -365,7 +365,7 @@ class Docker {
                 removed: []
             });
 
-            res.status(201).header("Location", "/v2/" + p[2] + "/manifests/" + hash).header("Content-Length", "0").header("Docker-Content-Digest", h).end();
+            res.status(201).header("Location", "/v2/" + p[2] + "/manifests/" + h).header("Content-Length", "0").header("Docker-Content-Digest", h).end();
             return;
         }
 
