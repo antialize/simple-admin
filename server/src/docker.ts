@@ -95,6 +95,7 @@ interface DeploymentInfo {
     end: number | null;
     id: number | null;
     setup: string | null;
+    postSetup: string | null;
 }
 
 class Docker {
@@ -440,18 +441,12 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null) {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
                 if (v === null)
                     return "None";
-                return "'" + v.replace("\\", "\\\\")
-                .replace("'", "\\'")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\0", "\\0")
-                + "'";
+                return JSON.stringify(v);
             };
         
             const dockerConf: any = {auths: {}};
@@ -487,6 +482,7 @@ import os, subprocess, shlex, sys, tempfile, shutil, asyncio
 started_ok = False
 container = ${pyStr(container)}
 setup = ${pyStr(setup)}
+postSetup = ${pyStr(postSetup)}
 
 async def passthrough(i, o):
     global started_ok
@@ -515,8 +511,8 @@ def run(*args):
     subprocess.check_call(args)
 
 if setup:
-    print("$ %s"%setup)
-    os.system(setup)
+    print("$ %s" % setup)
+    subprocess.check_call(setup, shell=True)
 
 t = tempfile.mkdtemp()
 try:
@@ -524,7 +520,7 @@ try:
         f.write(${pyStr(JSON.stringify(dockerConf))})
     print('$ docker pull %s' % (${pyStr(deployImage)},))
     sys.stdout.flush()
-    subprocess.call(['docker', '--config', t, 'pull', ${pyStr(deployImage)}])
+    run('docker', '--config', t, 'pull', ${pyStr(deployImage)})
     print('$ docker stop %s'%(container))
     sys.stdout.flush()
     subprocess.call(['docker', '--config', t, 'stop', container])
@@ -533,6 +529,10 @@ try:
     subprocess.call(['docker', '--config', t, 'rm', container])
 ${envs.join("\n")}
     run(${o.join(", ")})
+
+    if postSetup:
+        print("$ %s" % postSetup)
+        subprocess.check_call(postSetup, shell=True)
 
     asyncio.get_event_loop().run_until_complete(read_log())
     if not started_ok:
@@ -627,9 +627,10 @@ finally:
             }
 
             const container = act.container || image;
-            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
+            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
             let conf: string | null = null;
             let setup: string | null = null;
+            let postSetup: string | null = null;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
                 const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
@@ -653,10 +654,10 @@ finally:
 
                 if (content.setup && (content.setup as string).trim())
                     setup =  Mustache.render(content.setup, variables);
+                if (content.postSetup && (content.postSetup as string).trim())
+                    postSetup =  Mustache.render(content.postSetup, variables);
 
             } else if (!oldDeploy || !oldDeploy.config) {
-                conf = oldDeploy.config;
-                setup = oldDeploy.setup;
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
             }
@@ -677,6 +678,7 @@ finally:
                         hash,
                         config: conf,
                         setup,
+                        postSetup,
                         user: user,
                         restore: null,
                         timeout: null,
@@ -685,7 +687,7 @@ finally:
                         id: null
                     });
                       
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup);
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -709,6 +711,7 @@ finally:
                                 hash: oldDeploy.hash,
                                 config: oldDeploy.config,
                                 setup: oldDeploy.setup,
+                                postSetup: oldDeploy.postSetup,
                                 user: user,
                                 restore: oldDeploy.id,
                                 timeout: null,
@@ -716,7 +719,7 @@ finally:
                                 end: null,
                                 id: oldDeploy.id,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, setup);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -962,6 +965,7 @@ finally:
                     user: row.user,
                     config: row.config,
                     setup: row.setup,
+                    postSetup: row.postSetup,
                     timeout: null,
                     start: row.start,
                     end: now
@@ -1018,6 +1022,7 @@ finally:
                         user: keep ? row.user:null,
                         config: keep ? row.config : null,
                         setup: keep ? row.setup : null,
+                        postSetup: keep ? row.postSetup : null,
                         timeout: null,
                         start: keep ? row.startTime : now,
                         end: null,

@@ -68,6 +68,7 @@ export class DB {
         await i("ALTER TABLE `docker_images` ADD COLUMN `removed` INTEGER");
         await r("CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `setup` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT");
 
         //await r("DROP TABLE `stats`");
         //await r("DROP INDEX IF EXISTS `stats_index`");
