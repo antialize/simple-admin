@@ -106,7 +106,7 @@ function SearchImpl(props:ThemedComponentProps) {
         for (let [type, members] of state.objectDigests) {
             if (!first) {
                 for (let [id, p] of members) {
-                    if (!matchText(p.name, key)) continue;
+                    if (p.name == null || !matchText(p.name, key)) continue;
                     first = [type, id];
                     break;
                 }
