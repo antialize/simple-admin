@@ -47,9 +47,9 @@ const Messages = observer(function Messages({host}: {host?:number}) {
 
     let title;
     if (count == 0)
-        title = <span style={{color: "#00CC00"}}>Messages</span>;
-    else        
-        title = <span style={{color: "red"}}>Messages ({count})</span>;
+        title = <span style={{color: "#070"}}>Messages</span>;
+    else
+        title = <span style={{color: "#700"}}>Messages ({count})</span>;
     let messageItems = [];
     for (const group of messageGroups) {
         let id = group.ids[0];

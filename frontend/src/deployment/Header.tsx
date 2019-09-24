@@ -38,7 +38,7 @@ const Header = observer(function Header() {
         spin = false;
     }
     return (
-        <Typography variant="h5" component="h3">
+        <Typography variant="h5" component="h4" color="textPrimary">
             {spin?<CircularProgress />:null} Deployment{status}
         </Typography>
         );

@@ -29,7 +29,7 @@ th {
 .smart_device {
     font-size: 122%;
     font-weight: bold;
-    background-color: #CCCCCC;    
+    background-color: #CCCCCC;
 }
 
 .terminal {
@@ -42,7 +42,7 @@ div.CodeMirror {
 }
 
 tr:nth-child(even).smart_normal  {
-    background-color: #EEEEEE;    
+    background-color: #EEEEEE;
 }
 
 tr:nth-child(odd).smart_normal {
@@ -50,19 +50,19 @@ tr:nth-child(odd).smart_normal {
 }
 
 tr:nth-child(even).smart_good, tr:nth-child(even).message_good {
-    background-color: #44FF44;    
+    background-color: #070;
 }
 
 tr:nth-child(odd).smart_good, tr:nth-child(odd).message_good {
-    background-color: #33EE33;    
+    background-color: #090;
 }
 
 tr:nth-child(even).smart_bad, tr:nth-child(even).message_bad {
-    background-color: #FF4444;
+    background-color: #700;
 }
 
 tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
-    background-color: #EE3333;
+    background-color: #900;
 }
 
 @media (max-width: 1500px) {

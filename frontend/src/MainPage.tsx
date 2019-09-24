@@ -26,7 +26,7 @@ export const MainPage = observer(function MainPage() {
     switch (p.type) {
     case State.PAGE_TYPE.Dashbord:
         return <>
-            <Typography variant="h4" component="h3">
+            <Typography variant="h4" component="h4" color="textPrimary">
                 Dashbord
             </Typography>
             <Messages />

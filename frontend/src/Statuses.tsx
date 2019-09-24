@@ -27,7 +27,7 @@ const Statuses = observer(function Statuses() {
         let hosts = cat.hosts;
         chunks.push(
             <div key={cat.name}>
-                <Typography variant="h6" component="span">{cat.name}</Typography>
+                <Typography variant="h6" component="span" color="textPrimary">{cat.name}</Typography>
                 <div style={{
                     display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
                 }}>

@@ -6,7 +6,7 @@ import setupState from './setupState';
 import state, { CONNECTION_STATUS } from "./state";
 import theme from "./theme";
 import { IAction } from '../../shared/actions';
-import { MuiThemeProvider } from '@material-ui/core/styles'; 
+import { MuiThemeProvider } from '@material-ui/core/styles';
 import { observer } from "mobx-react";
 import { socket, setupSocket } from "./setupSocket";
 import { MainPage } from "./MainPage";
