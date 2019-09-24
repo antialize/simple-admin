@@ -163,8 +163,9 @@ export class HostClient extends JobOwner {
         return null;
     }
 
-    async onMessage(obj: message.Incomming) {
+    async onMessage(msg: Buffer) {
         if (this.auth === false) return;
+        const obj: message.Incomming = JSON.parse(msg.toString('utf8'))
         if (this.auth === null) {
             if (obj.type != "auth") {
                 log('warning', "Client invalid auth", { address: this.socket.remoteAddress, port: this.socket.remotePort, obj });
@@ -212,13 +213,15 @@ export class HostClient extends JobOwner {
             const idx = data.indexOf('\x1e', start);
             if (idx == -1) break;
             const part = data.slice(start, idx);
+
+            let messageData: Buffer;
             if (this.used == 0)
-                this.onMessage(JSON.parse(part.toString('utf8'))).catch(errorHandler("HostClient::onMessage"));
+                messageData = part;
             else {
-                part.copy(this.buff, this.used);
-                this.onMessage(JSON.parse(this.buff.slice(0, this.used + part.length).toString('utf-8'))).catch(errorHandler("HostClient::onMessage"));;
-                this.used = 0
+                messageData = this.buff.slice(0, this.used + part.length);
+                this.used = 0;
             }
+            this.onMessage(messageData).catch(errorHandler("HostClient::onMessage"));
             start = idx + 1;
         }
         if (start < data.length)
