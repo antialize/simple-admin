@@ -467,9 +467,9 @@ class Docker {
                 } else if (args[i] == "-e") {
                     ++i;
                     o.push("'-e'");
-                    const parts = args[i].toString().split("=", 2);
-                    if (parts.length == 2)
-                        envs.push("    os.environ[" + pyStr(parts[0]) + "] = " + pyStr(parts[1]))
+                    const parts = args[i].toString().split("=");
+                    if (parts.length >= 2)
+                        envs.push("    os.environ[" + pyStr(parts[0]) + "] = " + pyStr(parts.slice(1).join("=")));
                     o.push(pyStr(parts[0]));
                 } else {
                     o.push(pyStr(args[i]));
