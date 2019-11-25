@@ -302,6 +302,7 @@ export class WebClient extends JobOwner {
                     let conflicts: string[] = [];
                     for (let object of objects) {
                         let content = JSON.parse(object.content);
+                        if (!content) continue;
                         if (object.type == act.id)
                             conflicts.push("* " + object.name + " (" + object.type + ") type");
                         for (let val of ['sudoOn', 'depends', 'contains']) {
