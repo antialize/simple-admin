@@ -273,7 +273,7 @@ def group_deployments(deployments, host_names):
     for image, image_group in image_groups:
         by_host = itertools.groupby(image_group, key=lambda d: d["host"])
         by_host = [
-            (host_names.get(host_id, host_id), list(g)) for host_id, g in by_host
+            (host_names.get(host_id, str(host_id)), list(g)) for host_id, g in by_host
         ]
         x = set(tuple(d["name"] for d in group) for host, group in by_host)
         if all(len(n) == 1 for n in x) and len(x) <= 2 and len(by_host) > len(x):
