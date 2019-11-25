@@ -251,7 +251,7 @@ async def list_deployments(porcelain_version):
 
 class numeric_sort_key:
     def __init__(self, s):
-        self.s = re.findall(r"[0-9]+|[^0-9]+", s)
+        self.s = re.findall(r"[0-9]+|[^0-9]+", str(s))
 
     def __lt__(self, o):
         if self.__class__ is not o.__class__:
@@ -314,7 +314,7 @@ def list_deployment_groups(groups):
             deployments.append((name, key))
         grouped = itertools.groupby(deployments, key=lambda x: x[1])
         for key, g in grouped:
-            name = ", ".join(n for n, _ in g)
+            name = ", ".join(str(n) for n, _ in g)
             deploy_time, deploy_user, push_time, push_user, commit, branch = key
             bold = "\x1b[1m"
             red = "\x1b[31m"
