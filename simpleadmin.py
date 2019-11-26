@@ -256,6 +256,7 @@ async def list_deployments(porcelain_version):
         }
         print(json.dumps(porcelain_data, indent=2))
         return
+    deployments = [d for d in deployments if d["host"] in host_names]
     list_deployment_groups(group_deployments(deployments, host_names))
 
 
