@@ -49,13 +49,17 @@ class Connection:
         return self.pwd and self.otp
 
 
+class LoginFailed(Exception):
+    pass
+
+
 async def login(c, user, pwd, otp):
     await c.socket.send(json.dumps({'type': 'Login', 'user': user, 'pwd': pwd, 'otp': otp}))
     res = json.loads(await c.socket.recv())
     if res['type'] != "AuthStatus":
         raise Exception("Bad result type")
     if not res['session'] or not res['pwd'] or not res['otp']:
-        raise Exception("Could not authenticate: " + res['message'])
+        raise LoginFailed("Could not authenticate: " + res['message'])
 
     with open(c.cookieFile, 'w') as f:
         f.write(res['session'])
@@ -104,19 +108,25 @@ async def prompt_auth(c, user):
     if c.authenticated:
         return
 
-    if not user:
-        user = input_stderr_prompt("Username: ")
-    pwd = getpass.getpass("Password for %s: " % user)
-    if not pwd:
-        raise SystemExit("No password provided")
+    for i in range(3):
+        if not user:
+            user = input_stderr_prompt("Username: ")
+        pwd = getpass.getpass("Password for %s: " % user)
+        if not pwd:
+            raise SystemExit("No password provided")
 
-    otp = None
-    if not c.otp:
-        otp = input_stderr_prompt("One time password: ")
-        if not otp:
-            raise SystemExit("No one time password provided")
+        otp = None
+        if not c.otp:
+            otp = input_stderr_prompt("One time password: ")
+            if not otp:
+                raise SystemExit("No one time password provided")
 
-    await login(c, user, pwd, otp)
+        try:
+            await login(c, user, pwd, otp)
+            return
+        except LoginFailed as e:
+            print(e, file=sys.stderr, flush=True)
+    raise SystemExit("Authentication failed after multiple attempts; aborting")
 
 
 async def deauth(full):
