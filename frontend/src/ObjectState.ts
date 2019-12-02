@@ -1,4 +1,4 @@
-import { IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject } from "../../shared/actions";
+import { IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject, IResetServerState } from "../../shared/actions";
 import { IObject2, PAGE_TYPE } from "../../shared/state";
 import { IType, TypePropType } from "../../shared/type";
 import { observable, action } from "mobx";
@@ -57,6 +57,16 @@ class ObjectState {
         };
         state.sendMessage(a);
     }
+    
+    @action.bound
+    resetState() {
+        const a :IResetServerState = {
+            type: ACTION.ResetServerState,
+            host: this.id
+        }
+        state.sendMessage(a);
+    }
+
     @action.bound
     fillDefaults(type: IType) {
         if (!this.current) return;

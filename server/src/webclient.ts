@@ -292,6 +292,13 @@ export class WebClient extends JobOwner {
                     this.sendMessage(res3);
                 }
                 break;
+            case ACTION.ResetServerState:
+                if (!this.auth.admin) {
+                    this.connection.close(403);
+                    return;
+                }
+                await db.resetServer(act.host);
+                break;
             case ACTION.DeleteObject:
                 if (!this.auth.admin) {
                     this.connection.close(403);

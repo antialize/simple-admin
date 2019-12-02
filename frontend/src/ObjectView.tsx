@@ -52,6 +52,9 @@ const ObjectView = observer(function ObjectView ({type, id, version}:{type:numbe
                     <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>{
                         if (confirm("Are you sure you want to delete the object?")) o.delete();}}
                         disabled={!canDeploy}>Delete</Button>
+                    {type == hostId ? <Button variant="contained" color="primary" style={{ margin: 10 }} onClick={()=>{
+                        if (confirm("Have you just reinstalled this server?")) o.resetState();}}
+                        >Reset State</Button>: null}
                 </div>
             </Box>
             <div>

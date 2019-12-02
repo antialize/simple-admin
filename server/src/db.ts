@@ -241,6 +241,19 @@ export class DB {
         }
     }
 
+    resetServer(host: number) {
+        let db = nullCheck(this.db);
+        return new Promise<{}[]>((cb, cbe) => {
+            db.all("DELETE FROM `deployments` WHERE `host`=?", [host],
+                (err) => {
+                    if (err)
+                        cbe(new SAError(ErrorType.Database, err));
+                    else
+                        cb();
+                })
+        });
+    }
+
     getUserContent(name: string) {
         let db = nullCheck(this.db);
         return new Promise<string | null>((cb, cbe) => {

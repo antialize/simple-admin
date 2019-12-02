@@ -53,6 +53,7 @@ export enum ACTION {
     SetDeploymentObjectStatus="SetDeploymentObjectStatus",
     SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentStatus="SetDeploymentStatus",
+    ResetServerState="ResetServerState",
     SetInitialState="SetInitialState",
     SetMessagesDismissed="SetMessageDismissed",
     SetPage="SetPage",
@@ -197,6 +198,11 @@ export interface IDeleteObject {
 export interface ISetDeploymentStatus {
     type: ACTION.SetDeploymentStatus;
     status: DEPLOYMENT_STATUS;
+}
+
+export interface IResetServerState {
+    type: ACTION.ResetServerState;
+    host: number;
 }
 
 export interface ISetDeploymentMessage {
@@ -555,6 +561,7 @@ export type IAction =
     | ISetDeploymentObjectStatus
     | ISetDeploymentObjects
     | ISetDeploymentStatus
+    | IResetServerState
     | ISetInitialState
     | ISetMessagesDismissed
     | ISetPageAction
