@@ -1,4 +1,4 @@
-import { ISmartStatus, IStatusUptime, IStatusMeminfo, IStatusLBSRelease, IStatusUname, IStatusLoadAVG, IStatusMount, IService, IStatus, IStatusUpdate } from "../../shared/status";
+import { ISmartStatus, IStatusUptime, IStatusMeminfo, IStatusLBSRelease, IStatusUname, IStatusLoadAVG, IStatusMount, IService, IStatus, IStatusUpdate, IStatusCpuinfo } from "../../shared/status";
 import { observable, action } from "mobx";
 
 class StatusState {
@@ -6,6 +6,8 @@ class StatusState {
     uptime: IStatusUptime = { total: 0, idle: 0 };
     @observable.shallow
     meminfo: IStatusMeminfo = { avail: 0, total: 0, free: 0, swap_free: 0, swap_total: 0 };
+    @observable.shallow
+    cpuinfo: IStatusCpuinfo = { name: "", cores: 0, geekbench_multi: 0, geekbench_single: 0 };
     @observable.shallow
     lsb_release: IStatusLBSRelease = { release: "", codename: "", id: "", description: "" };
     @observable.shallow

@@ -11,6 +11,14 @@ export interface IStatusMeminfo {
     swap_free: number;
 }
 
+
+export interface IStatusCpuinfo {
+    name: string;
+    cores: number;
+    geekbench_multi: number;
+    geekbench_single: number;
+}
+
 export interface IStatusLBSRelease {
     release: string;
     codename: string;
@@ -27,9 +35,9 @@ export interface IStatusUname {
 }
 
 export interface IStatusLoadAVG {
-    five_minute: number; 
-    active_processes: number; 
-    ten_minute: number; 
+    five_minute: number;
+    active_processes: number;
+    ten_minute: number;
     minute: number;
     total_processes: number;
 }
@@ -66,6 +74,7 @@ export interface IStatusUpdate {
     meminfo: IStatusMeminfo;
     lsb_release: IStatusLBSRelease | null;
     uname: IStatusUname | null;
+    cpuinfo: IStatusCpuinfo | null;
     loadavg: IStatusLoadAVG;
     mounts: {[target:string]:IStatusMount|null}
     services: {[name:string]:IService|null}
@@ -81,6 +90,7 @@ export interface IStatusUpdate {
 export interface IStatus {
     uptime: IStatusUptime;
     meminfo: IStatusMeminfo;
+    cpuinfo: IStatusCpuinfo;
     lsb_release: IStatusLBSRelease;
     uname: IStatusUname;
     loadavg: IStatusLoadAVG;
@@ -103,6 +113,7 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate|nul
         status = {
             uptime: {total: 0, idle: 0},
             meminfo: {avail: 0, total: 0, free: 0, swap_free: 0, swap_total: 0},
+            cpuinfo: {name: "", cores: 0, geekbench_single: 0, geekbench_multi: 0},
             lsb_release: {release: "", codename: "", id:"", description: ""},
             uname: {release: "", sysname: "", machine: "", version: "", nodename: ""},
             loadavg: {five_minute: 0, active_processes: 0, ten_minute: 0, minute: 0, total_processes: 0},
@@ -123,6 +134,7 @@ export function applyStatusUpdate(status:IStatus| null, update:IStatusUpdate|nul
     const res: IStatus = {
         uptime: update.uptime || status.uptime,
         meminfo: update.meminfo || status.meminfo,
+        cpuinfo: update.cpuinfo || status.cpuinfo,
         lsb_release: update.lsb_release || status.lsb_release,
         uname: update.uname || status.uname,
         loadavg: update.loadavg,

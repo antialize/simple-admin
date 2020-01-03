@@ -95,6 +95,12 @@ const Status = observer(function Status({id}:{id:number}) {
                         s.uptime ? "total: " + s.uptime.total +
                         "\nidle: " + s.uptime.idle : undefined
                     }><Typography><Time seconds={s.uptime?s.uptime.total:0} /></Typography></InformationListRow>
+                    <InformationListRow name="Cpu" title={
+                        s.cpuinfo ? "name: " + s.cpuinfo.name +
+                        "\ncores: " + s.cpuinfo.cores +
+                        "\ngeekbench_single: " + s.cpuinfo.geekbench_single +
+                        "\ngeekbench_multi: " + s.cpuinfo.geekbench_multi : undefined
+                    }><Typography>{s.cpuinfo.geekbench_single} - {s.cpuinfo.geekbench_multi}</Typography></InformationListRow>
                     <InformationListRow name="Loadavg" title={
                         s.loadavg ? "1 minute: " + s.loadavg.minute +
                         "\n5 minutes: " + s.loadavg.five_minute +
