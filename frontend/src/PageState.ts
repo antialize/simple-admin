@@ -100,9 +100,9 @@ class PageState {
         case State.PAGE_TYPE.Object:
             o['page'] = 'object';
             o['type'] = ""+page.objectType;
-            if (page.id !== null) o['id'] = ""+page.id;
+            if (page.id != null) o['id'] = ""+page.id;
             else o['id'] == '-1';
-            if (page.version !== null) o['version'] = ""+page.version;
+            if (page.version != null) o['version'] = ""+page.version;
             break;
         case State.PAGE_TYPE.DeploymentDetails:
             o['page'] = 'deploymentDetails'
