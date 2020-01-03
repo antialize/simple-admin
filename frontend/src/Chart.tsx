@@ -433,8 +433,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
             (a, b, c) => {return (a === null || b === null || !c)?null: (a+b)/c/5});
         cpu.maxValue = Math.max(cpu.maxValue, 1.0)*1.05;
         const iomax = Math.max(disk.maxValue, net.maxValue)*1.05;
-        renderAxisY(cpu.maxValue, "%", false);
-        renderAxisY(iomax, "bs", true);
+        renderAxisY(100.0, "%", false);
+        renderAxisY(Math.max(iomax, 1024*1024) , "bs", true);
 
         startTime = this.endTime - (this.canvas.clientWidth - leftSpace - rightSpace) * scale;
 
