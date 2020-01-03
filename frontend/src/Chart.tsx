@@ -142,7 +142,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         let bottomSpace = 28;
         let leftSpace = 0;
         let rightSpace = 0;
-        let topSpace = 0;
+        let topSpace = 20;
         type nn = number|null;
 
         const getPoints = (names:string[], func: (...values:nn[])=>nn) => {
@@ -171,6 +171,16 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                 }
             }
             return {maxValue, points};
+        };
+
+        const renderLegend = () => {
+            ctx.font = '15px serif';
+            ctx.fillStyle = "#E24233";
+            ctx.fillText("CPU", 100, 14);
+            ctx.fillStyle = "#E59900";
+            ctx.fillText("Disk", 170, 14);
+            ctx.fillStyle = "#0072B2";
+            ctx.fillText("Net", 250, 14);
         };
 
         const renderXAxes = () => {
@@ -438,6 +448,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
 
         startTime = this.endTime - (this.canvas.clientWidth - leftSpace - rightSpace) * scale;
 
+        renderLegend();
         renderXAxes();
         renderPoints(cpu.points, cpu.maxValue, "#E24233");
         renderPoints(disk.points, iomax, "#E59900");
