@@ -39,6 +39,7 @@ class StatusState {
         if (!s) return;
         this.uptime = s.uptime;
         this.meminfo = s.meminfo;
+        this.cpuinfo = s.cpuinfo;
         this.lsb_release = s.lsb_release;
         this.uname = s.uname;
         this.loadavg = s.loadavg;
@@ -65,6 +66,7 @@ class StatusState {
         };
         this.uptime = s.uptime || this.uptime;
         this.meminfo = s.meminfo || this.meminfo;
+        this.cpuinfo = s.cpuinfo || this.cpuinfo;
         this.lsb_release = s.lsb_release || this.lsb_release;
         this.uname = s.uname || this.uname;
         this.loadavg = s.loadavg || this.loadavg;

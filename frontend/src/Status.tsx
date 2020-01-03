@@ -16,6 +16,8 @@ const Status = observer(function Status({id}:{id:number}) {
 
     let lst: JSX.Element[] = [];
     for (const [, mount] of s.mounts) {
+        if (mount.target.startsWith("/media/") || mount.target.startsWith("/run"))
+            continue;
         lst.push(
             <InformationListRow key={mount.src + " at " + mount.target} name={mount.target} title={
                 "device: " + mount.src +
