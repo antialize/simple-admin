@@ -495,7 +495,7 @@ async function sendInitialState(c: WebClient) {
             };
         }
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, category: row.category });
+        action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, category: row.category, comment: row.comment });
     }
 
     for (const id in hostClients.hostClients) {

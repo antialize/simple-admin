@@ -1,7 +1,7 @@
 import * as net from 'net';
 import * as fs from 'fs';
 import { IUpdateStatusAction, IHostDown, ACTION } from '../../shared/actions'
-import { IStatus, IStatusUpdate, applyStatusUpdate } from '../../shared/status'
+import { IStatus, IStatusUpdate, applyStatusUpdate, IStatusCpuinfo, IStatusUname, IStatusLBSRelease, IStatusUptime, IStatusLoadAVG, IStatusMeminfo } from '../../shared/status'
 import * as message from './messages'
 import * as tls from 'tls';
 import * as crypto from 'crypto';
@@ -264,7 +264,94 @@ export class HostClient extends JobOwner {
                         break;
                     }
                 }
+
+                if (name == "cpuInfo") {
+                    let u: IStatusCpuinfo = {
+                        name: "",
+                        cores: 0,
+                        geekbench_multi: 0,
+                        geekbench_single: 0
+                    };
+                    for (const prop of content) {
+                        if (prop.type == MonitorPropType.none) continue;
+                        let v = c[prop.identifier];
+                        if (prop.identifier == "name") u.name = v;
+                        if (prop.identifier == "cores") u.cores = v;
+                        if (prop.identifier == "geekbench_single") u.geekbench_single = v;
+                        if (prop.identifier == "geekbench_multi") u.geekbench_multi = v;
+                    }
+                    update.cpuinfo = u;
+                }
+
+                if (name == "hostInfo") {
+                    let u1: IStatusUname = {
+                        release: "",
+                        sysname: "",
+                        machine: "",
+                        version: "",
+                        nodename: "",
+                    };
+                    let u2: IStatusLBSRelease = {
+                        release: "",
+                        codename: "",
+                        id: "",
+                        description: "",
+                    };
+                    for (const prop of content) {
+                        if (prop.type == MonitorPropType.none) continue;
+                        let v = c[prop.identifier];
+                        if (prop.identifier == "sysname") u1.sysname = v;
+                        if (prop.identifier == "nodename") u1.nodename = v;
+                        if (prop.identifier == "kernel_release") u1.release = v;
+                        if (prop.identifier == "kernel_version") u1.version = v;
+                        if (prop.identifier == "arch") u1.machine = v;
+                        if (prop.identifier == "distribution_provider") u2.id = v;
+                        if (prop.identifier == "distribution_release") u2.release = v;
+                        if (prop.identifier == "distribution_codename") u2.codename = v;
+                        if (prop.identifier == "distribution_description") u2.description = v;
+                    }
+                    update.uname = u1;
+                    update.lsb_release = u2;
+                }
+
+                if (name == "common") {
+                    let u1: IStatusUptime = {
+                        idle: 0,
+                        total: 0,
+                    };
+                    let u2: IStatusLoadAVG = {
+                        five_minute: 0,
+                        total_processes: 0,
+                        ten_minute: 0,
+                        minute: 0,
+                        active_processes: 0
+                    };
+                    let u3: IStatusMeminfo = {
+                        avail: 0,
+                        total: 0,
+                        free: 0,
+                        swap_free: 0,
+                        swap_total: 0,
+                    };
+                    for (const prop of content) {
+                        if (prop.type == MonitorPropType.none) continue;
+                        let v = c[prop.identifier];
+                        if (prop.identifier == "uptime_total") u1.total = v;
+                        if (prop.identifier == "uptime_idle") u1.idle = v;
+                        if (prop.identifier == "loadavg_minute") u2.minute = v;
+                        if (prop.identifier == "loadavg_five_minute") u2.five_minute = v;
+                        if (prop.identifier == "loadavg_ten_minute") u2.ten_minute = v;
+                        if (prop.identifier == "active_processes") u2.active_processes = v;
+                        if (prop.identifier == "total_processes") u2.total_processes = v;
+                        if (prop.identifier == "memory") {u3.avail = u3.free = v[1] - v[0]; u3.total = v[1];}
+                        if (prop.identifier == "swap") {u3.swap_free = v[1] - v[0]; u3.swap_total = v[1];}
+                    }
+                    update.uptime = u1;
+                    update.loadavg = u2;
+                    update.meminfo = u3;
+                }
             }
+           
         }
         
         if (this.status && update.smart) {
