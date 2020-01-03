@@ -488,7 +488,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
 
         const dist = left + nullCheck(this.canvas).clientWidth - nullCheck(this.rightSpace) - e.pageX;
         const zoomTime = this.endTime - dist*scale;
-        this.zoom *= Math.pow(2, -e.deltaY/1500);
+        this.zoom *= Math.pow(2, -e.deltaY/100);
         const scale2 = Math.pow(2, 20-this.zoom) / preScale;
         this.endTime = zoomTime + dist*scale2;
         const now = (+new Date() / 1000);
