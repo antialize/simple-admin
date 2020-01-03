@@ -8,11 +8,11 @@ export function InformationList(props: {children?: React.ReactNode}) {
             <tbody>
                 {props.children}
             </tbody>
-        </table>    
+        </table>
         );
 }
 
 
-export function InformationListRow(props: {name:string, long?:boolean, children?: React.ReactNode } ) {
-    return (<tr><td style={props.long?{verticalAlign: "top", paddingTop: "4px"}:{}}><Typography>{props.name}</Typography></td><td>{props.children}</td></tr>)
+export function InformationListRow(props: {name:string, long?:boolean, children?: React.ReactNode, title?:string } ) {
+    return (<tr title={props.title}><td style={props.long?{verticalAlign: "top", paddingTop: "4px"}:{}}><Typography>{props.name}</Typography></td><td>{props.children}</td></tr>)
 }
