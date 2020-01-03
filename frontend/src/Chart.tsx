@@ -64,7 +64,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
 
         let start = ((startTime - epoc)/ 5) >> 10;
         let end = ((this.endTime - epoc)/5) >> 10;
-        
+
         for (let level = 20; level >= 0; --level) {
             if (level <= this.zoom) {
                 for (let index=start; index <= end; ++index)
@@ -73,7 +73,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                         if (!(name in this.buckets)) this.buckets[name] = {};
                         if (!(level in this.buckets[name])) this.buckets[name][level] = {};
                         this.buckets[name][level][index] = null;
-        
+
                         let a: IRequestStatBucket = {
                             type: ACTION.RequestStatBucket,
                             target: this.target,
@@ -119,7 +119,6 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         state.sendMessage(a);
     }
 
-
     updateCanvas() {
         if (this.delayedRender) window.clearTimeout(this.delayedRender);
         this.delayedRender = null;
@@ -127,13 +126,13 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         const theme = this.props.theme;
         if (!theme) return;
         const w = this.canvas.clientWidth;;
-        const h = this.canvas.clientHeight;
+        const h = Math.min(this.canvas.clientHeight, 600);
         this.canvas.setAttribute("width", ""+w);
         this.canvas.setAttribute("height", ""+h);
         const ctx = this.canvas.getContext('2d');
         if (!ctx) return;
         ctx.clearRect(0, 0, w, h);
-       
+
         const scale = Math.pow(2, 20-this.zoom) / preScale;
         let startTime = this.endTime - this.canvas.clientWidth * scale;
         let level = Math.min(Math.floor(this.zoom), 20);
@@ -145,23 +144,23 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         let rightSpace = 0;
         let topSpace = 0;
         type nn = number|null;
-        
+
         const getPoints = (names:string[], func: (...values:nn[])=>nn) => {
             let points: {time:number, value:nn}[] = [];
             let maxValue = 0;
             for (const name of names) {
-                if (!(name in this.buckets) || !(level in this.buckets[name])) 
+                if (!(name in this.buckets) || !(level in this.buckets[name]))
                     return {maxValue, points};
             }
 
             for (let index = start; index <= end; ++index) {
                 let values = [];
                 for (const name of names) {
-                    if (index in this.buckets[name][level] && this.buckets[name][level][index]) 
+                    if (index in this.buckets[name][level] && this.buckets[name][level][index])
                         values.push(this.buckets[name][level][index]);
                 }
                 if (values.length != names.length) continue;
-    
+
                 for (let i=0; i < 1024; ++i) {
                     let time = ((index << 10) + i) * (5 << (20-level)) + epoc;
                     let vs: nn[] = [];
@@ -213,8 +212,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                 } else {
                     myDate.setHours(Math.floor(myDate.hours / (deltaM / 60)) * (deltaM / 60));
                     myDate.setMinutes(0);
-                }         
-                
+                }
+
                 while (true) {
                     myDate.setMinutes(myDate.minutes+deltaM);
                     if (myDate.comp(myEndDate) == 1) break;
@@ -236,8 +235,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                 let deltaM = 0;
                 if (tpp < 60*60*24*2) deltaD = 1;
                 else if (tpp < 60*60*24*4) deltaD = 2;
-                else if (tpp < 60*60*24*8) deltaD = 4;         
-                else if (tpp < 60*60*24*16) deltaD = 8;         
+                else if (tpp < 60*60*24*8) deltaD = 4;
+                else if (tpp < 60*60*24*16) deltaD = 8;
                 else if (tpp < 60*60*24*32) deltaD = 16;
                 else if (tpp < 60*60*24*32*2) deltaM = 1;
                 else if (tpp < 60*60*24*32*3) deltaM = 2;
@@ -265,13 +264,12 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                     if (lastYear != myDate.year) {
                         ctx.fillText(""+myDate.year, x, h);
                         lastYear = myDate.year;
-                    }   
+                    }
                 }
             } //TODO handle years here
             ctx.restore();
         };
 
-    
 
         const renderPoints = (points: {time:number|null, value:number|null}[], maxValue:number,  color:string) => {
             ctx.save();
@@ -321,7 +319,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                     let slope = 0;
                     if ((y1 < y2) != (y2 < y3)) {
                         //We are not at a top or a bottom
-                        slope = (y3 - y1)/(x3 - x1);                        
+                        slope = (y3 - y1)/(x3 - x1);
                     }
                     ctx.bezierCurveTo(x1*0.666 + x2*0.333, y1d, x1*0.333 + x2*0.666, y2 + slope * (x2-x1)*0.333, x2, y2);
                     y1d = y2 - slope * (x3-x2)*0.333;
@@ -383,7 +381,7 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
                     step *= 10;
                 }
             }
-                
+
             let v = step;
             while (v <= maxValue) {
                 labels.push({text: v + prefix + time, value: v});
@@ -393,21 +391,21 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
             let maxWidth = 0;
             for (const {text, value} of labels)
                 maxWidth = Math.max(ctx.measureText(text).width);
-            
+
             let lineY = 0;
             let textY = 0;
             if (right) {
                 rightSpace = maxWidth + 4;
                 lineY = w - maxWidth - 3;
                 textY = lineY + 3;
-                ctx.textAlign="left"; 
+                ctx.textAlign="left";
             } else {
                 leftSpace = maxWidth+4;
                 lineY = maxWidth+3;
                 textY = lineY - 3;
-                ctx.textAlign="right"; 
+                ctx.textAlign="right";
             }
-            
+
             ctx.strokeStyle = "white;"
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -492,8 +490,8 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
         this.requestData();
         this.updateCanvasDelayed();
         e.preventDefault();
-        e.stopPropagation(); 
-    }  
+        e.stopPropagation();
+    }
 
     mouseDown(e:React.MouseEvent<HTMLCanvasElement>) {
         let startX = e.clientX;
@@ -561,7 +559,7 @@ export function handleAction(a:IStatBucket|IStatValueChanges) {
     case ACTION.StatBucket:
         if (a.target in charts)
             charts[a.target].addBucket(a);
-        break;      
+        break;
     case ACTION.StatValueChanges:
         if (a.target in charts)
             charts[a.target].valueChanges(a);
