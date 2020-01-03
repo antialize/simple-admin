@@ -7,6 +7,7 @@ import state from "./state";
 import { InformationList, InformationListRow } from './InformationList';
 import { Typography } from "@material-ui/core";
 import { observer } from "mobx-react";
+import { hostId } from "../../shared/type";
 
 const Status = observer(function Status({id}:{id:number}) {
     const s = state.status.get(id);
@@ -156,11 +157,19 @@ const Status = observer(function Status({id}:{id:number}) {
             <LinearProgress variant="determinate" value={(s.meminfo.swap_total - s.meminfo.swap_free)*100/s.meminfo.swap_total} />
         </span>);
 
+    let comment = "";
+    const hosts = state.objectDigests.get(hostId);
+    if (hosts) {
+        let obj = hosts.get(id);
+        if (obj) comment = obj.comment;
+    }
+
     return (
         <div style={{ display: 'flex', flexDirection: 'row' }}>
             <div style={{ width: "250px" }}>
                 <InformationList>
                     <InformationListRow name="Hostname"><Typography>{s.uname?s.uname.nodename:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Comment"><Typography>{comment}</Typography></InformationListRow>
                     <InformationListRow name="Kernel"><Typography>{s.uname?s.uname.release:"unknown"}</Typography></InformationListRow>
                     <InformationListRow name="Dist"><Typography>{s.lsb_release?s.lsb_release.id+" "+s.lsb_release.release+" "+s.lsb_release.codename:"unknown"}</Typography></InformationListRow>
                     <InformationListRow name="Uptime"><Typography><Time seconds={s.uptime?s.uptime.total:0} /></Typography></InformationListRow>
@@ -172,7 +181,7 @@ const Status = observer(function Status({id}:{id:number}) {
                     {lst}
                 </InformationList>
             </div>
-            <Chart initialZoom={20} style={{flex:1, marginLeft: 20, marginRight: 10, minHeight: '270px'}} host={id}/>
+            <Chart initialZoom={20} style={{flex:1, marginLeft: 20, marginRight: 10, minHeight: '350px'}} host={id}/>
         </div>)
 });
 

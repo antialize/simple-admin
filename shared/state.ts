@@ -18,6 +18,7 @@ export enum PAGE_TYPE {
 
 export interface IObjectDigest {
     name: string;
+    comment: string;
     id: number;
     type: number;
     category: string;
