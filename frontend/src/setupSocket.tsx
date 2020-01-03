@@ -139,7 +139,7 @@ export const setupSocket = () => {
                     else {
                         const last = d.object[d.object.length - 1];
                         getOrInsert(state.objectDigests, last.type, ()=>new Map())
-                            .set(d.id, { id: d.id, name: last.name, type: last.type, category: last.category });
+                            .set(d.id, { id: d.id, name: last.name, type: last.type, category: last.category, comment: last.comment });
                         if (last.type == typeId)
                             state.types.set(last.id, last);
                         const o = getOrInsert(state.objects, d.id, ()=>new ObjectState(d.id));
