@@ -438,10 +438,10 @@ class ChartImpl extends React.Component<Props &  ThemedComponentProps, {}> {
 
         startTime = this.endTime - (this.canvas.clientWidth - leftSpace - rightSpace) * scale;
 
-        renderXAxes();        
-        renderPoints(cpu.points, cpu.maxValue, "red");
-        renderPoints(disk.points, iomax, "green");
-        renderPoints(net.points, iomax, "blue");
+        renderXAxes();
+        renderPoints(cpu.points, cpu.maxValue, "#E24233");
+        renderPoints(disk.points, iomax, "#E59900");
+        renderPoints(net.points, iomax, "#0072B2");
 
         this.leftSpace = leftSpace;
         this.rightSpace = rightSpace;
