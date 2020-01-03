@@ -15,10 +15,20 @@ const Status = observer(function Status({id}:{id:number}) {
         return <Typography color="error">Down</Typography>;
 
     let lst: JSX.Element[] = [];
-    for (const [target, mount] of s.mounts) {
-        const block_size = 512;
+    for (const [, mount] of s.mounts) {
         lst.push(
-            <InformationListRow key={mount.src + " at " + mount.target} name={mount.src + " at " + mount.target}>
+            <InformationListRow key={mount.src + " at " + mount.target} name={mount.target} title={
+                "device: " + mount.src +
+                "\nmount point: "+ mount.target +
+                "\nfiles: " + mount.files +
+                "\nfree files: " + mount.free_files +
+                "\navail files: " + mount.avail_files +
+                "\nblocks: " + mount.blocks +
+                "\nfree blocks: " + mount.free_blocks +
+                "\navail blocks: " + mount.avail_blocks +
+                "\nblock size: " + mount.block_size +
+                "\ntype: " + mount.fstype
+                }>
                 <Typography>
                     <Size size={(mount.blocks - mount.free_blocks) * mount.block_size} />
                     <span> of </span>
@@ -47,109 +57,7 @@ const Status = observer(function Status({id}:{id:number}) {
         diskwrite.push((s.diskwrite[i + 1] - s.diskwrite[i]) / 5.0);
         labels.push(new Date(s.time[i + 1] * 1000));
     }
-/*
-    const data = {
-        labels: labels,
-        datasets: [
-            {
-                yAxisID: 'cpu',
-                label: 'CPU Usage',
-                fill: false,
-                lineTension: 0.5,
-                backgroundColor: 'rgba(0,0,0,0.4)',
-                borderColor: 'rgba(0,0,0,1)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                data: cpu
-            }, {
-                yAxisID: 'io',
-                label: 'Net Read',
-                fill: false,
-                lineTension: 0.5,
-                backgroundColor: 'rgba(255,0,0,0.4)',
-                borderColor: 'rgba(255,0,0,1)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                data: netread,
-            }, {
-                yAxisID: 'io',
-                label: 'Net Write',
-                fill: false,
-                lineTension: 0.5,
-                backgroundColor: 'rgba(0,255,0,0.4)',
-                borderColor: 'rgba(0,255,0,1)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                data: netwrite,
-            }, {
-                yAxisID: 'io',
-                label: 'Disk Read',
-                fill: false,
-                lineTension: 0.5,
-                backgroundColor: 'rgba(0,0,255,0.4)',
-                borderColor: 'rgba(0,0,255,1)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                data: diskread,
-            }, {
-                yAxisID: 'io',
-                label: 'Disk Write',
-                fill: false,
-                lineTension: 0.5,
-                backgroundColor: 'rgba(0,255,255,0.4)',
-                borderColor: 'rgba(0,255,255,1)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                data: diskwrite,
-            }
-        ]
-    };
 
-    const cpuTicks: LinearTickOptions = {
-        beginAtZero: true,
-        suggestedMax: 100.0,
-        callback: function(label: number, index: number, labels: any) {
-            return label + '%';
-        }
-    }
-
-    const ioTicks: LinearTickOptions = {
-        beginAtZero: true,
-        suggestedMax: 1024.0,
-        callback: function(label: number, index: number, labels: any) {
-            if (label < 1024)
-                return label.toFixed(0) + "B/s";
-            if (label < 1024 * 1024)
-                return (label / 1024).toFixed(0) + "kB/s";
-            if (label < 1024 * 1024 * 1024)
-                return (label / 1024 / 1024).toFixed(0) + "MB/s";
-            return (label / 1024 / 1024 / 1024).toFixed(0) + "GB/s";
-        }
-    }
-
-    const options: ChartOptions = {
-        animation: false,
-        maintainAspectRatio: false,
-        scales: {
-            xAxes: [{
-                type: 'time',
-            }],
-            yAxes: [
-                {
-                    id: 'cpu',
-                    gridLines: { display: false },
-                    ticks: cpuTicks
-                },
-                {
-                    id: 'io',
-                    gridLines: { display: false },
-                    ticks: ioTicks,
-                    position: 'right'
-                }
-            ]
-        }
-    };
-*/
     let swap = (s.meminfo.swap_total == 0)
         ? <Typography>None</Typography>
         : (<span>
@@ -170,10 +78,30 @@ const Status = observer(function Status({id}:{id:number}) {
                 <InformationList>
                     <InformationListRow name="Hostname"><Typography>{s.uname?s.uname.nodename:"unknown"}</Typography></InformationListRow>
                     <InformationListRow name="Comment"><Typography>{comment}</Typography></InformationListRow>
-                    <InformationListRow name="Kernel"><Typography>{s.uname?s.uname.release:"unknown"}</Typography></InformationListRow>
-                    <InformationListRow name="Dist"><Typography>{s.lsb_release?s.lsb_release.id+" "+s.lsb_release.release+" "+s.lsb_release.codename:"unknown"}</Typography></InformationListRow>
-                    <InformationListRow name="Uptime"><Typography><Time seconds={s.uptime?s.uptime.total:0} /></Typography></InformationListRow>
-                    <InformationListRow name="Loadavg"><Typography>{s.loadavg?s.loadavg.minute:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Kernel" title={
+                        s.uname ? "release: " + s.uname.release +
+                        "\nnodename: " + s.uname.nodename +
+                        "\nmachine: " + s.uname.machine +
+                        "\nsysname: " + s.uname.sysname +
+                        "\nversion: " + s.uname.version : undefined
+                    }><Typography>{s.uname?s.uname.release:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Dist" title={
+                        s.lsb_release ? "id: " + s.lsb_release.id +
+                        "\nrelease: " + s.lsb_release.release +
+                        "\ncodename: " + s.lsb_release.codename +
+                        "\ndescription: " + s.lsb_release.description : undefined
+                    }><Typography>{s.lsb_release?s.lsb_release.id+" "+s.lsb_release.release+" "+s.lsb_release.codename:"unknown"}</Typography></InformationListRow>
+                    <InformationListRow name="Uptime" title={
+                        s.uptime ? "total: " + s.uptime.total +
+                        "\nidle: " + s.uptime.idle : undefined
+                    }><Typography><Time seconds={s.uptime?s.uptime.total:0} /></Typography></InformationListRow>
+                    <InformationListRow name="Loadavg" title={
+                        s.loadavg ? "1 minute: " + s.loadavg.minute +
+                        "\n5 minutes: " + s.loadavg.five_minute +
+                        "\n10 minutes: " + s.loadavg.ten_minute +
+                        "\ntotal processes: " + s.loadavg.total_processes +
+                        "\nactive processes: " + s.loadavg.active_processes : undefined
+                    }><Typography>{s.loadavg?s.loadavg.minute:"unknown"}</Typography></InformationListRow>
                     <InformationListRow name="Memory"><Typography>
                         <Size size={s.meminfo?s.meminfo.total - s.meminfo.free:0} /><span> of </span><Size size={s.meminfo?s.meminfo.total:0} /></Typography><br />
                     </InformationListRow>
