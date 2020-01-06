@@ -188,6 +188,7 @@ export class Deployment {
 
                 interface SentinalDagNode extends BaseDagNode {
                     type: NodeType.sentinal
+                    name: string;
                 }
 
                 interface NormalDagNode extends BaseDagNode {
@@ -255,7 +256,8 @@ export class Deployment {
                         prev: [],
                         id,
                         inCount: 0,
-                        typeOrder: 0
+                        typeOrder: 0,
+                        name: v.deploymentTitle,
                     };
 
                     const node: NormalDagNode = {
@@ -448,11 +450,58 @@ export class Deployment {
                 }
 
                 if (seen.size != 0) {
-                    errors.push("There is a cycle");
-                    //seen.forEach(n => {
-                    //    if (n.type == NodeType.sentinal) return;
-                    //    console.log(n.id, n.deploymentTitle, n.inCount, n.next.map(v => v.deploymentTitle).join(","));
-                    //});
+                    let shortest_cycle: DagNode[] | null = null;
+                    for (let seed of seen) {
+                        let back = new Map<DagNode, DagNode>();
+                        let s1: DagNode[] = [];
+                        let s2: DagNode[] = [];
+                        for (let n of seed.next) {
+                            back.set(n, seed);
+                            s2.push(n);
+                        }
+
+                        while (s1.length || s2.length) {
+                            if (!s1.length) {
+                                while (s2.length)
+                                    s1.push(s2.pop()!);
+                            }
+                            let n = s1.pop()!;
+                            let cycleFound = false;
+                            for (let m of n.next) {
+                                if (m === seed) {
+                                    cycleFound = true;
+                                    break;
+                                }
+                                if (back.has(m)) continue;
+                                back.set(m, n);
+                                s2.push(m);
+                            }
+                            if (cycleFound) {
+                                let cycle = [];
+                                cycle.push(seed);
+                                while (n != seed) {
+                                    cycle.push(n);
+                                    let m = back.get(n);
+                                    if (m == null) {
+                                        console.log("Internal errror");
+                                        break;
+                                    }
+                                    n = m;
+                                }
+                                cycle.push(seed);
+                                if (!shortest_cycle || shortest_cycle.length > cycle.length)
+                                    shortest_cycle = cycle;
+                                break;
+                            }
+                        }
+                    }
+
+                    errors.push("There is a cycle on host " + hostObject.name + ": " +
+                        shortest_cycle!.map(v => v.type == NodeType.sentinal ? "Sent " + v.name : v.deploymentTitle).join(" -> ")
+                    );
+
+
+
                 }
 
                 // Handle monitor

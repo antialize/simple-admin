@@ -982,7 +982,7 @@ finally:
                 const container = u.name.substr(1); //For some reason there is a slash in the string??
                 const row = await db.get("SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, container);
                 if (!row || !row.project) {
-                    log('info', "Could not find project for container", container, row);
+                    //log('info', "Could not find project for container", container, row);
                     continue;
                 }
                 const project = row.project;

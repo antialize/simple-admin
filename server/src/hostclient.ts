@@ -36,7 +36,6 @@ export class HostClient extends JobOwner {
     private used = 0;
     nextJobId = 100;
     monitorRestartTime = 1000;
-    reloadingMonitor = false;
     auth: boolean | null = null;
     hostname: string | null = null;
     id: number | null = null;
@@ -115,37 +114,32 @@ export class HostClient extends JobOwner {
         if (this.id == null) throw Error("Missing host id");
 
         if (job == this.monitorJob) {
-            if (this.reloadingMonitor) {
-                this.reloadingMonitor = false;
+            log('warning', "Monitor job died", { hostname: this.hostname });
+            msg.emit(this.id, "Monitor job died", this.monitorJob.error);
+            this.monitorJob = null;
+            setTimeout(() => {
+                if (this.monitorJob != null) return;
+                log('info', "Restart monitor job", { hostname: this.hostname });
                 this.monitorJob = new MonitorJob(this, this.monitorScript);
-            } else {
-                log('warning', "Monitor job died", { hostname: this.hostname });
-                msg.emit(this.id, "Monitor job died", this.monitorJob.error);
-                this.monitorJob = null;
-                setTimeout(() => {
-                    if (this.monitorJob != null) return;
-                    log('info', "Restart monitor joxb", { hostname: this.hostname });
-                    this.monitorJob = new MonitorJob(this, this.monitorScript);
-                }, this.monitorRestartTime);
-                this.monitorRestartTime *= 1.5;
-            }
+            }, this.monitorRestartTime);
+            this.monitorRestartTime *= 1.5;
         }
         super.removeJob(job, m);
     }
 
     monitorChanged(script: string | null, content: IMonitor[] | null) {
-        let md = this.monitorJob;
         this.monitorJob = null;
         log('info', "New monitor", { hostname: this.hostname, /*content*/ });
         this.monitorContent = content;
         this.monitorScript = script;
         this.monitorRestartTime = 1000;
-        if (md) {
-            this.reloadingMonitor = true;
-            md.kill();
-        } else {
+
+        let msg: message.Kill = {'type': 'kill', 'id': 0};
+        this.sendMessage(msg);
+
+        setTimeout(() => {
             this.monitorJob = new MonitorJob(this, script);
-        }
+        }, 1700); 
     }
 
     async setMonitor(script: string, content: IMonitor[]) {
@@ -245,7 +239,11 @@ export class HostClient extends JobOwner {
 
                 for (const prop of content) {
                     if (prop.type == MonitorPropType.none) continue;
-                    let v = c[prop.identifier];                    
+                    let v = c[prop.identifier];
+                    if (v === undefined) {
+                        log("error", "Missing " + prop.identifier + " in " + name + " in status update from "+this.hostname);
+                        continue;
+                    }
                     switch (prop.type) {
                     case MonitorPropType.string:
                    /* case MonitorPropType.up:

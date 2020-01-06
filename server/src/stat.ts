@@ -38,7 +38,6 @@ export async function flush() {
             v.ttl--;
     });
 
-    log("info", "Start flush", "Dirty: ", dirty.length, "Cache size: ", cache.size);
     while (dirty.length != 0) {
         let q = "REPLACE INTO `stats` (`host`, `name`, `level`, `index`, `values`) VALUES ";
         let first = true;
@@ -55,7 +54,6 @@ export async function flush() {
             params.push(e.index);
             params.push(e.values);
         }
-        log("info", "Flush", params.length / 5);
         await db.run(q, ...params);
     }
     log("info", "End flush", "Cache size: ", cache.size);
