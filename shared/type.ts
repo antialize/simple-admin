@@ -117,7 +117,10 @@ export interface IDepends {
     depends: number[];
 }
 
-export type Host = IVariables & IContains;
+export interface Host extends IVariables, IContains {
+    messageOnDown?: boolean;
+    debPackages?: boolean;
+}
 
 export const typeId = 1;
 export const hostId = 2;
