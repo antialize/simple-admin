@@ -64,7 +64,7 @@ export class HostClient extends JobOwner {
         const time = process.hrtime();
         this.pingStart = time[0] + time[1] * 1e-9;
         this.sendMessage({ type: 'ping', id: this.pingId++ });
-        this.pingTimer = setTimeout(() => { this.onPingTimeout() }, 20000);
+        this.pingTimer = setTimeout(() => { this.onPingTimeout() }, 80000);
     }
 
     onPingTimeout() {
