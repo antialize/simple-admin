@@ -31,4 +31,8 @@ async function setup() {
     instances.hostClients.start();
 };
 
-setup();
+setup().catch(e => {
+    console.error("setup() failed");
+    console.error(e);
+    process.exit(1);
+});
