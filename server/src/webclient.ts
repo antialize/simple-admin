@@ -460,8 +460,9 @@ export class WebClient extends JobOwner {
     sendMessage(obj: IAction) {
         this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
-                log("warn", "Web client error sending message", { err });
-                this.connection.terminate();
+                if (Object.getOwnPropertyNames(err).length != 0)
+                    log("warn", "Web client error sending message", { err, host:this.host });
+		this.connection.terminate();
             }
         })
     }
