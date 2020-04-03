@@ -5,3 +5,5 @@
 .vscode
 *~
 .#*
+/var
+.mypy_cache
