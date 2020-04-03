@@ -257,7 +257,7 @@ export class WebClient extends JobOwner {
                 }
                 {
                     let row = await msg.getFullText(act.id);
-                    this.sendMessage({ type: ACTION.MessageTextRep, id: act.id, message: row['message'] })
+                    this.sendMessage({ type: ACTION.MessageTextRep, id: act.id, message: row?row.message:"missing" })
                 }
                 break;
             case ACTION.SaveObject:
