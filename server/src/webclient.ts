@@ -577,8 +577,10 @@ export class WebClients {
     }
 
     startServer() {
-        this.httpServer.listen(8182, "localhost", function() {
-            log('info', "Web server started on port 443");
+        const webPort = config.webPort || 8182;
+        const webHost = config.webHost || "localhost";
+        this.httpServer.listen(webPort, webHost, function() {
+            log('info', `Web server listening on ${webHost}:${webPort}`);
         });
         this.httpServer.on('close', () => {
             log('info', "Web server stopped");
