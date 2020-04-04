@@ -1,6 +1,10 @@
 # Example running a test server:
-# docker build -f Dockerfile.server -t simple-admin-server . && mkdir -p var && docker run -e SADMIN_DOMAIN=test.local -v $PWD/var:/var/sadmin --rm simple-admin-server
-# Example running a test client: First find the exposed port number with `docker ps`. Then run (if 32775 is the exposed port for 8182):
+# docker build -f Dockerfile.server -t simple-admin-server . && mkdir -p var && docker run -e SADMIN_DOMAIN=sadmin.localhost -v $PWD/var:/var/sadmin --rm simple-admin-server
+# Run a test server with a label for traefik:
+# docker run --name simple-admin-server --label 'traefik.http.routers.server.rule=Host(`sadmin.localhost`)' -e SADMIN_DOMAIN=sadmin.localhost -v $PWD/var:/var/sadmin --rm simple-admin-server
+# Run traefik:
+# docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -p 80:80 -p 8080:8080 --name reverse-proxy traefik:v2.2 --api.insecure=true --providers.docker
+# Example running a test client: First find the exposed port number with `docker ps`. Then run (if 32775 is the exposed port for 80):
 # python simpleadmin.py --server-host 127.0.0.1 --server-insecure --server-port 32775 auth -u test
 FROM node:8-alpine
 RUN apk add --update-cache python2 make gcc g++ openssl
@@ -11,11 +15,11 @@ COPY shared/ ../shared/
 COPY server/ ../server/
 RUN mkdir node_modules/@types/crypt3 && mv src/crypt3.d.ts node_modules/@types/crypt3/index.d.ts
 ENV SADMIN_DOMAIN ""
-EXPOSE 8888 8182
+EXPOSE 8888 80
 CMD mkdir -p /var/sadmin && \
 ( [ -e /var/sadmin/privkey.pem ] || openssl req -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=$SADMIN_DOMAIN" -newkey rsa:2048 -nodes -keyout /var/sadmin/privkey.pem -x509 -days 365 -out /var/sadmin/chain.pem ) && \
 ln -Tsf /var/sadmin/privkey.pem domain.key && \
 ln -Tsf /var/sadmin/chain.pem chained.pem && \
 ln -sf /var/sadmin/sysadmin.db /var/sadmin/sysadmin.db-shm /var/sadmin/sysadmin.db-wal . && \
-echo "{\"users\":[{\"name\":\"test\",\"password\":\"test\"}],\"hostname\":\"$SADMIN_DOMAIN\",\"webHost\":\"0.0.0.0\"}" > config.json && \
+echo "{\"users\":[{\"name\":\"test\",\"password\":\"test\"}],\"hostname\":\"$SADMIN_DOMAIN\",\"webHost\":\"0.0.0.0\",\"webPort\":80}" > config.json && \
 env -i node_modules/.bin/ts-node src/index.ts

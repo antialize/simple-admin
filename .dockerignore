@@ -8,3 +8,4 @@ frontend/public/js
 server/build
 server/node_modules
 var
+var-client
