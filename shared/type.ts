@@ -124,4 +124,5 @@ export const rootId = 3;
 export const userId = 4;
 export const packageId = 10;
 export const rootInstanceId = 100;
+export const certificateAuthorityId = 101;
 

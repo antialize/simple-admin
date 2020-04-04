@@ -1,6 +1,6 @@
 import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
-    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, userId,
-    rootInstanceId} from "../../shared/type"
+    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, userId, IMonitorContentTypeProp,
+    rootInstanceId, monitorId, certificateAuthorityId} from "../../shared/type"
 
 export const groupId = 5;
 export const fileId = 6;
@@ -506,6 +506,25 @@ export let defaults: IDefault[] =
                     "    prompt(cmd)\n" +
                     "    subprocess.call([cmd], shell=True)\n"
             }   
+        },
+
+        {
+            type: typeId,
+            id: certificateAuthorityId,
+            name: "Certificate authority",
+            category: "Buildin",
+            comment: "Certificate authority stored on sadmin server",
+            content: {
+                deployOrder: 100,
+                plural: "Certificate authorities",
+                kind: "delta",
+                hasCategory: false,
+                hasVariables: true,
+                hasContains: false,
+                content: [
+                    {type: TypePropType.text, name: "validity", title: "User cert validity", default: "+20h", description: "ssh-keygen -V argument, e.g. +20h for current time plus 20 hours"} as ITextTypeProp,
+                ],
+            }
         },
 
     ];

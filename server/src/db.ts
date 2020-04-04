@@ -82,6 +82,8 @@ export class DB {
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
 
+        await r("CREATE TABLE IF NOT EXISTS `ssh_private_key` (`id` INTEGER PRIMARY KEY, `private_part` TEXT, `public_part` TEXT)");
+
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }

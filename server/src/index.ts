@@ -7,6 +7,7 @@ import * as instances from './instances';
 import {errorHandler} from './error'
 import {log} from 'winston';
 import { ModifiedFiles } from './modifiedfiles';
+import { Ssh } from './ssh';
 import winston = require('winston');
 
 const exitHook = require('async-exit-hook');
@@ -19,6 +20,7 @@ async function setup() {
     instances.setDeployment(new Deployment());
     instances.setDb(new DB());
     instances.setModifiedFiles(new ModifiedFiles());
+    instances.setSsh(new Ssh());
 
     try {
         await instances.db.init()
