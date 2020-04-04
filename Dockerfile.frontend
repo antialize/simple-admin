@@ -1,0 +1,19 @@
+# Example running a frontend connecting to the server $SADMIN_DOMAIN:
+# docker build -f Dockerfile.frontend -t simple-admin-frontend . && docker run -e SADMIN_DOMAIN=test.local -v $PWD/var:/var/sadmin --rm simple-admin-frontend
+FROM node:8-alpine AS builder
+RUN apk add --update-cache python2 make gcc g++ openssl
+WORKDIR /work/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --production
+COPY shared/ ../shared/
+COPY frontend/ ../frontend/
+RUN mv src/config.docker.ts src/config.ts && node_modules/.bin/webpack
+
+FROM nginx:stable-alpine
+RUN rm -rf /usr/share/nginx/html && mkdir -p /usr/share/nginx/html
+COPY --from=builder /work/frontend/public /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN nginx -tc /etc/nginx/nginx.conf
+ENV SADMIN_DOMAIN ""
+EXPOSE 80
+CMD sed -i -e "s/<script/<script>SADMIN_DOMAIN=\"$SADMIN_DOMAIN\"<\\/script><script/" /usr/share/nginx/html/index.html && exec nginx -g "daemon off;"
