@@ -45,4 +45,8 @@ async function setup() {
     });
 };
 
-setup();
+setup().catch(e => {
+    console.error("setup() failed");
+    console.error(e);
+    process.exit(1);
+});

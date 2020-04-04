@@ -296,7 +296,9 @@ async def client():
     try:
         sc = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         sc.check_hostname = False
-        # sc.load_verify_locations('cert.pem')
+        if config.get("server_cert"):
+            logging.info("Loading cert at %s" % config["server_cert"])
+            sc.load_verify_locations(config["server_cert"])
 
         output_queue = asyncio.Queue(config['output_queue_size'])
         reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc)
@@ -363,12 +365,10 @@ async def client():
         await sender
         writer.close()
         logging.info("Disconnected from server")
-    except ConnectionError as e:
-        await asyncio.sleep(config['reconnect_time'])
-        print(e, e.args)
     except Exception as e:
+        traceback.print_exc()
+        print(e, e.args, flush=True)
         await asyncio.sleep(config['reconnect_time'])
-        print(e, e.args)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

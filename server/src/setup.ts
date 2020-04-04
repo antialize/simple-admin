@@ -10,10 +10,14 @@ import { webClients} from './instances'
 
 export default async (req: Request, res: Response) => {
     res.type("text/x-shellscript");
-    let host = req.param("host");
-    let token = req.param("token");
+    let host = req.query.host;
+    let token = req.query.token;
     if (!host) {
         res.status(405).send("#!/bin/bash\necho \"Missing hostname\"\n");
+        return;
+    }
+    if (!token) {
+        res.status(405).send("#!/bin/bash\necho \"Missing token\"\n");
         return;
     }
     let ho = await db.getHostContentByName(host);

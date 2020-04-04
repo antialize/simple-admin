@@ -9,13 +9,16 @@ import json
 import os
 import random
 import re
+import ssl
 import subprocess
-import time
-import websockets
 import sys
+import time
 from tempfile import NamedTemporaryFile
+from typing import Any, Dict
 
-remote = json.load(open("/etc/simpleadmin_client.json", "r"))['server_host']
+import websockets
+
+config: Dict[str, Any]
 
 class Connection:
     def __init__(self):
@@ -25,7 +28,20 @@ class Connection:
         self.otp = False
         
     async def setup(self, requireAuth=True):
-        self.socket = await websockets.connect('wss://%s/sysadmin'%remote,  read_limit=2**30, max_size=2**30)
+        if config.get("server_insecure"):
+            ssl_context = None
+            protocol = "ws://"
+        else:
+            ssl_context = ssl.create_default_context()
+            if config.get("server_cert"):
+                ssl_context.load_verify_locations(capath=config["server_cert"])
+            protocol = "wss://"
+        self.socket = await websockets.connect(
+            "%s%s:%s/sysadmin" % (protocol, config["server_host"], config["server_port"]),
+            read_limit=2 ** 30,
+            max_size=2 ** 30,
+            ssl=ssl_context,
+        )
 
         session = ""
         if os.path.exists(self.cookieFile):
@@ -72,7 +88,7 @@ async def login(c, user, pwd, otp):
         pass
     if not 'auths' in dockerconf:
         dockerconf['auths'] = {}
-    dockerconf['auths'][remote] = {'auth': base64.b64encode(("%s:%s"%(user, res['session'])).encode("ascii")).decode('ascii')}
+    dockerconf['auths'][config["server_host"]] = {'auth': base64.b64encode(("%s:%s"%(user, res['session'])).encode("ascii")).decode('ascii')}
     os.makedirs(os.path.expanduser("~/.docker"), exist_ok=True)
     with open(dockerconfpath, "w") as f:
         json.dump(dockerconf, f, indent=4)
@@ -709,6 +725,13 @@ async def ui():
 
 def main():
     parser = argparse.ArgumentParser(prog='simpleadmin')
+
+    parser.add_argument("--config", help="path to config file")
+    parser.add_argument("--server-host", help="the hostname of the server")
+    parser.add_argument("--server-port", help="the port of the server")
+    parser.add_argument("--server-cert", help="the TLS certificate of the server")
+    parser.add_argument("--server-insecure", help="set if connecting to insecure ws", action="store_true")
+
     subparsers = parser.add_subparsers(help='commands', dest="command")
     
     parser_auth = subparsers.add_parser('auth', help='Authenticate user', description="Authenticate your user")
@@ -732,6 +755,15 @@ def main():
     parser_list.add_argument("--porcelain", choices=["v1"], help="Give the output in an easy-to-parse format for scripts.")
 
     args = parser.parse_args()
+
+    global config
+    config_keys = "server_host server_port server_cert server_insecure".split()
+    config = {k: getattr(args, k) for k in config_keys if hasattr(args, k)}
+    if args.config or not config:
+        with open(args.config or "/etc/simpleadmin_client.json") as fp:
+            config = {**json.load(fp), **config}
+    config.setdefault("server_port", 443)
+
     if args.command == 'auth':
         asyncio.get_event_loop().run_until_complete(main_auth(args.user))
     elif args.command == 'deauth':

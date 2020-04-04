@@ -257,7 +257,7 @@ export class WebClient extends JobOwner {
                 }
                 {
                     let row = await msg.getFullText(act.id);
-                    this.sendMessage({ type: ACTION.MessageTextRep, id: act.id, message: row['message'] })
+                    this.sendMessage({ type: ACTION.MessageTextRep, id: act.id, message: row?row.message:"missing" })
                 }
                 break;
             case ACTION.SaveObject:
@@ -460,8 +460,9 @@ export class WebClient extends JobOwner {
     sendMessage(obj: IAction) {
         this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
-                log("warn", "Web client error sending message", { err });
-                this.connection.terminate();
+                if (Object.getOwnPropertyNames(err).length != 0)
+                    log("warn", "Web client error sending message", { err, host:this.host });
+		this.connection.terminate();
             }
         })
     }
@@ -576,8 +577,10 @@ export class WebClients {
     }
 
     startServer() {
-        this.httpServer.listen(8182, "localhost", function() {
-            log('info', "Web server started on port 443");
+        const webPort = config.webPort || 8182;
+        const webHost = config.webHost || "localhost";
+        this.httpServer.listen(webPort, webHost, function() {
+            log('info', `Web server listening on ${webHost}:${webPort}`);
         });
         this.httpServer.on('close', () => {
             log('info', "Web server stopped");
