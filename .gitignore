@@ -6,4 +6,5 @@
 *~
 .#*
 /var
+/var-client
 .mypy_cache

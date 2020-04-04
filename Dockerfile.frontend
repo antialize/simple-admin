@@ -1,5 +1,6 @@
 # Example running a frontend connecting to the server $SADMIN_DOMAIN:
 # docker build -f Dockerfile.frontend -t simple-admin-frontend . && docker run -e SADMIN_DOMAIN=test.local -v $PWD/var:/var/sadmin --rm simple-admin-frontend
+# docker run --label 'traefik.http.routers.frontend.rule=Host(`frontend.localhost`)' -e SADMIN_DOMAIN=sadmin.localhost -v $PWD/var:/var/sadmin --rm simple-admin-frontend
 FROM node:8-alpine AS builder
 RUN apk add --update-cache python2 make gcc g++ openssl
 WORKDIR /work/frontend
