@@ -54,7 +54,7 @@ export class HostClient extends JobOwner {
         this.socket.on('close', () => this.onClose());
         this.socket.on('data', (data: any) => this.onData(data as Buffer));
         this.socket.on('error', (err: Error) => {
-            log('warning', "Client socket error", { hostname: this.hostname, error: err });
+            log('error', "Client socket error", { hostname: this.hostname, error: err });
         });
         this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);;
     }
@@ -70,7 +70,7 @@ export class HostClient extends JobOwner {
     onPingTimeout() {
         this.pingTimer = null;
         this.closeHandled = true;
-        log('warning', "Client ping timeout", { hostname: this.hostname });
+        log('error', "Client ping timeout", { hostname: this.hostname });
         this.socket.end();
     }
 
@@ -123,7 +123,7 @@ export class HostClient extends JobOwner {
         if (this.id == null) throw Error("Missing host id");
 
         if (job == this.monitorJob) {
-            log('warning', "Monitor job died", { hostname: this.hostname });
+            log('error', "Monitor job died", { hostname: this.hostname });
             msg.emit(this.id, "Monitor job died", this.monitorJob.error);
             this.monitorJob = null;
             setTimeout(() => {
@@ -171,7 +171,7 @@ export class HostClient extends JobOwner {
         const obj: message.Incomming = JSON.parse(msg.toString('utf8'))
         if (this.auth === null) {
             if (obj.type != "auth") {
-                log('warning', "Client invalid auth", { address: this.socket.remoteAddress, port: this.socket.remotePort, obj });
+                log('error', "Client invalid auth", { address: this.socket.remoteAddress, port: this.socket.remotePort, obj });
                 this.socket.end();
                 this.auth = false;
                 return;
@@ -196,7 +196,7 @@ export class HostClient extends JobOwner {
                 else
                     this.monitorChanged(null, null);
             } else {
-                log('warning', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
+                log('error', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
                 this.socket.end();
                 this.auth = false;
             }
