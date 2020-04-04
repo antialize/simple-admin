@@ -578,4 +578,5 @@ export type IAction =
     | IStatValueChanges
     | IStopDeployment
     | ISubscribeStatValues
-    | IToggleDeploymentObject;
+    | IToggleDeploymentObject
+;
