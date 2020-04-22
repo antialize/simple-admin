@@ -272,7 +272,7 @@ class numeric_sort_key:
             i += 1
         try:
             return int(self.s[i]) < int(o.s[i])
-        except ValueError:
+        except (IndexError, ValueError):
             pass
         return "".join(self.s[i:]) < "".join(o.s[i:])
 
