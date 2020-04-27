@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import websockets
 
@@ -298,21 +298,25 @@ def group_deployments(deployments, host_names):
     image_groups = itertools.groupby(deployments, key=lambda d: d["image"])
     groups = []
     for image, image_group in image_groups:
-        by_host = itertools.groupby(image_group, key=lambda d: d["host"])
+        by_host_iter = itertools.groupby(image_group, key=lambda d: d["host"])
         by_host = [
-            (host_names.get(host_id, str(host_id)), list(g)) for host_id, g in by_host
+            (host_names.get(host_id, str(host_id)), list(g)) for host_id, g in by_host_iter
         ]
+        names = set(d["name"] for host, group in by_host for d in group)
         x = set(tuple(d["name"] for d in group) for host, group in by_host)
-        if all(len(n) == 1 for n in x) and len(x) <= 2 and len(by_host) > len(x):
-            # There is only one deployment on each host,
-            # and there are at most two deployment names among all hosts.
+        one_per_host = all(len(n) == 1 for n in x)
+        if len(by_host) >= 2 * len(names):
+            # This image is deployed to many hosts under the same or few names,
+            # as opposed to being deployed under many names to few hosts.
             # Switch the layout from {host: {name: deployment}}
             # to {name: {host: deployment}}
-            by_name = {}
-            for host, (deployment,) in by_host:
-                y = by_name.setdefault(deployment["name"], [])
-                deployment["name"] = host
-                y.append(deployment)
+            by_name: Dict[str, List[Any]] = {}
+            for host, deployments in by_host:
+                for deployment in deployments:
+                    k = deployment["name"] if one_per_host else "%s in %s" % (deployment["name"], image)
+                    y = by_name.setdefault(k, [])
+                    deployment["name"] = host
+                    y.append(deployment)
             for y in by_name.values():
                 y.sort(key=lambda o: numeric_sort_key(o["name"]))
             groups.extend(sorted(by_name.items()))
