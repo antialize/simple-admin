@@ -19,7 +19,7 @@
     "css-element-queries": "^1.2.2",
     "css-loader": "^3.4.0",
     "diff": "^4.0.1",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "js-cookie": "^2.2.1",
     "mobx": "^5.15.1",
     "mobx-react": "^6.1.4",
