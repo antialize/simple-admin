@@ -83,11 +83,12 @@ export class HostClient extends JobOwner {
     }
 
     async setReconnectTimeout() {
-        if (this.id === null || this.hostname === null) return;
+        const id = this.id;
+        if (id === null || this.hostname === null) return;
         let c = await db.getHostContentByName(this.hostname);
-        if (!c.content.messageOnDown) return;
-        hostClients.downMessageTimeouts[this.id] = setTimeout(() => {
-            msg.emit(this.id, "Host down", "Has been down for more than 5 minutes.");
+        if (!c || !c.content || !c.content.messageOnDown) return;
+        hostClients.downMessageTimeouts[id] = setTimeout(() => {
+            msg.emit(id, "Host down", "Has been down for more than 5 minutes.");
         }, 5*60*60);
     }
 

@@ -136,7 +136,7 @@ export class Deployment {
                 return { deploymentTitle, variables, script, content, hasVars };
             };
 
-            const visitObject = (id: number, variables: { [key: string]: string }) => {
+            const visitObject = (id: number, variables: { [key: string]: string }, hostId: number) => {
                 const obj = objects[id];
                 if (!obj) return null;
                 const type = objects[obj.type] as IObject2<IType>;
@@ -153,8 +153,10 @@ export class Deployment {
                 if (type.content.nameVariable)
                     variables[type.content.nameVariable] = obj.name;
 
-                let deploymentTitle = obj.name;
+                if (type.content.hasSudoOn)
+                    content['sudoOn'] = 'sudoOn' in obj.content && obj.content.sudoOn.includes(hostId);
 
+                let deploymentTitle = obj.name;
                 return visitContent(obj.name, obj.content, variables, type.content, hasVars, content);
             };
 
@@ -168,7 +170,7 @@ export class Deployment {
             // Compute root variables
             let rootVariable: { [key: string]: string } = {};
             if (rootInstanceId in objects) {
-                const v = visitObject(rootInstanceId, rootVariable);
+                const v = visitObject(rootInstanceId, rootVariable, -1);
                 if (v) rootVariable = v.variables;
             }
 
@@ -204,7 +206,7 @@ export class Deployment {
                 type DagNode = SentinalDagNode | NormalDagNode;
 
                 const hostObject = objects[hostId];
-                const hostVariables = nullCheck(visitObject(hostId, rootVariable)).variables;
+                const hostVariables = nullCheck(visitObject(hostId, rootVariable, hostId)).variables;
                 const nodes = new Map<string, { node: NormalDagNode, sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode, sentinal: SentinalDagNode }>();
                 const topVisiting = new Set<number>();
@@ -243,7 +245,7 @@ export class Deployment {
                         return null;
                     }
 
-                    const v = visitObject(id, variables);
+                    const v = visitObject(id, variables, hostId);
                     if (!v) {
                         errors.push("Error visiting " + name + " " + obj.name + " " + type + " " + id + " " + v);
                         return null;
