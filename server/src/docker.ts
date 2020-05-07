@@ -794,10 +794,11 @@ finally:
         }
     }
 
-    async listImageTags(client: WebClient, act: IDockerListImageTags) {
+    async listImageTags(client: WebClient, act: IDockerListImageTags, maxRemovedAge: number = 14 * 24*60*60) {
         const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
         try {
-            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)",
+                 +new Date() / 1000 - maxRemovedAge))
                 res.tags.push(
                     {
                         id: row.id,
