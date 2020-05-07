@@ -409,6 +409,7 @@ export interface DockerDeployment {
     host: number;
     state?: string;
     config: string;
+    timeout: number;
 }
 
 export interface IDockerListDeploymentsRes {

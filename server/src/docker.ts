@@ -96,6 +96,7 @@ interface DeploymentInfo {
     id: number | null;
     setup: string | null;
     postSetup: string | null;
+    deploymentTimeout: number;
 }
 
 class Docker {
@@ -441,7 +442,7 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number) {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
                 if (v === null)
@@ -499,7 +500,7 @@ async def read_log():
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE)
     await asyncio.wait( (passthrough(proc.stdout, 1), passthrough(proc.stderr, 2)), 
-        return_when=asyncio.FIRST_COMPLETED, timeout=120)
+        return_when=asyncio.FIRST_COMPLETED, timeout=${timeout})
     try:
         proc.terminate()
     except:
@@ -627,10 +628,11 @@ finally:
             }
 
             const container = act.container || image;
-            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
+            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
             let conf: string | null = null;
             let setup: string | null = null;
             let postSetup: string | null = null;
+            let deploymentTimeout = 120;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
                 const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
@@ -656,7 +658,8 @@ finally:
                     setup =  Mustache.render(content.setup, variables);
                 if (content.postSetup && (content.postSetup as string).trim())
                     postSetup =  Mustache.render(content.postSetup, variables);
-
+                 if (content.timeout && (content.timeout as string).trim())
+                     deploymentTimeout = +content.timeout;
             } else if (!oldDeploy || !oldDeploy.config) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
@@ -684,10 +687,11 @@ finally:
                         timeout: null,
                         start: now,
                         end: null,
-                        id: null
+                        id: null,
+                        deploymentTimeout
                     });
                       
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup);
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -718,8 +722,9 @@ finally:
                                 start: now,
                                 end: null,
                                 id: oldDeploy.id,
+                                deploymentTimeout: oldDeploy.timeout,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -777,6 +782,7 @@ finally:
                     user: row.user,
                     state: this.getContainerState(row.host, row.container),
                     config: row.config,
+                    timeout: row.timeout,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -828,6 +834,7 @@ finally:
                     user: row.user,
                     state: row.endTime ? undefined : this.getContainerState(row.host, row.container),
                     config: row.config,
+                    timeout: row.timeout,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -898,7 +905,8 @@ finally:
                     end: o.end,
                     user: o.user,
                     state: this.getContainerState(o.host, o.container),
-                    config: o.config
+                    config: o.config,
+                    timeout: o.deploymentTimeout,
                 }
             ],
             removed: []
@@ -968,7 +976,8 @@ finally:
                     postSetup: row.postSetup,
                     timeout: null,
                     start: row.start,
-                    end: now
+                    end: now,
+                    deploymentTimeout: row.timeout,
                 });
             }
         
@@ -1027,6 +1036,7 @@ finally:
                         start: keep ? row.startTime : now,
                         end: null,
                         id: keep ? row.id: null,
+                        deploymentTimeout: row.timeout,
                     };
                 }
                 if (!keep)

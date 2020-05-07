@@ -69,6 +69,7 @@ export class DB {
         await r("CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `setup` TEXT");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `timeout` INTEGER DEFAULT 120");
 
         //await r("DROP TABLE `stats`");
         //await r("DROP INDEX IF EXISTS `stats_index`");
