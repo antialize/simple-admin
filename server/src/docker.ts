@@ -850,7 +850,7 @@ finally:
     async listImageTagHistory(client: WebClient, act: IDockerListImageTagHistory) {
         const res: IDockerListImageTagHistoryRes = {type: ACTION.DockerListImageTagHistoryRes, ref: act.ref, images: [], image: act.image, tag: act.tag};
         try {
-            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`)"))
+            for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?", act.tag, act.image))
                 res.images.push(
                     {
                         id: row.id,
