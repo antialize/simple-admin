@@ -229,7 +229,7 @@ async def edit(path):
             break
 
 
-def rel_time(timestamp):
+def rel_time(timestamp: float) -> str:
     seconds = time.time() - timestamp
     x = [("days", 86400), ("hours", 3600), ("minutes", 60)]
     for k, d in x:
@@ -339,14 +339,15 @@ def list_deployment_groups(groups):
             deploy_user = deployment["user"]
             push_time = rel_time(image_info["time"]) if image_info else None
             push_user = image_info["user"] if image_info else None
+            removed = image_info["removed"] if image_info else None
             commit = labels.get("GIT_COMMIT") if labels else None
             branch = labels.get("GIT_BRANCH") if labels else None
-            key = (deploy_time, deploy_user, push_time, push_user, commit, branch)
+            key = (deploy_time, deploy_user, push_time, push_user, commit, branch, removed)
             deployments.append((name, key))
         grouped = itertools.groupby(deployments, key=lambda x: x[1])
         for key, g in grouped:
             name = ", ".join(str(n) for n, _ in g)
-            deploy_time, deploy_user, push_time, push_user, commit, branch = key
+            deploy_time, deploy_user, push_time, push_user, commit, branch, removed = key
             bold = "\x1b[1m"
             red = "\x1b[31m"
             green = "\x1b[32m"
@@ -358,6 +359,8 @@ def list_deployment_groups(groups):
                 push_status = "%s by %s" % (push_time, push_user)
                 if status != push_status:
                     status = "pushed %s, deployed %s" % (push_status, status)
+            if removed is not None:
+                status += ", removed %s" % rel_time(removed)
             git = ""
             if commit is not None:
                 git = "%s (%s %s)%s" % (reset + green, commit, branch, reset)
