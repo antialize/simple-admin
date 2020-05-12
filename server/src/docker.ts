@@ -1122,6 +1122,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                   `docker_images`.`project`, \
                   MIN(`docker_deployments`.`startTime`) AS `start`, \
                   MAX(`docker_deployments`.`endTime`) AS `end`, \
+                  COUNT(`docker_deployments`.`startTime`) - COUNT(`docker_deployments`.`endTime`) AS `active`, \
                   `docker_images`.`pin`, \
                   (SELECT MAX(`x`.`id`) \
                    FROM `docker_images` AS `x` \
@@ -1133,8 +1134,8 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                 let keep =
                     row.pin
                     || ((row.tag == 'latest' || row.tag == 'master') && row.newest == row.id)
-                    || (row.start && !row.end)
-                    || (row.start && row.end &&  row.end + (row.end - row.start) + grace > now)
+                    || (row.active > 0)
+                    || (row.start && row.end && row.end + (row.end - row.start) + grace > now)
                     || row.time + grace > now;
 
                 const manifest = JSON.parse(row.manifest);
