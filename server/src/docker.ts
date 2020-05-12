@@ -1161,8 +1161,8 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                     row.pin
                     || ((row.tag == 'latest' || row.tag == 'master') && row.newest == row.id)
                     || (row.active > 0)
-                    || (row.start && row.end && row.end + (row.end - row.start) + grace > now)
-                    || (row.used && row.used + (row.used - row.time) + grace > now)
+                    || (row.start && row.end && 2 * (row.end - row.start) + grace > now - row.start)
+                    || (row.used && 2 * (row.used - row.time) + grace > now - row.used)
                     || row.time + grace > now;
 
                 const manifest = JSON.parse(row.manifest);
