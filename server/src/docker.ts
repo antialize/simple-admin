@@ -187,6 +187,31 @@ class Docker {
         }
     }
 
+    async usedImages(req: express.Request, res: express.Response) {
+        try {
+            const token = req.query.token;
+            if (!token || token !== config.usedImagesToken) {
+                log('error', "access error");
+                res.status(403).end();
+                return;
+            }
+            const re = new RegExp('^([^/]*)/([^/@:]*)@(sha256:[a-fA-F0-9]*)$');
+            const time = +new Date() / 1000;
+            for (const image of req.body.images) {
+                let match = re.exec(image);
+                if (!match)
+                    continue;
+
+                await db.run("UPDATE `docker_images` SET `used`=? WHERE `hash`=?", time, match[3]);
+            }
+            res.status(200).end();
+        } catch (e) {
+            console.error(e, e.stack);
+            log('error', "EXCEPTION", {e});
+            res.status(500).end();
+        }
+    }
+
     async get(req: express.Request, res: express.Response) {
         res.header('Docker-Distribution-Api-Version', 'registry/2.0');
         const user = await this.checkAuth(req, res, false);
@@ -1124,6 +1149,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                   MAX(`docker_deployments`.`endTime`) AS `end`, \
                   COUNT(`docker_deployments`.`startTime`) - COUNT(`docker_deployments`.`endTime`) AS `active`, \
                   `docker_images`.`pin`, \
+                  `docker_images`.`used`, \
                   (SELECT MAX(`x`.`id`) \
                    FROM `docker_images` AS `x` \
                    WHERE `x`.`project`=`docker_images`.`project` AND `x`.`tag`=`docker_images`.`tag`) AS `newest` \
@@ -1136,6 +1162,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                     || ((row.tag == 'latest' || row.tag == 'master') && row.newest == row.id)
                     || (row.active > 0)
                     || (row.start && row.end && row.end + (row.end - row.start) + grace > now)
+                    || (row.used && row.used + (row.used - row.time) + grace > now)
                     || row.time + grace > now;
 
                 const manifest = JSON.parse(row.manifest);

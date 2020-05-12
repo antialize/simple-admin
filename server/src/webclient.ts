@@ -26,6 +26,7 @@ import * as stat from './stat';
 import {docker} from './docker';
 import nullCheck from '../../shared/nullCheck';
 import { getAuth, AuthInfo, noAccess } from './getAuth';
+import * as bodyParser from 'body-parser'
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -546,6 +547,7 @@ export class WebClients {
         this.httpApp.delete("/v2/*", docker.delete.bind(docker));
         this.httpApp.patch("/v2/*", docker.patch.bind(docker));
         this.httpApp.get("/docker/*", docker.images.bind(docker));
+        this.httpApp.post("/usedImages", bodyParser.json(), docker.usedImages.bind(docker));
         this.httpApp.get('/messages', this.countMessages.bind(this));
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
