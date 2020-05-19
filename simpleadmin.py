@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 import websockets
 
-config: Dict[str, Any]
+config: Dict[str, Any] = {}
 
 class Connection:
     def __init__(self):
@@ -29,7 +29,12 @@ class Connection:
         self.crtFile = os.path.expanduser("~/.cache/simple_admin_key.crt")
         self.pwd = False
         self.otp = False
-        
+
+    async def send(self, action_dict=None, **action_kwargs) -> None:
+        if action_dict is not None:
+            action_kwargs.update(action_dict)
+        await self.socket.send(json.dumps(action_kwargs))
+
     async def setup(self, requireAuth=True):
         if config.get("server_insecure"):
             ssl_context = None
@@ -175,10 +180,10 @@ async def deauth(full):
     c = Connection()
     await c.setup(requireAuth=False)
     if c.pwd and c.otp:
-        await c.socket.send(json.dumps({'type': 'LogOut', 'forgetPwd': True, 'forgetOtp': full}))
-        
+        await c.send(type="LogOut", forgetPwd=True, forgetOtp=True)
     if full and os.path.exists(c.cookieFile):
         os.unlink(c.cookieFile)
+
 
 async def deploy(server, image, container=None, config=None, restore_on_failure=True):
     c = Connection()
@@ -848,6 +853,16 @@ async def ui():
     finally:
         loop.stop()
 
+
+def init_config(config_path: str = None):
+    global config
+    if not config:
+        with open(config_path or "/etc/simpleadmin_client.json") as fp:
+            config = {**json.load(fp), **config}
+    if config.get("server_port") is None:
+        config["server_port"] = 443
+
+
 def main():
     parser = argparse.ArgumentParser(prog='simpleadmin')
 
@@ -945,11 +960,7 @@ def main():
     global config
     config_keys = "server_host server_port server_cert server_insecure".split()
     config = {k: getattr(args, k) for k in config_keys if getattr(args, k, None)}
-    if not config:
-        with open(args.config_path or "/etc/simpleadmin_client.json") as fp:
-            config = {**json.load(fp), **config}
-    if config.get("server_port") is None:
-        config["server_port"] = 443
+    init_config(args.config_path)
 
     if args.command == 'auth':
         asyncio.get_event_loop().run_until_complete(main_auth(args.user))
