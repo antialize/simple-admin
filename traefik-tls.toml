@@ -1,0 +1,3 @@
+[[tls.certificates]]
+  certFile = "/home/rav/gitlab/simple-admin/var/chain.pem"
+  keyFile = "/home/rav/gitlab/simple-admin/var/privkey.pem"

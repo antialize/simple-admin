@@ -48,15 +48,17 @@ export enum ACTION {
     RequestAuthStatus="RequestAuthStatus",
     RequestInitialState="RequestInitialState",
     RequestStatBucket="RequestStatBucket",
+    ResetServerState="ResetServerState",
     SaveObject="SaveObject",
     SetDeploymentMessage="SetDeploymentMessage",
     SetDeploymentObjectStatus="SetDeploymentObjectStatus",
     SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentStatus="SetDeploymentStatus",
-    ResetServerState="ResetServerState",
     SetInitialState="SetInitialState",
     SetMessagesDismissed="SetMessageDismissed",
     SetPage="SetPage",
+    SshSign="SshSign",
+    SshSignRes="SshSignRes",
     StartDeployment="StartDeployment",
     StartLog="StartLog",
     StatBucket="StatBucket",
@@ -513,6 +515,18 @@ export interface IModifiedFilesResolve {
     newCurrent: string | null;
 }
 
+export interface ISshSign {
+    type: ACTION.SshSign;
+    certificateAuthorityName: string;
+    userPublicKey: string;
+}
+
+export interface ISshSignRes {
+    type: ACTION.SshSignRes;
+    certificate: string | null;
+    error: string | null;
+}
+
 export type IAction =
     | IAddDeploymentLog
     | IAddLogLines
@@ -551,21 +565,23 @@ export type IAction =
     | IMessageTextReqAction
     | IModifiedFilesChanged
     | IModifiedFilesList
+    | IModifiedFilesResolve
     | IModifiedFilesScan
     | IObjectChanged
     | IPokeService
     | IRequestAuthStatus
     | IRequestInitialState
     | IRequestStatBucket
+    | IResetServerState
     | ISaveObject
     | ISetDeploymentMessage
     | ISetDeploymentObjectStatus
     | ISetDeploymentObjects
     | ISetDeploymentStatus
-    | IResetServerState
     | ISetInitialState
     | ISetMessagesDismissed
     | ISetPageAction
+    | ISshSign
     | IStartDeployment
     | IStartDeployment
     | IStartLog
@@ -575,4 +591,4 @@ export type IAction =
     | ISubscribeStatValues
     | IToggleDeploymentObject
     | IUpdateStatusAction
-    | IModifiedFilesResolve;
+;

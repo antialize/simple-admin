@@ -8,6 +8,7 @@ import {errorHandler} from './error'
 import * as stat from './stat';
 import {log} from 'winston';
 import { ModifiedFiles } from './modifiedfiles';
+import { Ssh } from './ssh';
 import winston = require('winston');
 
 const exitHook = require('async-exit-hook');
@@ -20,6 +21,7 @@ async function setup() {
     instances.setDeployment(new Deployment());
     instances.setDb(new DB());
     instances.setModifiedFiles(new ModifiedFiles());
+    instances.setSsh(new Ssh());
 
     try {
         await instances.db.init()
@@ -45,4 +47,8 @@ async function setup() {
     });
 };
 
-setup();
+setup().catch(e => {
+    console.error("setup() failed");
+    console.error(e);
+    process.exit(1);
+});

@@ -12,9 +12,10 @@ export interface AuthInfo {
     dockerPush: boolean;
     dockerDeploy: boolean;
     session: string | null;
+    certificateAuthority: number | null;
 }
 
-export const noAccess: AuthInfo = { auth: false, user: null, pwd: false, otp: false, admin: false, dockerPull: false, dockerPush: false, dockerDeploy: false, session: null };
+export const noAccess: AuthInfo = { auth: false, user: null, pwd: false, otp: false, admin: false, dockerPull: false, dockerPush: false, dockerDeploy: false, session: null, certificateAuthority: null };
 
 export async function getAuth(host: string | null, sid: string | null): Promise<AuthInfo> {
     if (sid === null)

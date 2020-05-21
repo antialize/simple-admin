@@ -14,7 +14,7 @@ import { PokeServiceJob } from './jobs/pokeServiceJob'
 import * as fs from 'fs';
 import * as crypt from './crypt'
 import * as helmet from 'helmet'
-import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
+import { webClients, msg, hostClients, db, deployment, modifiedFiles, ssh } from './instances'
 import { errorHandler } from './error'
 import { IType, typeId, userId, TypePropType } from '../../shared/type'
 import setup from './setup'
@@ -284,8 +284,12 @@ export class WebClient extends JobOwner {
                         c['otp_url'] = secret.otpauth_url;
                     }
 
-
                     let { id, version } = await db.changeObject(act.id, act.obj);
+
+                    if (act.obj.type == certificateAuthorityId) {
+                        await ssh.ensureAuthorityKey(c, id);
+                    }
+
                     act.obj.version = version;
                     let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [act.obj] };
                     webClients.broadcast(res2);
@@ -453,6 +457,9 @@ export class WebClient extends JobOwner {
                 }
                 await modifiedFiles.resolve(this, act);
                 break;
+            case ACTION.SshSign:
+                await ssh.sign(this, act);
+                break;
             default:
                 log("warn", "Web client unknown message", { act });
         }
@@ -579,8 +586,10 @@ export class WebClients {
     }
 
     startServer() {
-        this.httpServer.listen(8182, "localhost", function() {
-            log('info', "Web server started on port 443");
+        const webPort = config.webPort || 8182;
+        const webHost = config.webHost || "localhost";
+        this.httpServer.listen(webPort, webHost, function() {
+            log('info', `Web server listening on ${webHost}:${webPort}`);
         });
         this.httpServer.on('close', () => {
             log('info', "Web server stopped");

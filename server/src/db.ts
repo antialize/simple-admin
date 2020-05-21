@@ -52,8 +52,7 @@ export class DB {
         await r("CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)");
         await i("ALTER TABLE `objects` ADD COLUMN `category` TEXT");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
-        await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)");
-        //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
+        await r("CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER, `dismissedTime` INTEGER)");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
         await r("CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)");
         await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)");
@@ -84,6 +83,8 @@ export class DB {
 
         await r("CREATE TABLE IF NOT EXISTS `smart` (`host` INTEGER NOT NULL, `dev` TEXT NOT NULL, `smart_id` INTEGER NOT NULL, `count` INTEGER NOT NULL)")
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `smart_unique` ON `smart` (`host`, `dev`, `smart_id`)");
+
+        await r("CREATE TABLE IF NOT EXISTS `ssh_private_key` (`id` INTEGER PRIMARY KEY, `private_part` TEXT, `public_part` TEXT)");
 
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
