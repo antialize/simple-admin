@@ -17,7 +17,7 @@ import { config } from './config';
 import nullCheck from '../../shared/nullCheck';
 import getOrInsert from '../../shared/getOrInsert';
 import { getAuth } from './getAuth';
-
+import * as crt from './crt';
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
 const docker_blobs_path = "/var/simpleadmin_docker_blobs/";
@@ -106,6 +106,28 @@ class Docker {
 
     idc = 0;
     delayedDeploymentInformations = new Map<number, DeploymentInfo>();
+
+    ca_key: string | null = null;
+    ca_crt: string | null = null;
+
+    async ensure_ca() {
+        const r1 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_key'");
+        if (r1) this.ca_key = r1['value'];
+
+        const r2 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_crt'");
+        if (r2) this.ca_crt = r2['value'];
+        if (!this.ca_key) {
+            log('info', "Generating ca key");
+            this.ca_key = await crt.generate_key();
+            await db.insert("REPLACE INTO kvp (key,value) VALUES (?, ?)", "ca_key", this.ca_key);
+        }
+
+        if (!this.ca_crt) {
+            log('info', "Generating ca crt");
+            this.ca_crt = await crt.generate_ca_crt(this.ca_key);
+            await db.insert("REPLACE INTO kvp (key, value) VALUES (?,?)", "ca_crt", this.ca_crt);
+        }
+    }
 
     constructor() {
         //setTimeout(this.prune.bind(this), 1000);
@@ -677,7 +699,26 @@ finally:
                     variables[v.key] = v.value;
 
                 const content = JSON.parse(configRow.content);
-                conf = Mustache.render(content.content, variables);
+
+                let raw_conf = content.content;
+                if (content.ssl_service && content.ssl_identity ) {
+                    const ssl_service = Mustache.render(content.ssl_identity, variables).trim();
+                    const ssl_identity = Mustache.render(content.ssl_service, variables).trim();
+                    if (ssl_service && ssl_identity) {
+                        await this.ensure_ca();
+                        const my_key = await crt.generate_key();
+                        const my_srs = await crt.generate_srs(my_key, ssl_service + "." + ssl_identity);
+                        if (!this.ca_key || !this.ca_crt) throw Error("Logic error");
+                        const my_crt = await crt.generate_crt(this.ca_key, this.ca_crt, my_srs);
+                        variables["ca_pem"] = crt.strip(this.ca_crt);
+                        variables["ssl_key"] = crt.strip(my_key);
+                        variables["ssl_pem"] = crt.strip(my_crt);
+                        if (!raw_conf.includes("{{{ca_pem}}}")) raw_conf = "-e CA_PEM={{{ca_pem}}}\n" + raw_conf;
+                        if (!raw_conf.includes("{{{ssl_key}}}")) raw_conf = "-e "+ssl_service.toUpperCase()+"_KEY={{{ssl_key}}}\n" + raw_conf;
+                        if (!raw_conf.includes("{{{ssl_pem}}}")) raw_conf = "-e "+ssl_service.toUpperCase()+"_PEM={{{ssl_pem}}}\n" + raw_conf;
+                    }
+                }
+                conf = Mustache.render(raw_conf, variables);
 
                 if (content.setup && (content.setup as string).trim())
                     setup =  Mustache.render(content.setup, variables);

@@ -72,6 +72,8 @@ export class DB {
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `timeout` INTEGER DEFAULT 120");
 
+        await r("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)");
+
         //await r("DROP TABLE `stats`");
         //await r("DROP INDEX IF EXISTS `stats_index`");
 
