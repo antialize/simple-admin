@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import websockets
 
@@ -365,6 +365,52 @@ def list_deployment_groups(groups):
             if commit is not None:
                 git = "%s (%s %s)%s" % (reset + green, commit, branch, reset)
             print("- %s %s%s" % (bold + red + name + reset, status, git))
+
+
+async def list_images(
+    *,
+    format: Optional[str] = None,
+    porcelain_version: Optional[str] = None,
+    image: Optional[str] = None,
+    follow: bool = False,
+    tail: Optional[int] = None
+):
+    if format is None:
+        format = "{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}"
+    c = Connection()
+    await c.setup(requireAuth=False)
+    await prompt_auth(c, c.user)
+    await c.socket.send(json.dumps({"type": "DockerListImageTags", "ref": 1}))
+    got_list = False
+    while follow or not got_list:
+        res = json.loads(await c.socket.recv())
+        if res["type"] == "DockerListImageTagsRes":
+            images = res["tags"]
+            images.sort(key=lambda i: i["time"])
+            got_list = True
+        elif res["type"] == "DockerListImageTagsChanged" and follow:
+            images = res["changed"]
+        else:
+            continue
+        if porcelain_version:
+            for i in images:
+                print(json.dumps(i), flush=follow)
+            continue
+        images = [i for i in images if not i.get("removed")]
+        if image is not None:
+            images = [i for i in images if i["image"] == image]
+        if tail is not None:
+            images = images[len(images) - tail :]
+        for i in images:
+            message = format.format(
+                bold="\x1b[1m",
+                red="\x1b[31m",
+                green="\x1b[32m",
+                reset="\x1b[0m",
+                rel_time=rel_time(i["time"]),
+                **i
+            )
+            print(message, flush=follow)
 
 
 class UIPortal:
@@ -761,6 +807,32 @@ def main():
     parser_list = subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
     parser_list.add_argument("--porcelain", choices=["v1"], help="Give the output in an easy-to-parse format for scripts.")
 
+    subparser = subparsers.add_parser(
+        "listImages",
+        help="List images",
+        description="List currently available tagged docker images",
+    )
+    subparser.add_argument(
+        "-f",
+        "--follow",
+        action="store_true",
+        help="After listing the available images, list images as they are pushed",
+    )
+    subparser.add_argument(
+        "-n", "--tail", type=int, help="Only display the most recent N images"
+    )
+    subparser.add_argument(
+        "--porcelain",
+        choices=["v1"],
+        help="Give the output in an easy-to-parse format for scripts.",
+    )
+    subparser.add_argument("-i", "--image", help="Only print tags for this image")
+    subparser.add_argument(
+        "-e",
+        "--format",
+        help="str.format style string using the keys: id,image,tag,hash,time,user,pin,labels,removed",
+    )
+
     args = parser.parse_args()
 
     global config
@@ -782,6 +854,19 @@ def main():
         asyncio.get_event_loop().run_until_complete(edit(args.path))
     elif args.command == 'listDeployments':
         asyncio.get_event_loop().run_until_complete(list_deployments(args.porcelain))
+    elif args.command == "listImages":
+        try:
+            asyncio.get_event_loop().run_until_complete(
+                list_images(
+                    format=args.format,
+                    porcelain_version=args.porcelain,
+                    image=args.image,
+                    follow=args.follow,
+                    tail=args.tail,
+                )
+            )
+        except KeyboardInterrupt:
+            pass
     else:
         asyncio.get_event_loop().run_until_complete(ui())
 
