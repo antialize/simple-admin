@@ -702,12 +702,12 @@ finally:
 
                 let raw_conf = content.content;
                 if (content.ssl_service && content.ssl_identity ) {
-                    const ssl_service = Mustache.render(content.ssl_identity, variables).trim();
-                    const ssl_identity = Mustache.render(content.ssl_service, variables).trim();
+                    const ssl_service = Mustache.render(content.ssl_service, variables).trim();
+                    const ssl_identity = Mustache.render(content.ssl_identity, variables).trim();
                     if (ssl_service && ssl_identity) {
                         await this.ensure_ca();
                         const my_key = await crt.generate_key();
-                        const my_srs = await crt.generate_srs(my_key, ssl_service + "." + ssl_identity);
+                        const my_srs = await crt.generate_srs(my_key, ssl_identity + "." + ssl_service);
                         if (!this.ca_key || !this.ca_crt) throw Error("Logic error");
                         const my_crt = await crt.generate_crt(this.ca_key, this.ca_crt, my_srs);
                         variables["ca_pem"] = crt.strip(this.ca_crt);
