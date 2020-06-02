@@ -5,7 +5,7 @@ import * as uuid from 'uuid/v4';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables, userId } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -827,6 +827,15 @@ finally:
             };
         }
         return tagByHash;
+    }
+
+    async listImageByHash(client: WebClient, act: IDockerListImageByHash) {
+        const res: IDockerListImageByHashRes = {type: ACTION.DockerListImageByHashRes, ref: act.ref, tags: {}};
+        try {
+            res.tags = await this.getTagsByHash(act.hash);
+        } finally {
+            client.sendMessage(res);
+        }
     }
 
     async listDeployments(client: WebClient, act: IDockerListDeployments) {

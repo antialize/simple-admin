@@ -383,6 +383,13 @@ export class WebClient extends JobOwner {
                 }
                 await docker.listDeployments(this, act);
                 break;
+            case ACTION.DockerListImageByHash:
+                if (!this.auth.dockerPush) {
+                    this.connection.close(403);
+                    return;
+                }
+                await docker.listImageByHash(this, act);
+                break;
             case ACTION.DockerListImageTags:
                 if (!this.auth.dockerPull) {
                     this.connection.close(403);
