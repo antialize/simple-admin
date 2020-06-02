@@ -24,6 +24,8 @@ export enum ACTION {
     DockerListDeploymentHistoryRes="DockerListDeploymentHistoryRes",
     DockerListDeployments="DockerListDeployments",
     DockerListDeploymentsRes="DockerListDeploymentsRes",
+    DockerListImageByHash="DockerListImageByHash",
+    DockerListImageByHashRes="DockerListImageByHashRes",
     DockerListImageTagHistory="DockerListImageTagHistory",
     DockerListImageTagHistoryRes="DockerListImageTagHistoryRes",
     DockerListImageTags="DockerListImageTags",
@@ -442,6 +444,18 @@ export interface IDockerContainerRemove {
     container: string;
 }
 
+export interface IDockerListImageByHash {
+    type: ACTION.DockerListImageByHash;
+    hash: string[];
+    ref: Ref;
+}
+
+export interface IDockerListImageByHashRes {
+    type: ACTION.DockerListImageByHashRes;
+    ref: Ref;
+    tags: {[hash: string]: DockerImageTag};
+}
+
 export interface IDockerImageSetPin {
     type: ACTION.DockerImageSetPin;
     id: number;
@@ -536,6 +550,8 @@ export type IAction =
     | IDockerListDeploymentHistoryRes
     | IDockerListDeployments
     | IDockerListDeploymentsRes
+    | IDockerListImageByHash
+    | IDockerListImageByHashRes
     | IDockerListImageTagHistory
     | IDockerListImageTagHistoryRes
     | IDockerListImageTags
