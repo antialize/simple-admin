@@ -373,20 +373,28 @@ async def list_images(
     porcelain_version: Optional[str] = None,
     image: Optional[str] = None,
     follow: bool = False,
-    tail: Optional[int] = None
+    tail: Optional[int] = None,
+    hash: Optional[List[str]] = None,
 ):
     if format is None:
         format = "{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}"
     c = Connection()
     await c.setup(requireAuth=False)
     await prompt_auth(c, c.user)
-    await c.socket.send(json.dumps({"type": "DockerListImageTags", "ref": 1}))
+    assert c.socket is not None
+    if hash:
+        await c.socket.send(json.dumps({"type": "DockerListImageByHash", "ref": 1, "hash": hash}))
+    else:
+        await c.socket.send(json.dumps({"type": "DockerListImageTags", "ref": 1}))
     got_list = False
     while follow or not got_list:
         res = json.loads(await c.socket.recv())
         if res["type"] == "DockerListImageTagsRes":
             images = res["tags"]
             images.sort(key=lambda i: i["time"])
+            got_list = True
+        elif res["type"] == "DockerListImageByHashRes":
+            images = sorted(res["tags"].values(), key=lambda i: i["time"])
             got_list = True
         elif res["type"] == "DockerListImageTagsChanged" and follow:
             images = res["changed"]
@@ -396,7 +404,9 @@ async def list_images(
             for i in images:
                 print(json.dumps(i), flush=follow)
             continue
-        images = [i for i in images if not i.get("removed")]
+        # Don't show "removed" images unless we have requested a specific hash.
+        if not hash:
+            images = [i for i in images if not i.get("removed")]
         if image is not None:
             images = [i for i in images if i["image"] == image]
         if tail is not None:
@@ -408,7 +418,7 @@ async def list_images(
                 green="\x1b[32m",
                 reset="\x1b[0m",
                 rel_time=rel_time(i["time"]),
-                **i
+                **i,
             )
             print(message, flush=follow)
 
@@ -832,6 +842,12 @@ def main():
         "--format",
         help="str.format style string using the keys: id,image,tag,hash,time,user,pin,labels,removed",
     )
+    subparser.add_argument(
+        "-s",
+        "--hash",
+        action="append",
+        help="Search by specific hash ('sha256:ab12...')",
+    )
 
     args = parser.parse_args()
 
@@ -863,6 +879,7 @@ def main():
                     image=args.image,
                     follow=args.follow,
                     tail=args.tail,
+                    hash=args.hash,
                 )
             )
         except KeyboardInterrupt:
