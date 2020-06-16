@@ -409,7 +409,7 @@ async def list_images(
             images = [i for i in images if not i.get("removed")]
         if image is not None:
             images = [i for i in images if i["image"] == image]
-        if tail is not None:
+        if tail is not None and res["type"] != "DockerListImageTagsChanged":
             images = images[len(images) - tail :]
         for i in images:
             message = format.format(
