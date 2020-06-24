@@ -239,7 +239,7 @@ def rel_time(timestamp: float) -> str:
     return "%s seconds ago" % int(seconds)
 
 
-async def list_deployments(porcelain_version):
+async def list_deployments(porcelain_version, format: str):
     c = Connection()
     await c.setup(requireAuth=False)
     await prompt_auth(c, c.user)
@@ -273,7 +273,7 @@ async def list_deployments(porcelain_version):
         print(json.dumps(porcelain_data, indent=2))
         return
     deployments = [d for d in deployments if d["host"] in host_names]
-    list_deployment_groups(group_deployments(deployments, host_names))
+    list_deployment_groups(group_deployments(deployments, host_names), format)
 
 
 class numeric_sort_key:
@@ -327,27 +327,26 @@ def group_deployments(deployments, host_names):
     return groups
 
 
-def list_deployment_groups(groups):
+def list_deployment_groups(groups, format):
+    if format is None:
+        format = "({labels[GIT_COMMIT]} {labels[GIT_BRANCH]})"
     for name, group in groups:
         print("\n%s" % name)
         deployments = []
         for deployment in group:
             image_info = deployment.get("imageInfo", {})
-            labels = image_info.get("labels", {})
             name = deployment["name"]
             deploy_time = rel_time(deployment["start"])
             deploy_user = deployment["user"]
             push_time = rel_time(image_info["time"]) if image_info else None
             push_user = image_info["user"] if image_info else None
             removed = image_info["removed"] if image_info else None
-            commit = labels.get("GIT_COMMIT") if labels else None
-            branch = labels.get("GIT_BRANCH") if labels else None
-            key = (deploy_time, deploy_user, push_time, push_user, commit, branch, removed)
+            key = (deploy_time, deploy_user, push_time, push_user, image_info, removed)
             deployments.append((name, key))
         grouped = itertools.groupby(deployments, key=lambda x: x[1])
         for key, g in grouped:
             name = ", ".join(str(n) for n, _ in g)
-            deploy_time, deploy_user, push_time, push_user, commit, branch, removed = key
+            deploy_time, deploy_user, push_time, push_user, image_info, removed = key
             bold = "\x1b[1m"
             red = "\x1b[31m"
             green = "\x1b[32m"
@@ -362,8 +361,12 @@ def list_deployment_groups(groups):
             if removed is not None:
                 status += ", removed %s" % rel_time(removed)
             git = ""
-            if commit is not None:
-                git = "%s (%s %s)%s" % (reset + green, commit, branch, reset)
+            try:
+                extra = format.format(**image_info)
+            except Exception as e:
+                extra = type(e).__name__
+            if extra.strip():
+                git = "%s %s%s" % (reset + green, extra.strip(), reset)
             print("- %s %s%s" % (bold + red + name + reset, status, git))
 
 
@@ -816,6 +819,11 @@ def main():
 
     parser_list = subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
     parser_list.add_argument("--porcelain", choices=["v1"], help="Give the output in an easy-to-parse format for scripts.")
+    parser_list.add_argument(
+        "-e",
+        "--format",
+        help="str.format style string using the keys: id,image,tag,hash,time,user,pin,labels,removed",
+    )
 
     subparser = subparsers.add_parser(
         "listImages",
@@ -869,7 +877,9 @@ def main():
     elif args.command == 'edit':
         asyncio.get_event_loop().run_until_complete(edit(args.path))
     elif args.command == 'listDeployments':
-        asyncio.get_event_loop().run_until_complete(list_deployments(args.porcelain))
+        asyncio.get_event_loop().run_until_complete(
+            list_deployments(args.porcelain, args.format)
+        )
     elif args.command == "listImages":
         try:
             asyncio.get_event_loop().run_until_complete(
