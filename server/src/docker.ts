@@ -1061,7 +1061,7 @@ finally:
                 containers.set(u.id, u);
                 const image = images.get(u.image);
                 if (!image) {
-                    log('error', "Could not find image for container")
+                    //log('error', "Could not find image for container")
                     continue;
                 }
                 const container = u.name.substr(1); //For some reason there is a slash in the string??
