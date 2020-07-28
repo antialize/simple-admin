@@ -470,7 +470,8 @@ export class WebClient extends JobOwner {
             if (err) {
                 if (Object.getOwnPropertyNames(err).length != 0)
                     log("warn", "Web client error sending message", { err, host:this.host });
-		this.connection.terminate();
+                this.connection.terminate();
+                this.onClose();
             }
         })
     }
