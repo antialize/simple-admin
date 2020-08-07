@@ -239,7 +239,14 @@ def rel_time(timestamp: float) -> str:
     return "%s seconds ago" % int(seconds)
 
 
-async def list_deployments(porcelain_version, format: str):
+async def list_deployments(
+    porcelain_version: Optional[str],
+    format: Optional[str],
+    host: Optional[str],
+    container: Optional[str],
+    image: Optional[str],
+    history: bool,
+):
     c = Connection()
     await c.setup(requireAuth=False)
     await prompt_auth(c, c.user)
@@ -255,11 +262,28 @@ async def list_deployments(porcelain_version, format: str):
     host_names = {
         int(o["id"]): o["name"] for o in state["objectNamesAndIds"][type_ids["Host"]]
     }
+    host_ids = {n: i for i, n in host_names.items()}
 
-    await c.socket.send(json.dumps({"type": "DockerListDeployments", "ref": ref}))
+    request = {"type": "DockerListDeployments", "ref": ref}
+    response_type = "DockerListDeploymentsRes"
+    if host:
+        try:
+            request["host"] = host_ids[host]
+        except KeyError:
+            raise SystemExit("Unknown --host %r" % (host,)) from None
+    if container:
+        request["name"] = container
+    if image:
+        request["image"] = image
+    if history:
+        if not host or not container:
+            raise SystemExit("--history requires --host and --container")
+        request["type"] = "DockerListDeploymentHistory"
+        response_type = "DockerListDeploymentHistoryRes"
+    await c.socket.send(json.dumps(request))
     while True:
         res = json.loads(await c.socket.recv())
-        if res["type"] == "DockerListDeploymentsRes" and res["ref"] == ref:
+        if res["type"] == response_type and res["ref"] == ref:
             break
     deployments = res["deployments"]
     if porcelain_version:
@@ -272,7 +296,18 @@ async def list_deployments(porcelain_version, format: str):
         }
         print(json.dumps(porcelain_data, indent=2))
         return
-    deployments = [d for d in deployments if d["host"] in host_names]
+    # DockerListDeployments currently doesn't support filtering by container,
+    # and DockerListDeploymentHistory doesn't support filtering by image,
+    # so do the filtering here. Also filter by host for good measure.
+    if host:
+        host_names = {host_ids[host]: host}
+    deployments = [
+        d
+        for d in deployments
+        if d["host"] in host_names
+        and (not image or d["image"] == image)
+        and (not container or d["name"] == container)
+    ]
     list_deployment_groups(group_deployments(deployments, host_names), format)
 
 
@@ -327,7 +362,7 @@ def group_deployments(deployments, host_names):
     return groups
 
 
-def list_deployment_groups(groups, format):
+def list_deployment_groups(groups, format: Optional[str]):
     if format is None:
         format = "({labels[GIT_COMMIT]} {labels[GIT_BRANCH]})"
     for name, group in groups:
@@ -817,12 +852,36 @@ def main():
     parser_deploy = subparsers.add_parser('edit', help='Edit', description="Edit an object")
     parser_deploy.add_argument('path', help="Path of object to edit")
 
-    parser_list = subparsers.add_parser('listDeployments', help='List deployments', description="List deployments")
-    parser_list.add_argument("--porcelain", choices=["v1"], help="Give the output in an easy-to-parse format for scripts.")
-    parser_list.add_argument(
+    subparser = subparsers.add_parser(
+        "listDeployments", help="List deployments", description="List deployments"
+    )
+    subparser.add_argument(
+        "--porcelain",
+        choices=["v1"],
+        help="Give the output in an easy-to-parse format for scripts.",
+    )
+    subparser.add_argument(
         "-e",
         "--format",
         help="str.format style string using the keys: id,image,tag,hash,time,user,pin,labels,removed",
+    )
+    subparser.add_argument(
+        "--host",
+        help="Only show deployments for this server.",
+    )
+    subparser.add_argument(
+        "-s",
+        "--container",
+        help="Only show deployments for this container.",
+    )
+    subparser.add_argument(
+        "--image",
+        help="Only show deployments for this image.",
+    )
+    subparser.add_argument(
+        "--history",
+        action="store_true",
+        help="Show historical deployments (requires --host and --container)",
     )
 
     subparser = subparsers.add_parser(
@@ -878,7 +937,9 @@ def main():
         asyncio.get_event_loop().run_until_complete(edit(args.path))
     elif args.command == 'listDeployments':
         asyncio.get_event_loop().run_until_complete(
-            list_deployments(args.porcelain, args.format)
+            list_deployments(
+                args.porcelain, args.format, args.host, args.container, args.image, args.history
+            )
         )
     elif args.command == "listImages":
         try:
