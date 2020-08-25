@@ -62,7 +62,14 @@ export class Deployment {
 
                 const template = (name: string, txt: string, variables: { [key: string]: string }) => {
                     try {
-                        return Mustache.render(txt, variables);
+                        let vars: { [key:string]: any} = {};
+                        for(const [key, val] of Object.entries(variables)) {
+                            if (val.startsWith("json:"))
+                                vars[key] = JSON.parse(val.substr(5));
+                            else
+                                vars[key] = val;
+                        }
+                        return Mustache.render(txt, vars);
                     } catch (err) {
                         errors.push("Template error in " + name + " of " + deploymentTitle + ": " + err);
                         console.log(err);
