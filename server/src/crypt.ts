@@ -1,17 +1,20 @@
-import * as crypt3 from 'crypt3'
+import * as crypt3 from '@idango/crypt3'
+import { verify, encrypt } from 'unixcrypt'
 
 
 export function hash(password:string) {
-    const salt = crypt3.createSalt("sha512");
     return new Promise<string>((cb, rej) => {
-        crypt3(password, salt, (err, val)=> {
-            if (err) rej(err);
-            else cb(val);
-        })});
+        cb(encrypt(password));
+        });
 }
 
 export function validate(password: string, hash:string | undefined) {
     let ok = hash !== undefined;
+
+    if (hash && hash.includes("=$")) {
+        return verify(password, hash);
+    }
+    
     return new Promise<boolean>((cb, rej) => {
         crypt3(password, hash || "$1$SrkubyRm$DEQU3KupUxt4yfhbK1HyV/", (err, val) => {
             setTimeout(()=>{}, 0);

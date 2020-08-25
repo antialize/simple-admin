@@ -569,9 +569,9 @@ export class WebClients {
                 const wc = new WebClient(ws,  address);
                 this.webclients.add(wc);
             } else if (u.pathname == '/terminal') {
-                const server = +u.query.server;
-                const cols = +u.query.cols;
-                const rows = +u.query.rows;
+                const server = +u.query!.server!;
+                const cols = +u.query!.cols!;
+                const rows = +u.query!.rows!;
                 const session = u.query.session as string;
                 getAuth(address, session).then((a: any) => {
                     if (a.auth && server in hostClients.hostClients)

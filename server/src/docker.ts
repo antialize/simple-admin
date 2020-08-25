@@ -1,7 +1,7 @@
 import * as express from 'express';
 import { log, exceptions } from 'winston';
 import * as fs from 'fs';
-import * as uuid from 'uuid/v4';
+import {v4 as uuid} from 'uuid';
 import * as crypto from 'crypto';
 import { Stream, Writable } from 'stream';
 import { db, hostClients, webClients } from './instances';
@@ -334,7 +334,7 @@ class Docker {
             res.setHeader("Location", "/v2/" + p[2] + "/blobs/" + digest);
             //res.setHeader("Range", "0-"+u.count.value);
             res.setHeader("Content-Length", "0");
-            res.setHeader("Docker-Content-Digest", digest);
+            res.setHeader("Docker-Content-Digest", digest as string);
             res.status(204);
             res.end();
             return;
