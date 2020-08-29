@@ -106,7 +106,7 @@ async def script_output_handler(id, reader, src, output_queue, type):
             try:
                 data = await reader.readuntil(b'\0')
                 data = json.loads(data[:-1].decode('utf-8','strict'))
-            except asyncio.streams.IncompleteReadError:
+            except asyncio.IncompleteReadError:
                 data = None
         elif type == 'text':
             data = await reader.read(1024*1024)
@@ -313,7 +313,7 @@ async def client():
         while True:
             try:
                 package = await reader.readuntil(b'\36')
-            except asyncio.streams.IncompleteReadError:
+            except asyncio.IncompleteReadError:
                 break
             if not package: break
             id = None
