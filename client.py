@@ -364,11 +364,13 @@ async def client():
         writer.close()
         logging.info("Disconnected from server")
     except ConnectionError as e:
+        print(traceback.format_exc())
+        print(repr(e), flush=True)
         await asyncio.sleep(config['reconnect_time'])
-        print(e, e.args)
     except Exception as e:
+        print(traceback.format_exc())
+        print(repr(e), flush=True)
         await asyncio.sleep(config['reconnect_time'])
-        print(e, e.args)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
