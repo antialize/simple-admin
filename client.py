@@ -106,7 +106,7 @@ async def script_output_handler(id, reader, src, output_queue, type):
             try:
                 data = await reader.readuntil(b'\0')
                 data = json.loads(data[:-1].decode('utf-8','strict'))
-            except asyncio.streams.IncompleteReadError:
+            except asyncio.IncompleteReadError:
                 data = None
         elif type == 'text':
             data = await reader.read(1024*1024)
@@ -299,7 +299,7 @@ async def client():
         # sc.load_verify_locations('cert.pem')
 
         output_queue = asyncio.Queue(config['output_queue_size'])
-        reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc)
+        reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc, limit=1024*1024)
 
 
         writer.write(json.dumps({'type': 'auth', 'hostname': config['hostname'], 'password': config['password']}).encode("utf-8", "strict"))
@@ -313,7 +313,7 @@ async def client():
         while True:
             try:
                 package = await reader.readuntil(b'\36')
-            except asyncio.streams.IncompleteReadError:
+            except asyncio.IncompleteReadError:
                 break
             if not package: break
             id = None
@@ -364,11 +364,13 @@ async def client():
         writer.close()
         logging.info("Disconnected from server")
     except ConnectionError as e:
+        print(traceback.format_exc())
+        print(repr(e), flush=True)
         await asyncio.sleep(config['reconnect_time'])
-        print(e, e.args)
     except Exception as e:
+        print(traceback.format_exc())
+        print(repr(e), flush=True)
         await asyncio.sleep(config['reconnect_time'])
-        print(e, e.args)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
