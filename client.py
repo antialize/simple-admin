@@ -299,7 +299,7 @@ async def client():
         # sc.load_verify_locations('cert.pem')
 
         output_queue = asyncio.Queue(config['output_queue_size'])
-        reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc)
+        reader, writer = await asyncio.open_connection(config['server_host'], config['server_port'], ssl=sc, limit=1024*1024)
 
 
         writer.write(json.dumps({'type': 'auth', 'hostname': config['hostname'], 'password': config['password']}).encode("utf-8", "strict"))
