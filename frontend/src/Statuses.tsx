@@ -1,5 +1,5 @@
 import * as React from "react";
-import StatusesCard from './StatusesCard';
+import HostChip from './HostChip';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { hostId } from '../../shared/type';
@@ -28,11 +28,9 @@ const Statuses = observer(function Statuses() {
         chunks.push(
             <div key={cat.name}>
                 <Typography variant="h6" component="span" color="textPrimary">{cat.name}</Typography>
-                <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(700px, 1fr))', width: "100%"
-                }}>
-                    {hosts.map(id => <StatusesCard key={id} id={id} />)}
-                </div>
+                <span style={{'margin': '4px'}}>
+                    {hosts.map(id => <HostChip key={id} id={id} />)}
+                </span>
             </div>);
     }
     return <div>{chunks}</div>;

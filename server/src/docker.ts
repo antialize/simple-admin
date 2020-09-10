@@ -1,13 +1,13 @@
 import * as express from 'express';
-import { log, exceptions } from 'winston';
+import { log } from 'winston';
 import * as fs from 'fs';
 import {v4 as uuid} from 'uuid';
 import * as crypto from 'crypto';
-import { Stream, Writable } from 'stream';
+import { Stream } from 'stream';
 import { db, hostClients, webClients } from './instances';
 import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes } from '../../shared/actions';
 import { WebClient } from './webclient';
-import { rootId, hostId, rootInstanceId, IVariables, userId } from '../../shared/type';
+import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
 import { Job } from './job';
 import { HostClient } from './hostclient';

@@ -4,7 +4,7 @@ import {randomBytes} from 'crypto';
 import {config} from './config';
 import * as crypt from './crypt'
 import { IObject2 } from '../../shared/state';
-import { IAction, ACTION, IObjectChanged} from '../../shared/actions'
+import { ACTION, IObjectChanged} from '../../shared/actions'
 import { webClients} from './instances'
 
 

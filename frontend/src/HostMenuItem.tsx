@@ -15,13 +15,11 @@ const HostMenuItem = observer(function HostMenuItem({id}: {id:number}) {
     const digests = hostDigests.get(id);
     if (!digests) return <span>Missing host digest</span>;
     const name = digests.name;
-    const status = state.status.get(id);
-    const up = status && status.up;
     let messages = 0;
     for (let [id, msg] of state.messages)
         if (!msg.dismissed && msg.host == id)
             ++messages;
-    return <ListItem 
+    return <ListItem
             button
             style={{paddingLeft: 40}}
             key={id}

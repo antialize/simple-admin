@@ -1,7 +1,6 @@
 import * as QRCode from 'qrcode';
 import * as React from "react";
 import Box from './Box'
-import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
 

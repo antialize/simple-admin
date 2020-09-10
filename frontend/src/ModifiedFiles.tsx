@@ -7,7 +7,7 @@ import { StyleRules, createStyles, StyledComponentProps, withStyles, Theme } fro
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
 import Button from '@material-ui/core/Button';
-import { hostId, typeId } from '../../shared/type';
+import { hostId } from '../../shared/type';
 import { PAGE_TYPE, IModifiedFilePage } from '../../shared/state';
 import * as Diff from 'diff';
 import Editor from './Editor';

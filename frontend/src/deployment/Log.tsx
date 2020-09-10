@@ -1,11 +1,11 @@
 import * as React from "react";
-import * as fit from 'xterm/lib/addons/fit/fit';
+import {FitAddon} from 'xterm-addon-fit';
 import { Terminal } from 'xterm';
 import nullCheck from '../../../shared/nullCheck';
 
-Terminal.applyAddon(fit);
-
+let fit = new FitAddon();
 let theTerm = new Terminal({cursorBlink: false, scrollback: 100000});
+theTerm.loadAddon(fit);
 let oldCount: number = 0;
 let clearCount: number = 0;
 
@@ -22,7 +22,7 @@ export class Log extends React.Component<{}, {}> {
 
     componentDidMount() {
         theTerm.open(nullCheck(this.div));
-        (theTerm as any).fit();
+        fit.fit();
     }
 
     render() {

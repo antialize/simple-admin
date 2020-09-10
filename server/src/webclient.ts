@@ -1,17 +1,13 @@
 import * as http from 'http';
-import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert, IStatBucket } from '../../shared/actions'
+import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert } from '../../shared/actions'
 import * as express from 'express';
-import { IObject2, PAGE_TYPE } from '../../shared/state'
-import * as message from './messages'
+import { PAGE_TYPE } from '../../shared/state'
 import * as WebSocket from 'ws';
 import * as url from 'url';
-import * as net from 'net';
 import { JobOwner } from './jobowner'
 import { Job } from './job'
 import { ShellJob } from './jobs/shellJob'
 import { LogJob } from './jobs/logJob'
-import { PokeServiceJob } from './jobs/pokeServiceJob'
-import * as fs from 'fs';
 import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
@@ -22,9 +18,7 @@ import { log } from 'winston';
 import * as crypto from 'crypto';
 import { config } from './config'
 import * as speakeasy from 'speakeasy';
-import * as stat from './stat';
 import {docker} from './docker';
-import nullCheck from '../../shared/nullCheck';
 import { getAuth, AuthInfo, noAccess } from './getAuth';
 import * as bodyParser from 'body-parser'
 
@@ -53,7 +47,6 @@ export class WebClient extends JobOwner {
     onClose() {
         this.kill();
         webClients.webclients.delete(this);
-        stat.subscribe(this, null);
     }
 
     async sendAuthStatus(sid: string | null) {
@@ -64,38 +57,7 @@ export class WebClient extends JobOwner {
     async onMessage(str: string) {
         const act = JSON.parse(str) as IAction;
 
-
         switch (act.type) {
-            case ACTION.RequestStatBucket:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-
-                let bucket = await stat.get(act.host, act.name, act.level, act.index);
-                let a: IStatBucket = {
-                    type: ACTION.StatBucket,
-                    target: act.target,
-                    host: act.host,
-                    name: act.name,
-                    level: act.level,
-                    index: act.index,
-                    values: null
-                };
-                if (bucket) {
-                    a.values = [];
-                    for (let i = 0; i < 1024; ++i)
-                        a.values[i] = bucket.values.readFloatBE(i * 4);
-                }
-                this.sendMessage(a);
-                break;
-            case ACTION.SubscribeStatValues:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                stat.subscribe(this, act);
-                break;
             case ACTION.RequestAuthStatus:
                 log('info', "AuthStatus", this.host, this.auth.session, this.auth.user);
                 this.sendAuthStatus(act.session || null);
@@ -216,15 +178,6 @@ export class WebClient extends JobOwner {
                     if (objectRow) id = objectRow.id;
                 } finally {
                     this.sendMessage({type: ACTION.GetObjectIdRes, ref: act.ref, id});
-                }
-                break;
-            case ACTION.PokeService:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                if (act.host in hostClients.hostClients) {
-                    new PokeServiceJob(hostClients.hostClients[act.host], act.poke, act.service);
                 }
                 break;
             case ACTION.StartLog:
@@ -481,15 +434,19 @@ async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjectsFull();
     const msgs = msg.getResent();
 
+    let hostsUp = [];
+    for (const id in hostClients.hostClients)
+         hostsUp.push(+id);
+
     let action: ISetInitialState = {
         type: ACTION.SetInitialState,
         objectNamesAndIds: {},
-        statuses: {},
         messages: await msgs,
         deploymentObjects: deployment.getView(),
         deploymentStatus: deployment.status,
         deploymentMessage: deployment.message || "",
         deploymentLog: deployment.log,
+        hostsUp,
         types: {},
     };
     for (const row of await rows) {
@@ -508,16 +465,7 @@ async function sendInitialState(c: WebClient) {
         action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, category: row.category, comment: row.comment });
     }
 
-    for (const id in hostClients.hostClients) {
-        const c = hostClients.hostClients[id];
-        if (c.status) {
-            action.statuses[nullCheck(c.id, "Expected id")] = nullCheck(c.status, "Expected status");
-        }
-    }
-
     const m: { [key: string]: number } = {};
-
-
     for (const id in action) {
         const x = JSON.stringify((action as any)[id]);
         if (x) m[id] = x.length;
@@ -542,7 +490,7 @@ export class WebClients {
     async countMessages(req: express.Request, res: express.Response) {
         res.header('Content-Type', 'application/json; charset=utf-8')
             .json({ 'count': await msg.getCount() }).end();
-    }    
+    }
 
     constructor() {
         this.httpApp.use(helmet());

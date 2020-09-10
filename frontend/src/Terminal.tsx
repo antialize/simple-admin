@@ -1,21 +1,13 @@
-import 'xterm/dist/xterm.css';
+import 'xterm/css/xterm.css'
 import * as $ from 'jquery'
 import * as Cookies from 'js-cookie';
 import * as React from "react";
-import * as fit from 'xterm/lib/addons/fit/fit';
-import * as fullscreen from 'xterm/lib/addons/fullscreen/fullscreen';
+import {FitAddon} from 'xterm-addon-fit';
 import Button from "@material-ui/core/Button";
 import Chip from "@material-ui/core/Chip";
-import { Terminal as T}  from 'xterm';
+import { Terminal }  from 'xterm';
 import { remoteHost } from './config';
 import nullCheck from '../../shared/nullCheck';
-
-T.applyAddon(fit);
-T.applyAddon(fullscreen);
-
-declare global {
-    const Terminal: T;
-}
 
 interface Props {
     id: number;
@@ -25,7 +17,9 @@ class Connection {
     connected = false;
 
     constructor(public hostId: number, public connectionId: number, public nameChanged: (id: number, name: string) => void) {
-        this.term = new T({ cursorBlink: true, scrollback: 10000 });
+        this.term = new Terminal({ cursorBlink: true, scrollback: 10000 });
+        this.fit = new FitAddon();
+        this.term.loadAddon(this.fit);
     }
 
     connect() {
@@ -55,15 +49,15 @@ class Connection {
                 buffer.push(msg);
         }
 
-        term.on('data', (data: string) => {
+        term.onData( (data) => {
             send('d' + data + "\0");
         });
 
-        term.on('title', (title: string) => {
+        term.onTitleChange( (title) => {
             this.name = title;
             this.nameChanged(this.connectionId, title);
         });
-        term.on('resize', (size: any) => {
+        term.onResize( (size) => {
             if (this.oldsize[0] == size.rows && this.oldsize[1] == size.cols) return;
             this.oldsize = [size.rows, size.cols];
             send('r' + size.rows + "," + size.cols + '\0');
@@ -82,7 +76,8 @@ class Connection {
     }
 
     oldsize: [number, number] = [0, 0]
-    term?: T;
+    term?: Terminal;
+    fit: FitAddon;
     termDiv?: HTMLDivElement;
     socket?: WebSocket;
     name: string = "";
@@ -166,10 +161,10 @@ class HostTerminals extends React.Component<Props, State> {
             conn.connect();
 
             $(window).resize(() => {
-                (conn.term as any).fit();
+                conn.fit.fit();
             });
             this.interval = setInterval(() => {
-                (conn.term as any).fit();
+                conn.fit.fit();
             }, 2000);
         }
         if (id != this.state.current)

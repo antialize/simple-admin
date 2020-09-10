@@ -2,9 +2,8 @@ import * as fs from 'fs';
 
 import {Job} from '../job'
 import * as message from '../messages'
-// Type only imports
-import {HostClient} from '../hostclient'
 import {deployment} from '../instances'
+import type {HostClient} from '../hostclient'
 
 export class DeployJob extends Job {  
     stdoutPart: string = "";

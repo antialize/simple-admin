@@ -2,7 +2,6 @@ import * as React from "react";
 import MenuItem from "@material-ui/core/MenuItem";
 import Select from "@material-ui/core/Select";
 import TextField from "@material-ui/core/TextField";
-import state from "./state";
 import { Theme, StyleRules, createStyles, withStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { TypePropType, ITrigger } from '../../shared/type'
 import { observer } from "mobx-react";

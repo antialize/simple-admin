@@ -1,8 +1,6 @@
 import * as Cookies from 'js-cookie';
 import * as State from '../../shared/state';
-import * as chart from './Chart';
 import ObjectState from "./ObjectState";
-import StatusState from "./StatusState";
 import state, { CONNECTION_STATUS } from "./state";
 import { IAction, ACTION, IRequestAuthStatus } from '../../shared/actions';
 import { add, clear } from './deployment/Log';
@@ -45,22 +43,12 @@ export const setupSocket = () => {
             case ACTION.Alert:
                 alert(d.message);
                 break;
-            case ACTION.StatBucket:
-            case ACTION.StatValueChanges:
-                chart.handleAction(d);
-                break;
-            case ACTION.UpdateStatus:
-                runInAction(() => {
-                    getOrInsert(state.status, d.host, ()=>new StatusState()).applyStatusUpdate(d.update);
-                });
-                break;
             case ACTION.HostDown:
-                runInAction(() => {
-                    const h = state.status.get(d.id);
-                    if (h) h.up = false;
-                });
+                state.hostsUp.delete(d.id);
                 break;
-                ;
+            case ACTION.HostUp:
+                state.hostsUp.add(d.id);
+                break;
             case ACTION.AuthStatus:
                 runInAction(() => {
                     if (d.pwd && d.otp)
@@ -105,11 +93,8 @@ export const setupSocket = () => {
                     }
                     for (let msg of d.messages)
                         state.messages.set(msg.id, msg);
-                    for (let status in d.statuses) {
-                        const s = new StatusState();
-                        s.setFromInitialState(d.statuses[status]);
-                        state.status.set(+status, s);
-                    }
+                    for (let id of d.hostsUp)
+                        state.hostsUp.add(id);
                     if (!loaded)
                         nullCheck(state.page).setFromUrl();
                 });

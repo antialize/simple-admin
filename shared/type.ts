@@ -1,5 +1,5 @@
 export enum TypePropType {
-    none, bool, text, password, document, choice, typeContent, number, monitorContent
+    none, bool, text, password, document, choice, typeContent, number,
 }
 
 export interface IBoolTypeProp {
@@ -64,16 +64,12 @@ export interface ITypeContentTypeProp {
     name: string;
 }
 
-export interface IMonitorContentTypeProp {
-    type: TypePropType.monitorContent;
-    name: string;
-}
 
 export interface INoneTypeProp {
     type: TypePropType.none;
 }
 
-export type ITypeProp = IBoolTypeProp | ITextTypeProp | INumberTypeProp | IPasswordTypeProp | IDocumentTypeProp | IChoiceTypeProp | ITypeContentTypeProp | INoneTypeProp | IMonitorContentTypeProp;
+export type ITypeProp = IBoolTypeProp | ITextTypeProp | INumberTypeProp | IPasswordTypeProp | IDocumentTypeProp | IChoiceTypeProp | ITypeContentTypeProp | INoneTypeProp ;
 
 export type KindType = "host" | "root" | "collection" | "delta" | "sum" | "type" | "trigger"
 
@@ -127,6 +123,5 @@ export const hostId = 2;
 export const rootId = 3;
 export const userId = 4;
 export const packageId = 10;
-export const monitorId = 11;
 export const rootInstanceId = 100;
 

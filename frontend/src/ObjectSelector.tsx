@@ -2,7 +2,6 @@ import * as React from "react";
 import Select from "./Select";
 import state from "./state";
 import { observer } from "mobx-react";
-import { rootId } from "../../shared/type";
 
 interface IProps {
     selected: number[];

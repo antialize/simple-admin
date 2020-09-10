@@ -7,15 +7,13 @@ import Paper from "@material-ui/core/Paper";
 import RSelect from 'react-select';
 import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
-import { Theme, StyleRules, createStyles, StyledComponentProps, withStyles } from "@material-ui/core/styles";
+import { Theme,StyledComponentProps } from "@material-ui/core/styles";
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
 import { emphasize } from '@material-ui/core/styles/colorManipulator';
 import makeStyles from "@material-ui/styles/makeStyles";
 import * as PropTypes from 'prop-types';
 import clsx from 'clsx';
 import { useTheme } from "@material-ui/styles";
-import { StylesConfig } from "react-select/src/styles";
-
 
 // Code copied from https://material-ui.com/components/autocomplete/
 
