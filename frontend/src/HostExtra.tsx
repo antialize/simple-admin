@@ -3,26 +3,16 @@ import Box from './Box';
 import HostTerminals from './Terminal';
 import Log from './Log';
 import Messages from './Messages';
-import Services from './Services';
 import Setup from './Setup';
-import Smart from './Smart';
-import Status from "./Status";
-import state from "./state";
 import { observer } from "mobx-react";
 import { HostDockerContainers, DockerContainers } from "./DockerContainers";
+import { state } from "./state";
 
 const HostExtra = observer(function HostExtra({id}:{id:number}) {
-    const status = state.status.get(id);
-    const up = status && status.up;
+    const up = state.hostsUp.has(id);
     let c: JSX.Element | null = null;
     if (up) {
         c = (<div>
-                <Box title="Smart" collapsable={true}>
-                    <Smart host={id}/>
-                </Box>
-                <Box title="Services" collapsable={true}>
-                    <Services id={id}/>
-                </Box>
                 <Box title="Terminal" collapsable={true}>
                     <HostTerminals id={id} />
                 </Box>
@@ -43,12 +33,9 @@ const HostExtra = observer(function HostExtra({id}:{id:number}) {
 
     return (
         <div>
-            {id > 0 ? 
+            {id > 0 ?
                 <div>
                     <Messages host={id} />
-                    <Box title="Status" collapsable={true} expanded={true}>
-                        <Status id={id} />
-                    </Box>
                     <HostDockerContainers host={id} title="DockerContainers" standalone={true} />
                 </div>: null}
             {c}

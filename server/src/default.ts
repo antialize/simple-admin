@@ -1,6 +1,6 @@
 import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
-    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, userId, IMonitorContentTypeProp,
-    rootInstanceId, monitorId} from "../../shared/type"
+    IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, userId,
+    rootInstanceId} from "../../shared/type"
 
 export const groupId = 5;
 export const fileId = 6;
@@ -457,24 +457,6 @@ export let defaults: IDefault[] =
                     "run(['dpkg-deb', '--build', d, deb])\n" +
                     "run(['apt', 'install', '-y', deb])\n" +
                     "run(['apt', 'autoremove', '-y'])\n"
-            }
-        },
-
-        ///////////////////////////////////////////////////// Monitor type ///////////////////////////////////////////////////////////
-        {
-            type: typeId,
-            id: monitorId,
-            name: "Monitor",
-            category: "Buildin",
-            comment: "Monitor things on a hosts",
-            content: {
-                deployOrder: 100,
-                plural: "Monitors",
-                kind: "monitor",
-                content: [
-                    {type: TypePropType.monitorContent, name:"content"} as IMonitorContentTypeProp,  
-                    {type: TypePropType.document, title: "Script", name:"script", description:"", lang: "Python", langName: "", template:true} as IDocumentTypeProp
-                ],
             }
         },
 

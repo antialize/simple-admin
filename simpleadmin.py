@@ -729,9 +729,7 @@ async def ui_edit_object(loop, c, id, types):
                 pass
             elif type == 7: #Number
                 pass
-            elif type == 8: #monitorContent
-                pass
-        
+
         fields.append(u.Text(" "))
         fields.append(
             u.Columns([

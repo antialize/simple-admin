@@ -5,7 +5,6 @@ import {Msg} from './msg'
 import {Deployment} from './deployment'
 import * as instances from './instances';
 import {errorHandler} from './error'
-import * as stat from './stat';
 import {log} from 'winston';
 import { ModifiedFiles } from './modifiedfiles';
 import winston = require('winston');
@@ -30,19 +29,6 @@ async function setup() {
     instances.webClients.startServer();
     instances.setHostClients(new HostClients());
     instances.hostClients.start();
-
-    exitHook((cb:any) => {
-        log("info", "Flush for shutdown");
-        stat.flush().then(cb)
-    });
-    
-
-    process.once('SIGUSR2', () => {
-        log("info", "Nodemon restart");
-        stat.flush().then(()=> {
-            process.kill(process.pid, 'SIGUSR2');
-        });
-    });
 };
 
 setup();

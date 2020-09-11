@@ -5,7 +5,6 @@ import state from "./state";
 import { observer } from "mobx-react";
 import { rootInstanceId, rootId } from '../../shared/type';
 import MenuDropdown, { DropDownItem } from "./MenuDropdown";
-import nullCheck from '../../shared/nullCheck';
 
 export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:number}) {
     const page = state.page;

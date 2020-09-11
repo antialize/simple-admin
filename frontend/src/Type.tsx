@@ -2,7 +2,6 @@ import * as React from "react";
 import Category from './Category';
 import Editor from './Editor';
 import MenuItem from "@material-ui/core/MenuItem";
-import MonitorContent from './MonitorContent';
 import ObjectSelector from "./ObjectSelector";
 import Password from './Password';
 import Select from "@material-ui/core/Select";
@@ -17,7 +16,6 @@ import { InformationList, InformationListRow } from './InformationList';
 import { observer } from "mobx-react";
 import {TypePropType, hostId, rootId, typeId} from '../../shared/type';
 import Error from './Error';
-import nullCheck from '../../shared/nullCheck';
 
 const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:number}) {
     const obj = state.objects.get(id);
@@ -78,9 +76,6 @@ const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:numb
             break;
         case TypePropType.typeContent:
             extra.push(<TypeContent key={ct.name} content={v || []} onChange={v => setProp(ct.name, v)} />);
-            break;
-        case TypePropType.monitorContent:
-            extra.push(<MonitorContent key={ct.name}  content={v || []} onChange={v => setProp(ct.name, v)} />);
             break;
         }
     }

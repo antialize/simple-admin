@@ -5,9 +5,7 @@ import state from './state';
 import nullCheck from '../../shared/nullCheck';
 import { observer } from 'mobx-react';
 import Box from './Box';
-//import Select from '@material-ui/core/Select';
 import { hostId } from '../../shared/type';
-import MenuItem from '@material-ui/core/MenuItem';
 import Select from './Select'
 import { InformationList, InformationListRow } from './InformationList';
 

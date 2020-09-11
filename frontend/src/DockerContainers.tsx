@@ -18,7 +18,6 @@ import styles from './styles'
 import extractRemote from './extractRemote';
 import getOrInsert from '../../shared/getOrInsert';
 import Error from "./Error";
-import * as dockerDeploy from './DockerDeploy';
 import nullCheck from '../../shared/nullCheck';
 
 export class DockerContainersState {

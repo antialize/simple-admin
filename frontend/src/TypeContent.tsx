@@ -4,7 +4,7 @@ import MenuItem from "@material-ui/core/MenuItem";
 import Select from "@material-ui/core/Select";
 import Switch from "@material-ui/core/Switch";
 import TextField from "@material-ui/core/TextField";
-import { ITypeProp, TypePropType, hostId } from '../../shared/type';
+import { ITypeProp, TypePropType } from '../../shared/type';
 import { StyleRules, withStyles, createStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { Theme } from "@material-ui/core";
 import nullCheck from '../../shared/nullCheck';
@@ -44,7 +44,7 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
             p.onChange(c.filter(c=>c.type != TypePropType.none));
         };
         let def;
-        if (r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent || r.type == TypePropType.document || r.type == TypePropType.password)
+        if (r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.document || r.type == TypePropType.password)
             def = <TextField value="" disabled={true}/>;
         else if (r.type == TypePropType.bool) {
             def = (
@@ -109,16 +109,15 @@ function TypeContentImpl(p: {content: ITypeProp[], onChange: (v: ITypeProp[])=>v
                         <MenuItem value={TypePropType.document}>Document</MenuItem>
                         <MenuItem value={TypePropType.choice}>Choice</MenuItem>
                         <MenuItem value={TypePropType.typeContent}>Type Content</MenuItem>
-                        <MenuItem value={TypePropType.monitorContent}>Monitor Content</MenuItem>
                         <MenuItem value={TypePropType.none}>Nothing</MenuItem>
                     </Select>
                 </td>
                 <td><TextField value={r.type != TypePropType.none && r.name || ""} disabled={r.type == TypePropType.none} onChange={(e) => change({name: e.target.value})}/></td>
-                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent && r.title || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({title: e.target.value})}/></td>
+                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.title || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent} onChange={(e) => change({title: e.target.value})}/></td>
                 <td className={classes.td}>{def}</td>
                 <td className={classes.td}>{temp}</td>
                 <td className={classes.td}>{var_}</td>
-                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent && r.type != TypePropType.monitorContent  && r.description || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent || r.type == TypePropType.monitorContent} onChange={(e) => change({description: e.target.value})}/></td>
+                <td><TextField value={r.type != TypePropType.none && r.type != TypePropType.typeContent  && r.description || ""} disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent} onChange={(e) => change({description: e.target.value})}/></td>
                 <td className={classes.td}>{extra}</td>
             </tr>);
     }

@@ -20,7 +20,7 @@ const ObjectView = observer(function ObjectView ({type, id, version}:{type:numbe
     if (!id || !o || !o.current)
         return <CircularProgress />;
     const stype = state.types.get(type);
-    if (!stype) return <Error>Missing type></Error>;
+    if (!stype) return <Error>Missing type</Error>;
     let typeName = stype.name;
     let extra = null;
     let versions = 1;

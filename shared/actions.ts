@@ -1,4 +1,3 @@
-import { IStatus, IStatusUpdate } from './status';
 import { IPage, IObjectDigest, IObject2, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject } from './state';
 import { IType } from './type'
 
@@ -17,8 +16,8 @@ export enum ACTION {
     DockerContainerStop="DockerContainerStop",
     DockerDeployDone="DockerDeployEnd",
     DockerDeployLog="DockerDeployLog",
-    DockerDeployStart="DockerDeployStart",
     DockerDeploymentsChanged="DockerDeploymentsChanged",
+    DockerDeployStart="DockerDeployStart",
     DockerImageSetPin="DockerImageSetPin",
     DockerListDeploymentHistory="DockerListDeploymentHistory",
     DockerListDeploymentHistoryRes="DockerListDeploymentHistoryRes",
@@ -36,6 +35,7 @@ export enum ACTION {
     GetObjectId="GetObjectId",
     GetObjectIdRes="GetObjectIdRes",
     HostDown="HostDown",
+    HostUp="HostUp",
     ListModifiedFiles="ListModifiedFiles",
     Login="Login",
     Logout="LogOut",
@@ -46,22 +46,19 @@ export enum ACTION {
     ModifiedFilesResolve="ModifiedFilesResolve",
     ModifiedFilesScan="ModifiedFilesScan",
     ObjectChanged="ObjectChanged",
-    PokeService="PokeService",
     RequestAuthStatus="RequestAuthStatus",
     RequestInitialState="RequestInitialState",
-    RequestStatBucket="RequestStatBucket",
+    ResetServerState="ResetServerState",
     SaveObject="SaveObject",
     SetDeploymentMessage="SetDeploymentMessage",
-    SetDeploymentObjectStatus="SetDeploymentObjectStatus",
     SetDeploymentObjects="SetDeploymentObjects",
+    SetDeploymentObjectStatus="SetDeploymentObjectStatus",
     SetDeploymentStatus="SetDeploymentStatus",
-    ResetServerState="ResetServerState",
     SetInitialState="SetInitialState",
     SetMessagesDismissed="SetMessageDismissed",
     SetPage="SetPage",
     StartDeployment="StartDeployment",
     StartLog="StartLog",
-    StatBucket="StatBucket",
     StatValueChanges="StatValueChanges",
     StopDeployment="StopDeployment",
     SubscribeStatValues="SubscribeStatValues",
@@ -70,12 +67,6 @@ export enum ACTION {
 }
 
 export type Ref = number | string;
-
-export interface IUpdateStatusAction {
-    type: ACTION.UpdateStatus;
-    host: number;
-    update: IStatusUpdate
-}
 
 export interface IFetchObject {
     type: ACTION.FetchObject;
@@ -108,28 +99,13 @@ export interface IMessage {
 export interface ISetInitialState {
     type: ACTION.SetInitialState;
     objectNamesAndIds: { [cls: string]: IObjectDigest[] };
-    statuses: { [id: number]: IStatus };
     messages: IMessage[];
     deploymentObjects: IDeploymentObject[];
     deploymentStatus: DEPLOYMENT_STATUS;
     deploymentMessage: string;
     deploymentLog: string[];
     types: { [id:number]: IObject2<IType>};
-}
-
-export enum SERVICE_POKE { 
-    Start="Start", 
-    Stop="Stop", 
-    Restart="Restart",
-    Reload="Reload", 
-    Kill="Kill" 
-}
-
-export interface IPokeService {
-    type: ACTION.PokeService;
-    host: number;
-    poke: SERVICE_POKE;
-    service: string;
+    hostsUp: number[];
 }
 
 export interface IStartLog {
@@ -183,6 +159,11 @@ export interface ISaveObject {
 
 export interface IHostDown {
     type: ACTION.HostDown;
+    id: number;
+}
+
+export interface IHostUp {
+    type: ACTION.HostUp;
     id: number;
 }
 
@@ -290,25 +271,6 @@ export interface ILogout {
 
 export interface IRequestInitialState {
     type: ACTION.RequestInitialState;
-}
-
-export interface IRequestStatBucket {
-    type: ACTION.RequestStatBucket;
-    target: number;
-    host: number;
-    name: string;
-    index: number;
-    level: number;
-}
-
-export interface IStatBucket {
-    type: ACTION.StatBucket;
-    target: number;
-    host: number;
-    name: string;
-    index: number;
-    level: number;
-    values: number[] | null;
 }
 
 export interface ISubscribeStatValues {
@@ -542,8 +504,8 @@ export type IAction =
     | IDockerContainerStop
     | IDockerDeployDone
     | IDockerDeployLog
-    | IDockerDeployStart
     | IDockerDeploymentsChanged
+    | IDockerDeployStart
     | IDockerImageSetPin
     | IDockerImageTagsCharged
     | IDockerListDeploymentHistory
@@ -561,34 +523,31 @@ export type IAction =
     | IGetObjectId
     | IGetObjectIdRes
     | IHostDown
+    | IHostUp
     | ILogin
     | ILogout
     | IMessageTextRepAction
     | IMessageTextReqAction
     | IModifiedFilesChanged
     | IModifiedFilesList
+    | IModifiedFilesResolve
     | IModifiedFilesScan
     | IObjectChanged
-    | IPokeService
     | IRequestAuthStatus
     | IRequestInitialState
-    | IRequestStatBucket
+    | IResetServerState
     | ISaveObject
     | ISetDeploymentMessage
-    | ISetDeploymentObjectStatus
     | ISetDeploymentObjects
+    | ISetDeploymentObjectStatus
     | ISetDeploymentStatus
-    | IResetServerState
     | ISetInitialState
     | ISetMessagesDismissed
     | ISetPageAction
     | IStartDeployment
     | IStartDeployment
     | IStartLog
-    | IStatBucket
     | IStatValueChanges
     | IStopDeployment
     | ISubscribeStatValues
-    | IToggleDeploymentObject
-    | IUpdateStatusAction
-    | IModifiedFilesResolve;
+    | IToggleDeploymentObject;

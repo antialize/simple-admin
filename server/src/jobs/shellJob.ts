@@ -1,5 +1,5 @@
 import {Job} from '../job'
-import {HostClient} from '../hostclient'
+import type {HostClient} from '../hostclient'
 import * as message from '../messages'
 import * as fs from 'fs';
 import * as WebSocket from 'ws';

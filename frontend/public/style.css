@@ -10,28 +10,6 @@ th {
     text-align: left;
 }
 
-.services_table {
-    min-width: 1000px;
-}
-
-.serviceservices_table tr:nth-child(even)  {
-    background-color: #EEEEEE;    
-}
-
-.services_table tr:nth-child(odd) {
-    background-color: #DDDDDD;
-}
-
-.smart_table, .message_table {
-    min-width: 1000px;
-}
-
-.smart_device {
-    font-size: 122%;
-    font-weight: bold;
-    background-color: #CCCCCC;
-}
-
 .terminal {
     font-size: 15px !important;
     font-family: Liberation Mono, courier-new, courier, monospace  !important;
@@ -39,30 +17,6 @@ th {
 
 div.CodeMirror {
     height: 750px;
-}
-
-tr:nth-child(even).smart_normal  {
-    background-color: #EEEEEE;
-}
-
-tr:nth-child(odd).smart_normal {
-    background-color: #DDDDDD;
-}
-
-tr:nth-child(even).smart_good, tr:nth-child(even).message_good {
-    background-color: #070;
-}
-
-tr:nth-child(odd).smart_good, tr:nth-child(odd).message_good {
-    background-color: #090;
-}
-
-tr:nth-child(even).smart_bad, tr:nth-child(even).message_bad {
-    background-color: #700;
-}
-
-tr:nth-child(odd).smart_bad, tr:nth-child(odd).message_bad  {
-    background-color: #900;
 }
 
 @media (max-width: 1500px) {

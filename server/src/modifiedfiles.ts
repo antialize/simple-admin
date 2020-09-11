@@ -79,7 +79,7 @@ export class ModifiedFiles {
         for (const [hostId, objs] of objects) {
             if (!hostClients.hostClients[hostId]) continue;
             const host = hostClients.hostClients[hostId];
-            if (!host.auth || !host.status || !host.status.up) continue;
+            if (!host.auth) continue;
 
             promises.push(new Promise((accept, reject) => {
                 let args: string[] = [];

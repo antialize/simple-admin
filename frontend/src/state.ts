@@ -1,17 +1,16 @@
-import DeploymentState from "./deployment/DeploymentState";
-import LoginState from "./LoginState";
-import ObjectState from "./ObjectState";
-import PageState from "./PageState";
-import StatusState from "./StatusState";
-import { IAction, IMessage }  from "../../shared/actions";
-import { IObject2, IObjectDigest } from "../../shared/state";
-import { IType } from "../../shared/type";
+import type DeploymentState from "./deployment/DeploymentState";
+import type LoginState from "./LoginState";
+import type ObjectState from "./ObjectState";
+import type PageState from "./PageState";
+import type { IAction, IMessage }  from "../../shared/actions";
+import type { IObject2, IObjectDigest } from "../../shared/state";
+import type { IType } from "../../shared/type";
 import { observable, computed } from "mobx";
-import { ActionTargets } from "./ActionTargets";
-import { DockerImagesState } from "./DockerImages";
-import { DockerContainersState } from "./DockerContainers";
-import { ModifiedFilesState } from "./ModifiedFiles";
-import { DockerDeployState} from "./DockerDeploy";
+import type { ActionTargets } from "./ActionTargets";
+import type { DockerImagesState } from "./DockerImages";
+import type { DockerContainersState } from "./DockerContainers";
+import type { ModifiedFilesState } from "./ModifiedFiles";
+import type { DockerDeployState} from "./DockerDeploy";
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
@@ -71,8 +70,8 @@ class State {
     @observable
     objects: Map<number, ObjectState> = new Map;
 
-    @observable
-    status: Map<Number, StatusState> = new Map;
+    //@observable
+    //host_up: Map<Number, boolean> = new Map;
 
     @observable.shallow
     dockerImages: DockerImagesState | null = null;
@@ -85,6 +84,9 @@ class State {
 
     @observable.shallow
     dockerDeploy: DockerDeployState | null = null;
+
+    @observable
+    hostsUp: Set<number> = new Set;
 
     doSendMessage: null | ((act:IAction)=>void)  = null;
 

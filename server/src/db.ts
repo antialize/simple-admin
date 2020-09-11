@@ -1,4 +1,3 @@
-import { normalize } from 'path';
 import * as sqlite from 'sqlite3';
 import { IObject2 } from '../../shared/state'
 import { Host, hostId, userId } from '../../shared/type'
@@ -59,7 +58,7 @@ export class DB {
         await r("CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)");
         await r("CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)");
-        await r("CREATE TABLE IF NOT EXISTS `host_monitor` (`host` INTEGER PRIMARY KEY, `script` TEXT, `content` TEXT, `time` INTEGER)");
+        await r("DROP TABLE IF EXISTS `host_monitor`");
 
         //await r('DROP TABLE `docker_images`');
         await r("CREATE TABLE IF NOT EXISTS `docker_images` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT, `manifest` TEXT, `hash` TEXT, `user` INTEGER, `time` INTEGER)");
@@ -74,18 +73,10 @@ export class DB {
 
         await r("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)");
 
-        //await r("DROP TABLE `stats`");
-        //await r("DROP INDEX IF EXISTS `stats_index`");
-
-        await r("CREATE TABLE IF NOT EXISTS `stats` (`id` INTEGER PRIMARY KEY, `host` INTEGER NOT NULL, `name` TEXT NOT NULL, `index` INTEGER NOT NULL, `level` INTEGER NOT NULL, `values` BLOB)");
-        await r("CREATE UNIQUE INDEX IF NOT EXISTS `stats_index` ON `stats` (`host`, `name`, `index`, `level`)");
-
         await r("CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)");
         await r("DELETE FROM `sessions` WHERE `user`=?", ["docker_client"]);
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
-        await r("CREATE TABLE IF NOT EXISTS `smart` (`host` INTEGER NOT NULL, `dev` TEXT NOT NULL, `smart_id` INTEGER NOT NULL, `count` INTEGER NOT NULL)")
-        await r("CREATE UNIQUE INDEX IF NOT EXISTS `smart_unique` ON `smart` (`host`, `dev`, `smart_id`)");
 
         for (let pair of [['host', hostId], ['user', userId], ['group', groupId], ['file', fileId], ['collection', collectionId], ['ufwallow', ufwAllowId], ['package', packageId]]) {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
@@ -182,29 +173,7 @@ export class DB {
         return nullCheck(this.db).prepare(sql);
     }
 
-    getHostMonitor(host: number) {
-        let db = nullCheck(this.db);
-        return new Promise<{ host: number, script: string, content: string } | null>((cb, cbe) => {
-            db.get("SELECT `host`, `script`, `content` FROM `host_monitor` WHERE `host`=?", [host],
-                (err, row) => {
-                    if (err)
-                        cbe(new SAError(ErrorType.Database, err));
-                    else
-                        cb(row)
-                });
-        });
-    }
-    setHostMonitor(host: number, script: string, content: string) {
-        let db = nullCheck(this.db);
-        return new Promise<{}[]>((cb, cbe) => {
-            db.run("REPLACE INTO `host_monitor` (`host`, `script`, `content`, `time`) VALUES (?, ?, ?, datetime('now'))", [host, script, content], (err) => {
-                if (err)
-                    cbe(new SAError(ErrorType.Database, err));
-                else
-                    cb();
-            });
-        });
-    }
+    
     getDeployments(host: number) {
         let db = nullCheck(this.db);
         return new Promise<{ name: string, type: number, title: string, content: string }[]>((cb, cbe) => {

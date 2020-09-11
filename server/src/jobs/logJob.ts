@@ -3,11 +3,9 @@ import * as fs from 'fs';
 import {Job} from '../job'
 import * as message from '../messages'
 import {ACTION, IAddLogLines} from '../../../shared/actions'
-
-// Type only imports
-import {HostClient} from '../hostclient'
-import {WebClient} from '../webclient'
 import nullCheck from '../../../shared/nullCheck';
+import type {HostClient} from '../hostclient'
+import type {WebClient} from '../webclient'
 
 export class LogJob extends Job {  
     part: string = "";

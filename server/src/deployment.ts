@@ -3,7 +3,7 @@ import {
 } from '../../shared/state'
 import { webClients, db, hostClients } from './instances'
 import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
-import { typeId, monitorId, rootInstanceId, rootId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains, packageId } from '../../shared/type'
+import { typeId, rootInstanceId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains, packageId } from '../../shared/type'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'
@@ -11,7 +11,6 @@ import { errorHandler, descript } from './error'
 
 //Type only import
 import { HostClient } from './hostclient'
-import { IMonitor, IMonitorProp } from '../../shared/monitor';
 import nullCheck from '../../shared/nullCheck';
 
 interface IDeployContent {
@@ -129,9 +128,6 @@ export class Deployment {
                                 if (item.deployTitle) deploymentTitle = v;
                                 break;
                             }
-                        case TypePropType.monitorContent:
-                            content[item.name] = objContent[item.name];
-                            break;
                         case TypePropType.none:
                         case TypePropType.typeContent:
                             break;
@@ -513,62 +509,6 @@ export class Deployment {
 
                 }
 
-                // Handle monitor
-                if (rootInstanceId in objects && hostFull) {
-                    let monitorContent = "";
-                    let content: IMonitor[] = [];
-
-                    for (let o of hostDeploymentObjects) {
-                        if (o.typeId != monitorId) continue;
-                        const nextContent = nullCheck(o.nextContent);
-                        monitorContent += nextContent.script + "\n\n";
-
-                        content.push({
-                            name: nextContent.name,
-                            interval: nextContent.interval,
-                            content: nextContent.content
-                        });
-                    }
-
-                    let monitor = objects[rootInstanceId].content.monitor;
-
-                    let script = "";
-                    try {
-                        script = Mustache.render(monitor, { ...rootVariable, monitorContent });
-                    } catch (err) {
-                        errors.push("Template error in monitor: " + err);
-                        console.log(err);
-                    }
-
-                    const o: IDeploymentObject = {
-                        index: 0,
-                        enabled: true,
-                        status: DEPLOYMENT_OBJECT_STATUS.Normal,
-                        action: DEPLOYMENT_OBJECT_ACTION.Monitor,
-                        hostName: hostObject.name,
-                        title: "Monitor",
-                        name: "monitor",
-                        script: script,
-                        prevScript: "",
-                        nextContent: content,
-                        prevContent: null,
-                        host: hostId,
-                        triggers: [],
-                        typeName: "monitor",
-                        id: null,
-                        typeId: null,
-                        deploymentOrder: 123456
-                    };
-
-                    let mon = await db.getHostMonitor(hostId);
-                    if (mon) {
-                        o.prevScript = mon.script;
-                        o.prevContent = JSON.parse(mon.content);
-                    }
-                    hostDeploymentObjects.push(o);
-                }
-
-                hostDeploymentObjects = hostDeploymentObjects.filter(o => o.typeId != monitorId);
                 if ('debPackages' in hostObject.content && !hostObject.content['debPackages'])
                     hostDeploymentObjects = hostDeploymentObjects.filter(o => o.typeId != packageId);
 
@@ -752,10 +692,6 @@ export class Deployment {
                 continue;
             }
 
-            if (o.action == DEPLOYMENT_OBJECT_ACTION.Monitor) {
-                hostClient.setMonitor(o.script, o.nextContent as IMonitor[]);
-                continue;
-            }
             const typeId = nullCheck(o.typeId);
 
             let type = types[typeId];
