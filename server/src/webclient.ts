@@ -492,6 +492,11 @@ export class WebClients {
             .json({ 'count': await msg.getCount() }).end();
     }
 
+    async metrics(req: express.Request, res: express.Response) {
+        res.header('Content-Type', 'text/plain; version=0.0.4')
+            .send(`simpleadmin_messages ${await msg.getCount()}\n`).end();
+    }
+
     constructor() {
         this.httpApp.use(helmet());
         this.httpServer = http.createServer(this.httpApp);
@@ -505,6 +510,7 @@ export class WebClients {
         this.httpApp.get("/docker/*", docker.images.bind(docker));
         this.httpApp.post("/usedImages", bodyParser.json(), docker.usedImages.bind(docker));
         this.httpApp.get('/messages', this.countMessages.bind(this));
+        this.httpApp.get('/metrics', this.metrics.bind(this));
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
             const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address);
