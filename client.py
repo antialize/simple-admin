@@ -312,7 +312,7 @@ async def client():
         running_jobs = {} #Map from id to job descriptor
         while True:
             try:
-                package = await reader.readuntil(b'\36')
+                package = await asyncio.wait_for(reader.readuntil(b'\36'), timeout=1200.0)
             except asyncio.IncompleteReadError:
                 break
             if not package: break
