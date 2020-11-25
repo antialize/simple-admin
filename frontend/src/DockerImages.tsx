@@ -175,7 +175,6 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
             {lst}
         </table>
         </Box>;
-    return <div>{lst}</div>;
 }));
 
 export const DockerImageHistory = withStyles(styles)(observer(function DockerImageHistory(p:StyledComponentProps) {
