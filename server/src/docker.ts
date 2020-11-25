@@ -5,7 +5,7 @@ import {v4 as uuid} from 'uuid';
 import * as crypto from 'crypto';
 import { Stream } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -870,7 +870,7 @@ finally:
     }
 
     async listImageTags(client: WebClient, act: IDockerListImageTags, maxRemovedAge: number = 14 * 24*60*60) {
-        const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: []};
+        const res: IDockerListImageTagsRes = {type: ACTION.DockerListImageTagsRes, ref: act.ref, tags: [], pinnedImageTags: []};
         try {
             for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)",
                  +new Date() / 1000 - maxRemovedAge))
@@ -885,6 +885,13 @@ finally:
                         pin: row.pin,
                         labels: JSON.parse(row.labels || "{}"),
                         removed: row.removed
+                    }
+                );
+            for (const row of await db.all("SELECT `project`, `tag` FROM `docker_image_tag_pins`"))
+                nullCheck(res.pinnedImageTags).push(
+                    {
+                        image: row.project,
+                        tag: row.tag,
                     }
                 );
         } finally {
@@ -962,6 +969,17 @@ finally:
                     removed: row.removed,
                 }
             );
+        webClients.broadcast(res);
+    }
+
+    async imageTagSetPin(client: WebClient, act: IDockerImageTagSetPin) {
+        if (act.pin)
+            await db.run('INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)', act.image, act.tag);
+        else
+            await db.run('DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?', act.image, act.tag);
+        const res: IDockerImageTagsCharged = {type: ACTION.DockerListImageTagsChanged, changed: [], removed: [], imageTagPinChanged: [
+            {image: act.image, tag: act.tag, pin: act.pin}
+        ]};
         webClients.broadcast(res);
     }
 
@@ -1202,13 +1220,15 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                   `docker_images`.`used`, \
                   (SELECT MAX(`x`.`id`) \
                    FROM `docker_images` AS `x` \
-                   WHERE `x`.`project`=`docker_images`.`project` AND `x`.`tag`=`docker_images`.`tag`) AS `newest` \
+                   WHERE `x`.`project`=`docker_images`.`project` AND `x`.`tag`=`docker_images`.`tag`) AS `newest`, \
+                  EXISTS (SELECT * FROM `docker_image_tag_pins` WHERE `docker_image_tag_pins`.`project`=`docker_images`.`project` AND `docker_image_tag_pins`.`tag`=`docker_images`.`tag`) AS `tagPin` \
                 FROM `docker_images` \
                 LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash` \
                 WHERE `removed` IS NULL \
                 GROUP BY `docker_images`.`id`")) {
                 let keep =
                     row.pin
+                    || (row.newest == row.id && row.tagPin)
                     || ((row.tag == 'latest' || row.tag == 'master') && row.newest == row.id)
                     || (row.active > 0)
                     || (row.start && row.end && 2 * (row.end - row.start) + grace > now - row.start)

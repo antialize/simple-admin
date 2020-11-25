@@ -71,6 +71,9 @@ export class DB {
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `timeout` INTEGER DEFAULT 120");
 
+        await r("CREATE TABLE IF NOT EXISTS `docker_image_tag_pins` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT)");
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)");
+
         await r("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)");
 
         await r("CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)");
