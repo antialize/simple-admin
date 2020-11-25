@@ -133,7 +133,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                 <tr className={tag.removed?"disabled":undefined} key={tag.id}>
                     <td>{tag.tag}</td>
                     <td>{commit}</td>
-                    <td>{tag.hash}</td>
+                    <td>{tag.hash.substr(7,24)}</td>
                     <td><UnixTime time={tag.time} /></td>
                     <td>{tag.user}</td>
                     <td>{
