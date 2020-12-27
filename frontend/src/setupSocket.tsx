@@ -17,7 +17,9 @@ export const setupSocket = () => {
     if (reconnectTime < 1000 * 10)
         reconnectTime = reconnectTime * 2;
     state.connectionStatus = CONNECTION_STATUS.CONNECTING;
-    socket = new WebSocket('wss://' + remoteHost + '/sysadmin');
+    let protocol = 'wss://';
+    if (remoteHost.endsWith("localhost")) protocol = "ws://";
+    socket = new WebSocket(protocol + remoteHost + '/sysadmin');
     socket.onmessage = data => {
         const loaded = state.loaded;
         const d = JSON.parse(data.data) as IAction;

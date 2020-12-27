@@ -26,7 +26,9 @@ class Connection {
         if (this.connected) return;
         const term = nullCheck(this.term);
         this.connected = true;
-        const socket = new WebSocket('wss://' + remoteHost + '/terminal?server=' + this.hostId + '&cols=80&rows=150&session=' + Cookies.get("simple-admin-session"));
+        let protocol = 'wss://';
+        if (remoteHost.endsWith("localhost")) protocol = "ws://";
+        const socket = new WebSocket(protocol + remoteHost + '/terminal?server=' + this.hostId + '&cols=80&rows=150&session=' + Cookies.get("simple-admin-session"));
         this.socket = socket;
         let buffer: string[] | null = [];
 
