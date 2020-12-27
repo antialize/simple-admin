@@ -20,7 +20,7 @@ export default async (req: Request, res: Response) => {
         res.status(405).send("#!/bin/bash\necho \"Missing token\"\n");
         return;
     }
-    let ho = await db.getHostContentByName(host);
+    let ho = await db.getHostContentByName(host + "");
     if (!ho || !ho.content || (ho.content as any).password !== token) {
         res.status(406).send("#!/bin/bash\necho \"Invalid\"\n");
         return;
