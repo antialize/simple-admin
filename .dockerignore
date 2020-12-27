@@ -9,4 +9,3 @@ server/build
 server/node_modules
 var
 var-client
-qemu
