@@ -10,6 +10,7 @@ FROM node:8-alpine
 RUN apk add --update-cache python2 make gcc g++ openssl
 WORKDIR /work/server
 COPY server/package.json server/package-lock.json ./
+RUN apk add --update-cache git
 RUN npm ci
 COPY shared/ ../shared/
 COPY server/ ../server/
