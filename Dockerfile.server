@@ -1,7 +1,7 @@
 # Example running a test server:
 # docker build -f Dockerfile.server -t simple-admin-server . && mkdir -p var && docker run -e SADMIN_DOMAIN=sadmin.localhost -v $PWD/var:/var/sadmin --rm simple-admin-server
 # Run a test server with a label for traefik:
-# docker run --name simple-admin-server --label 'traefik.http.routers.server.rule=Host(`sadmin.localhost`)' -e SADMIN_DOMAIN=sadmin.localhost -v $PWD/var:/var/sadmin --rm simple-admin-server
+# docker run -p 8888:8888 --name simple-admin-server --label 'traefik.http.routers.server.rule=Host(`sadmin.localhost`)' -e SADMIN_DOMAIN=sadmin.localhost -v $PWD/var:/var/sadmin --rm simple-admin-server
 # Run traefik:
 # docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -p 80:80 -p 8080:8080 --name reverse-proxy traefik:v2.2 --api.insecure=true --providers.docker
 # Example running a test client: First find the exposed port number with `docker ps`. Then run (if 32775 is the exposed port for 80):
