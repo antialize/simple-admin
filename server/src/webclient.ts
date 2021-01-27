@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert } from '../../shared/actions'
+import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert, IGenerateKeyRes } from '../../shared/actions'
 import * as express from 'express';
 import { PAGE_TYPE } from '../../shared/state'
 import * as WebSocket from 'ws';
@@ -21,6 +21,8 @@ import * as speakeasy from 'speakeasy';
 import {docker} from './docker';
 import { getAuth, AuthInfo, noAccess } from './getAuth';
 import * as bodyParser from 'body-parser'
+import * as crt from './crt';
+
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -412,6 +414,23 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 await modifiedFiles.resolve(this, act);
+                break;
+            case ACTION.GenerateKey:
+                if (!this.auth.auth || !this.auth.user) {
+                    this.connection.close(403);
+                    return;
+                }
+
+                await docker.ensure_ca();
+                const my_key = await crt.generate_key();
+                const my_srs = await crt.generate_srs(my_key, this.auth.user + ".user");
+                const my_crt = await crt.generate_crt(docker.ca_key, docker.ca_crt, my_srs, 1);
+                let res2: IGenerateKeyRes = { type: ACTION.GenerateKeyRes, ref: act.ref, 
+                    ca_pem: docker.ca_crt,
+                    key: my_key,
+                    crt: my_crt,
+                };
+                this.sendMessage(res2);
                 break;
             default:
                 log("warn", "Web client unknown message", { act });

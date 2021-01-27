@@ -78,13 +78,13 @@ export function generate_srs(key: string, cn:string) : Promise<string> {
     });
 }
 
-export function generate_crt(ca_key: string, ca_crt: string, srs:string) : Promise<string> {
+export function generate_crt(ca_key: string, ca_crt: string, srs:string, timeout: number=999) : Promise<string> {
     return new Promise<string>((res, rej) => {
         const t1 = temp_name();
         const t2 = temp_name();
         fs.writeFileSync(t1, srs, {'mode': 0o400});
         fs.writeFileSync(t2, ca_crt, {'mode': 0o400});
-        const p = spawn("openssl", ["x509", "-req", "-days", "365", "-in", t1,
+        const p = spawn("openssl", ["x509", "-req", "-days", ""+timeout, "-in", t1,
             "-CA", t2,
             "-CAkey", "-",
             "-CAcreateserial",

@@ -32,6 +32,8 @@ export enum ACTION {
     DockerListImageTagsRes="DockerListImageTagsRes",
     EndLog="EndLog",
     FetchObject="FetchObject",
+    GenerateKey="GenerateKey",
+    GenerateKeyRes="GenerateKeyRes",
     GetObjectId="GetObjectId",
     GetObjectIdRes="GetObjectIdRes",
     HostDown="HostDown",
@@ -313,6 +315,19 @@ export interface IDockerDeployDone {
     message?: string;
 }
 
+export interface IGenerateKey {
+    type: ACTION.GenerateKey;
+    ref: Ref;
+}
+
+export interface IGenerateKeyRes {
+    type: ACTION.GenerateKeyRes;
+    ref: Ref;
+    ca_pem: string;
+    key: string;
+    crt: string;
+}
+
 export interface IGetObjectId {
     type: ACTION.GetObjectId;
     ref: Ref;
@@ -520,6 +535,8 @@ export type IAction =
     | IDockerListImageTagsRes
     | IEndLog
     | IFetchObject
+    | IGenerateKey
+    | IGenerateKeyRes
     | IGetObjectId
     | IGetObjectIdRes
     | IHostDown
