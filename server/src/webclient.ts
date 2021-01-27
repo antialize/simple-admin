@@ -431,9 +431,9 @@ export class WebClient extends JobOwner {
                 await docker.ensure_ca();
                 const my_key = await crt.generate_key();
                 const my_srs = await crt.generate_srs(my_key, this.auth.user + ".user");
-                const my_crt = await crt.generate_crt(docker.ca_key, docker.ca_crt, my_srs, 1);
+                const my_crt = await crt.generate_crt(docker.ca_key!, docker.ca_crt!, my_srs, 1);
                 let res2: IGenerateKeyRes = { type: ACTION.GenerateKeyRes, ref: act.ref, 
-                    ca_pem: docker.ca_crt,
+                    ca_pem: docker.ca_crt!,
                     key: my_key,
                     crt: my_crt,
                 };
