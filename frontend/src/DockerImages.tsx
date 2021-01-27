@@ -1,6 +1,6 @@
 import * as React from 'react';
 import state from './state';
-import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged, IDockerListImageTagHistoryRes } from '../../shared/actions';
+import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged, IDockerListImageTagHistoryRes, IDockerImageTagSetPin } from '../../shared/actions';
 import { observable, action } from 'mobx';
 import { observer } from 'mobx-react';
 import Box from './Box';
@@ -24,6 +24,9 @@ export class DockerImagesState {
     @observable
     imageHistory: Map<string, Map<string, Remote< Map<number, DockerImageTag> >>> = new Map;
 
+    @observable
+    imageTagPin: Set<String> = new Set; //Key is image + ":" + tag
+
     load() {
         if (this.projects.state != 'initial') return;
         state.sendMessage({
@@ -31,6 +34,12 @@ export class DockerImagesState {
             ref: 0
         });
         this.projects = {state: 'loading'};
+    }
+
+    @action
+    setPinnedImageTags(pit: {image: string, tag:string}[]) {
+        for (const {image, tag} of pit)
+            this.imageTagPin.add(image+":"+tag);
     }
 
     @action
@@ -58,6 +67,10 @@ export class DockerImagesState {
         for (const tag of act.tags) {
             getOrInsert(this.projects.data, tag.image, ()=>[]).push(tag);
         }
+
+        const pit = act.pinnedImageTags;
+        if (pit != null)
+            nullCheck(state.dockerImages).setPinnedImageTags(pit);
     }
 
     @action
@@ -97,6 +110,15 @@ export class DockerImagesState {
             if (!h2 || h2.state != 'data') continue
             h2.data.set(tag.id, tag);
         }
+        const c = act.imageTagPinChanged;
+        if (c) {
+            for (const {image, tag, pin} of c) {
+                if (pin)
+                    this.imageTagPin.add(image+":"+tag);
+                else
+                    this.imageTagPin.delete(image+":"+tag);
+            }
+        }
     }
 };
 
@@ -129,18 +151,20 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                 commit = (tag.labels.GIT_BRANCH || "") + " " + (tag.labels.GIT_COMMIT || "");
             }
             const historyPage: IPage = {type: State.PAGE_TYPE.DockerImageHistory, project: tag.image, tag: tag.tag};
+            let pin = dockerImages.imageTagPin.has(project + ":" + tag.tag);
             rows.push(
                 <tr className={tag.removed?"disabled":undefined} key={tag.id}>
                     <td>{tag.tag}</td>
                     <td>{commit}</td>
-                    <td>{tag.hash}</td>
+                    <td>{tag.hash.substr(7,24)}</td>
                     <td><UnixTime time={tag.time} /></td>
                     <td>{tag.user}</td>
                     <td>{
                         tag.removed
                         ? <UnixTime time={tag.removed} />
-                        : <Switch checked={tag.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: tag.id, pin: e.target.checked})} />
+                        : <Switch title="Pin image with given hash" checked={tag.pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageSetPin, id: tag.id, pin: e.target.checked})} />
                         }
+                        <Switch title="Pin the latest image with given tag" checked={pin?true:false} onChange={(e)=>state.sendMessage({type:ACTION.DockerImageTagSetPin, image: project, tag: tag.tag, pin: e.target.checked})} />
                     </td>
                     <td>
                         <Button onClick={(e)=>page.onClick(e, historyPage)} href={page.link(historyPage)}>History</Button>
@@ -175,7 +199,6 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
             {lst}
         </table>
         </Box>;
-    return <div>{lst}</div>;
 }));
 
 export const DockerImageHistory = withStyles(styles)(observer(function DockerImageHistory(p:StyledComponentProps) {

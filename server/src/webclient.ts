@@ -359,6 +359,13 @@ export class WebClient extends JobOwner {
                 }
                 await docker.imageSetPin(this, act);
                 break;
+            case ACTION.DockerImageTagSetPin:
+                if (!this.auth.dockerPush) {
+                    this.connection.close(403);
+                    return;
+                }
+                await docker.imageTagSetPin(this, act);
+                break;
             case ACTION.DockerListDeploymentHistory:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);

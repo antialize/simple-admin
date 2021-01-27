@@ -19,6 +19,7 @@ export enum ACTION {
     DockerDeploymentsChanged="DockerDeploymentsChanged",
     DockerDeployStart="DockerDeployStart",
     DockerImageSetPin="DockerImageSetPin",
+    DockerImageTagSetPin="DockerImageTagSetPin",
     DockerListDeploymentHistory="DockerListDeploymentHistory",
     DockerListDeploymentHistoryRes="DockerListDeploymentHistoryRes",
     DockerListDeployments="DockerListDeployments",
@@ -361,12 +362,14 @@ export interface IDockerListImageTagsRes {
     type: ACTION.DockerListImageTagsRes;
     ref: Ref;
     tags: DockerImageTag[];
+    pinnedImageTags?: {image: string, tag:string}[];
 }
 
 export interface IDockerImageTagsCharged {
     type: ACTION.DockerListImageTagsChanged;
     changed: DockerImageTag[];
     removed: {image: string, hash:string}[];
+    imageTagPinChanged?: {image: string, tag: string, pin:boolean}[];
 }
 
 export interface IDockerListDeployments {
@@ -436,6 +439,13 @@ export interface IDockerListImageByHashRes {
 export interface IDockerImageSetPin {
     type: ACTION.DockerImageSetPin;
     id: number;
+    pin: boolean;
+}
+
+export interface IDockerImageTagSetPin {
+    type: ACTION.DockerImageTagSetPin;
+    image: string;
+    tag: string;
     pin: boolean;
 }
 
@@ -523,6 +533,7 @@ export type IAction =
     | IDockerDeployStart
     | IDockerImageSetPin
     | IDockerImageTagsCharged
+    | IDockerImageTagSetPin
     | IDockerListDeploymentHistory
     | IDockerListDeploymentHistoryRes
     | IDockerListDeployments

@@ -23,47 +23,52 @@ class PageState {
         return this.current_;
     }
 
+    @action
+    loadContent() {
+        let p = this.current_;
+        switch(p.type) {
+        case State.PAGE_TYPE.Deployment:
+        case State.PAGE_TYPE.Dashbord:
+        case State.PAGE_TYPE.ObjectList:
+        case State.PAGE_TYPE.DeploymentDetails:
+            break;
+        case State.PAGE_TYPE.Object:
+            const id = p.id;
+            if (id)
+                getOrInsert(state.objects, id, ()=>new ObjectState(id)).loadCurrent();
+            if (p.objectType == hostId)
+                nullCheck(state.dockerContainers).load();
+            break;
+        case State.PAGE_TYPE.DockerImages:
+            nullCheck(state.dockerImages).load();
+            break;
+        case State.PAGE_TYPE.DockerContainers:
+            nullCheck(state.dockerContainers).load();
+            break;
+        case State.PAGE_TYPE.ModifiedFiles:
+        case State.PAGE_TYPE.ModifiedFile:
+            nullCheck(state.modifiedFiles).load();
+            break;
+        case State.PAGE_TYPE.DockerContainerDetails:
+        case State.PAGE_TYPE.DockerContainerHistory:
+            nullCheck(state.dockerContainers).loadHistory(p.host, p.container);
+            break;
+        case State.PAGE_TYPE.DockerImageHistory:
+            nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
+            break;
+        case State.PAGE_TYPE.DockerDeploy:
+            nullCheck(state.dockerImages).load();
+            nullCheck(state.dockerContainers).load();
+            break;
+        default:
+            never(p, "Unhandled page");
+        }
+    }
   
     set current(p: State.IPage) {
         runInAction(()=>{
             this.current_ = p;
-            switch(p.type) {
-            case State.PAGE_TYPE.Deployment:
-            case State.PAGE_TYPE.Dashbord:
-            case State.PAGE_TYPE.ObjectList:
-            case State.PAGE_TYPE.DeploymentDetails:
-                break;
-            case State.PAGE_TYPE.Object:
-                const id = p.id;
-                if (id)
-                    getOrInsert(state.objects, id, ()=>new ObjectState(id)).loadCurrent();
-                if (p.objectType == hostId)
-                    nullCheck(state.dockerContainers).load();
-                break;
-            case State.PAGE_TYPE.DockerImages:
-                nullCheck(state.dockerImages).load();
-                break;
-            case State.PAGE_TYPE.DockerContainers:
-                nullCheck(state.dockerContainers).load();
-                break;
-            case State.PAGE_TYPE.ModifiedFiles:
-            case State.PAGE_TYPE.ModifiedFile:
-                nullCheck(state.modifiedFiles).load();
-                break;
-            case State.PAGE_TYPE.DockerContainerDetails:
-            case State.PAGE_TYPE.DockerContainerHistory:
-                nullCheck(state.dockerContainers).loadHistory(p.host, p.container);
-                break;
-            case State.PAGE_TYPE.DockerImageHistory:
-                nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
-                break;
-            case State.PAGE_TYPE.DockerDeploy:
-                nullCheck(state.dockerImages).load();
-                nullCheck(state.dockerContainers).load();
-                break;
-            default:
-                never(p, "Unhandled page");
-            }
+            this.loadContent();
         });
     }
 

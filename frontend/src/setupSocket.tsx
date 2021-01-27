@@ -97,6 +97,7 @@ export const setupSocket = () => {
                         state.hostsUp.add(id);
                     if (!loaded)
                         nullCheck(state.page).setFromUrl();
+                    nullCheck(state.page).loadContent();
                 });
                 break;
             case ACTION.SetMessagesDismissed:
