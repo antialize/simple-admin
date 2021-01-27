@@ -12,9 +12,10 @@ export interface AuthInfo {
     dockerPush: boolean;
     dockerDeploy: boolean;
     session: string | null;
+    sslname: string | null;
 }
 
-export const noAccess: AuthInfo = { auth: false, user: null, pwd: false, otp: false, admin: false, dockerPull: false, dockerPush: false, dockerDeploy: false, session: null };
+export const noAccess: AuthInfo = { auth: false, user: null, pwd: false, otp: false, admin: false, dockerPull: false, dockerPush: false, dockerDeploy: false, session: null, sslname: null };
 
 export async function getAuth(host: string | null, sid: string | null): Promise<AuthInfo> {
     if (sid === null)
@@ -53,6 +54,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
     let dockerPull = false;
     let dockerPush = false;
     let dockerDeploy = false;
+    let sslname = null;
     if (!found && !specialSession && user == "docker_client") {
         found = true;
         dockerPull = true;
@@ -90,8 +92,9 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
             else {
                 admin = content.admin;
                 dockerPull = content.dockerPull;
-		dockerPush = content.dockerPush;
+                dockerPush = content.dockerPush;
                 dockerDeploy = content.dockerDeploy;
+                sslname = content.sslname;
             }
         }
         catch (e) {
@@ -108,6 +111,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
         dockerPull: pwd && otp && (admin || dockerDeploy || dockerPull),
         dockerPush: pwd && otp && (admin || dockerDeploy || dockerPush),
         dockerDeploy: pwd && otp && (admin || dockerDeploy),
+        sslname: (pwd && otp) ? sslname : null,
         session: sid
     };
 }

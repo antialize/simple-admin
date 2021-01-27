@@ -423,14 +423,14 @@ export class WebClient extends JobOwner {
                 await modifiedFiles.resolve(this, act);
                 break;
             case ACTION.GenerateKey:
-                if (!this.auth.auth || !this.auth.user) {
+                if (!this.auth.sslname) {
                     this.connection.close(403);
                     return;
                 }
 
                 await docker.ensure_ca();
                 const my_key = await crt.generate_key();
-                const my_srs = await crt.generate_srs(my_key, this.auth.user + ".user");
+                const my_srs = await crt.generate_srs(my_key, this.auth.sslname + ".user");
                 const my_crt = await crt.generate_crt(docker.ca_key!, docker.ca_crt!, my_srs, 1);
                 let res2: IGenerateKeyRes = { type: ACTION.GenerateKeyRes, ref: act.ref, 
                     ca_pem: docker.ca_crt!,
