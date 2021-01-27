@@ -24,6 +24,9 @@ class Connection:
     def __init__(self):
         self.socket = None
         self.cookieFile = os.path.expanduser("~/.cache/simple_admin_cookie")
+        self.caFile = os.path.expanduser("~/.cache/simple_admin_key.ca")
+        self.keyFile = os.path.expanduser("~/.cache/simple_admin_key.crt")
+        self.crtFile = os.path.expanduser("~/.cache/simple_admin_key.key")
         self.pwd = False
         self.otp = False
         
@@ -44,9 +47,11 @@ class Connection:
         )
 
         session = ""
-        if os.path.exists(self.cookieFile):
+        try:
             with open(self.cookieFile, 'r') as f:
                 session = f.read()
+        except FileNotFoundError:
+            pass
         
         await self.socket.send(json.dumps({'type':'RequestAuthStatus', 'session': session}))
 
@@ -77,7 +82,8 @@ async def login(c, user, pwd, otp):
     if not res['session'] or not res['pwd'] or not res['otp']:
         raise LoginFailed("Could not authenticate: " + res['message'])
 
-    with open(c.cookieFile, 'w') as f:
+
+    with open(os.open(c.cookieFile, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600), 'w') as f:
         f.write(res['session'])
 
     dockerconf = {}
@@ -96,6 +102,24 @@ async def login(c, user, pwd, otp):
     c.pwd = True
     c.otp = True
 
+async def get_key(c):
+    ref = random.randint(0, 2**48-1)
+    await c.socket.send(json.dumps({'type': 'GenerateKey', 'ref': ref}))
+    while True:
+        res = json.loads(await c.socket.recv())
+        if res['type'] == 'GenerateKeyRes' and res['ref'] == ref:
+
+            with open(os.open(c.keyFile, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600), 'w') as f:
+                f.write(res['key'])
+
+            with open(c.crtFile, 'w') as f:
+                f.write(res['crt'])
+
+            with open(c.caFile, 'w') as f:
+                f.write(res['ca_pem'])
+
+            break
+
 
 async def main_auth(user):
     c = Connection()
@@ -103,10 +127,13 @@ async def main_auth(user):
     if c.user:
         user = c.user
     if c.authenticated:
+        await get_key(c)
         print("Already authenticated as %s." % user)
         return
 
     await prompt_auth(c, user)
+
+    await get_key(c)
     print("Successfully authenticated.")
 
 
