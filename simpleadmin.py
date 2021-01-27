@@ -25,8 +25,8 @@ class Connection:
         self.socket = None
         self.cookieFile = os.path.expanduser("~/.cache/simple_admin_cookie")
         self.caFile = os.path.expanduser("~/.cache/simple_admin_key.ca")
-        self.keyFile = os.path.expanduser("~/.cache/simple_admin_key.crt")
-        self.crtFile = os.path.expanduser("~/.cache/simple_admin_key.key")
+        self.keyFile = os.path.expanduser("~/.cache/simple_admin_key.key")
+        self.crtFile = os.path.expanduser("~/.cache/simple_admin_key.crt")
         self.pwd = False
         self.otp = False
         
