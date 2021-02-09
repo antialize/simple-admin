@@ -97,6 +97,7 @@ interface DeploymentInfo {
     setup: string | null;
     postSetup: string | null;
     deploymentTimeout: number;
+    softTakeover: boolean | null;
 }
 
 class Docker {
@@ -489,7 +490,7 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean) {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
                 if (v === null)
@@ -526,11 +527,12 @@ class Docker {
 
 
             let script = `
-import os, subprocess, shlex, sys, tempfile, shutil, asyncio
+import os, subprocess, shlex, sys, tempfile, shutil, asyncio, datetime
 started_ok = False
 container = ${pyStr(container)}
 setup = ${pyStr(setup)}
 postSetup = ${pyStr(postSetup)}
+softTakeover = ${softTakeover?"True":"False"}
 
 async def passthrough(i, o):
     global started_ok
@@ -569,14 +571,30 @@ try:
     print('$ docker pull %s' % (${pyStr(deployImage)},))
     sys.stdout.flush()
     run('docker', '--config', t, 'pull', ${pyStr(deployImage)})
-    print('$ docker stop %s'%(container))
-    sys.stdout.flush()
-    subprocess.call(['docker', '--config', t, 'stop', container])
-    print('$ docker rm %s'%(container))
-    sys.stdout.flush()
-    subprocess.call(['docker', '--config', t, 'rm', container])
+    if softTakeover:
+        print(f'$ docker update {container} --restart no')
+        sys.stdout.flush()
+        subprocess.call(['docker', '--config', t, 'update', container, '--restart', 'no'])
+
+        old_container = f"{container}_softclose_{datetime.datetime.now().isoformat().replace(':', '_')}"
+
+        print(f"$ docker rename {container} {old_container}")
+        sys.stdout.flush()
+        subprocess.call(['docker', '--config', t, 'rename', container, old_container])
+    else:
+        print('$ docker stop %s'%(container))
+        sys.stdout.flush()
+        subprocess.call(['docker', '--config', t, 'stop', container])
+        print('$ docker rm %s'%(container))
+        sys.stdout.flush()
+        subprocess.call(['docker', '--config', t, 'rm', container])
 ${envs.join("\n")}
     run(${o.join(", ")})
+
+    if softTakeover:
+        print(f'$ docker kill {old_container} -s USR2')
+        sys.stdout.flush()
+        subprocess.call(['docker', '--config', t, 'kill', old_container, '-s', 'USR2'])
 
     if postSetup:
         print("$ %s" % postSetup)
@@ -675,10 +693,11 @@ finally:
             }
 
             const container = act.container || image;
-            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
+            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
             let conf: string | null = null;
             let setup: string | null = null;
             let postSetup: string | null = null;
+            let softTakeover = false;
             let deploymentTimeout = 120;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
@@ -721,11 +740,13 @@ finally:
                 conf = Mustache.render(raw_conf, variables);
 
                 if (content.setup && (content.setup as string).trim())
-                    setup =  Mustache.render(content.setup, variables);
+                    setup = Mustache.render(content.setup, variables);
                 if (content.postSetup && (content.postSetup as string).trim())
-                    postSetup =  Mustache.render(content.postSetup, variables);
-                 if (content.timeout && (content.timeout as string).trim())
-                     deploymentTimeout = +content.timeout;
+                    postSetup = Mustache.render(content.postSetup, variables);
+                if (content.timeout && (content.timeout as string).trim())
+                    deploymentTimeout = +content.timeout;
+                if (content.softTakeover)
+                    softTakeover = !!content.softTakeover;
             } else if (!oldDeploy || !oldDeploy.config) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
@@ -754,10 +775,11 @@ finally:
                         start: now,
                         end: null,
                         id: null,
-                        deploymentTimeout
+                        deploymentTimeout,
+                        softTakeover
                     });
                       
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout);
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -789,8 +811,9 @@ finally:
                                 end: null,
                                 id: oldDeploy.id,
                                 deploymentTimeout: oldDeploy.timeout,
+                                softTakeover: oldDeploy.softTakeover,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -1072,6 +1095,7 @@ finally:
                     start: row.start,
                     end: now,
                     deploymentTimeout: row.timeout,
+                    softTakeover: row.softTakeover,
                 });
             }
         
@@ -1131,6 +1155,7 @@ finally:
                         end: null,
                         id: keep ? row.id: null,
                         deploymentTimeout: row.timeout,
+                        softTakeover: keep ? row.softTakeover : false,
                     };
                 }
                 if (!keep)
