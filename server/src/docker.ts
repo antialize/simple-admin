@@ -534,7 +534,7 @@ container = ${pyStr(container)}
 setup = ${pyStr(setup)}
 postSetup = ${pyStr(postSetup)}
 softTakeover = ${softTakeover?"True":"False"}
-startMagic = ${startMagic?pyStr(startMagic):"started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N"}.encode("utf-8")
+startMagic = ${startMagic?pyStr(startMagic):pyStr("started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N")}.encode("utf-8")
 async def passthrough(i, o):
     global started_ok
     while not i.at_eof():
