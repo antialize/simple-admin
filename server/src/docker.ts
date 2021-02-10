@@ -98,6 +98,7 @@ interface DeploymentInfo {
     postSetup: string | null;
     deploymentTimeout: number;
     softTakeover: boolean | null;
+    startMagic: string | null;
 }
 
 class Docker {
@@ -490,7 +491,7 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null) {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
                 if (v === null)
@@ -533,13 +534,13 @@ container = ${pyStr(container)}
 setup = ${pyStr(setup)}
 postSetup = ${pyStr(postSetup)}
 softTakeover = ${softTakeover?"True":"False"}
-
+startMagic = ${startMagic?pyStr(startMagic):"started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N"}.encode("utf-8")
 async def passthrough(i, o):
     global started_ok
     while not i.at_eof():
         line = await i.readline()
         os.write(o, line)
-        if b"started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N" in line:
+        if startMagic in line:
             started_ok = True
             return
 
@@ -693,11 +694,12 @@ finally:
             }
 
             const container = act.container || image;
-            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
+            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover`, `startMagic` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
             let conf: string | null = null;
             let setup: string | null = null;
             let postSetup: string | null = null;
             let softTakeover = false;
+            let startMagic: string | null = null;
             let deploymentTimeout = 120;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
@@ -747,6 +749,8 @@ finally:
                     deploymentTimeout = +content.timeout;
                 if (content.softTakeover)
                     softTakeover = !!content.softTakeover;
+                if (content.startMagic)
+                    startMagic = content.startMagic;
             } else if (!oldDeploy || !oldDeploy.config) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
@@ -776,10 +780,11 @@ finally:
                         end: null,
                         id: null,
                         deploymentTimeout,
-                        softTakeover
+                        softTakeover,
+                        startMagic
                     });
                       
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover);
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover, startMagic);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -812,8 +817,9 @@ finally:
                                 id: oldDeploy.id,
                                 deploymentTimeout: oldDeploy.timeout,
                                 softTakeover: oldDeploy.softTakeover,
+                                startMagic: oldDeploy.startMagic,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover, oldDeploy.startMagic);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -1096,6 +1102,7 @@ finally:
                     end: now,
                     deploymentTimeout: row.timeout,
                     softTakeover: row.softTakeover,
+                    startMagic: row.startMagic,
                 });
             }
         
@@ -1156,6 +1163,7 @@ finally:
                         id: keep ? row.id: null,
                         deploymentTimeout: row.timeout,
                         softTakeover: keep ? row.softTakeover : false,
+                        startMagic: keep ? row.startMagic : null,
                     };
                 }
                 if (!keep)
