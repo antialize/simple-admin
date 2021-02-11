@@ -132,8 +132,6 @@ async def main_auth(user):
         return
 
     await prompt_auth(c, user)
-
-    await get_key(c)
     print("Successfully authenticated.")
 
 
@@ -166,6 +164,7 @@ async def prompt_auth(c, user):
 
         try:
             await login(c, user, pwd, otp)
+            await get_key(c)
             return
         except LoginFailed as e:
             print(e, file=sys.stderr, flush=True)
