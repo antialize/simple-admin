@@ -82,7 +82,7 @@ async def login(c, user, pwd, otp):
     if not res['session'] or not res['pwd'] or not res['otp']:
         raise LoginFailed("Could not authenticate: " + res['message'])
 
-
+    os.makedirs(os.path.dirname(c.cookieFile), exist_ok=True)
     with open(os.open(c.cookieFile, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600), 'w') as f:
         f.write(res['session'])
 
