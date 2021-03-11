@@ -1195,6 +1195,8 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                     'interperter': '/usr/bin/python3',
                     'content': script,
                     'args': [command, container],
+                    'output_type': 'text',
+                    'stdin_type': 'none',
                 };
                 host.sendMessage(msg);
                 this.running = true;
@@ -1202,6 +1204,19 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
         };
         new PJob();
     }
+
+    async forgetContainer(wc: WebClient, hostId:number, container: string) {
+        let host = hostClients.hostClients[hostId];
+        if (!host) return;
+        await db.run("DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?", hostId, container);
+        const msg : IAction = {
+            type: ACTION.DockerDeploymentsChanged,
+            changed: [],
+            removed: [{'host': hostId, 'name': container}],
+        };
+        webClients.broadcast(msg);
+    }
+
     
     handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
         if (!host.id) throw Error("Missing host id");

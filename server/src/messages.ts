@@ -18,6 +18,8 @@ export interface RunInstant {
     interperter: string;
     content: string;
     args: string[];
+    output_type: 'text' | 'base64' | 'json' | 'utf-8';
+    stdin_type: 'none';
 }
 
 export interface Kill {

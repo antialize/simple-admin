@@ -151,6 +151,7 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
                     {container.state == "running" ? <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStop, host: p.host, container: container.name})}>Stop</Button> : null}
                     {container.state != "running" ? <Button onClick={()=>state.sendMessage({type: ACTION.DockerContainerStart, host: p.host, container: container.name})}>Start</Button> : null}
                     <Button onClick={()=>{confirm("Delete this container from host?") && state.sendMessage({type: ACTION.DockerContainerRemove, host: p.host, container: container.name})}}>Remove</Button>
+                    <Button onClick={()=>{confirm("Forget this container from host?") && state.sendMessage({type: ACTION.DockerContainerForget, host: p.host, container: container.name})}}>Forget</Button>
                     <Button onClick={(e)=>page.onClick(e, detailsPage)} href={page.link(detailsPage)}>Details</Button>
                     <Button onClick={(e)=>page.onClick(e, historyPage)} href={page.link(historyPage)}>History</Button>
                 </td>

@@ -394,6 +394,13 @@ export class WebClient extends JobOwner {
                 }
                 await docker.containerCommand(this, act.host, act.container, "stop");
                 break;
+            case ACTION.DockerContainerForget:
+                if (!this.auth.dockerPush) {
+                    this.connection.close(403);
+                    return;
+                }
+                await docker.forgetContainer(this, act.host, act.container);
+                break;
             case ACTION.DockerContainerRemove:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);

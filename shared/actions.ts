@@ -14,6 +14,7 @@ export enum ACTION {
     DockerContainerRemove="DockerContainerRemove",
     DockerContainerStart="DockerContainerStart",
     DockerContainerStop="DockerContainerStop",
+    DockerContainerForget="DockerContainerForget",
     DockerDeployDone="DockerDeployEnd",
     DockerDeployLog="DockerDeployLog",
     DockerDeploymentsChanged="DockerDeploymentsChanged",
@@ -424,6 +425,12 @@ export interface IDockerContainerRemove {
     container: string;
 }
 
+export interface IDockerContainerForget {
+    type: ACTION.DockerContainerForget;
+    host: number;
+    container: string;
+}
+
 export interface IDockerListImageByHash {
     type: ACTION.DockerListImageByHash;
     hash: string[];
@@ -527,6 +534,7 @@ export type IAction =
     | IDockerContainerRemove
     | IDockerContainerStart
     | IDockerContainerStop
+    | IDockerContainerForget
     | IDockerDeployDone
     | IDockerDeployLog
     | IDockerDeploymentsChanged
