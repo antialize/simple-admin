@@ -197,6 +197,15 @@ export class HostClients {
             log('info', "Client connected", {address: socket.remoteAddress, port: socket.remotePort});
             new HostClient(socket);
         });
+
+        setInterval(() => {
+            log('info', "Updating host-server ssl cert");
+            hostServer.setSecureContext({
+                cert: fs.readFileSync('chained.pem', 'utf8'),
+                key: fs.readFileSync('domain.key', 'utf8')
+            });
+        },86400000);
+
         hostServer.on('error', (err) => {
             log('error', "Host server error", {err});
         });
