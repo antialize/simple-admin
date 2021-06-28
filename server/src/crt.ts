@@ -78,17 +78,30 @@ export function generate_srs(key: string, cn:string) : Promise<string> {
     });
 }
 
-export function generate_crt(ca_key: string, ca_crt: string, srs:string, timeout: number=999) : Promise<string> {
+export function generate_crt(ca_key: string, ca_crt: string, srs:string, subcert: string | null = null, timeout: number=999) : Promise<string> {
     return new Promise<string>((res, rej) => {
         const t1 = temp_name();
         const t2 = temp_name();
         fs.writeFileSync(t1, srs, {'mode': 0o400});
         fs.writeFileSync(t2, ca_crt, {'mode': 0o400});
-        const p = spawn("openssl", ["x509", "-req", "-days", ""+timeout, "-in", t1,
+
+        let args = ["x509", "-req", "-days", ""+timeout, "-in", t1,
             "-CA", t2,
             "-CAkey", "-",
             "-CAcreateserial",
-            "-out", "-"], {stdio: ['pipe', 'pipe', 'inherit']});
+            "-out", "-"];
+        let t3: string | null = null;
+        if (subcert) {
+            t3 = temp_name();
+            fs.writeFileSync(t3, "basicConstraints = critical, CA:TRUE\n" +
+                "keyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, keyEncipherment, keyAgreement\n" +
+                "subjectKeyIdentifier = hash\n" +
+                "nameConstraints = critical, permitted;DNS:" + subcert + "\n",
+                {'mode': 0o400});
+            args.push("-extfile");
+            args.push(t3);
+        }
+        const p = spawn("openssl", args, {stdio: ['pipe', 'pipe', 'inherit']});
         
         if (p.stdin === null) throw Error("should not be null");
         p.stdin.write(ca_key, () => p.stdin && p.stdin.end())
@@ -98,7 +111,9 @@ export function generate_crt(ca_key: string, ca_crt: string, srs:string, timeout
         p.on('close', (code) => {
             fs.unlink(t1, ()=>{});
             fs.unlink(t2, ()=>{});
-
+            if (t3) {
+                fs.unlink(t3, ()=>{});
+            }
             if (code ==0 && crt)
                 res(crt);
             else
