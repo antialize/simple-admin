@@ -590,7 +590,20 @@ try:
         sys.stdout.flush()
         subprocess.call(['docker', '--config', t, 'rm', container])
 ${envs.join("\n")}
-    run(${o.join(", ")})
+    runArgs = [${o.join(", ")}]
+    runArgs2 = []
+    it = iter(runArgs)
+    for arg in it:
+        if arg == "--soft-mount":
+            source = next(it)
+            if os.path.isdir(source):
+                runArgs2.append("--mount")
+                runArgs2.append(f"type=bind,source={source},target={source}")
+            else:
+                print(f"$ # Not mounting '{source}' as it does not exist")
+        else:
+            runArgs2.append(arg)
+    run(*runArgs2)
 
     if softTakeover:
         print(f'$ docker kill {old_container} -s USR2')
