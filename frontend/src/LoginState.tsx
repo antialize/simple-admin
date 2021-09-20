@@ -1,9 +1,13 @@
 import * as Cookies from "js-cookie"
 import state, { CONNECTION_STATUS } from "./state";
 import { ILogin, ACTION, ILogout } from '../../shared/actions';
-import { observable, action } from "mobx";
+import { observable, action, makeObservable } from "mobx";
 
 class LoginState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     user: string = "";
     @observable

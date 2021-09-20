@@ -3,7 +3,7 @@ import * as React from "react";
 import * as State from '../../shared/state'
 import ObjectState from "./ObjectState";
 import state from "./state";
-import { action, observable, runInAction } from "mobx";
+import { action, makeObservable, observable, runInAction } from "mobx";
 import { hostId } from '../../shared/type';
 import getOrInsert from '../../shared/getOrInsert';
 import nullCheck from '../../shared/nullCheck';
@@ -13,6 +13,10 @@ function never(n:never, message:string) {
 }
 
 class PageState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     nextNewObjectId:number = -2;
 

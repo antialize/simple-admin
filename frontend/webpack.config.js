@@ -23,7 +23,8 @@ module.exports = {
 
     optimization: {
         splitChunks: {
-            name: true,
+            name: false,
+            chunks: "initial",
             minChunks: 1,
             cacheGroups: {
                 vendor: {
@@ -41,7 +42,7 @@ module.exports = {
     module: {
         rules: [
             { test: /\.tsx?$/, loader: "ts-loader" },
-            { test: /\.css$/, loader: 'style-loader!css-loader'},
+            { test: /\.css$/, use: ['style-loader', 'css-loader'] },
             { test: /\.js$/,  loader: "source-map-loader", enforce: "pre"},
             { test: /\.tsx?$/,  loader: "source-map-loader", enforce: "pre"}
 

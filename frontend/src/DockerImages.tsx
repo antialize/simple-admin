@@ -1,7 +1,7 @@
 import * as React from 'react';
 import state from './state';
 import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged, IDockerListImageTagHistoryRes, IDockerImageTagSetPin } from '../../shared/actions';
-import { observable, action } from 'mobx';
+import { observable, action, makeObservable } from 'mobx';
 import { observer } from 'mobx-react';
 import Box from './Box';
 import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
@@ -18,6 +18,10 @@ import nullCheck from "../../shared/nullCheck"
 import UnixTime from './UnixTime';
 
 export class DockerImagesState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     projects: Remote< Map<string, DockerImageTag[]> > = {state: 'initial'};
 

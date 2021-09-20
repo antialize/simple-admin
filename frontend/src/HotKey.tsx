@@ -42,7 +42,7 @@ class Portal {
                 }
             };
             if (s[0] == "!")
-                Mousetrap.bindGlobal(s.slice(1), cb);
+                (Mousetrap as any).bindGlobal(s.slice(1), cb);
             else
                 Mousetrap.bind(s, cb);
         }

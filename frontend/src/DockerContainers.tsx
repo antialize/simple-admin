@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ACTION, IDockerListDeploymentsRes, DockerDeployment, IDockerDeploymentsChanged, IDockerListDeploymentHistoryRes } from '../../shared/actions';
-import { observable, action, ObservableMap } from 'mobx';
+import { observable, action, ObservableMap, makeObservable } from 'mobx';
 import { observer } from 'mobx-react';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
@@ -21,6 +21,10 @@ import Error from "./Error";
 import nullCheck from '../../shared/nullCheck';
 
 export class DockerContainersState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: 'initial'};
 

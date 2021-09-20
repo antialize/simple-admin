@@ -5,7 +5,7 @@ import type PageState from "./PageState";
 import type { IAction, IMessage }  from "../../shared/actions";
 import type { IObject2, IObjectDigest } from "../../shared/state";
 import type { IType } from "../../shared/type";
-import { observable, computed } from "mobx";
+import { observable, computed, makeObservable } from "mobx";
 import type { ActionTargets } from "./ActionTargets";
 import type { DockerImagesState } from "./DockerImages";
 import type { DockerContainersState } from "./DockerContainers";
@@ -15,6 +15,10 @@ import type { DockerDeployState} from "./DockerDeploy";
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
 class State {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     connectionStatus: CONNECTION_STATUS = CONNECTION_STATUS.CONNECTED;
 

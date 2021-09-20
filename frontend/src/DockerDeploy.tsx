@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { observable, action } from 'mobx';
+import { observable, action, makeObservable } from 'mobx';
 import { PAGE_TYPE } from '../../shared/state';
 import state from './state';
 import nullCheck from '../../shared/nullCheck';
@@ -10,6 +10,10 @@ import Select from './Select'
 import { InformationList, InformationListRow } from './InformationList';
 
 export class DockerDeployState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     deploying: boolean = false;
 

@@ -1,9 +1,13 @@
-import { observable } from "mobx";
+import { makeObservable, observable } from "mobx";
 import * as Actions from "../../../shared/actions";
 import { DEPLOYMENT_STATUS, IDeploymentObject } from "../../../shared/state";
 import state from "../state";
 
 class DeploymentState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
     @observable

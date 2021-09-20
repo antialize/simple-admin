@@ -1,6 +1,6 @@
 import * as React from 'react';
 import state from './state';
-import { observable, action } from 'mobx';
+import { observable, action, makeObservable } from 'mobx';
 import { ACTION, ModifiedFile, IModifiedFilesChanged } from '../../shared/actions';
 import { observer } from 'mobx-react';
 import { StyleRules, createStyles, StyledComponentProps, withStyles, Theme } from '@material-ui/core/styles';
@@ -20,6 +20,10 @@ import nullCheck from "../../shared/nullCheck";
 import UnixTime from './UnixTime';
 
 export class ModifiedFilesState {
+    constructor() {
+        makeObservable(this)
+    }
+    
     @observable
     modifiedFiles: Remote< Map<number, ModifiedFile> > = {state: 'initial'};
 
