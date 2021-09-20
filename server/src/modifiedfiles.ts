@@ -240,7 +240,7 @@ sys.stdout.flush()
             const host = hostClients.hostClients[f.host];
             if (!host) throw new Error("Host is not up");
             const f2 = f;
-            await new Promise((accept, reject) => {
+            await new Promise<void>((accept, reject) => {
                 let script = `
 import sys
 o = ${JSON.stringify({'path': f2.path, 'content': f2.deployed})}

@@ -626,7 +626,7 @@ export class Deployment {
     }
 
     wait(time: number) {
-        return new Promise<{}>(cb => {
+        return new Promise<void>(cb => {
             setTimeout(cb, time);
         })
     }

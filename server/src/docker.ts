@@ -230,7 +230,7 @@ class Docker {
             }
             res.status(200).end();
         } catch (e) {
-            console.error(e, e.stack);
+            console.error(e, (e as any).stack);
             log('error', "EXCEPTION", {e});
             res.status(500).end();
         }
@@ -491,7 +491,8 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null) {
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null)
+        : Promise<void> {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
                 if (v === null)
@@ -1255,7 +1256,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
             images.set(u.id, u);
     }
 
-    async prune() {
+    async prune() : Promise<void> {
         try {
             const files = new Set(await new Promise<string[]>( (accept, reject) => {
                 fs.readdir(docker_blobs_path, {encoding: "utf8"}, (err, files) => {
@@ -1322,7 +1323,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
             console.log("Used: ", used.size, " total: ", files.size, " remove: ", rem.length);
 
             for (const file of rem) {
-                await new Promise( (acc, rej) => fs.unlink( docker_blobs_path + "/" + file, (e)=> {
+                await new Promise<void>( (acc, rej) => fs.unlink( docker_blobs_path + "/" + file, (e)=> {
                     if (e) rej(e);
                     else acc();
                 }));

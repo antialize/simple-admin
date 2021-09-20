@@ -197,7 +197,7 @@ export class DB {
     setDeployment(host: number, name: string, content: string, type: number, title: string) {
         let db = nullCheck(this.db);
         if (content) {
-            return new Promise<{}[]>((cb, cbe) => {
+            return new Promise<void>((cb, cbe) => {
                 db.run("REPLACE INTO `deployments` (`host`, `name`, `content`, `time`, `type`, `title`) VALUES (?, ?, ?, datetime('now'), ?, ?)", [host, name, content, type, title],
                     (err) => {
                         if (err)
@@ -207,7 +207,7 @@ export class DB {
                     })
             });
         } else {
-            return new Promise<{}[]>((cb, cbe) => {
+            return new Promise<void>((cb, cbe) => {
                 db.all("DELETE FROM `deployments` WHERE `host`=? AND `name`=?", [host, name],
                     (err) => {
                         if (err)
@@ -221,7 +221,7 @@ export class DB {
 
     resetServer(host: number) {
         let db = nullCheck(this.db);
-        return new Promise<{}[]>((cb, cbe) => {
+        return new Promise<void>((cb, cbe) => {
             db.all("DELETE FROM `deployments` WHERE `host`=?", [host],
                 (err) => {
                     if (err)

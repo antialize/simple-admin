@@ -546,7 +546,7 @@ export class WebClients {
         this.httpApp.get('/metrics', this.metrics.bind(this));
         this.wss.on('connection', (ws, request) => {
             const rawAddresses = request.socket.address();
-            const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : rawAddresses.address);
+            const address = request.headers['x-forwarded-for'] as string || (typeof rawAddresses == 'string' ? rawAddresses : (rawAddresses as any).address);
             if (!request.url) {
                 ws.close();
                 return;
