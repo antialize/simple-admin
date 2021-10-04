@@ -60,6 +60,10 @@ def job(func):
             logging.info("%d: finished" % id)
             if id in running_jobs:
                 del running_jobs[id]
+            if "input_queue" in kwargs:
+                async def no_put(*args):
+                    raise Exception("Put on closed input_queue")
+                kwargs["input_queue"].put = no_put
 
     return inner
 
@@ -111,7 +115,7 @@ async def run_instant(obj, output_queue):
                 try:
                     proc.kill()
                 except:
-                    passproc.kill()
+                    pass
         return {"type": "success", "data": data}
 
 
@@ -320,30 +324,103 @@ async def write_file(obj, output_queue, input_queue):
 ############################################################################################################################
 
 
-async def package_sender(writer, output_queue):
+async def package_sender(writer, output_queue) -> None:
     """Send packages to the control server"""
-    while True:
-        item = await output_queue.get()
-        if item == None:
-            break
-        writer.write(json.dumps(item).encode("utf-8", "strict"))
-        writer.write(b"\36")
+    try:
+        while True:
+            item = await output_queue.get()
+            if item == None:
+                break
+            writer.write(json.dumps(item).encode("utf-8", "strict"))
+            writer.write(b"\36")
+            await writer.drain()
+        writer.write(b"\4")
         await writer.drain()
-    writer.write(b"\4")
-    await writer.drain()
+    except:
+        logging.exception("Failure in package_sender")
+        raise
+    finally:
+        def no_put(*args):
+            raise Exception("Package sender is done, do not put")
+
+        output_queue.put = no_put
+
+jobtypes = {
+    "write_small_text": {"func": write_small_text, "input": False},
+    "read_small_text": {"func": read_small_text, "input": False},
+    "write_file": {"func": write_file, "input": True},
+    "read_file": {"func": read_file, "input": False},
+    "run_instant": {"func": run_instant, "input": False},
+    "run_script": {"func": run_script, "input": True},
+}
 
 
-async def client():
+async def handle_package(package, output_queue, running_jobs) -> None:
     global config
-    jobtypes = {
-        "write_small_text": {"func": write_small_text, "input": False},
-        "read_small_text": {"func": read_small_text, "input": False},
-        "write_file": {"func": write_file, "input": True},
-        "read_file": {"func": read_file, "input": False},
-        "run_instant": {"func": run_instant, "input": False},
-        "run_script": {"func": run_script, "input": True},
-    }
 
+    id = None
+    try:
+        obj = json.loads(package[:-1].decode("utf-8", "strict"))
+        id = obj["id"]
+        t = obj["type"]
+        if t == "ping":
+            await asyncio.wait_for(
+                output_queue.put({"type": "pong", "id": obj["id"]}), 120
+            )
+        elif t in jobtypes:
+            if id in running_jobs:
+                raise JobError(id, "id is allready running")
+            logging.info("%d: start %s" % (id, t))
+            jt = jobtypes[t]
+            if jt["input"]:
+                input_queue = asyncio.Queue(config["input_queue_size"])
+                task = asyncio.ensure_future(jt["func"](running_jobs, obj, output_queue, input_queue))
+            else:
+                input_queue = None
+                task = asyncio.ensure_future(jt["func"](running_jobs, obj, output_queue))
+            running_jobs[id] = {
+                "task": task,
+                "input_queue": input_queue,
+                "type": t,
+            }
+            if obj["stdin_type"] == "given_json":
+                await asyncio.wait_for(input_queue.put(
+                    {
+                        "type": "close",
+                        "datatype": "json",
+                        "data": obj["input_json"],
+                    }
+                ), 120)
+        elif id not in running_jobs:
+            raise JobError(id, "No job with the given id %d is running" % id)
+        elif t == "cancel":
+            logging.info("%s: cancle", id)
+            running_jobs[id]["task"].cancel()
+        elif t == "kill":
+            logging.info("%s: kill", id)
+            running_jobs[id]["task"].cancel()
+        elif running_jobs[id]["input_queue"] == None:
+            raise JobError(id, "Does not accept input")
+        elif t not in ("done", "data"):
+            raise JobError(id, "Unknown command type")
+        else:
+            await running_jobs[id]["input_queue"].put(obj)
+    except Exception as e:
+        logging.error("%s: %s: %s" % (id, type(e).__name__, str(e)))
+        await asyncio.wait_for(
+            output_queue.put(
+                {
+                    "type": "failure",
+                    "id": id,
+                    "failure_type": type(e).__name__,
+                    "message": str(e),
+                }
+            ),
+            120,
+        )
+
+async def client() -> None:
+    global config
     try:
         sc = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         sc.check_hostname = False
@@ -364,7 +441,7 @@ async def client():
             ).encode("utf-8", "strict")
         )
         writer.write(b"\36")
-        await writer.drain()
+        await asyncio.wait_for(writer.drain(), 120)
 
         logging.info("Connected to server")
         sender = asyncio.ensure_future(package_sender(writer, output_queue))
@@ -379,72 +456,14 @@ async def client():
                 break
             if not package:
                 break
-            id = None
-            try:
-                obj = json.loads(package[:-1].decode("utf-8", "strict"))
-                id = obj["id"]
-                t = obj["type"]
-                if t == "ping":
-                    await output_queue.put({"type": "pong", "id": obj["id"]})
-                elif t in jobtypes:
-                    if id in running_jobs:
-                        raise JobError(id, "id is allready running")
-                    logging.info("%d: start %s" % (id, t))
-                    jt = jobtypes[t]
-                    if jt["input"]:
-                        input_queue = asyncio.Queue(config["input_queue_size"])
-                        task = asyncio.ensure_future(
-                            jt["func"](running_jobs, obj, output_queue, input_queue)
-                        )
-                    else:
-                        input_queue = None
-                        task = asyncio.ensure_future(
-                            jt["func"](running_jobs, obj, output_queue)
-                        )
-                    running_jobs[id] = {
-                        "task": task,
-                        "input_queue": input_queue,
-                        "type": t,
-                    }
-                    if obj["stdin_type"] == "given_json":
-                        await input_queue.put(
-                            {
-                                "type": "close",
-                                "datatype": "json",
-                                "data": obj["input_json"],
-                            }
-                        )
-                elif id not in running_jobs:
-                    raise JobError(id, "No job with the given id %d is running" % id)
-                elif t == "cancel":
-                    logging.info("%s: cancle", id)
-                    running_jobs[id]["task"].cancel()
-                elif t == "kill":
-                    logging.info("%s: kill", id)
-                    running_jobs[id]["task"].cancel()
-                elif running_jobs[id]["input_queue"] == None:
-                    raise JobError(id, "Does not accept input")
-                elif t not in ("done", "data"):
-                    raise JobError(id, "Unknown command type")
-                else:
-                    await running_jobs[id]["input_queue"].put(obj)
-            except Exception as e:
-                logging.error("%s: %s: %s" % (id, type(e).__name__, str(e)))
-                await output_queue.put(
-                    {
-                        "type": "failure",
-                        "id": id,
-                        "failure_type": type(e).__name__,
-                        "message": str(e),
-                    }
-                )
+            await handle_package(package, output_queue, running_jobs)
 
         if running_jobs:
             for t in running_jobs.values():
                 t["task"].cancel()
             await asyncio.wait([t["task"] for t in running_jobs.values()])
-        await output_queue.put(None)
-        await sender
+        await asyncio.wait_for(output_queue.put(None), 120)
+        await asyncio.wait_for(sender, 120)
         writer.close()
         logging.info("Disconnected from server")
     except ConnectionError as e:
