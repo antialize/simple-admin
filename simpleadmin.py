@@ -149,26 +149,22 @@ async def prompt_auth(c, user):
     if c.authenticated:
         return
 
-    for i in range(3):
-        if not user:
-            user = input_stderr_prompt("Username: ")
-        pwd = getpass.getpass("Password for %s: " % user)
-        if not pwd:
-            raise SystemExit("No password provided")
 
-        otp = None
-        if not c.otp:
-            otp = input_stderr_prompt("One time password: ")
-            if not otp:
-                raise SystemExit("No one time password provided")
+    if not user:
+        user = input_stderr_prompt("Username: ")
+    pwd = getpass.getpass("Password for %s: " % user)
+    if not pwd:
+        raise SystemExit("No password provided")
 
-        try:
-            await login(c, user, pwd, otp)
-            await get_key(c)
-            return
-        except LoginFailed as e:
-            print(e, file=sys.stderr, flush=True)
-    raise SystemExit("Authentication failed after multiple attempts; aborting")
+    otp = None
+    if not c.otp:
+        otp = input_stderr_prompt("One time password: ")
+        if not otp:
+            raise SystemExit("No one time password provided")
+
+    await login(c, user, pwd, otp)
+    await get_key(c)
+    return
 
 
 async def deauth(full):
