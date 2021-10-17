@@ -601,6 +601,8 @@ export type IAction =
     | IGetObjectHistoryRes
     | IGetObjectId
     | IGetObjectIdRes
+    | IGetObjectHistory
+    | IGetObjectHistoryRes
     | IHostDown
     | IHostUp
     | ILogin

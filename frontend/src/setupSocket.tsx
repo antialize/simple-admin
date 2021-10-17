@@ -136,6 +136,11 @@ export const setupSocket = () => {
                     }
                 });
                 break;
+            case ACTION.GetObjectHistoryRes:
+                runInAction(() => {
+                    nullCheck(state.objects.get(d.id)).history = d.history;
+                });
+                break;
             case ACTION.SetDeploymentStatus:
                 nullCheck(state.deployment).status = d.status;
                 break;

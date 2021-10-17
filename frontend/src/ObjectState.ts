@@ -11,11 +11,14 @@ class ObjectState {
     @observable
     versions: Map<number, IObject2<any>>;
     @observable
+    history: {version: number, time: number, author: string|null}[] | null;
+    @observable
     touched: boolean;
     loadStatus: "not_loaded" | "loading" | "loaded";
     constructor(public id: number) {
         this.current = null;
         this.versions = new Map;
+        this.history = null;
         this.touched = false;
         this.loadStatus = "not_loaded";
         makeObservable(this)
@@ -64,6 +67,16 @@ class ObjectState {
         const a :IResetServerState = {
             type: ACTION.ResetServerState,
             host: this.id
+        }
+        state.sendMessage(a);
+    }
+
+    @action.bound
+    loadHistory() {
+        const a :IGetObjectHistory = {
+            type: ACTION.GetObjectHistory,
+            id: this.id,
+            ref: 0,
         }
         state.sendMessage(a);
     }
@@ -139,9 +152,21 @@ class ObjectState {
         else { // We are modifying a new object
             if (this.current != null)
                 return; //We are allready modifying the right object
-            this.current = { id: this.id, type: cp.objectType, name: "", version: null, category: "", content: {}, comment: "" };
+            this.current = { id: this.id, type: cp.objectType, name: "", version: null, category: "", content: {}, comment: "", time: 0, author: null };
         }
         this.fillDefaults(nullCheck(state.types.get(cp.objectType)).content);
+    }
+
+    @action.bound
+    setCurrentVersion(version:number) {
+        const cp = nullCheck(state.page).current;
+        if (cp.type != PAGE_TYPE.Object)
+            return;
+
+        state.page?.set({type: PAGE_TYPE.Object, objectType: cp.objectType, id: cp.id, version});
+        this.current = null;
+        this.touched = false;
+        this.loadCurrent();
     }
 }
 
