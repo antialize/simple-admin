@@ -23,6 +23,9 @@ export class DockerImagesState {
     }
     
     @observable
+    show_all: boolean = false;
+
+    @observable
     projects: Remote< Map<string, DockerImageTag[]> > = {state: 'initial'};
 
     @observable
@@ -150,6 +153,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
         });
         let rows = [];
         for (const tag of tags) {
+            if (tag.removed && !dockerImages.show_all) continue;
             let commit = "";
             if (tag.labels) {
                 commit = (tag.labels.GIT_BRANCH || "") + " " + (tag.labels.GIT_COMMIT || "");
@@ -160,7 +164,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                 <tr className={tag.removed?"disabled":undefined} key={tag.id}>
                     <td>{tag.tag}</td>
                     <td>{commit}</td>
-                    <td>{tag.hash.substr(7,24)}</td>
+                    <td>{tag.hash}</td>
                     <td><UnixTime time={tag.time} /></td>
                     <td>{tag.user}</td>
                     <td>{
@@ -176,6 +180,7 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
                 </tr>
             );
         }
+        if (!rows) continue;
         lst.push(<React.Fragment key={project}>
             <thead>
                 <tr>
@@ -198,7 +203,8 @@ export const DockerImages = withStyles(styles)(observer(function DockerImages(p:
             </tbody>
             </React.Fragment>)
     }
-    return <Box title={"Docker images"} expanded={true} collapsable={false}>
+    let title = <React.Fragment>Docker images<span style={{width: "100px", display: "inline-block"}}/>Show all: <Switch title="All" checked={dockerImages.show_all} onChange={(e)=>dockerImages.show_all = e.target.checked}/></React.Fragment>;
+    return <Box title={title} expanded={true} collapsable={false}>
         <table className={classes.infoTable}>
             {lst}
         </table>
