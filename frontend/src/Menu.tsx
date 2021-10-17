@@ -42,12 +42,13 @@ function MatchedText({search, text, primary}:{search:string, text:string, primar
     let ans=[];
     let ki=0;
     let j=0;
+    let textLc = text.toLowerCase();
     for (let i=0; i < text.length;) {
-        if (text[i] == search[ki]) {
+        if (textLc[i] == search[ki]) {
             if (j != i)
                 ans.push(text.slice(j, i));
             j=i;
-            while (i < text.length && ki < search.length && text[i] == search[ki]) {
+            while (i < text.length && ki < search.length && textLc[i] == search[ki]) {
                 ++i;
                 ++ki;
             }
@@ -102,17 +103,19 @@ function SearchImpl(props:ThemedComponentProps) {
 
     const typeFind = [];
     let goto: [number, number] | null = null;
-    if (key != "") {
+
+    const keyLc = key.toLowerCase();
+    if (keyLc != "") {
         for (let [type, members] of state.objectDigests) {
             for (let [id, p] of members) {
                 if (p.name == null) continue;
-                if (p.name.toLowerCase() !== key.toLowerCase() && (goto || !matchText(p.name, key))) continue;
+                if (p.name.toLowerCase() !== keyLc.toLowerCase() && (goto || !matchText(p.name, keyLc))) continue;
                 goto = [type, id];
             }
         }
 
         for (let [type, members] of state.objectDigests) {
-            typeFind.push(<TypeObjects search={key} type={type} clearSearch={()=>setKey("")} goto={goto != null && goto[0] == type?goto[1]:null} />);
+            typeFind.push(<TypeObjects search={keyLc} type={type} clearSearch={()=>setKey("")} goto={goto != null && goto[0] == type?goto[1]:null} />);
         }
     }
     return <HotKeyListener handlers={{
