@@ -1,7 +1,7 @@
 import * as http from 'http';
-import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert, IGenerateKeyRes } from '../../shared/actions'
+import { IAction, ACTION, ISetInitialState, IObjectChanged, IAddLogLines, ISetPageAction, IAlert, IGenerateKeyRes, ISearchRes } from './shared/actions'
 import * as express from 'express';
-import { PAGE_TYPE } from '../../shared/state'
+import { PAGE_TYPE } from './shared/state'
 import * as WebSocket from 'ws';
 import * as url from 'url';
 import { JobOwner } from './jobowner'
@@ -12,7 +12,8 @@ import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
 import { errorHandler } from './error'
-import { IType, typeId, userId, TypePropType } from '../../shared/type'
+import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn } from './shared/type'
+import nullCheck from './shared/nullCheck'
 import setup from './setup'
 import { log } from 'winston';
 import * as crypto from 'crypto';

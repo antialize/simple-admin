@@ -1,11 +1,11 @@
 import { fileId } from "./default";
 import { db, webClients, hostClients, msg } from "./instances";
-import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, ModifiedFile, ACTION, IObjectChanged } from "../../shared/actions";
+import { IModifiedFilesResolve, IModifiedFilesList, IModifiedFilesScan, ModifiedFile, ACTION, IObjectChanged } from "./shared/actions";
 import { WebClient } from "./webclient";
 import { Job } from "./job";
 import * as message from './messages';
-import getOrInsert from "../../shared/getOrInsert";
-import nullCheck from "../../shared/nullCheck";
+import getOrInsert from "./shared/getOrInsert";
+import nullCheck from "./shared/nullCheck";
 
 const cronId = 10240;
 const systemdServiceId = 10206;

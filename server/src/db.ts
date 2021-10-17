@@ -1,12 +1,12 @@
 import * as sqlite from 'sqlite3';
-import { IObject2 } from '../../shared/state'
-import { Host, hostId, userId } from '../../shared/type'
+import { IObject2 } from './shared/state'
+import { Host, hostId, userId } from './shared/type'
 
 import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
 import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
 import { log } from 'winston';
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 export class DB {
     db: sqlite.Database | null = null;

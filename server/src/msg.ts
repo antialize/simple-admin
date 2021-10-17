@@ -1,5 +1,5 @@
 import { db, webClients } from './instances'
-import * as actions from '../../shared/actions'
+import * as actions from './shared/actions'
 
 export class Msg {
     async emit(host: number, type: string, message: string, subtype: string | null = null, url: string | null = null) {

@@ -1,6 +1,6 @@
 import {webClients} from './instances';
 import {WebClient} from './webclient'
-import {IAlert, ACTION} from '../../shared/actions';
+import {IAlert, ACTION} from './shared/actions';
 import {log} from 'winston';
 
 export enum ErrorType {Database, Unknown, SyntaxError}

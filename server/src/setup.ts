@@ -3,8 +3,8 @@ import {db} from './instances'
 import {randomBytes} from 'crypto';
 import {config} from './config';
 import * as crypt from './crypt'
-import { IObject2 } from '../../shared/state';
-import { ACTION, IObjectChanged} from '../../shared/actions'
+import { IObject2 } from './shared/state';
+import { ACTION, IObjectChanged} from './shared/actions'
 import { webClients} from './instances'
 
 

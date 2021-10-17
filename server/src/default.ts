@@ -1,6 +1,6 @@
 import {IType, TypePropType, ITextTypeProp, IChoiceTypeProp, IBoolTypeProp, ITypeContentTypeProp, INumberTypeProp,
     IDocumentTypeProp, IPasswordTypeProp, typeId, hostId, rootId, userId,
-    rootInstanceId} from "../../shared/type"
+    rootInstanceId} from "./shared/type"
 
 export const groupId = 5;
 export const fileId = 6;

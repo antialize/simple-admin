@@ -2,8 +2,8 @@ import * as fs from 'fs';
 
 import {Job} from '../job'
 import * as message from '../messages'
-import {ACTION, IAddLogLines} from '../../../shared/actions'
-import nullCheck from '../../../shared/nullCheck';
+import {ACTION, IAddLogLines} from '.././shared/actions'
+import nullCheck from '.././shared/nullCheck';
 import type {HostClient} from '../hostclient'
 import type {WebClient} from '../webclient'
 

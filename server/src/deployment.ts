@@ -1,9 +1,9 @@
 import {
     DEPLOYMENT_STATUS, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_OBJECT_ACTION, IDeploymentObject, IObject2, IDeploymentTrigger
-} from '../../shared/state'
+} from './shared/state'
 import { webClients, db, hostClients } from './instances'
-import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from '../../shared/actions'
-import { typeId, rootInstanceId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains, packageId } from '../../shared/type'
+import { ACTION, ISetDeploymentStatus, ISetDeploymentMessage, IToggleDeploymentObject, ISetDeploymentObjects, ISetDeploymentObjectStatus, IAddDeploymentLog, IClearDeploymentLog } from './shared/actions'
+import { typeId, rootInstanceId, hostId, IVariables, IType, TypePropType, IDepends, ITriggers, ITrigger, ISudoOn, IContains, packageId } from './shared/type'
 import * as PriorityQueue from 'priorityqueuejs'
 import * as Mustache from 'mustache'
 import { DeployJob } from './jobs/deployJob'
@@ -11,7 +11,7 @@ import { errorHandler, descript } from './error'
 
 //Type only import
 import { HostClient } from './hostclient'
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 interface IDeployContent {
     script: string | null;
