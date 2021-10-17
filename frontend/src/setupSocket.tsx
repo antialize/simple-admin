@@ -165,6 +165,9 @@ export const setupSocket = () => {
             case ACTION.DockerListImageTagsRes:
                 nullCheck(state.dockerImages).handleLoad(d);
                 break;
+            case ACTION.SearchRes:
+                nullCheck(state.search).handleSearch(d);
+                break;
             case ACTION.DockerListImageTagsChanged:
                 nullCheck(state.dockerImages).handleChange(d);
                 break;

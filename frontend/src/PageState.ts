@@ -33,6 +33,7 @@ class PageState {
         switch(p.type) {
         case State.PAGE_TYPE.Deployment:
         case State.PAGE_TYPE.Dashbord:
+        case State.PAGE_TYPE.Search:
         case State.PAGE_TYPE.ObjectList:
         case State.PAGE_TYPE.DeploymentDetails:
             break;
@@ -149,6 +150,9 @@ class PageState {
             o['project'] = ""+page.project;
             o['tag'] = page.tag;
             break;
+        case State.PAGE_TYPE.Search:
+            o['page'] = 'search';
+            break;
         default:
             never(page, "Unhandled page");
         }
@@ -205,6 +209,9 @@ class PageState {
             break;
         case 'dockerDeploy':
             this.current = {type: State.PAGE_TYPE.DockerDeploy};
+            break;
+        case 'search':
+            this.current = {type: State.PAGE_TYPE.Search};
             break;
         }
     }

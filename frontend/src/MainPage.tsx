@@ -4,6 +4,7 @@ import DeploymentDetails from './deployment/Details';
 import Messages from './Messages';
 import ObjectView from './ObjectView';
 import ObjectList from './ObjectList';
+import {Search} from './Search';
 import Statuses from './Statuses';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
@@ -56,6 +57,8 @@ export const MainPage = observer(function MainPage() {
         return <DockerImageHistory />;
     case State.PAGE_TYPE.DockerDeploy:
         return <DockerDeploy />;
+    case State.PAGE_TYPE.Search:
+        return <Search />;
     default:
         never(p, "Unhandled page type");
     }

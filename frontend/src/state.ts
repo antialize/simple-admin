@@ -11,6 +11,8 @@ import type { DockerImagesState } from "./DockerImages";
 import type { DockerContainersState } from "./DockerContainers";
 import type { ModifiedFilesState } from "./ModifiedFiles";
 import type { DockerDeployState} from "./DockerDeploy";
+import type { SearchState } from "./Search";
+
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
 
@@ -88,6 +90,9 @@ class State {
 
     @observable.shallow
     dockerDeploy: DockerDeployState | null = null;
+
+    @observable.shallow
+    search: SearchState | null = null;
 
     @observable
     hostsUp: Set<number> = new Set;

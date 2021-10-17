@@ -7,13 +7,14 @@ export enum PAGE_TYPE {
     DockerContainerDetails,
     DockerContainerHistory,
     DockerContainers,
+    DockerDeploy,
     DockerImageHistory,
     DockerImages,
-    DockerDeploy,
     ModifiedFile,
     ModifiedFiles,
     Object,
     ObjectList,
+    Search
 }
 
 export interface IObjectDigest {
@@ -41,6 +42,10 @@ export interface IDashbordPage {
 
 export interface IDeploymentPage {
     type: PAGE_TYPE.Deployment;
+}
+
+export interface ISearchPage {
+    type: PAGE_TYPE.Search;
 }
 
 export interface IDeploymentDetailsPage {
@@ -102,6 +107,7 @@ export type IPage =
     | IModifiedFilesPage
     | IObjectListPage
     | IObjectPage
+    | ISearchPage
     ;
 
 export interface IObject2<T> {
