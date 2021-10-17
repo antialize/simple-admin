@@ -98,7 +98,7 @@ export interface IContains {
 }
 
 export interface ISudoOn {
-    contains: number[];
+    sudoOn: number[];
 }
 
 export interface ITrigger {

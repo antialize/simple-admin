@@ -23,6 +23,7 @@ import {docker} from './docker';
 import { getAuth, AuthInfo, noAccess } from './getAuth';
 import * as bodyParser from 'body-parser'
 import * as crt from './crt';
+import { getReferences } from './shared/getReferences';
 
 
 interface EWS extends express.Express {
@@ -518,15 +519,17 @@ async function sendInitialState(c: WebClient) {
         deploymentLog: deployment.log,
         hostsUp,
         types: {},
+        usedBy: [],
     };
     for (const row of await rows) {
+        let content = JSON.parse(row.content);
         if (row.type == typeId) {
             action.types[row.id] = {
                 id: row.id,
                 type: row.type,
                 name: row.name,
                 category: row.category,
-                content: JSON.parse(row.content) as IType,
+                content: content as IType,
                 version: row.version,
                 comment: row.comment,
                 time: row.time,
@@ -535,6 +538,9 @@ async function sendInitialState(c: WebClient) {
         }
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
         action.objectNamesAndIds[row.type].push({ type: row.type, id: row.id, name: row.name, category: row.category, comment: row.comment });
+        for (const o of getReferences(content)) {
+            action.usedBy.push( [o, row.id] );
+        }
     }
 
     const m: { [key: string]: number } = {};

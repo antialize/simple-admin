@@ -114,6 +114,7 @@ export interface ISetInitialState {
     deploymentLog: string[];
     types: { [id:number]: IObject2<IType>};
     hostsUp: number[];
+    usedBy: [number, number][];
 }
 
 export interface IStartLog {
@@ -571,10 +572,10 @@ export type IAction =
     | IClearDeploymentLog
     | IDeleteObject
     | IDeployObject
+    | IDockerContainerForget
     | IDockerContainerRemove
     | IDockerContainerStart
     | IDockerContainerStop
-    | IDockerContainerForget
     | IDockerDeployDone
     | IDockerDeployLog
     | IDockerDeploymentsChanged
