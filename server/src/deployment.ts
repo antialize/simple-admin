@@ -165,7 +165,7 @@ export class Deployment {
 
             // Collect all objects
             for (const r of await db.getAllObjectsFull()) {
-                objects[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content), category: r.category, version: r.version, comment: r.comment };
+                objects[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content), category: r.category, version: r.version, comment: r.comment, time: r.time, author: r.author };
                 if (r.type == hostId)
                     hosts.push(r.id);
             }
@@ -652,7 +652,7 @@ export class Deployment {
 
         for (const r of await db.getAllObjectsFull())
             if (r.type == typeId)
-                types[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content) as IType, category: r.category, version: r.version, comment: r.comment };
+                types[r.id] = { id: r.id, name: r.name, type: r.type, content: JSON.parse(r.content) as IType, category: r.category, version: r.version, comment: r.comment, time: r.time, author: r.author };
 
 
         this.addLog("Deployment started\r\n")

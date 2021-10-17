@@ -295,6 +295,8 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                 content: JSON.parse(row.content),
                 category: row.category,
                 comment: row.comment,
+                time: row.time,
+                author: row.author,
             }
 
             switch (f.type) {
@@ -309,7 +311,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                 break;
             }
 
-            let { id, version } = await db.changeObject(f.object, obj);
+            let { id, version } = await db.changeObject(f.object, obj, nullCheck(client.auth.user));
             obj.version = version;
             let res: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [obj] };
             webClients.broadcast(res);

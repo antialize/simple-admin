@@ -38,6 +38,8 @@ export enum ACTION {
     GenerateKeyRes="GenerateKeyRes",
     GetObjectId="GetObjectId",
     GetObjectIdRes="GetObjectIdRes",
+    GetObjectHistory="GetObjectHistory",
+    GetObjectHistoryRes="GetObjectHistoryRes",
     HostDown="HostDown",
     HostUp="HostUp",
     ListModifiedFiles="ListModifiedFiles",
@@ -342,6 +344,23 @@ export interface IGetObjectIdRes {
     id: number | null;
 }
 
+export interface IGetObjectHistory {
+    type: ACTION.GetObjectHistory;
+    ref: Ref;
+    id: number;
+}
+
+export interface IGetObjectHistoryRes {
+    type: ACTION.GetObjectHistoryRes;
+    ref: Ref;
+    id: number;
+    history: {
+        version: number,
+        time: number,
+        author: string | null
+    }[];
+}
+
 export interface IDockerListImageTags {
     type: ACTION.DockerListImageTags;
     ref: Ref;
@@ -556,6 +575,8 @@ export type IAction =
     | IFetchObject
     | IGenerateKey
     | IGenerateKeyRes
+    | IGetObjectHistory
+    | IGetObjectHistoryRes
     | IGetObjectId
     | IGetObjectIdRes
     | IHostDown

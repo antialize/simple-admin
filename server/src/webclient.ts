@@ -161,6 +161,8 @@ export class WebClient extends JobOwner {
                             content: JSON.parse(row.content),
                             category: row.category,
                             comment: row.comment,
+                            time: row.time,
+                            author: row.author,
                         }
                     );
                 }
@@ -182,6 +184,17 @@ export class WebClient extends JobOwner {
                 } finally {
                     this.sendMessage({type: ACTION.GetObjectIdRes, ref: act.ref, id});
                 }
+                break;
+            case ACTION.GetObjectHistory:
+                if (!this.auth.admin) {
+                    this.connection.close(403);
+                    return;
+                }
+                let history = [];
+                for(const row of await db.all("SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?", act.id)) {
+                    history.push({"version": row.version, "time": row.time, "author": row.author});
+                }
+                this.sendMessage({type: ACTION.GetObjectHistoryRes, ref: act.ref, history, id: act.id});
                 break;
             case ACTION.StartLog:
                 if (!this.auth.admin) {
@@ -241,7 +254,7 @@ export class WebClient extends JobOwner {
                     }
 
 
-                    let { id, version } = await db.changeObject(act.id, act.obj);
+                    let { id, version } = await db.changeObject(act.id, act.obj, nullCheck(this.auth.user));
                     act.obj.version = version;
                     let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [act.obj] };
                     webClients.broadcast(res2);
@@ -282,7 +295,7 @@ export class WebClient extends JobOwner {
                         this.sendMessage(res);
                     } else {
                         log('info', 'Web client delete object', { id: act.id });
-                        await db.changeObject(act.id, null);
+                        await db.changeObject(act.id, null, nullCheck(this.auth.user));
                         let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                         webClients.broadcast(res2);
                         let res3: ISetPageAction = { type: ACTION.SetPage, page: { type: PAGE_TYPE.Dashbord } };
@@ -492,7 +505,9 @@ async function sendInitialState(c: WebClient) {
                 category: row.category,
                 content: JSON.parse(row.content) as IType,
                 version: row.version,
-                comment: row.comment
+                comment: row.comment,
+                time: row.time,
+                author: row.author,
             };
         }
         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];

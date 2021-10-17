@@ -112,6 +112,8 @@ export interface IObject2<T> {
     content: T;
     version: number | null;
     comment: string;
+    author: string | null;
+    time: number | null;
 }
 
 export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }

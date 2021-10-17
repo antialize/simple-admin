@@ -31,10 +31,12 @@ export default async (req: Request, res: Response) => {
         category: ho.category,
         comment: ho.comment,
         content: {...ho.content, password: cpw},
-        version: ho.version
+        version: ho.version,
+        time: ho.time,
+        author: ho.author,
     };
 
-    let { id, version } = await db.changeObject(obj.id, obj);
+    let { id, version } = await db.changeObject(obj.id, obj, "setup");
     obj.version = version;
     obj.id = id;
     let act: IObjectChanged = {type: ACTION.ObjectChanged, id: ho.id, object: [obj]};
