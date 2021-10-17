@@ -9,6 +9,7 @@ import { action, runInAction } from "mobx";
 import { typeId } from "./shared/type";
 import nullCheck from "./shared/nullCheck";
 import getOrInsert from "./shared/getOrInsert";
+import { getReferences } from './shared/getReferences';
 
 export let socket: WebSocket | null = null;
 let reconnectTime = 1;
@@ -134,8 +135,27 @@ export const setupSocket = () => {
                         if (last.type == typeId)
                             state.types.set(last.id, last);
                         const o = getOrInsert(state.objects, d.id, ()=>new ObjectState(d.id));
+
+                        let newest = null;
+                        for (const [_, ov] of o.versions) {
+                            if (ov.content && ov.version != null && (newest == null || ov.version > nullCheck(newest.version))) newest=ov;
+                        }
+                        if (newest && newest.content) {
+                            for (const ov of getReferences(newest.content)) {
+                                let oub = state.objectUsedBy.get(ov);
+                                if (oub) oub.delete(d.id);
+                            }
+                        }
+                        if (last) {
+                            for (const ov of getReferences(last.content)) {
+                                let oub = state.objectUsedBy.get(ov);
+                                if (oub) oub.add(d.id);
+                                else state.objectUsedBy.set(ov, new Set([d.id]));
+                            }
+                        }
                         for (const obj of d.object)
                             o.versions.set(nullCheck(obj.version), obj);
+
                         o.loadStatus = "loaded";
                         o.loadCurrent();
                     }
