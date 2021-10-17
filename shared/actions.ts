@@ -56,6 +56,8 @@ export enum ACTION {
     RequestInitialState="RequestInitialState",
     ResetServerState="ResetServerState",
     SaveObject="SaveObject",
+    Search="Search",
+    SearchRes="SearchRes",
     SetDeploymentMessage="SetDeploymentMessage",
     SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentObjectStatus="SetDeploymentObjectStatus",
@@ -161,6 +163,25 @@ export interface ISaveObject {
     type: ACTION.SaveObject;
     id: number;
     obj?: IObject2<any>;
+}
+
+export interface ISearch {
+    type: ACTION.Search;
+    ref: Ref;
+    pattern: String;
+}
+
+export interface ISearchRes {
+    type: ACTION.SearchRes;
+    ref: Ref;
+    objects: {
+        type: number,
+        id: number,
+        version: number,
+        name: string,
+        comment: string;
+        content: string;
+    }[];
 }
 
 export interface IHostDown {
@@ -594,6 +615,8 @@ export type IAction =
     | IRequestInitialState
     | IResetServerState
     | ISaveObject
+    | ISearch
+    | ISearchRes
     | ISetDeploymentMessage
     | ISetDeploymentObjects
     | ISetDeploymentObjectStatus

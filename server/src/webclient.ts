@@ -262,6 +262,29 @@ export class WebClient extends JobOwner {
                     this.sendMessage(res3);
                 }
                 break;
+            case ACTION.Search:
+                if (!this.auth.admin) {
+                    this.connection.close(403);
+                    return;
+                }
+                let objects = [];
+                for (const row of await db.all("SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1", act.pattern, act.pattern, act.pattern)) {
+                    objects.push({
+                        "id": row.id,
+                        "type": row.type,
+                        "name": row.name,
+                        "content": row.content,
+                        "comment": row.comment,
+                        "version": row.version,
+                    });
+                }
+                let res4: ISearchRes = {
+                    type: ACTION.SearchRes,
+                    ref: act.ref,
+                    objects
+                };
+                this.sendMessage(res4);
+                break;
             case ACTION.ResetServerState:
                 if (!this.auth.admin) {
                     this.connection.close(403);
