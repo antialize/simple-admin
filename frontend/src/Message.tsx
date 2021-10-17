@@ -1,10 +1,10 @@
 import * as React from "react";
 import Button from "@material-ui/core/Button";
 import state from "./state";
-import { ISetMessagesDismissed, ACTION, IMessageTextReqAction } from '../../shared/actions';
-import { hostId} from '../../shared/type';
+import { ISetMessagesDismissed, ACTION, IMessageTextReqAction } from './shared/actions';
+import { hostId} from './shared/type';
 import { observer } from "mobx-react";
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 const Message = observer(function Message({id, inGroup}: {id:number, inGroup:boolean}) {
     const message = nullCheck(state.messages.get(id));

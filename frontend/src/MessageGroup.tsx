@@ -2,8 +2,8 @@ import * as React from 'react';
 import Button from '@material-ui/core/Button';
 import Message from './Message';
 import state from './state';
-import { ISetMessagesDismissed, ACTION} from '../../shared/actions';
-import { hostId } from '../../shared/type';
+import { ISetMessagesDismissed, ACTION} from './shared/actions';
+import { hostId } from './shared/type';
 import { observer } from 'mobx-react';
 
 const MessageGroup = observer(function MessageGroup({ids, start, end, dismissed}: {ids:number[], start:number, end:number, dismissed: number}) {

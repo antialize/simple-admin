@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as Mousetrap from 'mousetrap';
 import 'mousetrap-global-bind';
-import getOrInsert from '../../shared/getOrInsert';
+import getOrInsert from './shared/getOrInsert';
 
 class Portal {
     handlers: Map<string, Map<number, (e:KeyboardEvent) => boolean|void>> = new Map;

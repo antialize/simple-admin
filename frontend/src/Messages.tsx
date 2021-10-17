@@ -5,7 +5,7 @@ import MessageGroup from './MessageGroup';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
-import nullCheck from "../../shared/nullCheck";
+import nullCheck from "./shared/nullCheck";
 
 
 interface MGroup {

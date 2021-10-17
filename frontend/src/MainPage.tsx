@@ -8,7 +8,7 @@ import Statuses from './Statuses';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { observer } from "mobx-react";
-import * as State from '../../shared/state';
+import * as State from './shared/state';
 import { DockerImages, DockerImageHistory } from './DockerImages';
 import { DockerContainers, DockerContainerDetails, DockerContainerHistory } from './DockerContainers';
 import { ModifiedFiles, ModifiedFileRevolver } from './ModifiedFiles';

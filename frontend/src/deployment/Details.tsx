@@ -1,12 +1,12 @@
 import * as React from "react";
-import * as State from '../../../shared/state';
+import * as State from '.././shared/state';
 import Editor from '../Editor';
 import Typography from "@material-ui/core/Typography";
 import state from "../state";
-import { IType, TypePropType } from '../../../shared/type';
+import { IType, TypePropType } from '.././shared/type';
 import { InformationList, InformationListRow } from '../InformationList';
 import { observer } from "mobx-react";
-import nullCheck from '../../../shared/nullCheck';
+import nullCheck from '.././shared/nullCheck';
 import Error from '../Error';
 
 function CententInfo(p: {c:{[key:string]:any} | null, t: State.IObject2<IType>}) {

@@ -1,9 +1,9 @@
 import * as React from "react";
 import Chip from "@material-ui/core/Chip";
 import state from "./state";
-import { hostId } from '../../shared/type';
+import { hostId } from './shared/type';
 import { observer } from "mobx-react";
-import * as State from '../../shared/state'
+import * as State from './shared/state'
 
 const HostChip = observer(function HostChip({id}: {id:number}) {
     const page = state.page;

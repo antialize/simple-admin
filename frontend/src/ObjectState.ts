@@ -1,9 +1,9 @@
-import { IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject, IResetServerState } from "../../shared/actions";
-import { IObject2, PAGE_TYPE } from "../../shared/state";
-import { IType, TypePropType } from "../../shared/type";
+import { IDeleteObject, ACTION, IDeployObject, ISaveObject, IFetchObject, IResetServerState, IGetObjectHistory } from "./shared/actions";
+import { IObject2, PAGE_TYPE } from "./shared/state";
+import { IType, TypePropType } from "./shared/type";
 import { observable, action, makeObservable } from "mobx";
 import { state } from "./state";
-import nullCheck from "../../shared/nullCheck";
+import nullCheck from "./shared/nullCheck";
 
 class ObjectState {
     @observable

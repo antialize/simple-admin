@@ -1,11 +1,11 @@
 import * as React from "react";
-import * as State from '../../shared/state';
+import * as State from './shared/state';
 import Collapse from "@material-ui/core/Collapse";
 import HostMenuItem from './HostMenuItem';
 import List from "@material-ui/core/List";
 import ListItem from '@material-ui/core/ListItem';
 import state from "./state";
-import { hostId } from '../../shared/type';
+import { hostId } from './shared/type';
 import { observer } from "mobx-react";
 
 const HostTypeMenuItem =  observer(function HostTypeMenuItem() {

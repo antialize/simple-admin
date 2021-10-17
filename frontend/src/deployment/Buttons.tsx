@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as State from '../../../shared/state';
+import * as State from '.././shared/state';
 import Button from '@material-ui/core/Button';
 import state from "../state";
 import { observer } from "mobx-react";

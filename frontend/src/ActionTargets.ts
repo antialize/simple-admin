@@ -1,5 +1,5 @@
-import { IAction, ACTION } from "../../shared/actions";
-import getOrInsert from '../../shared/getOrInsert';
+import { IAction, ACTION } from "./shared/actions";
+import getOrInsert from './shared/getOrInsert';
 
 export interface ActionTarget {
     handle: (action: IAction) => boolean;

@@ -1,24 +1,24 @@
 import * as React from 'react';
-import { ACTION, IDockerListDeploymentsRes, DockerDeployment, IDockerDeploymentsChanged, IDockerListDeploymentHistoryRes } from '../../shared/actions';
+import { ACTION, IDockerListDeploymentsRes, DockerDeployment, IDockerDeploymentsChanged, IDockerListDeploymentHistoryRes } from './shared/actions';
 import { observable, action, ObservableMap, makeObservable } from 'mobx';
 import { observer } from 'mobx-react';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
 import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
-import { hostId } from '../../shared/type';
+import { hostId } from './shared/type';
 import Button from '@material-ui/core/Button';
 import UnixTime from './UnixTime';
-import { IPage } from '../../shared/state';
+import { IPage } from './shared/state';
 import state from "./state";
-import * as State from '../../shared/state'
+import * as State from './shared/state'
 import { InformationListRow, InformationList } from './InformationList';
 import Typography from '@material-ui/core/Typography';
 import Remote from './Remote'
 import styles from './styles'
 import extractRemote from './extractRemote';
-import getOrInsert from '../../shared/getOrInsert';
+import getOrInsert from './shared/getOrInsert';
 import Error from "./Error";
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 export class DockerContainersState {
     constructor() {

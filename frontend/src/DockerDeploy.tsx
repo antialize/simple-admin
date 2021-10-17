@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { observable, action, makeObservable } from 'mobx';
-import { PAGE_TYPE } from '../../shared/state';
+import { PAGE_TYPE } from './shared/state';
 import state from './state';
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 import { observer } from 'mobx-react';
 import Box from './Box';
-import { hostId } from '../../shared/type';
+import { hostId } from './shared/type';
 import Select from './Select'
 import { InformationList, InformationListRow } from './InformationList';
 

@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as State from '../../../shared/state';
+import * as State from '.././shared/state';
 import Item from './Item';
 import state from "../state";
 import { observer } from "mobx-react";

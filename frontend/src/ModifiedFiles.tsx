@@ -1,14 +1,14 @@
 import * as React from 'react';
 import state from './state';
 import { observable, action, makeObservable } from 'mobx';
-import { ACTION, ModifiedFile, IModifiedFilesChanged } from '../../shared/actions';
+import { ACTION, ModifiedFile, IModifiedFilesChanged } from './shared/actions';
 import { observer } from 'mobx-react';
 import { StyleRules, createStyles, StyledComponentProps, withStyles, Theme } from '@material-ui/core/styles';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Box from './Box';
 import Button from '@material-ui/core/Button';
-import { hostId } from '../../shared/type';
-import { PAGE_TYPE, IModifiedFilePage } from '../../shared/state';
+import { hostId } from './shared/type';
+import { PAGE_TYPE, IModifiedFilePage } from './shared/state';
 import * as Diff from 'diff';
 import Editor from './Editor';
 import Switch from '@material-ui/core/Switch';
@@ -16,7 +16,7 @@ import Typography from '@material-ui/core/Typography';
 import Remote from './Remote';
 import extractRemote from './extractRemote';
 import Error from "./Error";
-import nullCheck from "../../shared/nullCheck";
+import nullCheck from "./shared/nullCheck";
 import UnixTime from './UnixTime';
 
 export class ModifiedFilesState {

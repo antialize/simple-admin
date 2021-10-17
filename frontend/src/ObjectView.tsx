@@ -8,8 +8,8 @@ import Type from './Type';
 import Typography from "@material-ui/core/Typography";
 import UserExtra from './UserExtra';
 import state from './state';
-import { DEPLOYMENT_STATUS } from '../../shared/state'
-import { hostId, userId} from '../../shared/type'
+import { DEPLOYMENT_STATUS } from './shared/state'
+import { hostId, userId} from './shared/type'
 import { observer } from 'mobx-react';
 import Error from "./Error";
 

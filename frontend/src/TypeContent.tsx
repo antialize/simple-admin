@@ -4,10 +4,10 @@ import MenuItem from "@material-ui/core/MenuItem";
 import Select from "@material-ui/core/Select";
 import Switch from "@material-ui/core/Switch";
 import TextField from "@material-ui/core/TextField";
-import { ITypeProp, TypePropType } from '../../shared/type';
+import { ITypeProp, TypePropType } from './shared/type';
 import { StyleRules, withStyles, createStyles, StyledComponentProps } from "@material-ui/core/styles";
 import { Theme } from "@material-ui/core";
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 const styles = (theme:Theme) : StyleRules => {
     return createStyles({

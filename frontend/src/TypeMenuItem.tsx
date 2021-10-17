@@ -1,9 +1,9 @@
 import * as React from "react";
-import * as State from '../../shared/state';
+import * as State from './shared/state';
 import Button from "@material-ui/core/Button";
 import state from "./state";
 import { observer } from "mobx-react";
-import { rootInstanceId, rootId } from '../../shared/type';
+import { rootInstanceId, rootId } from './shared/type';
 import MenuDropdown, { DropDownItem } from "./MenuDropdown";
 
 export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:number}) {

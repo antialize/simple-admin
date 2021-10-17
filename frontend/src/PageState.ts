@@ -1,12 +1,12 @@
 import * as $ from 'jquery'
 import * as React from "react";
-import * as State from '../../shared/state'
+import * as State from './shared/state'
 import ObjectState from "./ObjectState";
 import state from "./state";
 import { action, makeObservable, observable, runInAction } from "mobx";
-import { hostId } from '../../shared/type';
-import getOrInsert from '../../shared/getOrInsert';
-import nullCheck from '../../shared/nullCheck';
+import { hostId } from './shared/type';
+import getOrInsert from './shared/getOrInsert';
+import nullCheck from './shared/nullCheck';
 
 function never(n:never, message:string) {
     console.error(message);

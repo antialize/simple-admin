@@ -14,7 +14,7 @@ import Variables from './Variables';
 import state from "./state";
 import { InformationList, InformationListRow } from './InformationList';
 import { observer } from "mobx-react";
-import {TypePropType, hostId, rootId, typeId} from '../../shared/type';
+import {TypePropType, hostId, rootId, typeId} from './shared/type';
 import Error from './Error';
 
 const Type = observer(function Type({typeId: myType, id}:{typeId:number, id:number}) {

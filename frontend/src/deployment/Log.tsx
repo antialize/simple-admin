@@ -1,7 +1,7 @@
 import * as React from "react";
 import {FitAddon} from 'xterm-addon-fit';
 import { Terminal } from 'xterm';
-import nullCheck from '../../../shared/nullCheck';
+import nullCheck from '.././shared/nullCheck';
 
 let fit = new FitAddon();
 let theTerm = new Terminal({cursorBlink: false, scrollback: 100000});

@@ -1,10 +1,10 @@
 import * as React from "react";
-import * as State from '../../shared/state';
+import * as State from './shared/state';
 import Avatar from "@material-ui/core/Avatar";
 import ListItem from "@material-ui/core/ListItem";
 import ListItemText from "@material-ui/core/ListItemText";
 import state from "./state";
-import { hostId } from '../../shared/type';
+import { hostId } from './shared/type';
 import { observer } from "mobx-react";
 
 const HostMenuItem = observer(function HostMenuItem({id}: {id:number}) {

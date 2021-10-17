@@ -3,10 +3,10 @@ import MenuItem from "@material-ui/core/MenuItem";
 import Select from "@material-ui/core/Select";
 import TextField from "@material-ui/core/TextField";
 import { Theme, StyleRules, createStyles, withStyles, StyledComponentProps } from "@material-ui/core/styles";
-import { TypePropType, ITrigger } from '../../shared/type'
+import { TypePropType, ITrigger } from './shared/type'
 import { observer } from "mobx-react";
 import derivedState from "./derivedState";
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 interface TriggersProps {
     triggers:ITrigger[];

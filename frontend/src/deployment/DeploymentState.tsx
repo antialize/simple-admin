@@ -1,6 +1,6 @@
 import { makeObservable, observable } from "mobx";
-import * as Actions from "../../../shared/actions";
-import { DEPLOYMENT_STATUS, IDeploymentObject } from "../../../shared/state";
+import * as Actions from ".././shared/actions";
+import { DEPLOYMENT_STATUS, IDeploymentObject } from ".././shared/state";
 import state from "../state";
 
 class DeploymentState {

@@ -2,8 +2,8 @@ import * as React from "react";
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { ActionTarget } from "./ActionTargets";
-import {IAction, ACTION, IStartLog, IEndLog} from '../../shared/actions';
-import nullCheck from "../../shared/nullCheck"
+import {IAction, ACTION, IStartLog, IEndLog} from './shared/actions';
+import nullCheck from "./shared/nullCheck"
 
 interface Props {
     type: 'dmesg' | 'file' | 'journal';

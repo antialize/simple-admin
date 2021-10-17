@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as State from '../../shared/state'
+import * as State from './shared/state'
 import Button from "@material-ui/core/Button";
 import Link from "@material-ui/core/Link";
 import List from "@material-ui/core/List";
@@ -8,7 +8,7 @@ import TextField from "@material-ui/core/TextField";
 import Typography from '@material-ui/core/Typography';
 import state from "./state";
 import { observer } from "mobx-react";
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 const ObjectList = observer(function ObjectList({type}:{type:number}) {
     const page = state.page;

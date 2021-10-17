@@ -7,7 +7,7 @@ import Button from "@material-ui/core/Button";
 import Chip from "@material-ui/core/Chip";
 import { Terminal }  from 'xterm';
 import { remoteHost } from './config';
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 interface Props {
     id: number;

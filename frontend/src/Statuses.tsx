@@ -2,7 +2,7 @@ import * as React from "react";
 import HostChip from './HostChip';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
-import { hostId } from '../../shared/type';
+import { hostId } from './shared/type';
 import { observer } from "mobx-react";
 
 const Statuses = observer(function Statuses() {

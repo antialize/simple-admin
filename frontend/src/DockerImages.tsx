@@ -1,6 +1,6 @@
 import * as React from 'react';
 import state from './state';
-import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged, IDockerListImageTagHistoryRes, IDockerImageTagSetPin } from '../../shared/actions';
+import { ACTION, IDockerListImageTagsRes, DockerImageTag, IDockerImageTagsCharged, IDockerListImageTagHistoryRes, IDockerImageTagSetPin } from './shared/actions';
 import { observable, action, makeObservable } from 'mobx';
 import { observer } from 'mobx-react';
 import Box from './Box';
@@ -9,12 +9,12 @@ import Switch from '@material-ui/core/Switch';
 import styles from './styles'
 import Remote from './Remote';
 import extractRemote from "./extractRemote";
-import * as State from '../../shared/state'
-import { IPage } from '../../shared/state';
+import * as State from './shared/state'
+import { IPage } from './shared/state';
 import Button from '@material-ui/core/Button';
-import getOrInsert from '../../shared/getOrInsert';
+import getOrInsert from './shared/getOrInsert';
 import Error from "./Error";
-import nullCheck from "../../shared/nullCheck"
+import nullCheck from "./shared/nullCheck"
 import UnixTime from './UnixTime';
 
 export class DockerImagesState {

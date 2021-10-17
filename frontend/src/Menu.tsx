@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as State from '../../shared/state'
+import * as State from './shared/state'
 import AppBar from "@material-ui/core/AppBar";
 import Button from '@material-ui/core/Button';
 import IconButton from "@material-ui/core/IconButton";
@@ -17,7 +17,7 @@ import TypeMenuItem, { ObjectMenuList } from './TypeMenuItem';
 import Typography from "@material-ui/core/Typography";
 import state from "./state";
 import { ThemedComponentProps } from "@material-ui/core/styles/withTheme";
-import { hostId, userId, rootId, rootInstanceId} from '../../shared/type'
+import { hostId, userId, rootId, rootInstanceId} from './shared/type'
 import { observer } from "mobx-react";
 import { useState } from "react";
 import { withTheme } from "@material-ui/core/styles";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as State from '../../../shared/state';
+import * as State from '.././shared/state';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Typography from "@material-ui/core/Typography";
 import state from "../state";

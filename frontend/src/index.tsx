@@ -5,14 +5,14 @@ import Menu from './Menu';
 import setupState from './setupState';
 import state, { CONNECTION_STATUS } from "./state";
 import theme from "./theme";
-import { IAction } from '../../shared/actions';
+import { IAction } from './shared/actions';
 import { MuiThemeProvider } from '@material-ui/core/styles';
 import { observer } from "mobx-react";
 import { socket, setupSocket } from "./setupSocket";
 import { MainPage } from "./MainPage";
-import * as State from '../../shared/state';
+import * as State from './shared/state';
 import {HotKeyPortal} from "./HotKey"
-import nullCheck from '../../shared/nullCheck';
+import nullCheck from './shared/nullCheck';
 
 setupState();
 setupSocket();
