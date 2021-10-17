@@ -76,6 +76,9 @@ class State {
     @observable
     objects: Map<number, ObjectState> = new Map;
 
+    @observable
+    objectUsedBy: Map<number, Set<number>> = new Map;
+
     //@observable
     //host_up: Map<Number, boolean> = new Map;
 

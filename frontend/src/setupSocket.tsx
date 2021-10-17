@@ -70,6 +70,11 @@ export const setupSocket = () => {
                 break;
             case ACTION.SetInitialState:
                 runInAction(() => {
+                    for (const [a, b] of d.usedBy) {
+                        let aa = state.objectUsedBy.get(a);
+                        if (aa) aa.add(b);
+                        else state.objectUsedBy.set(a, new Set([b]));
+                    }
                     nullCheck(state.modifiedFiles).modifiedFiles = {state: 'initial'};
                     nullCheck(state.dockerImages).imageHistory.clear();
                     nullCheck(state.dockerImages).projects = {state: 'initial'};
