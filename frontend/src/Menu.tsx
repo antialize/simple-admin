@@ -38,7 +38,7 @@ function matchText(text:string, key:string) {
     return false;
 }
 
-function MatchedText({search, text}:{search:string, text:string}) {
+function MatchedText({search, text, primary}:{search:string, text:string, primary: boolean}) {
     let ans=[];
     let ki=0;
     let j=0;
@@ -51,7 +51,7 @@ function MatchedText({search, text}:{search:string, text:string}) {
                 ++i;
                 ++ki;
             }
-            ans.push(<span style={{color:"red"}}>{text.slice(j, i)}</span>);
+            ans.push(<span style={{color:primary?"green":"red"}}>{text.slice(j, i)}</span>);
             j=i;
         } else {
             ++i;
@@ -63,7 +63,7 @@ function MatchedText({search, text}:{search:string, text:string}) {
     return <>{ans}</>;
 };
 
-const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{search: string, type:number, clearSearch: ()=>void}) {
+const TypeObjects = observer(function TypeObjects({search, type, clearSearch, goto}:{search: string, type:number, clearSearch: ()=>void, goto: number | null}) {
     let ans = [];
     const digests = state.objectDigests.get(type);
     if (!digests) return <Error>Missing digests</Error>;
@@ -76,7 +76,7 @@ const TypeObjects = observer(function TypeObjects({search, type, clearSearch}:{s
                 <Link color={"textPrimary" as any}
                     href={page.link({type: State.PAGE_TYPE.Object, objectType: type, id})}
                     onClick={(e:any)=>{clearSearch(); return page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type, id});}}>
-                    <MatchedText search={search} text={p.name} />
+                    <MatchedText search={search} text={p.name} primary={goto==id}/>
                 </Link>
             </ListItem>);
     }
@@ -101,17 +101,18 @@ function SearchImpl(props:ThemedComponentProps) {
     if (!page) return <Error>Missing state.page</Error>
 
     const typeFind = [];
-    let first: [number, number] | null = null;
+    let goto: [number, number] | null = null;
     if (key != "") {
         for (let [type, members] of state.objectDigests) {
-            if (!first) {
-                for (let [id, p] of members) {
-                    if (p.name == null || !matchText(p.name, key)) continue;
-                    first = [type, id];
-                    break;
-                }
+            for (let [id, p] of members) {
+                if (p.name == null) continue;
+                if (p.name.toLowerCase() !== key.toLowerCase() && (goto || !matchText(p.name, key))) continue;
+                goto = [type, id];
             }
-            typeFind.push(<TypeObjects search={key} type={type} clearSearch={()=>setKey("")} />);
+        }
+
+        for (let [type, members] of state.objectDigests) {
+            typeFind.push(<TypeObjects search={key} type={type} clearSearch={()=>setKey("")} goto={goto != null && goto[0] == type?goto[1]:null} />);
         }
     }
     return <HotKeyListener handlers={{
@@ -127,8 +128,8 @@ function SearchImpl(props:ThemedComponentProps) {
                         <HotKeyListener
                             handlers={{
                                 close: ()=> {setKey(""); searchInput && searchInput.blur(); },
-                                first: ()=> {if (first && searchInput) {
-                                    page.set({type: State.PAGE_TYPE.Object, objectType: first[0], id: first[1]});
+                                first: ()=> {if (goto && searchInput) {
+                                    page.set({type: State.PAGE_TYPE.Object, objectType: goto[0], id: goto[1]});
                                     setKey(""); 
                                     searchInput.blur();}
                                 }}} >
