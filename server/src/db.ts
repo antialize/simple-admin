@@ -1,6 +1,6 @@
 import * as sqlite from 'sqlite3';
 import { IObject2 } from './shared/state'
-import { Host, hostId, userId } from './shared/type'
+import { Host, hostId, IVariables, rootId, rootInstanceId, userId } from './shared/type'
 
 import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
@@ -357,5 +357,13 @@ export class DB {
                         cb({ id: row['id'], content: JSON.parse(row['content']), version: row['version'], type: hostId, name: hostname, category: row['category'], comment: row['comment'], time: row['time'], author: row['author'] })
                 })
         });
+    }
+
+    async getRootVariables() {
+        const rootRow = await this.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", rootInstanceId, rootId);
+        let variables: { [key: string]: string; } = {};
+        for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
+            variables[v.key] = v.value;
+        return variables;
     }
 }

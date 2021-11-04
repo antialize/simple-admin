@@ -78,14 +78,14 @@ export function generate_srs(key: string, cn:string) : Promise<string> {
     });
 }
 
-export function generate_crt(ca_key: string, ca_crt: string, srs:string, subcert: string | null = null, timeout: number=999) : Promise<string> {
+export function generate_crt(ca_key: string, ca_crt: string, srs:string, subcert: string | null = null, timeoutDays: number=999) : Promise<string> {
     return new Promise<string>((res, rej) => {
         const t1 = temp_name();
         const t2 = temp_name();
         fs.writeFileSync(t1, srs, {'mode': 0o400});
         fs.writeFileSync(t2, ca_crt, {'mode': 0o400});
 
-        let args = ["x509", "-req", "-days", ""+timeout, "-in", t1,
+        let args = ["x509", "-req", "-days", ""+timeoutDays, "-in", t1,
             "-CA", t2,
             "-CAkey", "-",
             "-CAcreateserial",
@@ -122,3 +122,42 @@ export function generate_crt(ca_key: string, ca_crt: string, srs:string, subcert
     });
 }
 
+export async function generate_ssh_crt(
+    keyId: string,
+    principal: string,
+    caPrivateKey: string,
+    clientPublicKey: string,
+    validityDays: number,
+    type: "host" | "user",
+): Promise<string> {
+    const sshHostCaKeyFile = temp_name();
+    const tmp = temp_name();
+    const clientPublicKeyFile = tmp + ".pub";
+    const outputCertificateFile = tmp + "-cert.pub";
+    try {
+        fs.writeFileSync(sshHostCaKeyFile, `-----BEGIN OPENSSH PRIVATE KEY-----\n${caPrivateKey}\n-----END OPENSSH PRIVATE KEY-----\n`, {'mode': 0o400});
+        fs.writeFileSync(clientPublicKeyFile, clientPublicKey, {'mode': 0o400});
+        const args = [
+            "-s",
+            sshHostCaKeyFile,
+            "-I",
+            keyId,
+            ...(type === "host" ? ["-h"] : []),
+            "-n",
+            principal,
+            "-V",
+            `-5m:+${+validityDays}d`,
+            "-z",
+            "42",
+            clientPublicKeyFile,
+        ];
+        const p = spawn("ssh-keygen", args, {stdio: ['inherit', 'inherit', 'inherit']});
+        const code: number = await new Promise((r) => p.on("close", r));
+        if (code !== 0) throw new Error(`ssh-keygen exited with code ${code}`);
+        return fs.readFileSync(outputCertificateFile, {encoding: "utf-8"});
+    } finally {
+        fs.unlink(sshHostCaKeyFile, () => {});
+        fs.unlink(clientPublicKeyFile, () => {});
+        fs.unlink(outputCertificateFile, () => {});
+    }
+}

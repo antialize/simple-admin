@@ -344,6 +344,7 @@ export interface IDockerDeployDone {
 export interface IGenerateKey {
     type: ACTION.GenerateKey;
     ref: Ref;
+    ssh_public_key?: string;
 }
 
 export interface IGenerateKeyRes {
@@ -352,6 +353,8 @@ export interface IGenerateKeyRes {
     ca_pem: string;
     key: string;
     crt: string;
+    ssh_host_ca?: string;
+    ssh_crt?: string;
 }
 
 export interface IGetObjectId {

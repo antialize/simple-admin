@@ -5,9 +5,10 @@ import * as tls from 'tls';
 import { JobOwner } from './jobowner'
 import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
-import { errorHandler } from './error';
+import { descript, errorHandler } from './error';
 import { log } from 'winston';
 import { Job } from './job';
+import * as crt from './crt';
 
 
 function delay(time: number) {
@@ -30,6 +31,7 @@ export class HostClient extends JobOwner {
     pingTimer: NodeJS.Timer | null = null;
     pingStart: number | null = null;
     closeHandled = false;
+    certificateTimer: NodeJS.Timer | null = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -39,7 +41,80 @@ export class HostClient extends JobOwner {
         this.socket.on('error', (err: Error) => {
             log('warn', "Client socket error", { hostname: this.hostname, error: err });
         });
-        this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);;
+        this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);
+    }
+
+    runShell(commandLine: string): Promise<string> {
+        return new Promise((accept, reject) => {
+            class PJob extends Job {
+                constructor(host: HostClient) {
+                    super(host, null, host);
+                    let msg: message.RunInstant = {
+                        'type': 'run_instant',
+                        'id': this.id,
+                        'name': 'runShell.sh',
+                        'interperter': '/bin/sh',
+                        'content': commandLine,
+                        'args': [],
+                        'output_type': 'text',
+                        'stdin_type': 'none',
+                    };
+                    host.sendMessage(msg);
+                    this.running = true;
+                }
+
+                handleMessage(obj: message.Incomming) {
+                    super.handleMessage(obj);
+                    switch(obj.type) {
+                    case 'success':
+                        const instantSuccess = (obj as any) as {type: "success", data: string};
+                        accept(instantSuccess.data);
+                        break;
+                    case 'failure':
+                        const instantFailure = (obj as any) as {type: "failure", code: number, stdout: string, stderr: string};
+                        reject(new Error(`Host instant script exited with code ${instantFailure.code}`));
+                        break;
+                    }
+                }
+            };
+            new PJob(this);
+        });
+    }
+
+    writeSmallFile(path: string, contents: string): Promise<void> {
+        return new Promise((accept, reject) => {
+            class PJob extends Job {
+                constructor(host: HostClient) {
+                    super(host, null, host);
+                    let msg: message.RunInstant = {
+                        'type': 'run_instant',
+                        'id': this.id,
+                        'name': 'writeSmallFile.sh',
+                        'interperter': '/bin/bash',
+                        'content': "printf '%s' \"$2\" > \"$1\"",
+                        'args': [path, contents],
+                        'output_type': 'text',
+                        'stdin_type': 'none',
+                    };
+                    host.sendMessage(msg);
+                    this.running = true;
+                }
+
+                handleMessage(obj: message.Incomming) {
+                    super.handleMessage(obj);
+                    switch(obj.type) {
+                    case 'success':
+                        accept();
+                        break;
+                    case 'failure':
+                        const instantFailure = (obj as any) as {type: "failure", code: number, stdout: string, stderr: string};
+                        reject(new Error(`Host instant script exited with code ${instantFailure.code}`));
+                        break;
+                    }
+                }
+            };
+            new PJob(this);
+        });
     }
 
     sendPing() {
@@ -78,6 +153,8 @@ export class HostClient extends JobOwner {
     onClose() {
         if (this.pingTimer != null)
             clearTimeout(this.pingTimer);
+        if (this.certificateTimer != null)
+            clearTimeout(this.certificateTimer);
 
         if (!this.auth) {
             log('info', "Bad auth for client", { hostname: this.hostname });
@@ -138,6 +215,7 @@ export class HostClient extends JobOwner {
                 hostClients.hostClients[this.id] = this;
                 let act: IHostUp = { type: ACTION.HostUp, id: this.id };
                 webClients.broadcast(act);
+                this.signHostCertificate();
             } else {
                 log('warn', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
                 this.socket.end();
@@ -157,6 +235,36 @@ export class HostClient extends JobOwner {
             if (id in this.jobs)
                 this.jobs[id].handleMessage(obj);
         }
+    }
+
+    async signHostCertificate() {
+        log("info", `Signing SSH host certificate for ${this.hostname}`);
+        if (this.certificateTimer != null) {
+            clearTimeout(this.certificateTimer);
+            this.certificateTimer = null;
+        }
+        try {
+            const hostKey = await this.runShell("cat /etc/ssh/ssh_host_ed25519_key.pub");
+            const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
+            if (sshHostCaKey != null && sshHostCaPub != null && this.hostname != null) {
+                const validityDays = 7;
+                const sshCrt = await crt.generate_ssh_crt(
+                    `${this.hostname} sadmin host`,
+                    `${this.hostname},${this.hostname}.scalgo.com`,
+                    sshHostCaKey,
+                    hostKey,
+                    validityDays,
+                    "host",
+                );
+                await this.writeSmallFile("/etc/ssh/ssh_host_ed25519_key-cert.pub", sshCrt);
+                await this.runShell("systemctl reload sshd");
+            }
+        } catch (e) {
+            let d = descript(e);
+            console.log(e);
+            log('error', "An error occured in host ssh certificate generation", {typename: d.typeName, description: d.description, err: e});
+        }
+        this.certificateTimer = setTimeout(() => this.signHostCertificate(), 24*3600*1000);
     }
 
     onData(data: Buffer) {

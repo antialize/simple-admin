@@ -12,7 +12,7 @@ import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
 import { errorHandler } from './error'
-import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn } from './shared/type'
+import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn, IVariables, rootInstanceId, rootId } from './shared/type'
 import nullCheck from './shared/nullCheck'
 import setup from './setup'
 import { log } from 'winston';
@@ -473,6 +473,13 @@ export class WebClient extends JobOwner {
                     return;
                 }
 
+                const [_uname, _uid, capsString] = this.auth.sslname.split(".");
+                const caps = (capsString || "").split("~");
+                if (act.ssh_public_key != null && !caps.includes("ssh")) {
+                    this.connection.close(403);
+                    return;
+                }
+
                 await docker.ensure_ca();
                 const my_key = await crt.generate_key();
                 const my_srs = await crt.generate_srs(my_key, this.auth.sslname + ".user");
@@ -482,6 +489,26 @@ export class WebClient extends JobOwner {
                     key: my_key,
                     crt: my_crt,
                 };
+                if (act.ssh_public_key != null) {
+                    const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
+                    if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
+                        try {
+                            const validityDays = 1;
+                            const sshCrt = await crt.generate_ssh_crt(
+                                `${this.auth.user} sadmin user`,
+                                this.auth.user,
+                                sshHostCaKey,
+                                act.ssh_public_key,
+                                validityDays,
+                                "user",
+                            );
+                            res2.ssh_host_ca = sshHostCaPub;
+                            res2.ssh_crt = sshCrt;
+                        } catch (e) {
+                            errorHandler("ACTION.GenerateKey", this)(e);
+                        }
+                    }
+                }
                 this.sendMessage(res2);
                 break;
             default:
