@@ -103,8 +103,20 @@ async def login(c, user, pwd, otp):
     c.otp = True
 
 async def get_key(c):
-    ref = random.randint(0, 2**48-1)
-    await c.socket.send(json.dumps({'type': 'GenerateKey', 'ref': ref}))
+    ref = random.randint(0, 2 ** 48 - 1)
+    msg = {"type": "GenerateKey", "ref": ref}
+    keys = [
+        os.path.expanduser("~/.ssh/id_ed25519"),
+        os.path.expanduser("~/.ssh/id_rsa"),
+    ]
+    keys = [k for k in keys if os.path.exists(k) and os.path.exists(k + ".pub")]
+    if keys:
+        with open(keys[0] + ".pub") as f:
+            msg["ssh_public_key"] = f.read()
+    else:
+        print("No SSH key found - not signing any SSH key")
+    await c.socket.send(json.dumps(msg))
+
     while True:
         res = json.loads(await c.socket.recv())
         if res['type'] == 'GenerateKeyRes' and res['ref'] == ref:
@@ -117,6 +129,31 @@ async def get_key(c):
 
             with open(c.caFile, 'w') as f:
                 f.write(res['ca_pem'])
+
+            if msg.get("ssh_public_key"):
+                if res.get("ssh_host_ca"):
+                    with open(os.path.expanduser("~/.ssh/known_hosts")) as f:
+                        lines = list(f)
+                    contents = "".join(lines)
+                    if res["ssh_host_ca"] not in contents:
+                        marker = "# sadmin sshHostCaPub"
+                        filtered = [
+                            line for line in lines if not line.strip().endswith(marker)
+                        ]
+                        contents = "".join(
+                            filtered
+                        ).rstrip() + "\n@cert-authority * %s %s\n" % (
+                            res["ssh_host_ca"],
+                            marker,
+                        )
+                        with open(os.path.expanduser("~/.ssh/known_hosts"), "w") as f:
+                            f.write(contents)
+
+                if res.get("ssh_crt"):
+                    with open(keys[0] + "-cert.pub", "w") as f:
+                        f.write(res["ssh_crt"])
+                else:
+                    print("sadmin server did not sign our SSH key!")
 
             break
 
