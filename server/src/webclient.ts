@@ -475,10 +475,6 @@ export class WebClient extends JobOwner {
 
                 const [_uname, _uid, capsString] = this.auth.sslname.split(".");
                 const caps = (capsString || "").split("~");
-                if (act.ssh_public_key != null && !caps.includes("ssh")) {
-                    this.connection.close(403);
-                    return;
-                }
 
                 await docker.ensure_ca();
                 const my_key = await crt.generate_key();
@@ -489,7 +485,7 @@ export class WebClient extends JobOwner {
                     key: my_key,
                     crt: my_crt,
                 };
-                if (act.ssh_public_key != null) {
+                if (act.ssh_public_key != null && caps.includes("ssh")) {
                     const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
