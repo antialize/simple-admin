@@ -132,8 +132,11 @@ async def get_key(c):
 
             if msg.get("ssh_public_key"):
                 if res.get("ssh_host_ca"):
-                    with open(os.path.expanduser("~/.ssh/known_hosts")) as f:
-                        lines = list(f)
+                    try:
+                        with open(os.path.expanduser("~/.ssh/known_hosts")) as f:
+                            lines = list(f)
+                    except FileNotFoundError:
+                        lines = []
                     contents = "".join(lines)
                     if res["ssh_host_ca"] not in contents:
                         marker = "# sadmin sshHostCaPub"
