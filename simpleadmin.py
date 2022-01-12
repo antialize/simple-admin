@@ -315,11 +315,24 @@ async def list_deployments(
     ref = random.randint(0, 2 ** 48 - 1)
 
     await c.socket.send(json.dumps({"type": "RequestInitialState"}))
-    while True:
+    got_initial_state = False
+
+    pinned_image_tags = {}
+    if porcelain_version:
+        got_list = True
+    else:
+        await c.socket.send(json.dumps({"type": "DockerListImageTags", "ref": 1}))
+        got_list = False
+
+    state = None
+    while state is None or not got_list:
         res = json.loads(await c.socket.recv())
         if res["type"] == "SetInitialState":
-            break
-    state = res
+            state = res
+        if res["type"] == "DockerListImageTagsRes":
+            got_list = True
+            for pin in res.get("pinnedImageTags") or ():
+                pinned_image_tags[pin.get("image"), pin.get("tag")] = 1
     type_ids = {o["name"]: str(o["id"]) for o in state["objectNamesAndIds"]["1"]}
     host_names = {
         int(o["id"]): o["name"] for o in state["objectNamesAndIds"][type_ids["Host"]]
@@ -370,7 +383,9 @@ async def list_deployments(
         and (not image or d["image"] == image)
         and (not container or d["name"] == container)
     ]
-    list_deployment_groups(group_deployments(deployments, host_names), format)
+    list_deployment_groups(
+        group_deployments(deployments, host_names), format, pinned_image_tags
+    )
 
 
 class numeric_sort_key:
@@ -424,7 +439,7 @@ def group_deployments(deployments, host_names):
     return groups
 
 
-def list_deployment_groups(groups, format: Optional[str]):
+def list_deployment_groups(groups, format: Optional[str], pinned_image_tags):
     if format is None:
         format = "({labels[GIT_COMMIT]} {labels[GIT_BRANCH]})"
     for name, group in groups:
@@ -432,6 +447,8 @@ def list_deployment_groups(groups, format: Optional[str]):
         deployments = []
         for deployment in group:
             image_info = deployment.get("imageInfo", {})
+            if (image_info.get("image"), image_info.get("tag")) in pinned_image_tags:
+                image_info["pinned_image_tag"] = True
             name = deployment["name"]
             deploy_time = rel_time(deployment["start"])
             deploy_user = deployment["user"]
@@ -447,16 +464,23 @@ def list_deployment_groups(groups, format: Optional[str]):
             bold = "\x1b[1m"
             red = "\x1b[31m"
             green = "\x1b[32m"
+            half = "\x1b[2m"
             reset = "\x1b[0m"
             deploy_time = green + bold + deploy_time + reset
-            status = "%s by %s" % (deploy_time, deploy_user)
+            status = f"%s {half}by{reset} %s" % (deploy_time, deploy_user)
             if push_time is not None:
                 push_time = green + bold + push_time + reset
-                push_status = "%s by %s" % (push_time, push_user)
+                push_status = f"%s {half}by{reset} %s" % (push_time, push_user)
                 if status != push_status:
-                    status = "pushed %s, deployed %s" % (push_status, status)
+                    status = f"{half}pushed{reset} %s{half}, deployed{reset} %s" % (push_status, status)
             if removed is not None:
-                status += ", removed %s" % rel_time(removed)
+                status += f"{half},{reset} {red}removed{reset} %s" % rel_time(removed)
+            if image_info.get("pin"):
+                status += f"{half}, hash pinned{reset}"
+            if image_info.get("pinned_image_tag"):
+                status += f"{half}, tag pinned{reset}"
+            if not image_info.get("pin") and not image_info.get("pinned_image_tag"):
+                status += f"{half}, {reset}no pin"
             git = ""
             try:
                 extra = format.format(**image_info)
@@ -477,7 +501,7 @@ async def list_images(
     hash: Optional[List[str]] = None,
 ):
     if format is None:
-        format = "{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}"
+        format = "{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}{pin_suffix}"
     c = Connection()
     await c.setup(requireAuth=False)
     await prompt_auth(c, c.user)
@@ -487,12 +511,15 @@ async def list_images(
     else:
         await c.socket.send(json.dumps({"type": "DockerListImageTags", "ref": 1}))
     got_list = False
+    pinned_image_tags = {}
     while follow or not got_list:
         res = json.loads(await c.socket.recv())
         if res["type"] == "DockerListImageTagsRes":
             images = res["tags"]
             images.sort(key=lambda i: i["time"])
             got_list = True
+            for pin in res.get("pinnedImageTags") or ():
+                pinned_image_tags[pin.get("image"), pin.get("tag")] = 1
         elif res["type"] == "DockerListImageByHashRes":
             images = sorted(res["tags"].values(), key=lambda i: i["time"])
             got_list = True
@@ -500,6 +527,9 @@ async def list_images(
             images = res["changed"]
         else:
             continue
+        for i in images:
+            if (i.get("image"), i.get("tag")) in pinned_image_tags:
+                i["pinned_image_tag"] = True
         if porcelain_version:
             for i in images:
                 print(json.dumps(i), flush=follow)
@@ -518,6 +548,7 @@ async def list_images(
                 green="\x1b[32m",
                 reset="\x1b[0m",
                 rel_time=rel_time(i["time"]),
+                pin_suffix=", pinned by tag" if i.get("pinned_image_tag") else "",
                 **i,
             )
             print(message, flush=follow)
