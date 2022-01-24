@@ -21,16 +21,23 @@ import websockets
 config: Dict[str, Any]
 
 class Connection:
+    socket: websockets.WebSocketClientProtocol
+
     def __init__(self):
-        self.socket = None
         self.cookieFile = os.path.expanduser("~/.cache/simple_admin_cookie")
         self.caFile = os.path.expanduser("~/.cache/simple_admin_key.ca")
         self.keyFile = os.path.expanduser("~/.cache/simple_admin_key.key")
         self.crtFile = os.path.expanduser("~/.cache/simple_admin_key.crt")
         self.pwd = False
         self.otp = False
-        
-    async def setup(self, requireAuth=True):
+
+    @staticmethod
+    async def open(requireAuth=True) -> "Connection":
+        c = Connection()
+        await c._setup(requireAuth=requireAuth)
+        return c
+
+    async def _setup(self, *, requireAuth):
         if config.get("server_insecure"):
             ssl_context = None
             protocol = "ws://"
@@ -162,8 +169,7 @@ async def get_key(c):
 
 
 async def main_auth(user):
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     if c.user:
         user = c.user
     if c.authenticated:
@@ -208,8 +214,7 @@ async def prompt_auth(c, user):
 
 
 async def deauth(full):
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     if c.pwd and c.otp:
         await c.socket.send(json.dumps({'type': 'LogOut', 'forgetPwd': True, 'forgetOtp': full}))
         
@@ -217,8 +222,7 @@ async def deauth(full):
         os.unlink(c.cookieFile)
 
 async def deploy(server, image, container=None, config=None, restore_on_failure=True):
-    c = Connection()
-    await c.setup(requireAuth=True)
+    c = await Connection.open(requireAuth=True)
     ref = random.randint(0, 2**48-1)
     print("%s> %s <%s"%( "="*(38 - len(server) // 2), server, "="*(37 - (len(server) + 1) // 2)))
     await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref, "container": container}))
@@ -233,8 +237,7 @@ async def deploy(server, image, container=None, config=None, restore_on_failure=
             break
 
 async def edit(path):
-    c = Connection()
-    await c.setup(requireAuth=True)
+    c = await Connection.open(requireAuth=True)
     ref = random.randint(0, 2**48-1)
     await c.socket.send(json.dumps({"type": "GetObjectId", "path": path, "ref": ref}))
 
@@ -309,8 +312,7 @@ async def list_deployments(
     image: Optional[str],
     history: bool,
 ):
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     await prompt_auth(c, c.user)
     ref = random.randint(0, 2 ** 48 - 1)
 
@@ -502,8 +504,7 @@ async def list_images(
 ):
     if format is None:
         format = "{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}{pin_suffix}"
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     await prompt_auth(c, c.user)
     assert c.socket is not None
     if hash:
@@ -880,8 +881,7 @@ async def ui():
     try:
         loop.start()
 
-        c = Connection()
-        await c.setup(requireAuth=False)
+        c = await Connection.open(requireAuth=False)
 
         if not c.pwd or not c.otp:
             await ui_login(loop, c)
