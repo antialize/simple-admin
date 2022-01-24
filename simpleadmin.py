@@ -72,6 +72,12 @@ class Connection:
         if requireAuth and not self.authenticated:
             raise Exception("Authentication required")
 
+    async def close(self):
+        if self.socket is None:
+            return
+        await self.socket.close()
+        self.socket = None
+
     @property
     def authenticated(self):
         return self.pwd and self.otp
@@ -175,10 +181,10 @@ async def main_auth(user):
     if c.authenticated:
         await get_key(c)
         print("Already authenticated as %s." % user)
-        return
-
-    await prompt_auth(c, user)
-    print("Successfully authenticated.")
+    else:
+        await prompt_auth(c, user)
+        print("Successfully authenticated.")
+    await c.close()
 
 
 def input_stderr_prompt(prompt):
@@ -220,21 +226,25 @@ async def deauth(full):
         
     if full and os.path.exists(c.cookieFile):
         os.unlink(c.cookieFile)
+    await c.close()
+
 
 async def deploy(server, image, container=None, config=None, restore_on_failure=True):
     c = await Connection.open(requireAuth=True)
     ref = random.randint(0, 2**48-1)
     print("%s> %s <%s"%( "="*(38 - len(server) // 2), server, "="*(37 - (len(server) + 1) // 2)))
     await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref, "container": container}))
-    while True:
+    docker_deploy_end = None
+    while docker_deploy_end is None:
         res = json.loads(await c.socket.recv())
         if res['type'] == 'DockerDeployLog' and res['ref'] == ref:
             print(res['message'])
         if res['type'] == 'DockerDeployEnd' and res['ref'] == ref:
             print(res['message'])
-            if not res['status']:
-                sys.exit(1)
-            break
+            docker_deploy_end = res
+    await c.close()
+    if not docker_deploy_end['status']:
+        sys.exit(1)
 
 async def edit(path):
     c = await Connection.open(requireAuth=True)
@@ -250,6 +260,7 @@ async def edit(path):
 
     if not id:
         print("Object not found")
+        await c.close()
         return
 
     await c.socket.send(json.dumps({"type": "FetchObject", "id": id}))
@@ -278,6 +289,7 @@ async def edit(path):
         f.flush()
         proc = await asyncio.create_subprocess_exec(os.environ.get('EDITOR', 'editor'), f.name)
         if await proc.wait() != 0:
+            await c.close()
             return
         with open(f.name, mode="r") as f2:
             if isinstance(w[t], str):
@@ -292,6 +304,7 @@ async def edit(path):
         if res['type'] == 'ObjectChanged' and res['id'] == id:
             print("Save")
             break
+    await c.close()
 
 
 def rel_time(timestamp: float) -> str:
@@ -362,6 +375,7 @@ async def list_deployments(
         res = json.loads(await c.socket.recv())
         if res["type"] == response_type and res["ref"] == ref:
             break
+    await c.close()
     deployments = res["deployments"]
     if porcelain_version:
         if porcelain_version != "v1":
@@ -553,6 +567,7 @@ async def list_images(
                 **i,
             )
             print(message, flush=follow)
+    await c.close()
 
 
 class UIPortal:
@@ -909,6 +924,7 @@ async def ui():
         while True:
             id = await ui_select_object(loop, c, state)
             if not id:
+                await c.close()
                 return
             await ui_edit_object(loop, c, id, state['types'])
 
