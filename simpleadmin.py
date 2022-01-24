@@ -606,7 +606,7 @@ async def ui_login(loop, c):
 
             class Root(u.AttrMap):
                 def keypress(self, size, key):
-                    if super(Dialog, self).keypress(size, key) is None:
+                    if super().keypress(size, key) is None:
                         return None
                     if key == 'enter':
                         f.set_result(True)
@@ -615,7 +615,7 @@ async def ui_login(loop, c):
                         f.set_result(False)
                         return None
                     if key == 'tab':
-                        return super(Dialog, self).keypress(size, 'down')
+                        return super().keypress(size, 'down')
                     return key
 
             usr = u.Edit(multiline=False, caption="user: ", allow_tab=False, edit_text=user)
@@ -869,7 +869,7 @@ async def ui_edit_object(loop, c, id, types):
             elif 'password' in type:
                 pass
             else:
-                raise Error("Unknown store type")
+                raise Exception("Unknown store type")
             if 'outer' in type:
                 state[name] = value
             else:
