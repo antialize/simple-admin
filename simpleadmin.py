@@ -1019,22 +1019,22 @@ def main():
         config["server_port"] = 443
 
     if args.command == 'auth':
-        asyncio.get_event_loop().run_until_complete(main_auth(args.user))
+        asyncio.run(main_auth(args.user))
     elif args.command == 'deauth':
-        asyncio.get_event_loop().run_until_complete(deauth(args.full))
+        asyncio.run(deauth(args.full))
     elif args.command == 'dockerDeploy':
-        asyncio.get_event_loop().run_until_complete(deploy(args.server, args.image, args.container, args.config, args.restore_on_failure))
+        asyncio.run(deploy(args.server, args.image, args.container, args.config, args.restore_on_failure))
     elif args.command == 'edit':
-        asyncio.get_event_loop().run_until_complete(edit(args.path))
+        asyncio.run(edit(args.path))
     elif args.command == 'listDeployments':
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             list_deployments(
                 args.porcelain, args.format, args.host, args.container, args.image, args.history
             )
         )
     elif args.command == "listImages":
         try:
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.run(
                 list_images(
                     format=args.format,
                     porcelain_version=args.porcelain,
@@ -1047,7 +1047,7 @@ def main():
         except KeyboardInterrupt:
             pass
     else:
-        asyncio.get_event_loop().run_until_complete(ui())
+        asyncio.run(ui())
 
 if __name__ == '__main__':
     main()
