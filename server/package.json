@@ -28,7 +28,7 @@
     "mustache": "^4.2.0",
     "nodemon": "^2.0.12",
     "priorityqueuejs": "^2.0.0",
-    "shell-quote": "^1.7.2",
+    "shell-quote": "^1.7.3",
     "speakeasy": "^2.0.0",
     "sqlite3": "^5.0.3",
     "ts-node": "^10.2.1",
