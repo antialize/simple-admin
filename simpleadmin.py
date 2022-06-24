@@ -21,16 +21,23 @@ import websockets
 config: Dict[str, Any]
 
 class Connection:
+    socket: websockets.WebSocketClientProtocol
+
     def __init__(self):
-        self.socket = None
         self.cookieFile = os.path.expanduser("~/.cache/simple_admin_cookie")
         self.caFile = os.path.expanduser("~/.cache/simple_admin_key.ca")
         self.keyFile = os.path.expanduser("~/.cache/simple_admin_key.key")
         self.crtFile = os.path.expanduser("~/.cache/simple_admin_key.crt")
         self.pwd = False
         self.otp = False
-        
-    async def setup(self, requireAuth=True):
+
+    @staticmethod
+    async def open(requireAuth=True) -> "Connection":
+        c = Connection()
+        await c._setup(requireAuth=requireAuth)
+        return c
+
+    async def _setup(self, *, requireAuth):
         if config.get("server_insecure"):
             ssl_context = None
             protocol = "ws://"
@@ -64,6 +71,12 @@ class Connection:
         self.otp = res['otp']
         if requireAuth and not self.authenticated:
             raise Exception("Authentication required")
+
+    async def close(self):
+        if self.socket is None:
+            return
+        await self.socket.close()
+        self.socket = None
 
     @property
     def authenticated(self):
@@ -162,17 +175,16 @@ async def get_key(c):
 
 
 async def main_auth(user):
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     if c.user:
         user = c.user
     if c.authenticated:
         await get_key(c)
         print("Already authenticated as %s." % user)
-        return
-
-    await prompt_auth(c, user)
-    print("Successfully authenticated.")
+    else:
+        await prompt_auth(c, user)
+        print("Successfully authenticated.")
+    await c.close()
 
 
 def input_stderr_prompt(prompt):
@@ -208,33 +220,34 @@ async def prompt_auth(c, user):
 
 
 async def deauth(full):
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     if c.pwd and c.otp:
         await c.socket.send(json.dumps({'type': 'LogOut', 'forgetPwd': True, 'forgetOtp': full}))
         
     if full and os.path.exists(c.cookieFile):
         os.unlink(c.cookieFile)
+    await c.close()
+
 
 async def deploy(server, image, container=None, config=None, restore_on_failure=True):
-    c = Connection()
-    await c.setup(requireAuth=True)
+    c = await Connection.open(requireAuth=True)
     ref = random.randint(0, 2**48-1)
     print("%s> %s <%s"%( "="*(38 - len(server) // 2), server, "="*(37 - (len(server) + 1) // 2)))
     await c.socket.send(json.dumps({"type": "DockerDeployStart", "host": server, "image": image, "config": config, "restoreOnFailure": restore_on_failure, "ref": ref, "container": container}))
-    while True:
+    docker_deploy_end = None
+    while docker_deploy_end is None:
         res = json.loads(await c.socket.recv())
         if res['type'] == 'DockerDeployLog' and res['ref'] == ref:
             print(res['message'])
         if res['type'] == 'DockerDeployEnd' and res['ref'] == ref:
             print(res['message'])
-            if not res['status']:
-                sys.exit(1)
-            break
+            docker_deploy_end = res
+    await c.close()
+    if not docker_deploy_end['status']:
+        sys.exit(1)
 
 async def edit(path):
-    c = Connection()
-    await c.setup(requireAuth=True)
+    c = await Connection.open(requireAuth=True)
     ref = random.randint(0, 2**48-1)
     await c.socket.send(json.dumps({"type": "GetObjectId", "path": path, "ref": ref}))
 
@@ -247,6 +260,7 @@ async def edit(path):
 
     if not id:
         print("Object not found")
+        await c.close()
         return
 
     await c.socket.send(json.dumps({"type": "FetchObject", "id": id}))
@@ -275,6 +289,7 @@ async def edit(path):
         f.flush()
         proc = await asyncio.create_subprocess_exec(os.environ.get('EDITOR', 'editor'), f.name)
         if await proc.wait() != 0:
+            await c.close()
             return
         with open(f.name, mode="r") as f2:
             if isinstance(w[t], str):
@@ -289,6 +304,7 @@ async def edit(path):
         if res['type'] == 'ObjectChanged' and res['id'] == id:
             print("Save")
             break
+    await c.close()
 
 
 def rel_time(timestamp: float) -> str:
@@ -309,8 +325,7 @@ async def list_deployments(
     image: Optional[str],
     history: bool,
 ):
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     await prompt_auth(c, c.user)
     ref = random.randint(0, 2 ** 48 - 1)
 
@@ -360,6 +375,7 @@ async def list_deployments(
         res = json.loads(await c.socket.recv())
         if res["type"] == response_type and res["ref"] == ref:
             break
+    await c.close()
     deployments = res["deployments"]
     if porcelain_version:
         if porcelain_version != "v1":
@@ -502,8 +518,7 @@ async def list_images(
 ):
     if format is None:
         format = "{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}{pin_suffix}"
-    c = Connection()
-    await c.setup(requireAuth=False)
+    c = await Connection.open(requireAuth=False)
     await prompt_auth(c, c.user)
     assert c.socket is not None
     if hash:
@@ -552,6 +567,7 @@ async def list_images(
                 **i,
             )
             print(message, flush=follow)
+    await c.close()
 
 
 class UIPortal:
@@ -590,7 +606,7 @@ async def ui_login(loop, c):
 
             class Root(u.AttrMap):
                 def keypress(self, size, key):
-                    if super(Dialog, self).keypress(size, key) is None:
+                    if super().keypress(size, key) is None:
                         return None
                     if key == 'enter':
                         f.set_result(True)
@@ -599,7 +615,7 @@ async def ui_login(loop, c):
                         f.set_result(False)
                         return None
                     if key == 'tab':
-                        return super(Dialog, self).keypress(size, 'down')
+                        return super().keypress(size, 'down')
                     return key
 
             usr = u.Edit(multiline=False, caption="user: ", allow_tab=False, edit_text=user)
@@ -853,7 +869,7 @@ async def ui_edit_object(loop, c, id, types):
             elif 'password' in type:
                 pass
             else:
-                raise Error("Unknown store type")
+                raise Exception("Unknown store type")
             if 'outer' in type:
                 state[name] = value
             else:
@@ -880,8 +896,7 @@ async def ui():
     try:
         loop.start()
 
-        c = Connection()
-        await c.setup(requireAuth=False)
+        c = await Connection.open(requireAuth=False)
 
         if not c.pwd or not c.otp:
             await ui_login(loop, c)
@@ -909,6 +924,7 @@ async def ui():
         while True:
             id = await ui_select_object(loop, c, state)
             if not id:
+                await c.close()
                 return
             await ui_edit_object(loop, c, id, state['types'])
 
