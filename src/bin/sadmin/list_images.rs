@@ -22,7 +22,7 @@ pub struct ListImages {
     follow: bool,
 
     /// str.format style string using the keys: id,image,tag,hash,time,user,pin,labels,removed
-    #[clap(long)]
+    #[clap(long, short('e'))]
     format: Option<String>,
 
     /// Give the output in an easy-to-parse format for scripts
