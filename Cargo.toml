@@ -22,4 +22,5 @@ webpki = "0.22.0"
 webpki-roots = "0.22.5"
 simple_logger = {version = "2", default-features=false }
 tempfile = "3.3.0"
-clap = {version = "4.0.9",  default-features = false, features=['std', 'derive', 'help', 'suggestions']}
+clap = {version = "4.0.9", default-features = false, features=['std', 'derive', 'help', 'suggestions']}
+sdnotify = {version = "0.2.0", default-features = false}
