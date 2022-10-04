@@ -64,7 +64,7 @@ pub struct ListDeployments {
 #[derive(Serialize)]
 struct PorcelainV1<'a> {
     version: Porcelain,
-    host_names: HashMap<&'a str, u64>,
+    host_names: HashMap<u64, &'a str>,
     deployments: Vec<Deployment>,
 }
 
@@ -321,7 +321,6 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
         }
     }
     let mut host_names = HashMap::new();
-    let mut host_ids = HashMap::new();
     if let Some(host_type_id) = type_ids.get("Host") {
         for v in state
             .object_names_and_ids
@@ -330,8 +329,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
             .unwrap_or_default()
         {
             if let Some(n) = &v.name {
-                host_names.insert(n.as_str(), v.id);
-                host_ids.insert(v.id, n.as_str());
+                host_names.insert(v.id, n.as_str());
             }
         }
     }
@@ -388,10 +386,10 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     // # and DockerListDeploymentHistory doesn't support filtering by image,
     // # so do the filtering here. Also filter by host for good measure.
     if let Some(host) = &args.host {
-        host_ids.retain(|_, h| h == host);
+        host_names.retain(|_, h| h == host);
     }
     deployments.retain(|d| {
-        if !host_ids.contains_key(&d.host) {
+        if !host_names.contains_key(&d.host) {
             return false;
         }
         if let Some(image) = &args.image {
@@ -407,7 +405,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
         true
     });
     list_deployment_groups(
-        group_deployments(deployments, host_ids),
+        group_deployments(deployments, host_names),
         args.format,
         pinned_image_tags,
     )?;
