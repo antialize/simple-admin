@@ -29,6 +29,7 @@ use tokio_rustls::{
 };
 
 use crate::connection::Config;
+use sdnotify::SdNotify;
 
 #[derive(clap::Parser)]
 pub struct ClientDaemon {
@@ -589,6 +590,7 @@ impl Client {
     }
 
     async fn run(self: Arc<Self>) -> Result<()> {
+        let notifier = SdNotify::from_env().ok();
         loop {
             let server_host = self
                 .config
@@ -631,9 +633,21 @@ impl Client {
             *self.sender.lock().await = Some(write);
             self.new_send_notify.notify_one();
 
+            if let Some(notifier) = &notifier {
+                notifier.notify_ready()?;
+                notifier.set_status("Connected".to_string())?;
+            }
             info!("Connected to server");
             let mut buffer = BytesMut::with_capacity(40960);
+            let mut last_watchdog = std::time::Instant::now();
             loop {
+                if let Some(notifier) = &notifier {
+                    let now = std::time::Instant::now();
+                    if now.duration_since(last_watchdog).as_secs() > 30 {
+                        notifier.ping_watchdog()?;
+                        last_watchdog = now;
+                    }
+                }
                 let mut start = buffer.len();
                 let read = read.read_buf(&mut buffer);
                 let send_failure = self.send_failure_notify.notified();
@@ -681,6 +695,9 @@ impl Client {
                 }
             }
             self.sender.lock().await.take();
+            if let Some(notifier) = &notifier {
+                notifier.set_status("Disconnected".to_string())?;
+            }
         }
     }
 }
