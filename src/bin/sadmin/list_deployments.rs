@@ -334,13 +334,22 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
         }
     }
 
+    let host = if let Some(host) = &args.host {
+        let host_id = host_names.iter().find(|v| *v.1 == host);
+        match host_id {
+            Some(host_id) => Some(*host_id.0),
+            None => bail!("Unknown host {}", host),
+        }
+    } else {
+        None
+    };
     if args.history {
         let name = match &args.container {
             Some(v) => v.clone(),
             None => bail!("--history requires --container"),
         };
-        let host = match &args.host {
-            Some(v) => v.clone(),
+        let host = match host {
+            Some(v) => v,
             None => bail!("--history requires --host"),
         };
         c.send(&Message::DockerListDeploymentHistory {
@@ -352,7 +361,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     } else {
         c.send(&Message::DockerListDeployments {
             r#ref: msg_ref,
-            host: args.host.clone(),
+            host,
             image: args.image.clone(),
         })
         .await?;

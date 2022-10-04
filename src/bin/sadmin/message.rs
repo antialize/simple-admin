@@ -229,12 +229,12 @@ pub enum Message {
     SetInitialState(State),
     DockerListDeployments {
         r#ref: u64,
-        host: Option<String>,
+        host: Option<u64>,
         image: Option<String>,
     },
     DockerListDeploymentHistory {
         r#ref: u64,
-        host: String,
+        host: u64,
         name: String,
     },
     DockerListDeploymentsRes {
