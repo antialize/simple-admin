@@ -123,25 +123,27 @@ impl Connection {
     }
 
     pub async fn recv(&mut self) -> Result<Message> {
-        let msg = self
-            .stream
-            .next()
-            .await
-            .context("Expected package")??
-            .into_text()?;
-        let v: serde_json::Value = serde_json::from_str(&msg)?;
-        let msg = serde_json::to_string_pretty(&v)?;
+        loop {
+            let msg = self
+                .stream
+                .next()
+                .await
+                .context("Expected package")??
+                .into_text()?;
+            let v: serde_json::Value = serde_json::from_str(&msg)?;
+            let msg = serde_json::to_string_pretty(&v)?;
 
-        //let serde_json::from_value(v)
-        match serde_json::from_str(&msg) {
-            Ok(v) => Ok(v),
-            Err(e) => bail!(
-                "Invalid message: {:?} at {}:{}\n{}",
-                e,
-                e.line(),
-                e.column(),
-                msg
-            ),
+            //let serde_json::from_value(v)
+            match serde_json::from_str(&msg) {
+                Ok(v) => break Ok(v),
+                Err(e) => eprintln!(
+                    "Invalid message: {:?} at {}:{}\n{}",
+                    e,
+                    e.line(),
+                    e.column(),
+                    msg
+                ),
+            }
         }
     }
 
