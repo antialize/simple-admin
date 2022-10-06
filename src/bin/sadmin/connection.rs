@@ -226,7 +226,6 @@ impl Connection {
                     let mut lines = lines.join("\n");
                     lines.push('\n');
                     std::fs::write(&known_hosts, lines.as_bytes())?;
-                    println!("Write know hosts");
                 }
             }
             match res.ssh_crt {
