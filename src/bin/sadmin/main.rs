@@ -67,6 +67,7 @@ async fn auth(config: Config) -> Result<()> {
         println!("Already authenticated as {}.", &con.user.unwrap())
     } else {
         con.prompt_auth().await?;
+        con.get_key().await?;
         println!("Successfully authenticated.");
     }
     Ok(())

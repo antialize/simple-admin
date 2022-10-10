@@ -591,6 +591,7 @@ impl Client {
 
     async fn run(self: Arc<Self>) -> Result<()> {
         let notifier = SdNotify::from_env().ok();
+        let mut first = true;
         loop {
             let server_host = self
                 .config
@@ -610,6 +611,13 @@ impl Client {
                         "Unable to connect to server {}: {}, will retry",
                         server_host, e
                     );
+                    if let Some(notifier) = &notifier {
+                        if first {
+                            notifier.notify_ready()?;
+                            notifier.set_status("Disconnected".to_string())?;
+                            first = false;
+                        }
+                    }
                     tokio::time::sleep(Duration::from_millis(1234)).await;
                     continue;
                 }
@@ -634,7 +642,10 @@ impl Client {
             self.new_send_notify.notify_one();
 
             if let Some(notifier) = &notifier {
-                notifier.notify_ready()?;
+                if first {
+                    notifier.notify_ready()?;
+                    first = false;
+                }
                 notifier.set_status("Connected".to_string())?;
             }
             info!("Connected to server");
