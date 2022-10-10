@@ -255,4 +255,8 @@ pub enum Message {
         message: String,
         status: bool,
     },
+    DockerListImageTagsChanged {
+        removed: Vec<String>,
+        changed: Vec<ImageInfo>,
+    },
 }
