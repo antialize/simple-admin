@@ -132,8 +132,6 @@ impl Connection {
                 .into_text()?;
             let v: serde_json::Value = serde_json::from_str(&msg)?;
             let msg = serde_json::to_string_pretty(&v)?;
-
-            //let serde_json::from_value(v)
             match serde_json::from_str(&msg) {
                 Ok(v) => break Ok(v),
                 Err(e) => eprintln!(
