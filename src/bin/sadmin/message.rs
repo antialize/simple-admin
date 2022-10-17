@@ -259,4 +259,10 @@ pub enum Message {
         removed: Vec<String>,
         changed: Vec<ImageInfo>,
     },
+    HostDown {
+        id: u64,
+    },
+    HostUp {
+        id: u64,
+    },
 }
