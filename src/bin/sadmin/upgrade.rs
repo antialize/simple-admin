@@ -96,10 +96,10 @@ pub async fn upgrade(args: Upgrade) -> Result<()> {
             .progress_chars("#>-"),
     );
     pb.set_position(0);
-    let mut out = std::fs::File::create("/usr/local/bin/sadmin")?;
+    let mut out = std::fs::File::create("/usr/local/bin/.sadmin~")?;
     std::io::copy(&mut pb.wrap_read(file), &mut out)?;
     pb.finish();
-
+    std::fs::rename("/usr/local/bin/.sadmin~", "/usr/local/bin/sadmin")?;
     if args.restart_client_daemon {
         println!("Restarting client daemon");
         tokio::process::Command::new("/usr/bin/systemctl")
