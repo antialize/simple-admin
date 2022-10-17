@@ -257,7 +257,7 @@ fn list_deployment_groups(
             if key.removed.is_some() {
                 status_fmt.push_str("{half},{reset} {red}removed{reset} {removed}");
             }
-            let pin = key.image_info.pin.map(|v| *v != 0.0).unwrap_or_default();
+            let pin = key.image_info.pin;
             if pin {
                 status_fmt.push_str("{half}, hash pinned{reset}");
             }

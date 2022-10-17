@@ -40,6 +40,17 @@ pub struct GenerateKeyRes {
     pub ssh_crt: Option<String>,
 }
 
+fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::Null => false,
+        serde_json::Value::Bool(v) => v,
+        serde_json::Value::Number(v) => v.as_f64() != Some(0.0),
+        serde_json::Value::String(v) => !v.is_empty(),
+        serde_json::Value::Array(v) => !v.is_empty(),
+        serde_json::Value::Object(v) => !v.is_empty(),
+    })
+}
+
 #[derive(Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct ImageInfo {
     pub id: u64,
@@ -48,7 +59,8 @@ pub struct ImageInfo {
     pub tag: String,
     pub user: String,
     pub time: FiniteF64,
-    pub pin: Option<FiniteF64>,
+    #[serde(default, deserialize_with = "forgiving_bool")]
+    pub pin: bool,
     pub labels: BTreeMap<String, String>,
     pub removed: Option<FiniteF64>,
     #[serde(default)]
@@ -64,10 +76,7 @@ impl GetFmtArgDict for ImageInfo {
             "tag" => FormatArg::String(&self.tag),
             "user" => FormatArg::String(&self.user),
             "time" => FormatArg::Float(self.time),
-            "pin" => match self.pin {
-                Some(v) => FormatArg::Float(v),
-                None => FormatArg::None,
-            },
+            "pin" => FormatArg::Bool(self.pin),
             "removed" => match self.removed {
                 Some(v) => FormatArg::Float(v),
                 None => FormatArg::None,
@@ -221,9 +230,6 @@ pub enum Message {
     },
     DockerListImageTagsRes(DockerListImageTagsRes),
     DockerListImageByHashRes(DockerListImageByHashRes),
-    DockerListImageTagsChange {
-        changed: Vec<ImageInfo>,
-    },
     LogOut(LogOut),
     RequestInitialState {},
     SetInitialState(State),
@@ -258,5 +264,11 @@ pub enum Message {
     DockerListImageTagsChanged {
         removed: Vec<String>,
         changed: Vec<ImageInfo>,
+    },
+    HostDown {
+        id: u64,
+    },
+    HostUp {
+        id: u64,
     },
 }

@@ -57,21 +57,21 @@ pub async fn list_images(config: Config, args: ListImages) -> Result<()> {
     let mut got_list = false;
     let mut pinned_image_tags = HashSet::new();
     while args.follow || !got_list {
-        let mut images = match c.recv().await? {
+        let msg = c.recv().await?;
+        let (mut images, full) = match msg {
             Message::DockerListImageTagsRes(res) => {
-                got_list = true;
                 for pin in res.pinned_image_tags {
                     pinned_image_tags.insert((pin.image, pin.tag));
                 }
-                res.tags
+                (res.tags, true)
             }
-            Message::DockerListImageByHashRes(res) => {
-                got_list = true;
-                res.tags.into_values().collect()
-            }
-            Message::DockerListImageTagsChange { changed } if args.follow => changed,
+            Message::DockerListImageByHashRes(res) => (res.tags.into_values().collect(), true),
+            Message::DockerListImageTagsChanged { changed, .. } if args.follow => (changed, false),
             _ => continue,
         };
+        if full {
+            got_list = true;
+        }
         images.sort_unstable_by(|l, r| l.time.total_cmp(&r.time));
         for i in &mut images {
             let mut k: (String, String) = Default::default();
@@ -102,11 +102,12 @@ pub async fn list_images(config: Config, args: ListImages) -> Result<()> {
         if let Some(image) = &args.image {
             images.retain(|i| &i.image == image);
         }
-
-        if let Some(tail) = args.tail {
-            images.reverse();
-            images.truncate(tail);
-            images.reverse();
+        if full {
+            if let Some(tail) = args.tail {
+                images.reverse();
+                images.truncate(tail);
+                images.reverse();
+            }
         }
 
         let mut stdout = std::io::stdout();

@@ -9,6 +9,7 @@ use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
 use std::path::PathBuf;
+use upgrade::Upgrade;
 mod client_daemon;
 mod connection;
 mod docker_deploy;
@@ -17,6 +18,7 @@ mod finite_float;
 mod list_deployments;
 mod list_images;
 mod message;
+mod upgrade;
 
 #[derive(clap::Parser)]
 struct Args {
@@ -58,6 +60,7 @@ enum Action {
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
     ClientDaemon(ClientDaemon),
+    Upgrade(Upgrade),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -128,5 +131,6 @@ async fn main() -> Result<()> {
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
+        Action::Upgrade(args) => upgrade::upgrade(args).await,
     }
 }
