@@ -124,14 +124,27 @@ impl Connection {
 
     pub async fn recv(&mut self) -> Result<Message> {
         loop {
-            let msg = self
-                .stream
-                .next()
-                .await
-                .context("Expected package")??
-                .into_text()?;
-            let v: serde_json::Value = serde_json::from_str(&msg)?;
-            let msg = serde_json::to_string_pretty(&v)?;
+            let msg =
+                match tokio::time::timeout(std::time::Duration::from_secs(1), self.stream.next())
+                    .await
+                {
+                    Ok(msg) => msg,
+                    Err(_) => {
+                        self.stream.send(WSMessage::Ping(vec![42, 41])).await?;
+                        continue;
+                    }
+                };
+            let msg = match msg.context("Expected package")?? {
+                WSMessage::Text(msg) => msg,
+                WSMessage::Binary(msg) => String::from_utf8(msg)?,
+                WSMessage::Ping(v) => {
+                    self.stream.send(WSMessage::Pong(v)).await?;
+                    continue;
+                }
+                WSMessage::Pong(_) => continue,
+                WSMessage::Close(_) => continue,
+                WSMessage::Frame(_) => continue,
+            };
             match serde_json::from_str(&msg) {
                 Ok(v) => break Ok(v),
                 Err(e) => eprintln!(
