@@ -230,9 +230,6 @@ pub enum Message {
     },
     DockerListImageTagsRes(DockerListImageTagsRes),
     DockerListImageByHashRes(DockerListImageByHashRes),
-    DockerListImageTagsChange {
-        changed: Vec<ImageInfo>,
-    },
     LogOut(LogOut),
     RequestInitialState {},
     SetInitialState(State),
