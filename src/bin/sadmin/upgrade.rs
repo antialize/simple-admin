@@ -3,6 +3,7 @@ use bytes::{BufMut, BytesMut};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde::Deserialize;
+use std::os::unix::prelude::OpenOptionsExt;
 
 #[derive(clap::Parser)]
 pub struct Upgrade {
@@ -96,9 +97,16 @@ pub async fn upgrade(args: Upgrade) -> Result<()> {
             .progress_chars("#>-"),
     );
     pb.set_position(0);
-    let mut out = std::fs::File::create("/usr/local/bin/.sadmin~")?;
+    let mut out = std::fs::File::options()
+        .truncate(true)
+        .mode(0o755)
+        .create(true)
+        .write(true)
+        .open("/usr/local/bin/.sadmin~")?;
     std::io::copy(&mut pb.wrap_read(file), &mut out)?;
     pb.finish();
+    std::mem::drop(out);
+
     std::fs::rename("/usr/local/bin/.sadmin~", "/usr/local/bin/sadmin")?;
     if args.restart_client_daemon {
         println!("Restarting client daemon");
