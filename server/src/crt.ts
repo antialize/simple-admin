@@ -34,10 +34,10 @@ export function generate_ca_crt(key:string) : Promise<string> {
     return new Promise<string>((res, rej) => {
         const t1 = temp_name();
         fs.writeFileSync(t1,
-            "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nC=US\n", 
+            "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nC=US\n",
             {'mode': 0o600}
         )
-        const p = spawn("openssl", ["req", "-x509","-new","-nodes","-key","-","-sha256","-days","9999", "-out","-", 
+        const p = spawn("openssl", ["req", "-x509","-new","-nodes","-key","-","-sha256","-days","9999", "-out","-",
             "-config", t1], {stdio: ['pipe', 'pipe', 'inherit']});
         if (p.stdin === null) throw Error("should not be null");
         p.stdin.write(key, () => p.stdin && p.stdin.end())
@@ -61,10 +61,10 @@ export function generate_srs(key: string, cn:string) : Promise<string> {
             "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN="+cn+"\n",
             {'mode': 0o400}
         )
-        const p = spawn("openssl", ["req", "-new","-key","-", "-out","-", 
+        const t2 = temp_name();
+        fs.writeFileSync(t2, key, {'mode': 0o400})
+        const p = spawn("openssl", ["req", "-new","-key", t2, "-out", "-",
             "-config", t1], {stdio: ['pipe', 'pipe', 'inherit']})
-        if (p.stdin === null) throw Error("should not be null");
-        p.stdin.write(key, () => p.stdin && p.stdin.end())
         if (p.stdout === null) throw Error("should not be null");
         let srs="";
         p.stdout.on('data', (data) => srs += data);
@@ -82,12 +82,14 @@ export function generate_crt(ca_key: string, ca_crt: string, srs:string, subcert
     return new Promise<string>((res, rej) => {
         const t1 = temp_name();
         const t2 = temp_name();
+        const t4 = temp_name();
         fs.writeFileSync(t1, srs, {'mode': 0o400});
         fs.writeFileSync(t2, ca_crt, {'mode': 0o400});
+        fs.writeFileSync(t4, ca_key, {'mode': 0o400});
 
         let args = ["x509", "-req", "-days", ""+timeoutDays, "-in", t1,
             "-CA", t2,
-            "-CAkey", "-",
+            "-CAkey", t4,
             "-CAcreateserial",
             "-out", "-"];
         let t3: string | null = null;
@@ -102,9 +104,7 @@ export function generate_crt(ca_key: string, ca_crt: string, srs:string, subcert
             args.push(t3);
         }
         const p = spawn("openssl", args, {stdio: ['pipe', 'pipe', 'inherit']});
-        
-        if (p.stdin === null) throw Error("should not be null");
-        p.stdin.write(ca_key, () => p.stdin && p.stdin.end())
+
         if (p.stdout === null) throw Error("should not be null");
         let crt="";
         p.stdout.on('data', (data) => crt += data);
