@@ -100,6 +100,10 @@ interface DeploymentInfo {
     softTakeover: boolean | null;
     startMagic: string | null;
     usePodman: boolean | null;
+    stopTimeout: number;
+    userService: boolean;
+    deployUser: string | null;
+    serviceFile: string | null;
 }
 
 class Docker {
@@ -492,7 +496,7 @@ class Docker {
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null, usePodman: boolean)
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null, usePodman: boolean, stopTimeout: number | null, userService: boolean, deployUser: string | null, serviceFile: string | null)
         : Promise<void> {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
@@ -718,6 +722,10 @@ finally:
             let softTakeover = false;
             let startMagic: string | null = null;
             let deploymentTimeout = 120;
+            let stopTimeout = 10;
+            let deployUser: string | null = null;
+            let userService = false;
+            let serviceFile: string | null = null;
             let usePodman = false;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
@@ -772,6 +780,14 @@ finally:
                     softTakeover = !!content.softTakeover;
                 if (content.startMagic)
                     startMagic = content.startMagic;
+                if (content.stopTimeout)
+                    stopTimeout = content.stopTimeout;
+                if (content.user)
+                    deployUser = content.user;
+                if (content.userService)
+                    userService = !!content.userService;
+                if (content.serviceFile)
+                    serviceFile = content.serviceFile;
             } else if (!oldDeploy || !oldDeploy.config) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Config not supplied and no old deployment found to copy the config from"});
                 return;
@@ -804,11 +820,15 @@ finally:
                         softTakeover,
                         startMagic,
                         usePodman,
+                        stopTimeout,
+                        userService,
+                        deployUser,
+                        serviceFile,
                     });
-                      
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover, startMagic, usePodman);
+
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover, startMagic, usePodman, stopTimeout, userService, deployUser, serviceFile);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
-                    
+
                     const ddi = this.delayedDeploymentInformations.get(id);
                     if (ddi)
                         ddi.timeout = setTimeout(
@@ -841,8 +861,12 @@ finally:
                                 softTakeover: oldDeploy.softTakeover,
                                 startMagic: oldDeploy.startMagic,
                                 usePodman: oldDeploy.usePodman,
+                                stopTimeout: oldDeploy.stopTimeout,
+                                userService: oldDeploy.userService,
+                                deployUser: oldDeploy.deployUser,
+                                serviceFile: oldDeploy.serviceFile,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover, oldDeploy.startMagic, oldDeploy.usePodman);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover, oldDeploy.startMagic, oldDeploy.usePodman, oldDeploy.stopTimeout, oldDeploy.userService, oldDeploy.deployUser, oldDeploy.serviceFile);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -1073,7 +1097,10 @@ finally:
             const oldDeploy = await db.get("SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", o.host, o.image, o.container);
             if (oldDeploy && !oldDeploy.endTime)
                 await db.run("UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?", o.start, oldDeploy.id);
-            o.id = await db.insert("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`, `usePodman`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.setup, o.hash, o.user, o.usePodman);
+            o.id = await db.insert("INSERT INTO `docker_deployments` ("+
+                "`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `stopTimeout`, `usePodman`, `userService`, `deployUser`, `serviceFile`) "+
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                o.image, o.container, o.host, o.start, o.config, o.setup, o.hash, o.user, o.postSetup, o.timeout, o.softTakeover, o.startMagic, o.stopTimeout, o.usePodman, o.userService, o.deployUser, o.serviceFile);
         }
         await this.broadcastDeploymentChange(o);
     }
@@ -1127,12 +1154,16 @@ finally:
                     start: row.start,
                     end: now,
                     deploymentTimeout: row.timeout,
-                    softTakeover: row.softTakeover,
+                    softTakeover: !!row.softTakeover,
                     startMagic: row.startMagic,
                     usePodman: !!row.usePodman,
+                    stopTimeout: row.stopTimeout,
+                    userService: !!row.userService,
+                    deployUser: row.deployUser,
+                    serviceFile: row.serviceFile,
                 });
             }
-        
+
             for (const u of obj.update) {
                 containers.set(u.id, u);
                 const image = images.get(u.image);
@@ -1162,7 +1193,7 @@ finally:
                         break
                     }
                 }
-        
+
                 if (deploymentInfo) {
                     if(deploymentInfo.timeout)
                     clearTimeout(deploymentInfo.timeout);
@@ -1192,6 +1223,10 @@ finally:
                         softTakeover: keep ? row.softTakeover : false,
                         startMagic: keep ? row.startMagic : null,
                         usePodman: keep ? !!row.usePodman : false,
+                        stopTimeout: row.stopTimeout,
+                        userService: keep ? !!row.userService : false,
+                        deployUser: keep ? row.deployUser : null,
+                        serviceFile: keep ? row.serviceFile : null,
                     };
                 }
                 if (!keep)
