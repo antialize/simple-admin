@@ -437,6 +437,7 @@ export interface DockerDeployment {
     state?: string;
     config: string;
     timeout: number;
+    usePodman: boolean;
 }
 
 export interface IDockerListDeploymentsRes {

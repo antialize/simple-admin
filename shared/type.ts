@@ -116,6 +116,7 @@ export interface IDepends {
 export interface Host extends IVariables, IContains {
     messageOnDown?: boolean;
     debPackages?: boolean;
+    usePodman?: boolean;
 }
 
 export const typeId = 1;

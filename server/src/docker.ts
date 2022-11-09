@@ -7,7 +7,7 @@ import { Stream } from 'stream';
 import { db, hostClients, webClients } from './instances';
 import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes } from '../../shared/actions';
 import { WebClient } from './webclient';
-import { rootId, hostId, rootInstanceId, IVariables } from '../../shared/type';
+import { rootId, hostId, rootInstanceId, IVariables, Host } from '../../shared/type';
 import * as Mustache from 'mustache'
 import { Job } from './job';
 import { HostClient } from './hostclient';
@@ -99,6 +99,7 @@ interface DeploymentInfo {
     deploymentTimeout: number;
     softTakeover: boolean | null;
     startMagic: string | null;
+    usePodman: boolean | null;
 }
 
 class Docker {
@@ -183,7 +184,7 @@ class Docker {
             const p = req.url.split("?")[0].split("/");
             // GET /docker/images/image
             if (p.length == 4 && p[0] == "" && p[1] == "docker" && p[2] == "images") {
-                let images = [];
+                let images: DockerImageTag[] = [];
                 const q = "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`";
                 for (const row of await db.all(q, p[3])) {
                     images.push(
@@ -486,12 +487,12 @@ class Docker {
         if (user === null || user === "docker_client") return;
         // DELETE /v2/<name>/manifests/<reference> Manifest	Delete the manifest identified by name and reference. Note that a manifest can only be deleted by digest.
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
-        // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest   
+        // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
         log('info', "Docker unhandled delete", req.url);
         res.status(404).end();
     }
 
-    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null)
+    deployWithConfig(client: WebClient, host:HostClient, container:string, image:string, ref: Ref, hash:string, conf:string, session:string, setup: string | null, postSetup: string | null, timeout: number, softTakeover: boolean, startMagic: string | null, usePodman: boolean)
         : Promise<void> {
         return new Promise((accept, reject) => {
             const pyStr = (v:string | null) => {
@@ -499,19 +500,21 @@ class Docker {
                     return "None";
                 return JSON.stringify(v);
             };
-        
+
             const dockerConf: any = {auths: {}};
             dockerConf.auths[config.hostname] = {
                 'auth': Buffer.from("docker_client:"+session).toString('base64')
             };
 
-            const envs = [];
+            const envs: string[] = [];
             client.sendMessage({type: ACTION.DockerDeployLog, ref, message: "Deploying image "+hash});
             conf = "-e DOCKER_HASH=\""+hash+"\"\n" + conf;
             const args = shellQuote.parse(conf.split("\n").join(" ")).map(i => ""+i);
             if (!args.includes("IMAGE")) args.push("IMAGE");
             const deployImage = config.hostname + "/" + image + "@" + hash;
-            const o = [pyStr('docker'), pyStr('--config'), 't', pyStr('run'), pyStr('-d'), pyStr('--name'), pyStr(container)];
+
+            let theDocker = usePodman ? "podman" : "docker";
+            const o = [pyStr(theDocker), pyStr('--config'), 't', pyStr('run'), pyStr('-d'), pyStr('--name'), pyStr(container)];
             for (let i=0; i < args.length; ++i) {
                 if (args[i] == "IMAGE") {
                     o.push(pyStr(deployImage));
@@ -570,26 +573,26 @@ t = tempfile.mkdtemp()
 try:
     with open(t+'/config.json', 'w') as f:
         f.write(${pyStr(JSON.stringify(dockerConf))})
-    print('$ docker pull %s' % (${pyStr(deployImage)},))
+    print('$ ${theDocker} pull %s' % (${pyStr(deployImage)},))
     sys.stdout.flush()
-    run('docker', '--config', t, 'pull', ${pyStr(deployImage)})
+    run(${pyStr(theDocker)}, '--config', t, 'pull', ${pyStr(deployImage)})
     if softTakeover:
         print(f'$ docker update {container} --restart no')
         sys.stdout.flush()
-        subprocess.call(['docker', '--config', t, 'update', container, '--restart', 'no'])
+        subprocess.call([${pyStr(theDocker)}, '--config', t, 'update', container, '--restart', 'no'])
 
         old_container = f"{container}_softclose_{datetime.datetime.now().isoformat().replace(':', '_')}"
 
-        print(f"$ docker rename {container} {old_container}")
+        print(f"$ ${theDocker} rename {container} {old_container}")
         sys.stdout.flush()
-        subprocess.call(['docker', '--config', t, 'rename', container, old_container])
+        subprocess.call([${pyStr(theDocker)}, '--config', t, 'rename', container, old_container])
     else:
-        print('$ docker stop %s'%(container))
+        print('$ ${theDocker} stop %s'%(container))
         sys.stdout.flush()
-        subprocess.call(['docker', '--config', t, 'stop', container])
-        print('$ docker rm %s'%(container))
+        subprocess.call([${pyStr(theDocker)}, '--config', t, 'stop', container])
+        print('$ ${theDocker} rm %s'%(container))
         sys.stdout.flush()
-        subprocess.call(['docker', '--config', t, 'rm', container])
+        subprocess.call([${pyStr(theDocker)}, '--config', t, 'rm', container])
 ${envs.join("\n")}
     runArgs = [${o.join(", ")}]
     runArgs2 = []
@@ -621,18 +624,18 @@ ${envs.join("\n")}
 finally:
     shutil.rmtree(t, True)
 `
-           
-            class DockerJob extends Job {  
+
+            class DockerJob extends Job {
                 stdoutPart: string = "";
                 stderrPart: string = "";
 
                 constructor() {
                     super(host, null, host);
                     let msg: message.RunScript = {
-                        'type': 'run_script', 
-                        'id': this.id, 
-                        'name': "docke_deploy.py", 
-                        'interperter': '/usr/bin/python3', 
+                        'type': 'run_script',
+                        'id': this.id,
+                        'name': "docker_deploy.py",
+                        'interperter': '/usr/bin/python3',
                         'content': script,
                         'args': [],
                         'stdin_type': 'none',
@@ -647,13 +650,13 @@ finally:
                     super.handleMessage(obj);
                     switch(obj.type) {
                     case 'data':
-                        if (obj.source == 'stdout' || obj.source == 'stderr') 
+                        if (obj.source == 'stdout' || obj.source == 'stderr')
                             client.sendMessage({type: ACTION.DockerDeployLog, ref, message: Buffer.from(obj.data, 'base64').toString('binary')});
                         break;
                     case 'success':
                         if (obj.code == 0) accept();
                         else reject();
-                        break;    
+                        break;
                     case 'failure':
                         reject();
                         break;
@@ -674,7 +677,7 @@ finally:
                 hash = row.hash;
             }
             return {image, hash};
-        } 
+        }
         const p = id.split(":");
         const image = p[0];
         const reference = p[1] || "latest";
@@ -708,13 +711,14 @@ finally:
             }
 
             const container = act.container || image;
-            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover`, `startMagic` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
+            const oldDeploy = await db.get("SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `usePodman` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, image, container);
             let conf: string | null = null;
             let setup: string | null = null;
             let postSetup: string | null = null;
             let softTakeover = false;
             let startMagic: string | null = null;
             let deploymentTimeout = 120;
+            let usePodman = false;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
                 const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
@@ -727,10 +731,12 @@ finally:
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find root or host"});
                     return;
                 }
+                let hostInfo = JSON.parse(hostRow.content) as Host;
+                usePodman = !!hostInfo.usePodman;
                 let variables: {[key:string]: string} = {};
                 for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                     variables[v.key] = v.value;
-                for (const v of (JSON.parse(hostRow.content) as IVariables).variables)
+                for (const v of hostInfo.variables)
                     variables[v.key] = v.value;
 
                 const content = JSON.parse(configRow.content);
@@ -796,10 +802,11 @@ finally:
                         id: null,
                         deploymentTimeout,
                         softTakeover,
-                        startMagic
+                        startMagic,
+                        usePodman,
                     });
                       
-                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover, startMagic);
+                    await this.deployWithConfig(client, host, container, image, act.ref, hash, conf, session, setup, postSetup, deploymentTimeout, softTakeover, startMagic, usePodman);
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success"});
                     
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -811,7 +818,7 @@ finally:
                 } catch (e) {
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed"});
                     log('error', "Deployment failed", e)
-                    
+
                     if (act.restoreOnFailure && oldDeploy) {
                         client.sendMessage({type: ACTION.DockerDeployLog, ref: act.ref, message: "Deployment failed attempting to redeploy old"});
                         try {
@@ -833,8 +840,9 @@ finally:
                                 deploymentTimeout: oldDeploy.timeout,
                                 softTakeover: oldDeploy.softTakeover,
                                 startMagic: oldDeploy.startMagic,
+                                usePodman: oldDeploy.usePodman,
                             });
-                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover, oldDeploy.startMagic);
+                            await this.deployWithConfig(client, host, container, image, act.ref, oldDeploy.hash, oldDeploy.config, session, oldDeploy.setup, oldDeploy.postSetup, oldDeploy.timeout, oldDeploy.softTakeover, oldDeploy.startMagic, oldDeploy.usePodman);
                             const ddi = this.delayedDeploymentInformations.get(id);
                             if (ddi)
                                 ddi.timeout = setTimeout(
@@ -854,7 +862,7 @@ finally:
      }
 
     async getTagsByHash(hashes: string[]) {
-        const placeholders = [];
+        const placeholders: string[] = [];
         for (const _ of hashes) placeholders.push("?");
         const tagByHash: {[hash: string]: DockerImageTag} = {};
         for (const row of await db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `hash` IN (" + placeholders.join(",") + ")", ...hashes)) {
@@ -885,7 +893,7 @@ finally:
     async listDeployments(client: WebClient, act: IDockerListDeployments) {
         const res: IDockerListDeploymentsRes = {type: ACTION.DockerListDeploymentsRes, ref: act.ref, deployments: []};
         try {
-            const hashes = [];
+            const hashes: string[] = [];
             for (const row of await db.all("SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)")) {
                 if (act.host && row.host != act.host) continue;
                 if (act.image && row.project != act.image) continue;
@@ -902,6 +910,7 @@ finally:
                     state: this.getContainerState(row.host, row.container),
                     config: row.config,
                     timeout: row.timeout,
+                    usePodman: !!row.usePodman,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -947,7 +956,7 @@ finally:
     async listDeploymentHistory(client: WebClient, act: IDockerListDeploymentHistory) {
         const res: IDockerListDeploymentHistoryRes = {type: ACTION.DockerListDeploymentHistoryRes, host: act.host, name: act.name, ref: act.ref, deployments: []};
         try {
-            const hashes = [];
+            const hashes: string[] = [];
             for (const row of await db.all("SELECT * FROM `docker_deployments` WHERE `host`=? AND `container` = ?", act.host, act.name)) {
                 hashes.push(row.hash);
                 res.deployments.push({
@@ -962,6 +971,7 @@ finally:
                     state: row.endTime ? undefined : this.getContainerState(row.host, row.container),
                     config: row.config,
                     timeout: row.timeout,
+                    usePodman: !!row.usePodman,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -1045,6 +1055,7 @@ finally:
                     state: this.getContainerState(o.host, o.container),
                     config: o.config,
                     timeout: o.deploymentTimeout,
+                    usePodman: !!o.usePodman,
                 }
             ],
             removed: []
@@ -1062,7 +1073,7 @@ finally:
             const oldDeploy = await db.get("SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", o.host, o.image, o.container);
             if (oldDeploy && !oldDeploy.endTime)
                 await db.run("UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?", o.start, oldDeploy.id);
-            o.id = await db.insert("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.setup, o.hash, o.user);
+            o.id = await db.insert("INSERT INTO `docker_deployments` (`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`, `usePodman`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", o.image, o.container, o.host, o.start, o.config, o.setup, o.hash, o.user, o.usePodman);
         }
         await this.broadcastDeploymentChange(o);
     }
@@ -1118,6 +1129,7 @@ finally:
                     deploymentTimeout: row.timeout,
                     softTakeover: row.softTakeover,
                     startMagic: row.startMagic,
+                    usePodman: !!row.usePodman,
                 });
             }
         
@@ -1179,6 +1191,7 @@ finally:
                         deploymentTimeout: row.timeout,
                         softTakeover: keep ? row.softTakeover : false,
                         startMagic: keep ? row.startMagic : null,
+                        usePodman: keep ? !!row.usePodman : false,
                     };
                 }
                 if (!keep)
