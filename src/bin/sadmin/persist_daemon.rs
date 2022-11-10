@@ -441,7 +441,7 @@ impl State {
         nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o022));
         info!("Listining on {:?}", path);
 
-        if let Some(notifier) = sdnotify::SdNotify::from_env().ok() {
+        if let Ok(notifier) = sdnotify::SdNotify::from_env() {
             notifier.notify_ready()?;
         }
 
