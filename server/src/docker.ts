@@ -517,8 +517,14 @@ class Docker {
             if (!args.includes("IMAGE")) args.push("IMAGE");
             const deployImage = config.hostname + "/" + image + "@" + hash;
 
-            let theDocker = usePodman ? "podman" : "docker";
-            const o = [pyStr(theDocker), pyStr('--config'), 't', pyStr('run'), pyStr('-d'), pyStr('--name'), pyStr(container)];
+            const theDocker = usePodman ? "podman" : "docker";
+            let o: string[] = [];
+            if (usePodman) {
+                o.push(pyStr("podman"), pyStr("create"), pyStr("--authfile"), 'cf');
+            } else {
+                o.push(pyStr("docker"), pyStr("--config"), 't', pyStr("run"), pyStr('-d'));
+            }
+            o.push(pyStr('--name'), pyStr(container));
             for (let i=0; i < args.length; ++i) {
                 if (args[i] == "IMAGE") {
                     o.push(pyStr(deployImage));
@@ -542,6 +548,7 @@ container = ${pyStr(container)}
 setup = ${pyStr(setup)}
 postSetup = ${pyStr(postSetup)}
 softTakeover = ${softTakeover?"True":"False"}
+usePodman = ${usePodman?"True":"False"}
 startMagic = ${startMagic?pyStr(startMagic):pyStr("started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N")}.encode("utf-8")
 async def passthrough(i, o):
     global started_ok
@@ -575,28 +582,36 @@ if setup:
 
 t = tempfile.mkdtemp()
 try:
-    with open(t+'/config.json', 'w') as f:
+    cf = t+'/config.json'
+    with open(cf, 'w') as f:
         f.write(${pyStr(JSON.stringify(dockerConf))})
     print('$ ${theDocker} pull %s' % (${pyStr(deployImage)},))
     sys.stdout.flush()
-    run(${pyStr(theDocker)}, '--config', t, 'pull', ${pyStr(deployImage)})
+    if usePodman:
+        run('podman', 'pull', '--authfile', cf , ${pyStr(deployImage)})
+    else:
+        run('docker', '--config', t, 'pull', ${pyStr(deployImage)})
     if softTakeover:
         print(f'$ docker update {container} --restart no')
         sys.stdout.flush()
-        subprocess.call([${pyStr(theDocker)}, '--config', t, 'update', container, '--restart', 'no'])
+        subprocess.call(['docker', '--config', t, 'update', container, '--restart', 'no'])
 
         old_container = f"{container}_softclose_{datetime.datetime.now().isoformat().replace(':', '_')}"
 
-        print(f"$ ${theDocker} rename {container} {old_container}")
+        print(f"$ docker rename {container} {old_container}")
         sys.stdout.flush()
-        subprocess.call([${pyStr(theDocker)}, '--config', t, 'rename', container, old_container])
+        subprocess.call(['docker', 'config', t, 'rename', container, old_container])
+    elif usePodman:
+        run("systemctl", "stop", container)
+        subprocess.call(["podman", "rm", "--force", container])
     else:
         print('$ ${theDocker} stop %s'%(container))
         sys.stdout.flush()
-        subprocess.call([${pyStr(theDocker)}, '--config', t, 'stop', container])
+        subprocess.call([${pyStr(theDocker)}, 'stop', container])
         print('$ ${theDocker} rm %s'%(container))
         sys.stdout.flush()
-        subprocess.call([${pyStr(theDocker)}, '--config', t, 'rm', container])
+        subprocess.call([${pyStr(theDocker)}, 'rm', container])
+
 ${envs.join("\n")}
     runArgs = [${o.join(", ")}]
     runArgs2 = []
@@ -612,17 +627,18 @@ ${envs.join("\n")}
         else:
             runArgs2.append(arg)
     run(*runArgs2)
-
     if softTakeover:
         print(f'$ docker kill {old_container} -s USR2')
         sys.stdout.flush()
         subprocess.call(['docker', '--config', t, 'kill', old_container, '-s', 'USR2'])
-
     if postSetup:
         print("$ %s" % postSetup)
         subprocess.check_call(postSetup, shell=True)
-
-    asyncio.get_event_loop().run_until_complete(read_log())
+    if usePodman:
+        run("systemctl", "start", container)
+        started_ok = True
+    else:
+        asyncio.get_event_loop().run_until_complete(read_log())
     if not started_ok:
         raise SystemExit("Service did not start successfully")
 finally:
