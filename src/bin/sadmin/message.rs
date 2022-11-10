@@ -205,6 +205,15 @@ pub struct DockerDeployStart {
 }
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceDeployStart {
+    pub r#ref: u64,
+    pub host: String,
+    pub image: Option<String>,
+    pub description: String,
+}
+
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum Message {
     RequestAuthStatus {
@@ -252,6 +261,7 @@ pub enum Message {
         deployments: Vec<Deployment>,
     },
     DockerDeployStart(DockerDeployStart),
+    ServiceDeployStart(ServiceDeployStart),
     DockerDeployLog {
         r#ref: u64,
         message: String,

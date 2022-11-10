@@ -8,6 +8,7 @@ use list_images::ListImages;
 use message::{LogOut, Message};
 use persist_daemon::PersistDaemon;
 use service_control::Service;
+use service_deploy::ServiceDeploy;
 use std::path::PathBuf;
 use upgrade::Upgrade;
 mod client_daemon;
@@ -20,6 +21,7 @@ mod list_images;
 mod message;
 mod persist_daemon;
 mod service_control;
+mod service_deploy;
 mod service_description;
 mod tokio_passfd;
 mod upgrade;
@@ -63,6 +65,7 @@ enum Action {
     /// Deploy image on server
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
+    ServiceDeploy(ServiceDeploy),
     ClientDaemon(ClientDaemon),
     Upgrade(Upgrade),
     PersistDaemon(PersistDaemon),
@@ -136,6 +139,7 @@ async fn main() -> Result<()> {
         Action::Deauth(args) => deauth(config, args).await,
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
+        Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
