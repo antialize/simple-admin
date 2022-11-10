@@ -24,6 +24,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_rustls::{
+    client::TlsStream,
     rustls::{self, OwnedTrustAnchor},
     TlsConnector,
 };
@@ -589,28 +590,32 @@ impl Client {
         }
     }
 
+    async fn connect(self: &Arc<Self>) -> Result<TlsStream<TcpStream>> {
+        let server_host = self
+            .config
+            .server_host
+            .as_ref()
+            .context("Expected hostname")?
+            .clone();
+
+        let addr = (server_host.as_str(), 8888u16)
+            .to_socket_addrs()?
+            .next()
+            .context("Unable to resolve host")?;
+
+        let stream = TcpStream::connect(&addr).await?;
+        let domain = rustls::ServerName::try_from(server_host.as_str())?;
+        Ok(self.connector.connect(domain, stream).await?)
+    }
+
     async fn run(self: Arc<Self>) -> Result<()> {
         let notifier = SdNotify::from_env().ok();
         let mut first = true;
         loop {
-            let server_host = self
-                .config
-                .server_host
-                .as_ref()
-                .context("Expected hostname")?
-                .clone();
-            let addr = (server_host.as_str(), 8888u16)
-                .to_socket_addrs()?
-                .next()
-                .context("Unable to resolve host")?;
-
-            let stream = match TcpStream::connect(&addr).await {
-                Ok(v) => v,
+            let stream = match self.connect().await {
+                Ok(stream) => stream,
                 Err(e) => {
-                    error!(
-                        "Unable to connect to server {}: {}, will retry",
-                        server_host, e
-                    );
+                    error!("Unable to connect to server: {}, will retry", e);
                     if let Some(notifier) = &notifier {
                         if first {
                             notifier.notify_ready()?;
@@ -623,9 +628,7 @@ impl Client {
                 }
             };
 
-            let domain = rustls::ServerName::try_from(server_host.as_str())?;
-            let (mut read, mut write) =
-                tokio::io::split(self.connector.connect(domain, stream).await?);
+            let (mut read, mut write) = tokio::io::split(stream);
 
             let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
                 hostname: self.config.hostname.as_ref().unwrap().clone(),
