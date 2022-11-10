@@ -191,7 +191,11 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                let history = [];
+                let history: {
+                    version: number,
+                    time: number,
+                    author: string | null
+                }[] = [];
                 for(const row of await db.all("SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?", act.id)) {
                     history.push({"version": row.version, "time": row.time, "author": row.author});
                 }
@@ -268,7 +272,14 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                let objects = [];
+                let objects: {
+                    type: number,
+                    id: number,
+                    version: number,
+                    name: string,
+                    comment: string;
+                    content: string;
+                }[] = [];
                 for (const row of await db.all("SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1", act.pattern, act.pattern, act.pattern)) {
                     objects.push({
                         "id": row.id,
@@ -528,7 +539,7 @@ async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjectsFull();
     const msgs = msg.getResent();
 
-    let hostsUp = [];
+    let hostsUp: number[] = [];
     for (const id in hostClients.hostClients)
          hostsUp.push(+id);
 
