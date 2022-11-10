@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use anyhow::{bail, Result};
 use clap::Parser;
 use client_daemon::ClientDaemon;
@@ -8,6 +6,7 @@ use docker_deploy::DockerDeploy;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
+use persist_daemon::PersistDaemon;
 use std::path::PathBuf;
 use upgrade::Upgrade;
 mod client_daemon;
@@ -18,6 +17,8 @@ mod finite_float;
 mod list_deployments;
 mod list_images;
 mod message;
+mod persist_daemon;
+mod tokio_passfd;
 mod upgrade;
 
 #[derive(clap::Parser)]
@@ -61,6 +62,7 @@ enum Action {
     DockerDeploy(DockerDeploy),
     ClientDaemon(ClientDaemon),
     Upgrade(Upgrade),
+    PersistDaemon(PersistDaemon),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -132,5 +134,6 @@ async fn main() -> Result<()> {
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
+        Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
     }
 }
