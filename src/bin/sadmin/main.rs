@@ -12,6 +12,7 @@ use service_deploy::ServiceDeploy;
 use std::path::PathBuf;
 use upgrade::Upgrade;
 mod client_daemon;
+mod client_daemon_service;
 mod connection;
 mod docker_deploy;
 mod dyn_format;

@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use crate::{
     connection::{Config, Connection},
     message::{Message, ServiceDeployStart},
-    service_description::ServiceDescription,
 };
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use rand::Rng;
 
 #[derive(clap::Parser)]
@@ -26,8 +25,17 @@ pub async fn deploy(config: Config, args: ServiceDeploy) -> Result<()> {
     println!("{:=^42}", format!("> {} <", args.server));
 
     let description = std::fs::read_to_string(&args.description)?;
-    let description: ServiceDescription = serde_yaml::from_str(&description)?;
-    let description = serde_json::to_string_pretty(&description)?;
+    let mut parts = Vec::new();
+    for part in description.split("{{{") {
+        if let Some((key, rem)) = part.split_once("}}}") {
+            parts.push("key_");
+            parts.push(key);
+            parts.push(rem);
+        } else {
+            parts.push(part);
+        }
+    }
+    let _: serde_yaml::Value = serde_yaml::from_str(&parts.concat()).context("Invalid yaml")?;
 
     c.send(&Message::ServiceDeployStart(ServiceDeployStart {
         host: args.server,
@@ -39,7 +47,7 @@ pub async fn deploy(config: Config, args: ServiceDeploy) -> Result<()> {
     loop {
         match c.recv().await? {
             Message::DockerDeployLog { r#ref, message } if r#ref == msg_ref => {
-                println!("{}", message);
+                print!("{}", message);
             }
             Message::DockerDeployEnd {
                 r#ref,

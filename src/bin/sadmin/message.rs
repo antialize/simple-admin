@@ -210,6 +210,7 @@ pub struct ServiceDeployStart {
     pub r#ref: u64,
     pub host: String,
     pub image: Option<String>,
+    /// Description in yaml template form
     pub description: String,
 }
 
@@ -280,5 +281,16 @@ pub enum Message {
     },
     HostUp {
         id: u64,
+    },
+    Alert {
+        message: String,
+        title: String,
+    },
+    ModifiedFilesChanged {
+        //lastScanTime: Option<f64>,
+        scanning: bool,
+        full: bool,
+        // changed: ModifiedFile[];
+        // removed: number[];
     },
 }

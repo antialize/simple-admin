@@ -54,6 +54,7 @@ pub enum Action {
     Status(Status),
     Remove(Remove),
     Deploy(Deploy),
+    Shutdown,
 }
 
 #[derive(clap::Parser)]
@@ -74,6 +75,7 @@ pub enum DaemonControlMessage {
     Stdout { data: String }, // Base 64 encoded bytes
     Stderr { data: String }, // Base 64 encoded bytes
     Finished { code: i32 },
+    Shutdown,
 }
 
 #[allow(clippy::read_zero_byte_vec)]
@@ -84,6 +86,7 @@ pub async fn run(args: Service) -> Result<()> {
         Action::Restart(v) => DaemonControlMessage::Restart(v),
         Action::Status(v) => DaemonControlMessage::Status(v),
         Action::Remove(v) => DaemonControlMessage::Remove(v),
+        Action::Shutdown => DaemonControlMessage::Shutdown,
         Action::Deploy(v) => {
             let config = std::fs::read_to_string(v.config).context("Unable to read config file")?;
             let config: ServiceDescription =
@@ -97,7 +100,7 @@ pub async fn run(args: Service) -> Result<()> {
     let msg = serde_json::to_vec(&msg)?;
     let mut socket = tokio::net::UnixStream::connect(CONTROL_SOCKET_PATH)
         .await
-        .context("Connecting to client daemon")?;
+        .with_context(|| format!("Connecting to client daemon at {}", CONTROL_SOCKET_PATH))?;
     socket.write_u32(msg.len().try_into()?).await?;
     socket.write_all(&msg).await?;
     let mut buf = Vec::new();
