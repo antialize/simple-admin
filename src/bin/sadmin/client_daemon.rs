@@ -32,6 +32,8 @@ use tokio_rustls::{
 use crate::connection::Config;
 use sdnotify::SdNotify;
 
+pub const CONTROL_SOCKET_PATH: &str = "run/simpleadmin/control.socket";
+
 #[derive(clap::Parser)]
 pub struct ClientDaemon {
     /// Time to reconnectw

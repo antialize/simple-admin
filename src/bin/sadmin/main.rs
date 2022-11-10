@@ -7,6 +7,7 @@ use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
 use persist_daemon::PersistDaemon;
+use service_control::Service;
 use std::path::PathBuf;
 use upgrade::Upgrade;
 mod client_daemon;
@@ -18,6 +19,8 @@ mod list_deployments;
 mod list_images;
 mod message;
 mod persist_daemon;
+mod service_control;
+mod service_description;
 mod tokio_passfd;
 mod upgrade;
 
@@ -63,6 +66,7 @@ enum Action {
     ClientDaemon(ClientDaemon),
     Upgrade(Upgrade),
     PersistDaemon(PersistDaemon),
+    Service(Service),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -135,5 +139,6 @@ async fn main() -> Result<()> {
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
+        Action::Service(args) => service_control::run(args).await,
     }
 }
