@@ -342,7 +342,8 @@ class Docker {
             //res.setHeader("Range", "0-"+u.count.value);
             res.setHeader("Content-Length", "0");
             res.setHeader("Docker-Content-Digest", digest as string);
-            res.status(204);
+            res.statusCode = 201;
+            res.statusMessage = "Created";
             res.end();
             return;
         }
@@ -451,7 +452,7 @@ class Docker {
             res.setHeader("Range", "0-" + u.count.value);
             res.setHeader("Content-Length", "0");
             res.setHeader("Docker-Upload-UUID", un);
-            res.status(204);
+            res.status(202);
             res.end();
             return;
         }
@@ -475,7 +476,8 @@ class Docker {
             res.setHeader("Location", "/v2/" + p[2] + "/blobs/uploads/" + u);
             res.setHeader("Range", "0-0");
             res.setHeader("Docker-Upload-UUID", u);
-            res.status(202);
+            res.statusCode = 202;
+            res.statusMessage = "Accepted";
             res.end();
             log('info', "Docker post", u);
             return;
