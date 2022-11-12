@@ -79,6 +79,7 @@ export class DB {
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `deployUser` TEXT");
         await i("ALTER TABLE `docker_deployments` ADD COLUMN `serviceFile` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `description` TEXT");
 
         await r("CREATE TABLE IF NOT EXISTS `docker_image_tag_pins` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT)");
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)");

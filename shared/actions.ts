@@ -19,6 +19,7 @@ export enum ACTION {
     DockerDeployLog="DockerDeployLog",
     DockerDeploymentsChanged="DockerDeploymentsChanged",
     DockerDeployStart="DockerDeployStart",
+    ServiceDeployStart="ServiceDeployStart",
     DockerImageSetPin="DockerImageSetPin",
     DockerImageTagSetPin="DockerImageTagSetPin",
     DockerListDeploymentHistory="DockerListDeploymentHistory",
@@ -328,6 +329,14 @@ export interface IDockerDeployStart {
     ref: Ref;
 }
 
+export interface IServiceDeployStart {
+    type: ACTION.ServiceDeployStart
+    ref: Ref;
+    host: number | string;
+    description: string;
+    image?: string;
+}
+
 export interface IDockerDeployLog {
     type: ACTION.DockerDeployLog;
     ref: Ref;
@@ -339,6 +348,7 @@ export interface IDockerDeployDone {
     ref: Ref;
     status: boolean;
     message?: string;
+    id?: number;
 }
 
 export interface IGenerateKey {
@@ -428,7 +438,7 @@ export interface DockerDeployment {
     id: number;
     image: string;
     imageInfo?: DockerImageTag;
-    hash: string;
+    hash?: string;
     name: string;
     user: string;
     start: number;
@@ -602,11 +612,11 @@ export type IAction =
     | IGenerateKey
     | IGenerateKeyRes
     | IGetObjectHistory
+    | IGetObjectHistory
+    | IGetObjectHistoryRes
     | IGetObjectHistoryRes
     | IGetObjectId
     | IGetObjectIdRes
-    | IGetObjectHistory
-    | IGetObjectHistoryRes
     | IHostDown
     | IHostUp
     | ILogin
@@ -624,6 +634,7 @@ export type IAction =
     | ISaveObject
     | ISearch
     | ISearchRes
+    | IServiceDeployStart
     | ISetDeploymentMessage
     | ISetDeploymentObjects
     | ISetDeploymentObjectStatus

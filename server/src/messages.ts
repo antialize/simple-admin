@@ -22,6 +22,15 @@ export interface RunInstant {
     stdin_type: 'none';
 }
 
+export interface ServiceDeploy {
+    type: "serviceDeploy";
+    id: number;
+    description: String;
+    image?: String;
+    docker_auth?: String;
+    extra_env?: {[key:string]: string};
+}
+
 export interface Kill {
     type: 'kill';
     id: number;
@@ -61,5 +70,5 @@ export interface Pong {
     id: number;
 }
 
-export type Outgoing = RunScript | Data | Kill | Ping | RunInstant;
+export type Outgoing = RunScript | Data | Kill | Ping | RunInstant | ServiceDeploy;
 export type Incomming = Data | Success | Failure | Auth | Pong;
