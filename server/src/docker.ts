@@ -916,8 +916,8 @@ finally:
 
                 constructor() {
                     super(host, null, host);
-                    let msg: message.ServiceDeploy = {
-                        type: 'serviceDeploy',
+                    let msg: message.DeployService = {
+                        type: 'deploy_service',
                         id: this.id,
                         description,
                         extra_env,
@@ -977,7 +977,7 @@ finally:
             for (const v of hostInfo.variables)
                 variables[v.key] = v.value;
 
-            let extraEnv = {};
+            let extraEnv: {[key:string]: string} = {};
 
             if (act.description.includes("ssl_service")) {
                 variables["ca_pem"] = "TEMP";
@@ -1019,7 +1019,7 @@ finally:
                 }
                 project = p.image;
                 hash = p.hash;
-                image = project + ":" + hash;
+                image = project + "@" + hash;
                 if (description.project && description.project != project) {
                     throw Error("Project and image does not match");
                 }
@@ -1266,7 +1266,7 @@ finally:
     }
 
     async broadcastDeploymentChange(o: DeploymentInfo) {
-        const imageInfo: DockerImageTag | undefined = o.hash ? await this.getTagsByHash([o.hash])[o.hash] : undefined;
+        const imageInfo: DockerImageTag | undefined = o.hash ? (await this.getTagsByHash([o.hash]))[o.hash] : undefined;
         const msg : IAction = {
             type: ACTION.DockerDeploymentsChanged,
             changed: [

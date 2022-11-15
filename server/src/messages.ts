@@ -22,8 +22,8 @@ export interface RunInstant {
     stdin_type: 'none';
 }
 
-export interface ServiceDeploy {
-    type: "serviceDeploy";
+export interface DeployService {
+    type: "deploy_service";
     id: number;
     description: String;
     image?: String;
@@ -70,5 +70,5 @@ export interface Pong {
     id: number;
 }
 
-export type Outgoing = RunScript | Data | Kill | Ping | RunInstant | ServiceDeploy;
+export type Outgoing = RunScript | Data | Kill | Ping | RunInstant | DeployService;
 export type Incomming = Data | Success | Failure | Auth | Pong;
