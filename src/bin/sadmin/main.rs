@@ -10,7 +10,7 @@ use persist_daemon::PersistDaemon;
 use service_control::Service;
 use service_deploy::ServiceDeploy;
 use std::path::PathBuf;
-use upgrade::Upgrade;
+use upgrade::{Setup, Upgrade};
 mod client_daemon;
 mod client_daemon_service;
 mod connection;
@@ -71,6 +71,7 @@ enum Action {
     Upgrade(Upgrade),
     PersistDaemon(PersistDaemon),
     Service(Service),
+    Setup(Setup),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -145,5 +146,6 @@ async fn main() -> Result<()> {
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
         Action::Service(args) => service_control::run(args).await,
+        Action::Setup(args) => upgrade::setup(args).await,
     }
 }
