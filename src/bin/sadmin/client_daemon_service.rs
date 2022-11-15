@@ -474,9 +474,9 @@ impl Stop {
         info!("Stopping {}", service.name);
         if let Some(pod_name) = pod_name {
             let mut line = Vec::new();
-            write!(
+            writeln!(
                 &mut line,
-                "{}$ podman kill {}\n",
+                "{}$ podman kill {}",
                 user.as_deref().unwrap_or("root"),
                 pod_name
             )?;
@@ -1510,7 +1510,7 @@ impl Service {
         } else {
             let pod_name = format!("sa_{}_{}", self.name, instance_id);
             let (notify_dir, notify_name) = notify_path
-                .rsplit_once("/")
+                .rsplit_once('/')
                 .context("Missing / in notify path")?;
             let mut args = vec![
                 "run".to_string(),
