@@ -7,6 +7,7 @@ use crate::{
 use anyhow::{bail, Context, Result};
 use rand::Rng;
 
+/// Deploy a service to a remote host
 #[derive(clap::Parser)]
 pub struct ServiceDeploy {
     /// The server to deploy on

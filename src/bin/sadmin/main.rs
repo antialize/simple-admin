@@ -28,22 +28,33 @@ mod tokio_passfd;
 mod upgrade;
 
 #[derive(clap::Parser)]
+#[command(name = "sadmin")]
+#[command(author = "Jakob Truelsen <jakob@scalgo.com>")]
+#[command(about = "Simpleadmin host components", long_about = None)]
 struct Args {
     #[clap(subcommand)]
     action: Action,
 
+    /// Path to the config file to use the default is /etc/simpleadmin_client.json
     #[clap(long)]
     config: Option<PathBuf>,
+
+    /// The server host to connect to the default value is read from the config file
     #[clap(long)]
     server_host: Option<String>,
+
+    /// The port to connect to on the host server
     #[clap(long)]
     server_port: Option<u16>,
+
     #[clap(long)]
     server_cert: Option<String>,
+
     #[clap(long)]
     server_insecure: bool,
 }
 
+/// Deauthenticate your user
 #[derive(clap::Parser)]
 struct Deauth {
     /// Forget two factor authentication
@@ -55,15 +66,11 @@ struct Deauth {
 enum Action {
     /// Authenticate your user
     Auth,
-    /// Deauthenticate your user
     Deauth(Deauth),
-    /// List images
     #[clap(alias("listImages"))]
     ListImages(ListImages),
-    /// List deployments
     #[clap(alias("listDeployments"))]
     ListDeployments(ListDeployments),
-    /// Deploy image on server
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
     ServiceDeploy(ServiceDeploy),

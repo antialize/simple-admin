@@ -5,14 +5,28 @@ use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde::Deserialize;
 use std::os::unix::prelude::OpenOptionsExt;
 
+/// Setup sadmin after installation (root)
+///
+/// This will create /etc/systemd/system/simpleadmin-client.service,
+/// /etc/systemd/system/simpleadmin-persist.service and reload systemd.
+///
+/// Must be run as root.
 #[derive(clap::Parser)]
 pub struct Setup {}
 
+/// Upgrade to the latest version of sadmin (root)
+///
+/// This will download and install the latest version of sadmin from
+/// github, and run its setup.
+///
+/// Must be run as root.
 #[derive(clap::Parser)]
 pub struct Upgrade {
+    /// Install this version of sadmin instead of the latest
     #[clap(long)]
     version: Option<String>,
 
+    /// Restart the simpleadmin-client daemon after upgrading
     #[clap(long)]
     restart_client_daemon: bool,
 }

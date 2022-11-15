@@ -36,6 +36,19 @@ use crate::service_description::ServiceDescription;
 const SERVICES_BUF_SIZE: usize = 1024 * 64;
 
 #[derive(Serialize)]
+pub struct StatusJsonV1 {
+    name: String,
+    state: ServiceState,
+    status: String,
+    deploy_user: String,
+    deploy_time: SystemTime,
+    start_stop_time: SystemTime,
+    instance_id: u64,
+    pod_name: Option<String>,
+    image: Option<String>,
+}
+
+#[derive(Serialize)]
 struct DockerAuth {
     auth: String,
 }
@@ -591,6 +604,10 @@ pub struct Service {
 }
 
 impl Service {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     fn persist_status(self: &Arc<Self>) -> Result<()> {
         let state: String = serde_json::to_string_pretty(&*self.status.lock().unwrap())?;
         self.client.db.lock().unwrap().execute(
@@ -1782,7 +1799,6 @@ impl Service {
 
     pub async fn status(self: &Arc<Self>, log: &mut RemoteLogTarget<'_>, full: bool) -> Result<()> {
         use std::fmt::Write;
-
         let msg = if full {
             let status = self.status.lock().unwrap();
             let mut msg = format!(
@@ -1796,6 +1812,9 @@ impl Service {
             );
             if let Some(image) = &status.image {
                 writeln!(msg, "image: {}", image)?;
+            }
+            if let Some(pod) = &status.pod_name {
+                writeln!(msg, "pod_name: {}", pod)?;
             }
             writeln!(
                 msg,
@@ -1811,6 +1830,21 @@ impl Service {
 
         log.stdout(msg.as_bytes()).await?;
         Ok(())
+    }
+
+    pub async fn status_json(self: &Arc<Self>) -> Result<StatusJsonV1> {
+        let status = self.status.lock().unwrap();
+        Ok(StatusJsonV1 {
+            name: self.name.clone(),
+            state: status.state,
+            status: status.status.clone(),
+            deploy_user: status.deploy_user.clone(),
+            deploy_time: status.deploy_time,
+            instance_id: status.instance_id,
+            pod_name: status.pod_name.clone(),
+            image: status.image.clone(),
+            start_stop_time: status.start_stop_time,
+        })
     }
 }
 

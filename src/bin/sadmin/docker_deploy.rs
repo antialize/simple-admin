@@ -5,6 +5,7 @@ use crate::{
 use anyhow::{bail, Result};
 use rand::Rng;
 
+/// Deploy a container to a remote host
 #[derive(clap::Parser)]
 pub struct DockerDeploy {
     /// The server to deploy on

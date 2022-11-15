@@ -34,9 +34,10 @@ impl Serialize for Porcelain {
     }
 }
 
+/// List deployments of containers and services among all hosts
 #[derive(clap::Parser)]
 pub struct ListDeployments {
-    // Give the output in an easy-to-parse format for scripts
+    /// Give the output in an easy-to-parse format for scripts
     #[clap(value_enum, long)]
     porcelain: Option<Porcelain>,
 

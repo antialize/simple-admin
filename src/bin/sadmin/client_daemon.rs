@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     io::Write,
     net::ToSocketAddrs,
     os::unix::{
@@ -48,12 +48,17 @@ use sdnotify::SdNotify;
 
 pub const CONTROL_SOCKET_PATH: &str = "/run/simpleadmin/control.socket";
 
+/// Run the simpleadmin-client daemon (root)
+///
+/// You should probably not run this manually, instead this should be run through
+/// the simpleadmin-client systemd service
+///
+/// The simpleadmin-client daemon connects to the sadmin backend, and is responsible for deployments,
+/// and host management. It also orchestrates services. The simpleadmin-persist daemon must be running
+/// for simpleadmin-client to start.
 #[derive(clap::Parser)]
 pub struct ClientDaemon {
-    /// Time to reconnect
-    #[clap(long, default_value_t = 10.0)]
-    reconnect_time: f64,
-
+    /// Verbosity of messages to display
     #[clap(long, default_value = "info")]
     log_level: log::LevelFilter,
 }
@@ -1201,18 +1206,41 @@ impl Client {
                         .get(&service)
                         .context("Unknown service")?
                         .clone();
-                    service
-                        .status(&mut RemoteLogTarget::ServiceControl(socket), true)
-                        .await?;
+                    if matches!(m.porcelain, Some(crate::service_control::Porcelain::V1)) {
+                        let status = service.status_json().await?;
+                        let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
+                            data: base64::encode(&serde_json::to_string_pretty(&status)?),
+                        })?;
+                        socket.write_u32(v.len().try_into()?).await?;
+                        socket.write_all(&v).await?;
+                        socket.flush().await?;
+                    } else {
+                        service
+                            .status(&mut RemoteLogTarget::ServiceControl(socket), true)
+                            .await?;
+                    }
                 } else {
-                    let mut log = RemoteLogTarget::ServiceControl(socket);
                     let services: Vec<_> =
                         self.services.lock().unwrap().values().cloned().collect();
-                    if services.is_empty() {
-                        log.stdout(b"No services registered\n").await?;
-                    }
-                    for service in services {
-                        service.status(&mut log, false).await?;
+                    if matches!(m.porcelain, Some(crate::service_control::Porcelain::V1)) {
+                        let mut status = BTreeMap::new();
+                        for service in services {
+                            status.insert(service.name().to_string(), service.status_json().await?);
+                        }
+                        let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
+                            data: base64::encode(&serde_json::to_string_pretty(&status)?),
+                        })?;
+                        socket.write_u32(v.len().try_into()?).await?;
+                        socket.write_all(&v).await?;
+                        socket.flush().await?;
+                    } else {
+                        let mut log = RemoteLogTarget::ServiceControl(socket);
+                        if services.is_empty() {
+                            log.stdout(b"No services registered\n").await?;
+                        }
+                        for service in services {
+                            service.status(&mut log, false).await?;
+                        }
                     }
                 }
             }

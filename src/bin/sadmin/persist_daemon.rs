@@ -121,6 +121,14 @@ impl Message {
     }
 }
 
+/// Run the simpleadmin-persist daemon (root)
+///
+/// You should probably not run this manually, instead this should be run through
+/// the simpleadmin-persist systemd service
+///
+/// The simpleadmin-persist owns the processes and file descriptions for services
+/// managed by simpleadmin-client. This is done such that simpleadmin-client can
+/// be restarted without services being affected.
 #[derive(clap::Parser)]
 pub struct PersistDaemon {
     #[clap(long, default_value = "info")]

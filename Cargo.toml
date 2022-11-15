@@ -22,7 +22,7 @@ webpki = "0.22.0"
 webpki-roots = "0.22.5"
 simple_logger = {version = "4", default-features=false }
 tempfile = "3.3.0"
-clap = {version = "4.0.9", default-features = false, features=['std', 'derive', 'help', 'suggestions']}
+clap = {version = "4.0.9", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}
 sdnotify = {version = "0.2.0", default-features = false}
 reqwest = {version = "0.11.12",  default-features = false, features=['json', 'rustls-tls-webpki-roots']}
 zip = {version= "0.6.3",  default-features = false, features=['deflate']}

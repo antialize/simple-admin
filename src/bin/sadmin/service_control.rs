@@ -9,34 +9,67 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::client_daemon::CONTROL_SOCKET_PATH;
 use crate::service_description::ServiceDescription;
 
+/// Start the given stopped service
+///
+/// Running services will be restarted on reboot
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Start {
+    /// Name of the service to start
     pub service: String,
 }
 
+/// Stop the given running service
+///
+/// Stopped services will not be started on reboot
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Stop {
+    /// Name of the service to stop
     pub service: String,
 }
 
+/// Restart the given running service
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Restart {
+    /// Name of the service to restart
     pub service: String,
 }
 
+#[derive(clap::ValueEnum, Clone, Serialize, Deserialize)]
+pub enum Porcelain {
+    V1,
+}
+
+/// Print information about all or a specific service
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Status {
+    /// Name of the service to get status of
     pub service: Option<String>,
+
+    /// Give the output in an easy-to-parse format for scripts
+    #[clap(value_enum, long)]
+    pub porcelain: Option<Porcelain>,
 }
 
+/// Remove service
+///
+/// Stop and remove a given service, it will
+/// have to be redeployed to be recreated
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Remove {
+    /// Name of the service to remove
     pub service: String,
 }
 
+/// Deploy a new service locally
+///
+/// Normally a service is deployed though `sadmin service-deploy` but
+/// if no information needs to be templated into the description.
+/// It can also be deployed locally through this command
 #[derive(clap::Parser)]
 pub struct Deploy {
-    config: PathBuf,
+    /// Path to the service description yaml file
+    description: PathBuf,
+    /// Docker image to use for deployment
     image: Option<String>,
 }
 
@@ -54,9 +87,11 @@ pub enum Action {
     Status(Status),
     Remove(Remove),
     Deploy(Deploy),
+    /// Stop all services without storing the stopped state, in preparation for machine shutdown
     Shutdown,
 }
 
+/// Query or manipulate services running on this host (root)
 #[derive(clap::Parser)]
 pub struct Service {
     #[clap(subcommand)]
@@ -88,7 +123,8 @@ pub async fn run(args: Service) -> Result<()> {
         Action::Remove(v) => DaemonControlMessage::Remove(v),
         Action::Shutdown => DaemonControlMessage::Shutdown,
         Action::Deploy(v) => {
-            let config = std::fs::read_to_string(v.config).context("Unable to read config file")?;
+            let config =
+                std::fs::read_to_string(v.description).context("Unable to read config file")?;
             let config: ServiceDescription =
                 serde_yaml::from_str(&config).context("Unable to parse config file")?;
             DaemonControlMessage::Deploy(DeployMsg {
