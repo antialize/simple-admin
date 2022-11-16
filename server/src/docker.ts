@@ -952,7 +952,7 @@ finally:
     async deployServiceInner(
         client: WebClient,
         ref: Ref,
-        hostId: string|number,
+        hostIdentifier: string|number,
         descriptionTemplate: string,
         imageId: string|null,
         image: string|null,
@@ -964,7 +964,7 @@ finally:
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
-                if (cl.hostname == hostId || cl.id == hostId) host = cl;
+                if (cl.hostname == hostIdentifier || cl.id == hostIdentifier) host = cl;
             }
             const user = nullCheck(client.auth.user, "Missing user");
 
@@ -1039,6 +1039,8 @@ finally:
                 image = null;
             }
             if (project == null) throw Error("Logic error");
+
+            if (hash) extraEnv["DOCKER_HASH"] = hash;
 
             const now = Date.now() / 1000 | 0;
             const session = crypto.randomBytes(64).toString('hex');
@@ -1252,6 +1254,7 @@ finally:
                     config: row.config,
                     timeout: row.timeout,
                     usePodman: !!row.usePodman,
+                    service: !!row.description,
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);
@@ -1336,6 +1339,7 @@ finally:
                     config: o.config,
                     timeout: o.deploymentTimeout,
                     usePodman: !!o.usePodman,
+                    service: !!o.description
                 }
             ],
             removed: []
