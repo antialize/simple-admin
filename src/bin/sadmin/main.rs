@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use anyhow::{bail, Result};
 use clap::Parser;
 use client_daemon::ClientDaemon;
@@ -8,9 +6,13 @@ use docker_deploy::DockerDeploy;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
+use persist_daemon::PersistDaemon;
+use service_control::Service;
+use service_deploy::ServiceDeploy;
 use std::path::PathBuf;
-use upgrade::Upgrade;
+use upgrade::{Setup, Upgrade};
 mod client_daemon;
+mod client_daemon_service;
 mod connection;
 mod docker_deploy;
 mod dyn_format;
@@ -18,25 +20,41 @@ mod finite_float;
 mod list_deployments;
 mod list_images;
 mod message;
+mod persist_daemon;
+mod service_control;
+mod service_deploy;
+mod service_description;
+mod tokio_passfd;
 mod upgrade;
 
 #[derive(clap::Parser)]
+#[command(name = "sadmin")]
+#[command(author = "Jakob Truelsen <jakob@scalgo.com>")]
+#[command(about = "Simpleadmin host components", long_about = None)]
 struct Args {
     #[clap(subcommand)]
     action: Action,
 
+    /// Path to the config file to use the default is /etc/simpleadmin_client.json
     #[clap(long)]
     config: Option<PathBuf>,
+
+    /// The server host to connect to the default value is read from the config file
     #[clap(long)]
     server_host: Option<String>,
+
+    /// The port to connect to on the host server
     #[clap(long)]
     server_port: Option<u16>,
+
     #[clap(long)]
     server_cert: Option<String>,
+
     #[clap(long)]
     server_insecure: bool,
 }
 
+/// Deauthenticate your user
 #[derive(clap::Parser)]
 struct Deauth {
     /// Forget two factor authentication
@@ -48,19 +66,19 @@ struct Deauth {
 enum Action {
     /// Authenticate your user
     Auth,
-    /// Deauthenticate your user
     Deauth(Deauth),
-    /// List images
     #[clap(alias("listImages"))]
     ListImages(ListImages),
-    /// List deployments
     #[clap(alias("listDeployments"))]
     ListDeployments(ListDeployments),
-    /// Deploy image on server
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
+    ServiceDeploy(ServiceDeploy),
     ClientDaemon(ClientDaemon),
     Upgrade(Upgrade),
+    PersistDaemon(PersistDaemon),
+    Service(Service),
+    Setup(Setup),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -130,7 +148,11 @@ async fn main() -> Result<()> {
         Action::Deauth(args) => deauth(config, args).await,
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
+        Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
+        Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
+        Action::Service(args) => service_control::run(args).await,
+        Action::Setup(args) => upgrade::setup(args).await,
     }
 }

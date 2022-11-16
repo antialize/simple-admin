@@ -11,10 +11,10 @@ export enum ACTION {
     ClearDeploymentLog="ClearDeploymentLog",
     DeleteObject="DeleteObject",
     DeployObject="DeployObject",
+    DockerContainerForget="DockerContainerForget",
     DockerContainerRemove="DockerContainerRemove",
     DockerContainerStart="DockerContainerStart",
     DockerContainerStop="DockerContainerStop",
-    DockerContainerForget="DockerContainerForget",
     DockerDeployDone="DockerDeployEnd",
     DockerDeployLog="DockerDeployLog",
     DockerDeploymentsChanged="DockerDeploymentsChanged",
@@ -36,10 +36,10 @@ export enum ACTION {
     FetchObject="FetchObject",
     GenerateKey="GenerateKey",
     GenerateKeyRes="GenerateKeyRes",
-    GetObjectId="GetObjectId",
-    GetObjectIdRes="GetObjectIdRes",
     GetObjectHistory="GetObjectHistory",
     GetObjectHistoryRes="GetObjectHistoryRes",
+    GetObjectId="GetObjectId",
+    GetObjectIdRes="GetObjectIdRes",
     HostDown="HostDown",
     HostUp="HostUp",
     ListModifiedFiles="ListModifiedFiles",
@@ -58,6 +58,8 @@ export enum ACTION {
     SaveObject="SaveObject",
     Search="Search",
     SearchRes="SearchRes",
+    ServiceDeployStart="ServiceDeployStart",
+    ServiceRedeployStart="ServiceRedeployStart",
     SetDeploymentMessage="SetDeploymentMessage",
     SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentObjectStatus="SetDeploymentObjectStatus",
@@ -328,6 +330,20 @@ export interface IDockerDeployStart {
     ref: Ref;
 }
 
+export interface IServiceDeployStart {
+    type: ACTION.ServiceDeployStart
+    ref: Ref;
+    host: number | string;
+    description: string;
+    image?: string;
+}
+
+export interface IServiceRedeployStart {
+    type: ACTION.ServiceRedeployStart
+    ref: Ref;
+    deploymentId: number;
+}
+
 export interface IDockerDeployLog {
     type: ACTION.DockerDeployLog;
     ref: Ref;
@@ -339,6 +355,7 @@ export interface IDockerDeployDone {
     ref: Ref;
     status: boolean;
     message?: string;
+    id?: number;
 }
 
 export interface IGenerateKey {
@@ -428,7 +445,7 @@ export interface DockerDeployment {
     id: number;
     image: string;
     imageInfo?: DockerImageTag;
-    hash: string;
+    hash?: string;
     name: string;
     user: string;
     start: number;
@@ -438,6 +455,7 @@ export interface DockerDeployment {
     config: string;
     timeout: number;
     usePodman: boolean;
+    service: boolean;
 }
 
 export interface IDockerListDeploymentsRes {
@@ -602,11 +620,11 @@ export type IAction =
     | IGenerateKey
     | IGenerateKeyRes
     | IGetObjectHistory
+    | IGetObjectHistory
+    | IGetObjectHistoryRes
     | IGetObjectHistoryRes
     | IGetObjectId
     | IGetObjectIdRes
-    | IGetObjectHistory
-    | IGetObjectHistoryRes
     | IHostDown
     | IHostUp
     | ILogin
@@ -624,6 +642,8 @@ export type IAction =
     | ISaveObject
     | ISearch
     | ISearchRes
+    | IServiceDeployStart
+    | IServiceRedeployStart
     | ISetDeploymentMessage
     | ISetDeploymentObjects
     | ISetDeploymentObjectStatus

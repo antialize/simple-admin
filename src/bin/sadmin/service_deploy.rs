@@ -1,48 +1,54 @@
+use std::path::PathBuf;
+
 use crate::{
     connection::{Config, Connection},
-    message::{DockerDeployStart, Message},
+    message::{Message, ServiceDeployStart},
 };
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use rand::Rng;
 
-/// Deploy a container to a remote host
+/// Deploy a service to a remote host
 #[derive(clap::Parser)]
-pub struct DockerDeploy {
+pub struct ServiceDeploy {
     /// The server to deploy on
     server: String,
 
+    /// Description file to use
+    description: PathBuf,
+
     /// The image to deploy
-    image: String,
-
-    /// The container to deloy to
-    #[clap(long, short('s'))]
-    container: Option<String>,
-
-    /// The container to deloy to
-    #[clap(long, short)]
-    config: Option<String>,
-
-    #[clap(long)]
-    no_restore_on_failure: bool,
+    image: Option<String>,
 }
 
-pub async fn deploy(config: Config, args: DockerDeploy) -> Result<()> {
+pub async fn deploy(config: Config, args: ServiceDeploy) -> Result<()> {
     let mut c = Connection::open(config, true).await?;
     let msg_ref: u64 = rand::thread_rng().gen_range(0..(1 << 48));
     println!("{:=^42}", format!("> {} <", args.server));
-    c.send(&Message::DockerDeployStart(DockerDeployStart {
+
+    let description = std::fs::read_to_string(&args.description)?;
+    let mut parts = Vec::new();
+    for part in description.split("{{{") {
+        if let Some((key, rem)) = part.split_once("}}}") {
+            parts.push("key_");
+            parts.push(key);
+            parts.push(rem);
+        } else {
+            parts.push(part);
+        }
+    }
+    let _: serde_yaml::Value = serde_yaml::from_str(&parts.concat()).context("Invalid yaml")?;
+
+    c.send(&Message::ServiceDeployStart(ServiceDeployStart {
         host: args.server,
         image: args.image,
-        config: args.config,
-        restore_on_failure: !args.no_restore_on_failure,
-        container: args.container,
+        description,
         r#ref: msg_ref,
     }))
     .await?;
     loop {
         match c.recv().await? {
             Message::DockerDeployLog { r#ref, message } if r#ref == msg_ref => {
-                println!("{}", message);
+                print!("{}", message);
             }
             Message::DockerDeployEnd {
                 r#ref,

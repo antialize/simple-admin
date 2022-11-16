@@ -5,14 +5,32 @@ use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde::Deserialize;
 use std::os::unix::prelude::OpenOptionsExt;
 
+/// Setup sadmin after installation (root)
+///
+/// This will create /etc/systemd/system/simpleadmin-client.service,
+/// /etc/systemd/system/simpleadmin-persist.service and reload systemd.
+///
+/// Must be run as root.
+#[derive(clap::Parser)]
+pub struct Setup {}
+
+/// Upgrade to the latest version of sadmin (root)
+///
+/// This will download and install the latest version of sadmin from
+/// github, and run its setup.
+///
+/// Must be run as root.
 #[derive(clap::Parser)]
 pub struct Upgrade {
+    /// Install this version of sadmin instead of the latest
     #[clap(long)]
     version: Option<String>,
 
+    /// Restart the simpleadmin-client daemon after upgrading
     #[clap(long)]
     restart_client_daemon: bool,
 }
+
 #[derive(Deserialize, Debug)]
 struct Asset {
     browser_download_url: String,
@@ -108,6 +126,12 @@ pub async fn upgrade(args: Upgrade) -> Result<()> {
     std::mem::drop(out);
 
     std::fs::rename("/usr/local/bin/.sadmin~", "/usr/local/bin/sadmin")?;
+
+    tokio::process::Command::new("/usr/local/bin/sadmin")
+        .arg("setup")
+        .status()
+        .await?;
+
     if args.restart_client_daemon {
         println!("Restarting client daemon");
         tokio::process::Command::new("/usr/bin/systemctl")
@@ -117,5 +141,46 @@ pub async fn upgrade(args: Upgrade) -> Result<()> {
             .await?;
     }
     println!("Done!");
+    Ok(())
+}
+
+pub async fn setup(_: Setup) -> Result<()> {
+    std::fs::write(
+        "/etc/systemd/system/simpleadmin-client.service",
+        b"[Unit]
+Description=Simple admin client
+Requires=simpleadmin-persist.service
+
+[Service]
+WatchdogSec=400s
+ExecStart=/usr/local/bin/sadmin client-daemon
+Restart=always
+Type=notify
+
+[Install]
+WantedBy=multi-user.target
+",
+    )?;
+
+    std::fs::write(
+        "/etc/systemd/system/simpleadmin-persist.service",
+        b"[Unit]
+Description=Simple admin persist
+
+[Service]
+ExecStart=/usr/local/bin/sadmin persist-daemon
+Restart=always
+Type=notify
+
+[Install]
+WantedBy=multi-user.target
+",
+    )?;
+
+    tokio::process::Command::new("/usr/bin/systemctl")
+        .arg("daemon-reload")
+        .status()
+        .await?;
+
     Ok(())
 }

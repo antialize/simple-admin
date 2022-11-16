@@ -11,6 +11,7 @@ enum Porcelain {
     V1,
 }
 
+/// List docker images on server
 #[derive(clap::Parser)]
 pub struct ListImages {
     // Search by specific hash ('sha256:ab12...')
