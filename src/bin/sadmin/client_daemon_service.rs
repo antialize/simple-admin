@@ -864,6 +864,8 @@ impl Service {
                     pod_options: Default::default(),
                     env: Default::default(),
                     pod_env: Default::default(),
+                    cgroup_delegation: Default::default(),
+                    overlap_stop_signal: Default::default(),
                 },
                 extra_env: Default::default(),
                 instance_id: 0,

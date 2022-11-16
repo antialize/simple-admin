@@ -2,6 +2,17 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Signal {
+    Usr1,
+    Usr2,
+    Kill,
+    Term,
+    Abort,
+    Hub,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Duration {
     MS(f64),
@@ -269,4 +280,8 @@ pub struct ServiceDescription {
     pub env: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub pod_env: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub cgroup_delegation: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overlap_stop_signal: Option<Signal>,
 }
