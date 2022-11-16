@@ -5,7 +5,7 @@ import {v4 as uuid} from 'uuid';
 import * as crypto from 'crypto';
 import { Stream } from 'stream';
 import { db, hostClients, webClients } from './instances';
-import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes, IServiceDeployStart } from '../../shared/actions';
+import { IDockerDeployStart, ACTION, IDockerListDeployments, IDockerListImageTags, IDockerListDeploymentsRes, IDockerListImageTagsRes, Ref, IDockerImageSetPin, IDockerImageTagSetPin, IDockerImageTagsCharged, DockerImageTag, IAction, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes, IDockerListImageTagHistory, IDockerListImageTagHistoryRes, IDockerContainerStart, IDockerContainerStop, IDockerContainerRemove, IDockerListImageByHash, IDockerListImageByHashRes, IServiceDeployStart, IServiceRedeployStart } from '../../shared/actions';
 import { WebClient } from './webclient';
 import { rootId, hostId, rootInstanceId, IVariables, Host } from '../../shared/type';
 import * as Mustache from 'mustache'
@@ -907,7 +907,7 @@ finally:
          }
     }
 
-    deployServiceInner(client: WebClient, host:HostClient, description: string, docker_auth: String, image: String | null, extra_env: {[key:string]: string}, ref:Ref)
+    deployServiceJob(client: WebClient, host:HostClient, description: string, docker_auth: String, image: String | null, extra_env: {[key:string]: string}, ref:Ref)
         : Promise<void> {
         return new Promise((accept, reject) => {
             class ServiceDeployJob extends Job {
@@ -949,25 +949,34 @@ finally:
         })
     }
 
-    async deployService(client: WebClient, act: IServiceDeployStart) {
+    async deployServiceInner(
+        client: WebClient,
+        ref: Ref,
+        hostId: string|number,
+        descriptionTemplate: string,
+        imageId: string|null,
+        image: string|null,
+        hash: string|null,
+        project: string|null,
+        doTemplate: boolean) {
         try {
-            log('info', "service deploy start", act.ref);
+            log('info', "service deploy start", ref);
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
-                if (cl.hostname == act.host || cl.id == act.host) host = cl;
+                if (cl.hostname == hostId || cl.id == hostId) host = cl;
             }
             const user = nullCheck(client.auth.user, "Missing user");
 
             if (!host || !host.id) {
-                client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Invalid hostname or host is not up"});
+                client.sendMessage({type: ACTION.DockerDeployDone, ref, status: false, message: "Invalid hostname or host is not up"});
                 return;
             }
 
             const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
             const rootRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", rootInstanceId, rootId);
             if (!hostRow || !rootRow) {
-                client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find root or host"});
+                client.sendMessage({type: ACTION.DockerDeployDone, ref, status: false, message: "Could not find root or host"});
                 return
             }
             let hostInfo = JSON.parse(hostRow.content) as Host;
@@ -979,11 +988,11 @@ finally:
 
             let extraEnv: {[key:string]: string} = {};
 
-            if (act.description.includes("ssl_service")) {
+            if (descriptionTemplate.includes("ssl_service")) {
                 variables["ca_pem"] = "TEMP";
                 variables["ssl_key"] = "TEMP";
                 variables["ssl_pem"] = "TEMP";
-                const description_str = Mustache.render(act.description, variables);
+                const description_str = doTemplate?Mustache.render(descriptionTemplate, variables):descriptionTemplate;
                 const description = parse(description_str);
                 if (description.ssl_service && description.ssl_identity) {
                     await this.ensure_ca();
@@ -1004,17 +1013,16 @@ finally:
                 }
             }
 
-            const description_str = Mustache.render(act.description, variables);
+            const description_str = doTemplate?Mustache.render(descriptionTemplate, variables):descriptionTemplate;
             const description = parse(description_str);
             const name = description.name;
 
-            let project : string;
-            let hash: string | null;
-            let image: string | null;
-            if (act.image) {
-                let p = await this.findImage(act.image);
+            if (project != null) {
+
+            } else if (imageId) {
+                let p = await this.findImage(imageId);
                 if (!p.hash) {
-                    client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find image to deploy"});
+                    client.sendMessage({type: ACTION.DockerDeployDone, ref, status: false, message: "Could not find image to deploy"});
                     return;
                 }
                 project = p.image;
@@ -1030,19 +1038,21 @@ finally:
                 hash = null;
                 image = null;
             }
+            if (project == null) throw Error("Logic error");
+
             const now = Date.now() / 1000 | 0;
             const session = crypto.randomBytes(64).toString('hex');
             try {
                 await db.run("INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)", "docker_client", "", now, now, session);
 
-                await this.deployServiceInner(
+                await this.deployServiceJob(
                     client,
                     host,
                     description_str,
                     Buffer.from("docker_client:"+session).toString('base64'),
                     image,
                     extraEnv,
-                    act.ref
+                    ref
                 )
 
                 let id = this.idc++;
@@ -1051,7 +1061,7 @@ finally:
                     host: host.id,
                     image: project,
                     container: name,
-                    hash,
+                    hash: hash,
                     user,
                     config: '',
                     timeout: undefined,
@@ -1064,7 +1074,8 @@ finally:
                     softTakeover: null,
                     startMagic: null,
                     usePodman: null,
-                    stopTimeout: 0,
+                    stopTimeout: 0
+                    ,
                     userService: false,
                     deployUser: null,
                     serviceFile: null,
@@ -1078,15 +1089,55 @@ finally:
                     "`project`, `container`, `host`, `startTime`, `hash`, `user`, `description`) "+
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     o.image, o.container, o.host, o.start, o.hash, o.user, o.description);
-                client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: true, message: "Success",  id: o.id});
+                client.sendMessage({type: ACTION.DockerDeployDone, ref, status: true, message: "Success",  id: o.id});
                 await this.broadcastDeploymentChange(o);
             } finally {
                 await db.run("DELETE FROM `sessions` WHERE `user`=? AND `sid`=?", "docker_client", session);
             }
         } catch (e) {
-            client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed "});
+            client.sendMessage({type: ACTION.DockerDeployDone, ref, status: false, message: "Deployment failed "});
             log('error', "Service deployment failed", e);
         }
+    }
+
+    async redeployService(client: WebClient, act: IServiceRedeployStart) {
+        const deploymentRow = await db.get("SELECT * FROM `docker_deployments` WHERE `id`=?", act.deploymentId);
+        if (!deploymentRow) {
+            client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find deployment"});
+            return
+        }
+        const description = deploymentRow.description;
+        if (!description) {
+            client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Not an service deployment"});
+            return
+        }
+
+        await this.deployServiceInner(
+            client,
+            act.ref,
+            description.host,
+            description,
+            null,
+            deploymentRow.hash ? deploymentRow.project + "@" + deploymentRow.hash : null,
+            deploymentRow.hash,
+            deploymentRow.project,
+            false
+        )
+    }
+
+
+    async deployService(client: WebClient, act: IServiceDeployStart) {
+        await this.deployServiceInner(
+            client,
+            act.ref,
+            act.host,
+            act.description,
+            act.image ?? null,
+            null,
+            null,
+            null,
+            true
+        )
     }
 
     async getTagsByHash(hashes: string[]) {
@@ -1139,6 +1190,7 @@ finally:
                     config: row.config,
                     timeout: row.timeout,
                     usePodman: !!row.usePodman,
+                    service: !!row.description
                 });
             }
             const tagByHash = await this.getTagsByHash(hashes);

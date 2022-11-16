@@ -11,15 +11,14 @@ export enum ACTION {
     ClearDeploymentLog="ClearDeploymentLog",
     DeleteObject="DeleteObject",
     DeployObject="DeployObject",
+    DockerContainerForget="DockerContainerForget",
     DockerContainerRemove="DockerContainerRemove",
     DockerContainerStart="DockerContainerStart",
     DockerContainerStop="DockerContainerStop",
-    DockerContainerForget="DockerContainerForget",
     DockerDeployDone="DockerDeployEnd",
     DockerDeployLog="DockerDeployLog",
     DockerDeploymentsChanged="DockerDeploymentsChanged",
     DockerDeployStart="DockerDeployStart",
-    ServiceDeployStart="ServiceDeployStart",
     DockerImageSetPin="DockerImageSetPin",
     DockerImageTagSetPin="DockerImageTagSetPin",
     DockerListDeploymentHistory="DockerListDeploymentHistory",
@@ -37,10 +36,10 @@ export enum ACTION {
     FetchObject="FetchObject",
     GenerateKey="GenerateKey",
     GenerateKeyRes="GenerateKeyRes",
-    GetObjectId="GetObjectId",
-    GetObjectIdRes="GetObjectIdRes",
     GetObjectHistory="GetObjectHistory",
     GetObjectHistoryRes="GetObjectHistoryRes",
+    GetObjectId="GetObjectId",
+    GetObjectIdRes="GetObjectIdRes",
     HostDown="HostDown",
     HostUp="HostUp",
     ListModifiedFiles="ListModifiedFiles",
@@ -59,6 +58,8 @@ export enum ACTION {
     SaveObject="SaveObject",
     Search="Search",
     SearchRes="SearchRes",
+    ServiceDeployStart="ServiceDeployStart",
+    ServiceRedeployStart="ServiceRedeployStart",
     SetDeploymentMessage="SetDeploymentMessage",
     SetDeploymentObjects="SetDeploymentObjects",
     SetDeploymentObjectStatus="SetDeploymentObjectStatus",
@@ -337,6 +338,12 @@ export interface IServiceDeployStart {
     image?: string;
 }
 
+export interface IServiceRedeployStart {
+    type: ACTION.ServiceRedeployStart
+    ref: Ref;
+    deploymentId: number;
+}
+
 export interface IDockerDeployLog {
     type: ACTION.DockerDeployLog;
     ref: Ref;
@@ -448,6 +455,7 @@ export interface DockerDeployment {
     config: string;
     timeout: number;
     usePodman: boolean;
+    service: boolean;
 }
 
 export interface IDockerListDeploymentsRes {
@@ -635,6 +643,7 @@ export type IAction =
     | ISearch
     | ISearchRes
     | IServiceDeployStart
+    | IServiceRedeployStart
     | ISetDeploymentMessage
     | ISetDeploymentObjects
     | ISetDeploymentObjectStatus

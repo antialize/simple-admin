@@ -387,6 +387,13 @@ export class WebClient extends JobOwner {
                 }
                 await docker.deployService(this, act);
                 break;
+            case ACTION.ServiceRedeployStart:
+                if (!this.auth.dockerPush) {
+                    this.connection.close(403);
+                    return;
+                }
+                await docker.redeployService(this, act);
+                break;
             case ACTION.DockerListDeployments:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
