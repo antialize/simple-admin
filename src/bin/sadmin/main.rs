@@ -8,7 +8,7 @@ use list_images::ListImages;
 use message::{LogOut, Message};
 use persist_daemon::PersistDaemon;
 use service_control::Service;
-use service_deploy::ServiceDeploy;
+use service_deploy::{ServiceDeploy, ServiceRedeploy};
 use std::path::PathBuf;
 use upgrade::{Setup, Upgrade};
 mod client_daemon;
@@ -74,6 +74,7 @@ enum Action {
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
     ServiceDeploy(ServiceDeploy),
+    ServiceRedeploy(ServiceRedeploy),
     ClientDaemon(ClientDaemon),
     Upgrade(Upgrade),
     PersistDaemon(PersistDaemon),
@@ -156,6 +157,7 @@ async fn main() -> Result<()> {
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
         Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
+        Action::ServiceRedeploy(args) => service_deploy::redeploy(config, args).await,
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,

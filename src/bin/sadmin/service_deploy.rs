@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     connection::{Config, Connection},
-    message::{Message, ServiceDeployStart},
+    message::{Message, ServiceDeployStart, ServiceRedeployStart},
 };
 use anyhow::{bail, Context, Result};
 use rand::Rng;
@@ -18,6 +18,13 @@ pub struct ServiceDeploy {
 
     /// The image to deploy
     image: Option<String>,
+}
+
+/// Redeploy a service to a remote host
+#[derive(clap::Parser)]
+pub struct ServiceRedeploy {
+    /// Id of old deployment to redeploy
+    deployment_id: u64,
 }
 
 pub async fn deploy(config: Config, args: ServiceDeploy) -> Result<()> {
@@ -42,6 +49,36 @@ pub async fn deploy(config: Config, args: ServiceDeploy) -> Result<()> {
         host: args.server,
         image: args.image,
         description,
+        r#ref: msg_ref,
+    }))
+    .await?;
+    loop {
+        match c.recv().await? {
+            Message::DockerDeployLog { r#ref, message } if r#ref == msg_ref => {
+                print!("{}", message);
+            }
+            Message::DockerDeployEnd {
+                r#ref,
+                message,
+                status,
+            } if r#ref == msg_ref => {
+                println!("{}", message);
+                if !status {
+                    bail!("Deployment failed");
+                }
+                break;
+            }
+            _ => (),
+        }
+    }
+    Ok(())
+}
+
+pub async fn redeploy(config: Config, args: ServiceRedeploy) -> Result<()> {
+    let mut c = Connection::open(config, true).await?;
+    let msg_ref: u64 = rand::thread_rng().gen_range(0..(1 << 48));
+    c.send(&Message::ServiceRedeployStart(ServiceRedeployStart {
+        deployment_id: args.deployment_id,
         r#ref: msg_ref,
     }))
     .await?;
