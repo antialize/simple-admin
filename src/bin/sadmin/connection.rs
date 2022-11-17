@@ -17,7 +17,7 @@ fn default_port() -> u16 {
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub password: String,
+    pub password: Option<String>,
     pub server_host: Option<String>,
     pub hostname: Option<String>,
     #[serde(default = "default_port")]

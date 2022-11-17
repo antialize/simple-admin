@@ -930,7 +930,12 @@ impl Client {
 
         let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
             hostname: self.config.hostname.as_ref().unwrap().clone(),
-            password: self.config.password.clone(),
+            password: self
+                .config
+                .password
+                .as_ref()
+                .expect("Missing \"password\" in /etc/simpleadmin_client.json")
+                .clone(),
         })?;
         auth_message.push(30);
         write.write_all(&auth_message).await?;
