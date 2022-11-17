@@ -928,9 +928,35 @@ impl Client {
         let domain = rustls::ServerName::try_from(server_host.as_str())?;
         let (read, mut write) = tokio::io::split(self.connector.connect(domain, stream).await?);
 
+        let auth_path = "/etc/sadmin_client_auth.json";
+        let password = match std::fs::read(auth_path) {
+            Ok(v) => {
+                #[derive(Deserialize)]
+                struct AuthConfig {
+                    password: String,
+                }
+                let c: AuthConfig = serde_json::from_slice(&v)
+                    .with_context(|| format!("Error parsing '{}'", auth_path))?;
+                c.password
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let password = self.config.password.clone().with_context(|| {
+                    format!(
+                        "Could not find '{}', so we expect a password in the config file",
+                        auth_path
+                    )
+                })?;
+                warn!("Having the password in the config file is insecure, consider moving it to '{}'", auth_path);
+                password
+            }
+            Err(e) => {
+                bail!("Unable to read '{}': {:?}", auth_path, e);
+            }
+        };
+
         let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
             hostname: self.config.hostname.as_ref().unwrap().clone(),
-            password: self.config.password.clone(),
+            password,
         })?;
         auth_message.push(30);
         write.write_all(&auth_message).await?;

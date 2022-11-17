@@ -119,7 +119,14 @@ async fn main() -> Result<()> {
 
     let config_path = match &args.config {
         Some(v) => v.as_path(),
-        None => std::path::Path::new("/etc/simpleadmin_client.json"),
+        None => {
+            let p = std::path::Path::new("/etc/simpleadmin_client.json");
+            if p.is_file() {
+                p
+            } else {
+                std::path::Path::new("/etc/sadmin.json")
+            }
+        }
     };
     let config_data = match std::fs::read(config_path) {
         Ok(v) => v,
