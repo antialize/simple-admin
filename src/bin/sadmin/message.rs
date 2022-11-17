@@ -179,7 +179,7 @@ pub struct LogOut {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Deployment {
-    pub config: String,
+    pub config: Option<String>,
     pub end: Option<FiniteF64>,
     pub hash: String,
     pub host: u64,
