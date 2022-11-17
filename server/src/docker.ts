@@ -635,14 +635,14 @@ ${envs.join("\n")}
         print(f'$ docker kill {old_container} -s USR2')
         sys.stdout.flush()
         subprocess.call(['docker', '--config', t, 'kill', old_container, '-s', 'USR2'])
-    if postSetup:
-        print("$ %s" % postSetup)
-        subprocess.check_call(postSetup, shell=True)
     if usePodman:
         run("systemctl", "start", container)
         started_ok = True
     else:
         asyncio.get_event_loop().run_until_complete(read_log())
+    if postSetup:
+        print("$ %s" % postSetup)
+        subprocess.check_call(postSetup, shell=True)
     if not started_ok:
         raise SystemExit("Service did not start successfully")
 finally:
