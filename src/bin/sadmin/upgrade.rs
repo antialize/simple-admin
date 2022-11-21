@@ -1,9 +1,11 @@
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use bytes::{BufMut, BytesMut};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
-use serde::Deserialize;
-use std::os::unix::prelude::OpenOptionsExt;
+use serde::{Deserialize, Serialize};
+use std::{io::Write, os::unix::prelude::OpenOptionsExt};
+
+use crate::connection::Config;
 
 /// Setup sadmin after installation (root)
 ///
@@ -177,7 +179,41 @@ WantedBy=multi-user.target
 ",
     )?;
 
-    tokio::process::Command::new("/usr/bin/systemctl")
+    let old_config = std::path::Path::new("/etc/simpleadmin_client.json");
+    if old_config.exists() {
+        let config_data = match std::fs::read(old_config) {
+            Ok(v) => v,
+            Err(e) => bail!("Unable to read config file {:?}: {}", old_config, e),
+        };
+        let mut config: Config = match serde_json::from_slice(&config_data) {
+            Ok(v) => v,
+            Err(e) => bail!("Invalid config file {:?}: {}", old_config, e),
+        };
+        if let Some(password) = config.password.take() {
+            #[derive(Serialize)]
+            struct AuthConfig {
+                password: String,
+            }
+            let mut f = std::fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .write(true)
+                .open("/etc/sadmin_client_auth.json")
+                .context("Unable to create /etc/sadmin_client_auth.json")?;
+            f.write_all(serde_json::to_string_pretty(&AuthConfig { password })?.as_bytes())?;
+        }
+        std::fs::write(
+            "/etc/sadmin.json",
+            serde_json::to_string_pretty(&config)?.as_bytes(),
+        )
+        .context("Unable to write /etc/sadmin.json")?;
+
+        std::fs::remove_file(old_config)
+            .context("Unable to remove /etc/simpleadmin_client.json")?;
+    }
+
+    tokio::process::Command::new("/bin/systemctl")
         .arg("daemon-reload")
         .status()
         .await?;

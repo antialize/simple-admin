@@ -15,15 +15,19 @@ fn default_port() -> u16 {
     443
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Config {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server_host: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hostname: Option<String>,
     #[serde(default = "default_port")]
     pub server_port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server_cert: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server_insecure: Option<bool>,
 }
 
