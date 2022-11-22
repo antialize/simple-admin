@@ -633,10 +633,15 @@ impl Client {
             Ok(m) => m,
             Err(e) => {
                 error!("Error in deploy service: {:?}", e);
+                self.send_message(ClientMessage::Data(DataMessage {
+                    id,
+                    source: Some(DataSource::Stderr),
+                    data: base64::encode(&format!("Error deploying service: {:?}", e)).into(),
+                    eof: Some(true),
+                }))
+                .await;
                 ClientMessage::Failure(FailureMessage {
                     id,
-                    failure_type: Some(FailureType::Exception),
-                    message: Some(e.to_string()),
                     ..Default::default()
                 })
             }
