@@ -94,7 +94,7 @@ async fn send_journal_message(
     msg.extend(b"UNIT=");
     msg.extend(unit.as_bytes());
     msg.push(b'\n');
-    let _ = writeln!(msg, "{}", instance_id);
+    let _ = writeln!(msg, "INSTANCE={}", instance_id);
     if message.contains(&b'\n') {
         msg.extend(b"MESSAGE\n");
         msg.extend((message.len() as u64).to_le_bytes());
