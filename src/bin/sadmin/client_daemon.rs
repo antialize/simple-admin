@@ -48,6 +48,12 @@ use sdnotify::SdNotify;
 
 pub const CONTROL_SOCKET_PATH: &str = "/run/simpleadmin/control.socket";
 
+pub const JOB_ORDER: i32 = -20;
+pub const CONTROL_ORDER: i32 = -15;
+pub const SERVICE_ORDER: i32 = -0;
+pub const UPSTREAM_ORDER: i32 = 10;
+pub const PERSIST_ORDER: i32 = 20;
+
 /// Run the simpleadmin-client daemon (root)
 ///
 /// You should probably not run this manually, instead this should be run through
@@ -689,6 +695,7 @@ impl Client {
                 let id = ri.id;
 
                 let task = TaskBuilder::new(format!("run_instant_{}", id))
+                    .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_run_instant(run_token, ri));
 
                 self.command_tasks.lock().unwrap().insert(id, task);
@@ -709,6 +716,7 @@ impl Client {
                 }
 
                 let task = TaskBuilder::new(format!("run_script_{}", id))
+                    .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_run_script(run_token, ri, recv));
 
                 self.command_tasks.lock().unwrap().insert(id, task);
@@ -716,6 +724,7 @@ impl Client {
             ClientMessage::DeployService(ds) => {
                 let id = ds.id;
                 TaskBuilder::new(format!("deploy_service_{}", id))
+                    .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_deploy_service(run_token, ds));
             }
             ClientMessage::Ping { id } => {
@@ -1339,6 +1348,7 @@ impl Client {
                 Err(_) => return Ok(()),
             };
             TaskBuilder::new("handle_control_client")
+                .shutdown_order(CONTROL_ORDER)
                 .create(|run_token| self.clone().handle_control_client(run_token, socket));
         }
     }
@@ -1470,17 +1480,21 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
 
     TaskBuilder::new("run_control")
         .main()
+        .shutdown_order(CONTROL_ORDER)
         .create(|run_token| client.clone().run_control(run_token));
 
     TaskBuilder::new("load_services")
         .critical()
+        .shutdown_order(CONTROL_ORDER)
         .create(|run_token| client.clone().load_services(run_token));
 
     TaskBuilder::new("handle_persist_input")
+        .shutdown_order(PERSIST_ORDER)
         .main()
         .create(|run_token| client.clone().handle_persist_input(run_token, persist_read));
 
     TaskBuilder::new("run")
+        .shutdown_order(UPSTREAM_ORDER)
         .main()
         .create(|run_token| client.clone().run(run_token));
 

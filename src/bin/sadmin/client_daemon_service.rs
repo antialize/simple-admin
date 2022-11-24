@@ -9,7 +9,8 @@ use std::{
 };
 
 use crate::{
-    client_daemon, persist_daemon,
+    client_daemon::{self, SERVICE_ORDER},
+    persist_daemon,
     service_control::DaemonControlMessage,
     service_description::{Bind, ServiceType},
     tokio_passfd::MyAsFd,
@@ -448,6 +449,7 @@ impl Stop {
         service: Arc<Service>,
         run_task: &std::sync::Mutex<Option<ServiceTask>>,
         status: &std::sync::Mutex<ServiceStatus>,
+        overlap: bool,
         log: &mut RemoteLogTarget<'_>,
     ) -> Result<Option<Stop>> {
         let task = match run_task.lock().unwrap().clone() {
@@ -461,7 +463,7 @@ impl Stop {
             Err(_) => bail!("Failed to wait for task"),
         };
 
-        let (process_key, stop_timeout, user, pod_name) = {
+        let (process_key, stop_timeout, user, pod_name, overlap_stop_signal) = {
             let status = status.lock().unwrap();
             let process_key = status.process_key.clone().context("Expected process key")?;
             (
@@ -469,9 +471,13 @@ impl Stop {
                 status.description.stop_timeout,
                 status.description.user.clone(),
                 status.pod_name.clone(),
+                status.description.overlap_stop_signal,
             )
         };
         info!("Stopping {}", service.name);
+        let signal = if overlap { overlap_stop_signal } else { None }
+            .unwrap_or(crate::service_description::Signal::Term);
+
         if let Some(pod_name) = pod_name {
             let mut line = Vec::new();
             writeln!(
@@ -485,6 +491,8 @@ impl Stop {
             let mut cmd = tokio::process::Command::new("/usr/bin/podman");
             cmd.arg("kill")
                 .arg(pod_name)
+                .arg("--signal")
+                .arg(signal.name())
                 .env_clear()
                 .current_dir("/tmp")
                 .env(
@@ -518,7 +526,7 @@ impl Stop {
             // Send sig term
             service
                 .client
-                .persist_signal_process(process_key.clone(), 15)
+                .persist_signal_process(process_key.clone(), signal.number())
                 .await?;
         }
         let timeout = stop_timeout.map(|v| std::time::Instant::now() + Duration::from(v));
@@ -668,6 +676,7 @@ impl Service {
                 *self.status.lock().unwrap() = status;
 
                 let task = TaskBuilder::new(format!("service_{}", self.name))
+                    .shutdown_order(SERVICE_ORDER)
                     .create(|rt| self.clone().run_service(rt, Some(instance)));
                 *self.run_task.lock().unwrap() = Some(task);
             } else {
@@ -677,6 +686,7 @@ impl Service {
             *self.status.lock().unwrap() = status;
 
             let task = TaskBuilder::new(format!("service_{}", self.name))
+                .shutdown_order(SERVICE_ORDER)
                 .create(|rt| self.clone().run_service(rt, None));
             *self.run_task.lock().unwrap() = Some(task);
         }
@@ -864,7 +874,6 @@ impl Service {
                     pod_options: Default::default(),
                     env: Default::default(),
                     pod_env: Default::default(),
-                    cgroup_delegation: Default::default(),
                     overlap_stop_signal: Default::default(),
                 },
                 extra_env: Default::default(),
@@ -1062,6 +1071,7 @@ impl Service {
         std::mem::swap(&mut *self.status.lock().unwrap(), &mut status);
 
         let task = TaskBuilder::new(format!("service_{}", desc.name))
+            .shutdown_order(SERVICE_ORDER)
             .create(|rt| self.clone().run_service(rt, Some(instance)));
         let old_run_task = self.run_task.lock().unwrap().replace(task);
         self.persist_status()?;
@@ -1073,7 +1083,7 @@ impl Service {
         if !desc.overlap {
             return Ok(());
         }
-        let mut stop = match Stop::new(self.clone(), &run_task, &status, log).await? {
+        let mut stop = match Stop::new(self.clone(), &run_task, &status, true, log).await? {
             Some(stop) => stop,
             None => return Ok(()),
         };
@@ -1095,13 +1105,13 @@ impl Service {
             self.name, instance_id
         );
 
-        TaskBuilder::new(format!("stop {}.{}", self.name, instance_id)).create(
-            move |rt| async move {
+        TaskBuilder::new(format!("stop {}.{}", self.name, instance_id))
+            .shutdown_order(SERVICE_ORDER)
+            .create(move |rt| async move {
                 stop.run(&rt, &status, None, &mut RemoteLogTarget::Null)
                     .await?;
                 Ok::<(), anyhow::Error>(())
-            },
-        );
+            });
         Ok(())
     }
 
@@ -1350,11 +1360,6 @@ impl Service {
             None => None,
         };
 
-        // Run run prestart
-        for (idx, src) in desc.pre_start.iter().enumerate() {
-            run_script(format!("prestart {}", idx), src, log).await?;
-        }
-
         CgroupBuilder::new("sadmin").build(Box::new(cgroups_rs::hierarchies::V2::new()));
         let cgroup_name = format!("sadmin/{}", desc.name);
         if let Some(v) = desc.max_memory {
@@ -1368,6 +1373,11 @@ impl Service {
                 .memory()
                 .done()
                 .build(Box::new(cgroups_rs::hierarchies::V2::new()));
+        }
+
+        // Run run prestart
+        for (idx, src) in desc.pre_start.iter().enumerate() {
+            run_script(format!("prestart {}", idx), src, log).await?;
         }
 
         let stdout_write_key = format!("service.{}.{}.stdout_write", desc.name, instance_id);
@@ -1517,17 +1527,17 @@ impl Service {
             let mut args = vec![
                 "run".to_string(),
                 "--rm".to_string(),
-                "--log-driver".to_string(),
-                "none".to_string(),
+                "--log-driver=none".to_string(),
                 "--name".to_string(),
                 pod_name.clone(),
-                "--sdnotify".to_string(),
-                "ignore".to_string(),
+                "--sdnotify=ignore".to_string(),
                 "--env".to_string(),
                 format!("NOTIFY_SOCKET=/run/sdnotify/{}", notify_name),
                 "-v".to_string(),
                 format!("{}:/run/sdnotify", notify_dir),
+                "--systemd=false".to_string(),
             ];
+
             for env in desc.pod_env.keys() {
                 args.push("--env".to_string());
                 args.push(env.clone());
@@ -1731,7 +1741,9 @@ impl Service {
     }
 
     pub async fn stop_inner(self: &Arc<Self>, log: &mut RemoteLogTarget<'_>) -> Result<()> {
-        if let Some(mut stop) = Stop::new(self.clone(), &self.run_task, &self.status, log).await? {
+        if let Some(mut stop) =
+            Stop::new(self.clone(), &self.run_task, &self.status, false, log).await?
+        {
             let rt = RunToken::new();
             stop.run(&rt, &self.status, None, log).await?;
         }
@@ -1775,6 +1787,7 @@ impl Service {
         *self.status.lock().unwrap() = status;
 
         let task = TaskBuilder::new(format!("service_{}", self.name))
+            .shutdown_order(SERVICE_ORDER)
             .create(|rt| self.clone().run_service(rt, Some(instance)));
         *self.run_task.lock().unwrap() = Some(task);
 
