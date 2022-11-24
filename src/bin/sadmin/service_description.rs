@@ -11,6 +11,33 @@ pub enum Signal {
     Term,
     Abort,
     Hub,
+    Int,
+}
+
+impl Signal {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Signal::Usr1 => "USR1",
+            Signal::Usr2 => "USR2",
+            Signal::Kill => "KILL",
+            Signal::Term => "TERM",
+            Signal::Abort => "ABORT",
+            Signal::Hub => "HUB",
+            Signal::Int => "INT",
+        }
+    }
+
+    pub fn number(&self) -> i32 {
+        match self {
+            Signal::Usr1 => 10,
+            Signal::Usr2 => 12,
+            Signal::Kill => 9,
+            Signal::Term => 15,
+            Signal::Abort => 6,
+            Signal::Hub => 1,
+            Signal::Int => 2,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -280,8 +307,6 @@ pub struct ServiceDescription {
     pub env: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub pod_env: HashMap<String, String>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub cgroup_delegation: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlap_stop_signal: Option<Signal>,
 }

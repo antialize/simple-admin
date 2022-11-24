@@ -179,20 +179,29 @@ pub struct LogOut {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Deployment {
+    #[serde(default)]
     pub config: Option<String>,
+    #[serde(default)]
     pub end: Option<FiniteF64>,
-    pub hash: String,
+    #[serde(default)]
+    pub hash: Option<String>,
     pub host: u64,
     pub id: u64,
     pub image: String,
-    pub image_info: ImageInfo,
+    #[serde(default)]
+    pub image_info: Option<ImageInfo>,
     pub name: String,
     pub start: FiniteF64,
+    #[serde(default)]
     pub stop_timeout: Option<FiniteF64>,
+    #[serde(default)]
     pub timeout: Option<FiniteF64>,
     pub user: String,
+    pub service: bool,
+    #[serde(default)]
+    pub state: Option<String>,
+    pub use_podman: bool,
 }
-
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DockerDeployStart {

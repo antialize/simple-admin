@@ -182,9 +182,9 @@ fn group_deployments(
 struct Key {
     deploy_time: String,
     deploy_user: String,
-    push_time: String,
-    push_user: String,
-    image_info: ImageInfo,
+    push_time: Option<String>,
+    push_user: Option<String>,
+    image_info: Option<ImageInfo>,
     removed: Option<String>,
     name: String,
     git: String,
@@ -197,10 +197,19 @@ impl KeyDeployment {
         Key {
             deploy_time: RelTime(self.0.start).to_string(),
             deploy_user: self.0.user.clone(),
-            push_time: RelTime(self.0.image_info.time).to_string(),
-            push_user: self.0.image_info.user.clone(),
+            push_time: self
+                .0
+                .image_info
+                .as_ref()
+                .map(|v| RelTime(v.time).to_string()),
+            push_user: self.0.image_info.as_ref().map(|v| v.user.clone()),
             image_info: self.0.image_info.clone(),
-            removed: self.0.image_info.removed.map(|v| RelTime(v).to_string()),
+            removed: self
+                .0
+                .image_info
+                .as_ref()
+                .and_then(|v| v.removed)
+                .map(|v| RelTime(v).to_string()),
             name: Default::default(),
             git: Default::default(),
         }
@@ -237,11 +246,12 @@ fn list_deployment_groups(
         stdout.write_all(b"\n")?;
         let mut deployments = Vec::new();
         for mut deployment in group {
-            let mut image_info = deployment.image_info;
-            let image_tag = (image_info.image, image_info.tag);
-            image_info.pinned_image_tag = pinned_image_tags.contains(&image_tag);
-            (image_info.image, image_info.tag) = image_tag;
-            deployment.image_info = image_info;
+            if let Some(mut image_info) = deployment.image_info.take() {
+                let image_tag = (image_info.image, image_info.tag);
+                image_info.pinned_image_tag = pinned_image_tags.contains(&image_tag);
+                (image_info.image, image_info.tag) = image_tag;
+                deployment.image_info = Some(image_info);
+            }
             deployments.push(KeyDeployment(deployment));
         }
 
@@ -249,7 +259,9 @@ fn list_deployment_groups(
             key.name = g.map(|v| v.0.name).join(", ");
 
             let mut status_fmt = "- {bold}{red}{name}{reset}".to_string();
-            if key.push_time == key.deploy_time && key.deploy_user == key.push_user {
+            if key.push_time.as_deref() == Some(key.deploy_time.as_str())
+                && Some(key.deploy_user.as_str()) == key.push_user.as_deref()
+            {
                 status_fmt.push_str(" {half}pushed{reset} {green}{bold}{push_time}{reset} {half}by{reset} {push_user}, pushed {green}{bold}{deploy_time}{reset} {half}by{reset} {deploy_user}");
             } else {
                 status_fmt
@@ -258,17 +270,32 @@ fn list_deployment_groups(
             if key.removed.is_some() {
                 status_fmt.push_str("{half},{reset} {red}removed{reset} {removed}");
             }
-            let pin = key.image_info.pin;
+            let pin = key.image_info.as_ref().map(|v| v.pin).unwrap_or_default();
             if pin {
                 status_fmt.push_str("{half}, hash pinned{reset}");
             }
-            if key.image_info.pinned_image_tag {
+            if key
+                .image_info
+                .as_ref()
+                .map(|v| v.pinned_image_tag)
+                .unwrap_or_default()
+            {
                 status_fmt.push_str("{half}, tag pinned{reset}");
             }
-            if !pin && !key.image_info.pinned_image_tag {
+            if !pin
+                && !key
+                    .image_info
+                    .as_ref()
+                    .map(|v| v.pinned_image_tag)
+                    .unwrap_or_default()
+            {
                 status_fmt.push_str("{half}, {reset}no pin");
             }
-            let extra = dyn_format(format, &key.image_info)?;
+            let extra = if let Some(info) = &key.image_info {
+                dyn_format(format, info)?
+            } else {
+                "".to_string()
+            };
             let extra = extra.trim();
             if !extra.is_empty() {
                 key.git = extra.to_string();
