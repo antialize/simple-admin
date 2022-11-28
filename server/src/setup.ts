@@ -44,17 +44,14 @@ export default async (req: Request, res: Response) => {
 
     let script = "#!/bin/bash\n";
     script += "set -e\n";
-    script += "which add-apt-repository || apt-get install -y software-properties-common\n";
-    script += "add-apt-repository universe\n";
-    script += "apt update\n";
-    // smartmontools recommends mailx which depends on some mail-transport-agent. Install ssmtp instead of postfix.
-    script += "apt install -y python3 python3-dbus git smartmontools postfix- ssmtp python3-websockets python3-aiohttp\n";
-    script += "echo '{\"password\": \""+npw+"\", \"server_host\": \""+config.hostname+"\", \"hostname\": \""+host+"\"}' > /etc/simpleadmin_client.json\n";
-    script += "rm -rf /opt/simple-admin\n";
-    script += "mkdir -p /opt/simple-admin\n";
-    script += "git clone https://github.com/antialize/simple-admin.git /opt/simple-admin\n";
-    script += "ln -Tfs /opt/simple-admin/simpleadmin-client.service /etc/systemd/system/simpleadmin-client.service\n";
-    script += "ln -Tfs /opt/simple-admin/simpleadmin.py /usr/bin/sadmin\n";
+    script += "apt install -y wget unzip\n";
+    script += "echo '{\"server_host\": \""+config.hostname+"\", \"hostname\": \""+host+"\"}' > /etc/sadmin.json\n";
+    script += "echo '{\"password\": \""+npw+"\"}' > /etc/sadmin_client_auth.json\n";
+    script += "chmod 0600 /etc/sadmin_client_auth.json\n";
+    script += "wget https://github.com/antialize/simple-admin/releases/download/v0.0.15/sadmin-client.zip -O /tmp/sadmin-client.zip\n";
+    script += "cd /usr/local/bin\n"
+    script += "unzip -o /tmp/sadmin-client.zip\n"
+    script += "/usr/local/bin/sadmin upgrade\n"
     script += "systemctl daemon-reload\n";
     script += "systemctl enable simpleadmin-client.service\n";
     script += "systemctl restart simpleadmin-client.service\n";

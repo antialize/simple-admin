@@ -1,9 +1,0 @@
-[Unit]
-Description=Simple admin client
-
-[Service]
-ExecStart=/usr/bin/python3 /opt/simple-admin/client.py
-Restart=on-abort
-
-[Install]
-WantedBy=multi-user.target
