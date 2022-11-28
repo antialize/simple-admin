@@ -751,36 +751,37 @@ impl Service {
                     };
                     log.stdout(b"Starting service\n").await?;
                     info!("Starting service {}", self.name);
-                    let (ins, mut status) =
-                        match self.start_instance(desc, extra_env, image, &mut log).await {
-                            Ok(v) => v,
-                            Err(e) => {
-                                const SLEEP_TIME: u64 = 5;
-                                error!(
-                                    "Failed starting service {}: {:?}. Will retry in {} secs",
-                                    self.name, e, SLEEP_TIME
-                                );
-                                log.stdout(
-                                    format!(
-                                        "Failed starting service: {:?}. Will retry in {} secs\n",
-                                        e, SLEEP_TIME
-                                    )
-                                    .as_bytes(),
+                    let (ins, mut status) = match self
+                        .start_instance(desc, extra_env, image, &mut log, deploy_user)
+                        .await
+                    {
+                        Ok(v) => v,
+                        Err(e) => {
+                            const SLEEP_TIME: u64 = 5;
+                            error!(
+                                "Failed starting service {}: {:?}. Will retry in {} secs",
+                                self.name, e, SLEEP_TIME
+                            );
+                            log.stdout(
+                                format!(
+                                    "Failed starting service: {:?}. Will retry in {} secs\n",
+                                    e, SLEEP_TIME
                                 )
-                                .await?;
-                                if cancelable(
-                                    &run_token,
-                                    tokio::time::sleep(std::time::Duration::from_secs(SLEEP_TIME)),
-                                )
-                                .await
-                                .is_err()
-                                {
-                                    break;
-                                }
-                                continue;
+                                .as_bytes(),
+                            )
+                            .await?;
+                            if cancelable(
+                                &run_token,
+                                tokio::time::sleep(std::time::Duration::from_secs(SLEEP_TIME)),
+                            )
+                            .await
+                            .is_err()
+                            {
+                                break;
                             }
-                        };
-                    status.deploy_user = deploy_user;
+                            continue;
+                        }
+                    };
                     status.deploy_time = deploy_time;
                     *self.status.lock().unwrap() = status;
                     self.persist_status()?;
@@ -931,12 +932,14 @@ impl Service {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn deploy_inner(
         self: &Arc<Self>,
         image: Option<String>,
         desc: ServiceDescription,
         docker_auth: Option<String>,
         extra_env: HashMap<String, String>,
+        deploy_user: String,
         log: &mut RemoteLogTarget<'_>,
         actions: &mut Vec<DeployAction>,
     ) -> Result<()> {
@@ -1104,7 +1107,7 @@ impl Service {
         }
 
         let (instance, mut status) = self
-            .start_instance(desc.clone(), extra_env, image, log)
+            .start_instance(desc.clone(), extra_env, image, log, deploy_user)
             .await?;
         std::mem::swap(&mut *self.status.lock().unwrap(), &mut status);
 
@@ -1159,11 +1162,20 @@ impl Service {
         desc: ServiceDescription,
         docker_auth: Option<String>,
         extra_env: HashMap<String, String>,
+        deploy_user: String,
         log: &mut RemoteLogTarget<'_>,
     ) -> Result<()> {
         let mut actions = Vec::new();
         match self
-            .deploy_inner(image, desc, docker_auth, extra_env, log, &mut actions)
+            .deploy_inner(
+                image,
+                desc,
+                docker_auth,
+                extra_env,
+                deploy_user,
+                log,
+                &mut actions,
+            )
             .await
         {
             Ok(()) => {
@@ -1335,6 +1347,7 @@ impl Service {
         extra_env: HashMap<String, String>,
         image: Option<String>,
         log: &mut RemoteLogTarget<'_>,
+        deploy_user: String,
     ) -> Result<(ServiceInstance, ServiceStatus)> {
         let instance_id: u64 = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -1343,7 +1356,15 @@ impl Service {
             .try_into()?;
         let mut bind_keys = Vec::new();
         let e = match self
-            .start_instance_inner(desc, &extra_env, image, log, instance_id, &mut bind_keys)
+            .start_instance_inner(
+                desc,
+                &extra_env,
+                image,
+                log,
+                instance_id,
+                &mut bind_keys,
+                deploy_user,
+            )
             .await
         {
             Ok(v) => return Ok(v),
@@ -1378,6 +1399,7 @@ impl Service {
         Err(e)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn start_instance_inner(
         self: &Arc<Self>,
         desc: ServiceDescription,
@@ -1386,6 +1408,7 @@ impl Service {
         log: &mut RemoteLogTarget<'_>,
         instance_id: u64,
         bind_keys: &mut Vec<String>,
+        deploy_user: String,
     ) -> Result<(ServiceInstance, ServiceStatus)> {
         info!("Start instance {}", &desc.name);
 
@@ -1671,7 +1694,7 @@ impl Service {
             process_key: Some(process_key.clone()),
             start_stop_time: SystemTime::now(),
             deploy_time: SystemTime::now(),
-            deploy_user: "root".to_string(),
+            deploy_user,
             image,
             pod_name: pod_name.clone(),
         });
@@ -1821,9 +1844,10 @@ impl Service {
             )
         };
 
-        let (instance, mut status) = self.start_instance(desc, extra_env, image, log).await?;
+        let (instance, mut status) = self
+            .start_instance(desc, extra_env, image, log, deploy_user)
+            .await?;
         status.enabled = true;
-        status.deploy_user = deploy_user;
         status.deploy_time = deploy_time;
         *self.status.lock().unwrap() = status;
         self.create_run_service_task(Some(instance));

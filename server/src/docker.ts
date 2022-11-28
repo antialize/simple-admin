@@ -907,7 +907,7 @@ finally:
          }
     }
 
-    deployServiceJob(client: WebClient, host:HostClient, description: string, docker_auth: String, image: String | null, extra_env: {[key:string]: string}, ref:Ref)
+    deployServiceJob(client: WebClient, host:HostClient, description: string, docker_auth: String, image: String | null, extra_env: {[key:string]: string}, ref:Ref, user: String)
         : Promise<void> {
         return new Promise((accept, reject) => {
             class ServiceDeployJob extends Job {
@@ -922,7 +922,8 @@ finally:
                         description,
                         extra_env,
                         docker_auth,
-                        image: image || undefined
+                        image: image || undefined,
+                        user,
                     };
                     host.sendMessage(msg);
                     this.running = true;
@@ -1054,7 +1055,8 @@ finally:
                     Buffer.from("docker_client:"+session).toString('base64'),
                     image,
                     extraEnv,
-                    ref
+                    ref,
+                    user
                 )
 
                 let id = this.idc++;

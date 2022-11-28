@@ -189,6 +189,8 @@ pub struct DeployServiceMessage {
     docker_auth: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     extra_env: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    user: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -615,6 +617,7 @@ impl Client {
                 d,
                 msg.docker_auth,
                 msg.extra_env,
+                msg.user.unwrap_or_else(|| "unknown".to_string()),
                 &mut RemoteLogTarget::Backend {
                     id: msg.id,
                     client: self.clone(),
@@ -1197,6 +1200,7 @@ impl Client {
                         *d.config,
                         None,
                         Default::default(),
+                        "root".to_string(),
                         &mut RemoteLogTarget::ServiceControl(socket),
                     )
                     .await?;
