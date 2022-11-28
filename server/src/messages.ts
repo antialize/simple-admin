@@ -29,6 +29,7 @@ export interface DeployService {
     image?: String;
     docker_auth?: String;
     extra_env?: {[key:string]: string};
+    user?: String;
 }
 
 export interface Kill {

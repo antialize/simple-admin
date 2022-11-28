@@ -59,6 +59,7 @@ struct DockerConf {
     auths: HashMap<String, DockerAuth>,
 }
 
+#[derive(Clone, Copy)]
 #[allow(dead_code)]
 #[repr(u8)]
 pub enum Priority {
@@ -70,6 +71,26 @@ pub enum Priority {
     Notice,
     Info,
     Debug,
+}
+
+async fn send_journal_messages(
+    socket: &tokio::net::UnixDatagram,
+    priority: Priority,
+    mut message: &[u8],
+    unit: &str,
+    instance_id: u64,
+) -> Result<()> {
+    while let [rest @ .., last] = message {
+        if last.is_ascii_whitespace() {
+            message = rest;
+        } else {
+            break;
+        }
+    }
+    for line in message.split(|v| *v == 10) {
+        send_journal_message(socket, priority, line, unit, instance_id).await?;
+    }
+    Ok(())
 }
 
 /// Append message to systemd journal
@@ -177,7 +198,7 @@ impl<'a> RemoteLogTarget<'a> {
                 socket,
                 name,
                 instance_id,
-            } => send_journal_message(socket, Priority::Info, data, name, *instance_id).await?,
+            } => send_journal_messages(socket, Priority::Info, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
                     data: base64::encode(data),
@@ -218,7 +239,7 @@ impl<'a> RemoteLogTarget<'a> {
                 socket,
                 name,
                 instance_id,
-            } => send_journal_message(socket, Priority::Error, data, name, *instance_id).await?,
+            } => send_journal_messages(socket, Priority::Error, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
                     data: base64::encode(data),
@@ -730,36 +751,37 @@ impl Service {
                     };
                     log.stdout(b"Starting service\n").await?;
                     info!("Starting service {}", self.name);
-                    let (ins, mut status) =
-                        match self.start_instance(desc, extra_env, image, &mut log).await {
-                            Ok(v) => v,
-                            Err(e) => {
-                                const SLEEP_TIME: u64 = 5;
-                                error!(
-                                    "Failed starting service {}: {:?}. Will retry in {} secs",
-                                    self.name, e, SLEEP_TIME
-                                );
-                                log.stdout(
-                                    format!(
-                                        "Failed starting service: {:?}. Will retry in {} secs\n",
-                                        e, SLEEP_TIME
-                                    )
-                                    .as_bytes(),
+                    let (ins, mut status) = match self
+                        .start_instance(desc, extra_env, image, &mut log, deploy_user)
+                        .await
+                    {
+                        Ok(v) => v,
+                        Err(e) => {
+                            const SLEEP_TIME: u64 = 5;
+                            error!(
+                                "Failed starting service {}: {:?}. Will retry in {} secs",
+                                self.name, e, SLEEP_TIME
+                            );
+                            log.stdout(
+                                format!(
+                                    "Failed starting service: {:?}. Will retry in {} secs\n",
+                                    e, SLEEP_TIME
                                 )
-                                .await?;
-                                if cancelable(
-                                    &run_token,
-                                    tokio::time::sleep(std::time::Duration::from_secs(SLEEP_TIME)),
-                                )
-                                .await
-                                .is_err()
-                                {
-                                    break;
-                                }
-                                continue;
+                                .as_bytes(),
+                            )
+                            .await?;
+                            if cancelable(
+                                &run_token,
+                                tokio::time::sleep(std::time::Duration::from_secs(SLEEP_TIME)),
+                            )
+                            .await
+                            .is_err()
+                            {
+                                break;
                             }
-                        };
-                    status.deploy_user = deploy_user;
+                            continue;
+                        }
+                    };
                     status.deploy_time = deploy_time;
                     *self.status.lock().unwrap() = status;
                     self.persist_status()?;
@@ -910,12 +932,14 @@ impl Service {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn deploy_inner(
         self: &Arc<Self>,
         image: Option<String>,
         desc: ServiceDescription,
         docker_auth: Option<String>,
         extra_env: HashMap<String, String>,
+        deploy_user: String,
         log: &mut RemoteLogTarget<'_>,
         actions: &mut Vec<DeployAction>,
     ) -> Result<()> {
@@ -953,7 +977,6 @@ impl Service {
             }
         }
 
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o022));
         let t = tempfile::TempDir::new()?;
         let auth_path = t.path().join("docker.conf");
         std::fs::File::options()
@@ -1084,7 +1107,7 @@ impl Service {
         }
 
         let (instance, mut status) = self
-            .start_instance(desc.clone(), extra_env, image, log)
+            .start_instance(desc.clone(), extra_env, image, log, deploy_user)
             .await?;
         std::mem::swap(&mut *self.status.lock().unwrap(), &mut status);
 
@@ -1139,11 +1162,20 @@ impl Service {
         desc: ServiceDescription,
         docker_auth: Option<String>,
         extra_env: HashMap<String, String>,
+        deploy_user: String,
         log: &mut RemoteLogTarget<'_>,
     ) -> Result<()> {
         let mut actions = Vec::new();
         match self
-            .deploy_inner(image, desc, docker_auth, extra_env, log, &mut actions)
+            .deploy_inner(
+                image,
+                desc,
+                docker_auth,
+                extra_env,
+                deploy_user,
+                log,
+                &mut actions,
+            )
             .await
         {
             Ok(()) => {
@@ -1231,7 +1263,7 @@ impl Service {
                     Ok(Ok(v)) => {
                         log.stdout(&i.buf[..v]).await?;
 
-                        send_journal_message(
+                        send_journal_messages(
                             &self.client.journal_socket,
                             Priority::Info,
                             &i.buf[..v],
@@ -1253,7 +1285,7 @@ impl Service {
                     match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf).map_err(|v| v.into())){
                         Ok(Ok(v)) => {
                             log.stderr(&i.buf[..v]).await?;
-                            send_journal_message(
+                            send_journal_messages(
                                 &self.client.journal_socket,
                                 Priority::Error,
                                 &i.buf[..v],
@@ -1315,6 +1347,7 @@ impl Service {
         extra_env: HashMap<String, String>,
         image: Option<String>,
         log: &mut RemoteLogTarget<'_>,
+        deploy_user: String,
     ) -> Result<(ServiceInstance, ServiceStatus)> {
         let instance_id: u64 = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -1323,7 +1356,15 @@ impl Service {
             .try_into()?;
         let mut bind_keys = Vec::new();
         let e = match self
-            .start_instance_inner(desc, &extra_env, image, log, instance_id, &mut bind_keys)
+            .start_instance_inner(
+                desc,
+                &extra_env,
+                image,
+                log,
+                instance_id,
+                &mut bind_keys,
+                deploy_user,
+            )
             .await
         {
             Ok(v) => return Ok(v),
@@ -1358,6 +1399,7 @@ impl Service {
         Err(e)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn start_instance_inner(
         self: &Arc<Self>,
         desc: ServiceDescription,
@@ -1366,6 +1408,7 @@ impl Service {
         log: &mut RemoteLogTarget<'_>,
         instance_id: u64,
         bind_keys: &mut Vec<String>,
+        deploy_user: String,
     ) -> Result<(ServiceInstance, ServiceStatus)> {
         info!("Start instance {}", &desc.name);
 
@@ -1406,18 +1449,16 @@ impl Service {
         let process_key = format!("service.{}.{}", desc.name, instance_id);
         let (stdout_read, stdout_write) = create_pipe()?;
         let (stderr_read, stderr_write) = create_pipe()?;
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o022));
-        std::fs::create_dir_all(format!(
-            "/run/simpleadmin/services/{}/{}",
-            desc.name, instance_id
-        ))?;
-
-        let notify_path = format!(
-            "/run/simpleadmin/services/{}/{}/notify.socket",
-            desc.name, instance_id
-        );
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o077));
+        let dir = format!("/run/simpleadmin/services/{}/{}", desc.name, instance_id);
+        std::fs::create_dir_all(&dir)?;
+        let notify_path = format!("{}/notify.socket", dir);
         let notify_socket = UnixDatagram::bind(&notify_path)?;
+        nix::sys::stat::fchmodat(
+            None,
+            Path::new(&notify_path),
+            nix::sys::stat::Mode::from_bits_truncate(0o600),
+            nix::sys::stat::FchmodatFlags::NoFollowSymlink,
+        )?;
         if let Some(user) = &user {
             nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
         }
@@ -1461,11 +1502,16 @@ impl Service {
                 } => {
                     if !self.client.persist_has_fd(key.clone()).await? {
                         bind_keys.push(key.clone());
-                        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(*umask));
                         let socket = std::os::unix::net::UnixListener::bind(path)?;
+                        nix::sys::stat::fchmodat(
+                            None,
+                            Path::new(path),
+                            nix::sys::stat::Mode::from_bits_truncate(0o777 ^ *umask),
+                            nix::sys::stat::FchmodatFlags::NoFollowSymlink,
+                        )?;
                         let user = nix::unistd::User::from_name(user)?
                             .with_context(|| format!("Unknown user {}", user))?;
-                        nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
+                        nix::unistd::chown(Path::new(path), Some(user.uid), Some(user.gid))?;
                         self.client
                             .persist_put_fd(key.clone(), socket.as_fd())
                             .await?;
@@ -1648,7 +1694,7 @@ impl Service {
             process_key: Some(process_key.clone()),
             start_stop_time: SystemTime::now(),
             deploy_time: SystemTime::now(),
-            deploy_user: "root".to_string(),
+            deploy_user,
             image,
             pod_name: pod_name.clone(),
         });
@@ -1798,9 +1844,10 @@ impl Service {
             )
         };
 
-        let (instance, mut status) = self.start_instance(desc, extra_env, image, log).await?;
+        let (instance, mut status) = self
+            .start_instance(desc, extra_env, image, log, deploy_user)
+            .await?;
         status.enabled = true;
-        status.deploy_user = deploy_user;
         status.deploy_time = deploy_time;
         *self.status.lock().unwrap() = status;
         self.create_run_service_task(Some(instance));
