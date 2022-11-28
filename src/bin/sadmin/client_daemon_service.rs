@@ -968,8 +968,8 @@ impl Service {
             }
         }
 
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o022));
         let t = tempfile::TempDir::new()?;
+        nix::sys::stat::fchmodat(None, t.path(), nix::sys::stat::Mode::from_bits_truncate(0o600), nix::sys::stat::FchmodatFlags::NoFollowSymlink)?;
         let auth_path = t.path().join("docker.conf");
         std::fs::File::options()
             .create_new(true)
@@ -1421,17 +1421,16 @@ impl Service {
         let process_key = format!("service.{}.{}", desc.name, instance_id);
         let (stdout_read, stdout_write) = create_pipe()?;
         let (stderr_read, stderr_write) = create_pipe()?;
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o022));
-        std::fs::create_dir_all(format!(
+        let dir = format!(
             "/run/simpleadmin/services/{}/{}",
             desc.name, instance_id
-        ))?;
-
+        );
+        std::fs::create_dir_all(&dir)?;
+        nix::sys::stat::fchmodat(None, Path::new(&dir), nix::sys::stat::Mode::from_bits_truncate(0o600), nix::sys::stat::FchmodatFlags::NoFollowSymlink)?;
         let notify_path = format!(
             "/run/simpleadmin/services/{}/{}/notify.socket",
             desc.name, instance_id
         );
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o077));
         let notify_socket = UnixDatagram::bind(&notify_path)?;
         if let Some(user) = &user {
             nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
@@ -1476,11 +1475,11 @@ impl Service {
                 } => {
                     if !self.client.persist_has_fd(key.clone()).await? {
                         bind_keys.push(key.clone());
-                        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(*umask));
                         let socket = std::os::unix::net::UnixListener::bind(path)?;
+                        nix::sys::stat::fchmodat(None, Path::new(path), nix::sys::stat::Mode::from_bits_truncate(0o777 ^ *umask), nix::sys::stat::FchmodatFlags::NoFollowSymlink)?;
                         let user = nix::unistd::User::from_name(user)?
                             .with_context(|| format!("Unknown user {}", user))?;
-                        nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
+                        nix::unistd::chown(Path::new(path), Some(user.uid), Some(user.gid))?;
                         self.client
                             .persist_put_fd(key.clone(), socket.as_fd())
                             .await?;

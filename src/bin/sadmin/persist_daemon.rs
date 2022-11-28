@@ -443,10 +443,11 @@ impl State {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("Unable to create dir {:?}", parent))?;
         }
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o077));
         let listener =
             UnixListener::bind(&path).with_context(|| format!("Unable to bind to {:?}", path))?;
-        nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(0o022));
+        // The socket does not accept connections util listen in called so there is no race here
+        nix::sys::stat::fchmodat(None, &path, nix::sys::stat::Mode::from_bits_truncate(0o600), nix::sys::stat::FchmodatFlags::NoFollowSymlink)?;
+
         info!("Listining on {:?}", path);
 
         if let Ok(notifier) = sdnotify::SdNotify::from_env() {
