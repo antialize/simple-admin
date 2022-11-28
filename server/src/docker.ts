@@ -1119,7 +1119,7 @@ finally:
         await this.deployServiceInner(
             client,
             act.ref,
-            description.host,
+            deploymentRow.host,
             description,
             null,
             deploymentRow.hash ? deploymentRow.project + "@" + deploymentRow.hash : null,
