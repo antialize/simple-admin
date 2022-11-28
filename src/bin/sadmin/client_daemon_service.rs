@@ -59,6 +59,7 @@ struct DockerConf {
     auths: HashMap<String, DockerAuth>,
 }
 
+#[derive(Clone, Copy)]
 #[allow(dead_code)]
 #[repr(u8)]
 pub enum Priority {
@@ -70,6 +71,20 @@ pub enum Priority {
     Notice,
     Info,
     Debug,
+}
+
+async fn send_journal_messages(
+    socket: &tokio::net::UnixDatagram,
+    priority: Priority,
+    message: &[u8],
+    unit: &str,
+    instance_id: u64,
+) -> Result<()> {
+    let message = message.strip_suffix(&[10]).unwrap_or(message);
+    for line in message.split(|v| *v==10) {
+        send_journal_message(socket, priority, line, unit, instance_id).await?;
+    }
+    Ok(())
 }
 
 /// Append message to systemd journal
@@ -177,7 +192,7 @@ impl<'a> RemoteLogTarget<'a> {
                 socket,
                 name,
                 instance_id,
-            } => send_journal_message(socket, Priority::Info, data, name, *instance_id).await?,
+            } => send_journal_messages(socket, Priority::Info, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
                     data: base64::encode(data),
@@ -218,7 +233,7 @@ impl<'a> RemoteLogTarget<'a> {
                 socket,
                 name,
                 instance_id,
-            } => send_journal_message(socket, Priority::Error, data, name, *instance_id).await?,
+            } => send_journal_messages(socket, Priority::Error, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
                     data: base64::encode(data),
@@ -1231,7 +1246,7 @@ impl Service {
                     Ok(Ok(v)) => {
                         log.stdout(&i.buf[..v]).await?;
 
-                        send_journal_message(
+                        send_journal_messages(
                             &self.client.journal_socket,
                             Priority::Info,
                             &i.buf[..v],
@@ -1253,7 +1268,7 @@ impl Service {
                     match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf).map_err(|v| v.into())){
                         Ok(Ok(v)) => {
                             log.stderr(&i.buf[..v]).await?;
-                            send_journal_message(
+                            send_journal_messages(
                                 &self.client.journal_socket,
                                 Priority::Error,
                                 &i.buf[..v],
