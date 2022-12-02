@@ -173,6 +173,8 @@ Description=Simple admin persist
 ExecStart=/usr/local/bin/sadmin persist-daemon
 Restart=always
 Type=notify
+LimitMEMLOCK=infinity
+LimitNOFILE=infinity
 
 [Install]
 WantedBy=multi-user.target
