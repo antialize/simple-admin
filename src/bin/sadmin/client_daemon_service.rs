@@ -1381,7 +1381,7 @@ impl Service {
             }
         }
         for key in bind_keys {
-            let _ = self.client.persist_close_fd(&key).await;
+            let _ = self.client.persist_close_fd(&key, "bind_keys").await;
         }
         if let Ok(keys) = self
             .client
@@ -1389,7 +1389,10 @@ impl Service {
             .await
         {
             for key in keys {
-                let _ = self.client.persist_close_fd(&key).await;
+                let _ = self
+                    .client
+                    .persist_close_fd(&key, "additional instance")
+                    .await;
             }
         }
         let _ = std::fs::remove_dir_all(format!(
@@ -1463,19 +1466,31 @@ impl Service {
             nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
         }
         self.client
-            .persist_put_fd(notify_key.to_string(), notify_socket.my_as_fd())
+            .persist_put_fd(
+                notify_key.to_string(),
+                notify_socket.my_as_fd(),
+                "notify_socket",
+            )
             .await?;
         self.client
-            .persist_put_fd(stdout_write_key.clone(), stdout_write.as_fd())
+            .persist_put_fd(
+                stdout_write_key.clone(),
+                stdout_write.as_fd(),
+                "stdout_write",
+            )
             .await?;
         self.client
-            .persist_put_fd(stdout_read_key.clone(), stdout_read.as_fd())
+            .persist_put_fd(stdout_read_key.clone(), stdout_read.as_fd(), "stdout_read")
             .await?;
         self.client
-            .persist_put_fd(stderr_write_key.clone(), stderr_write.as_fd())
+            .persist_put_fd(
+                stderr_write_key.clone(),
+                stderr_write.as_fd(),
+                "stderr_write",
+            )
             .await?;
         self.client
-            .persist_put_fd(stderr_read_key.clone(), stderr_read.as_fd())
+            .persist_put_fd(stderr_read_key.clone(), stderr_read.as_fd(), "stderr_read")
             .await?;
         std::mem::drop(stdout_write);
         std::mem::drop(stderr_write);
@@ -1489,7 +1504,7 @@ impl Service {
                         bind_keys.push(key.clone());
                         let socket = std::net::TcpListener::bind(bind)?;
                         self.client
-                            .persist_put_fd(key.clone(), socket.as_fd())
+                            .persist_put_fd(key.clone(), socket.as_fd(), "bind_tcp")
                             .await?;
                     }
                     fds.push((key, *fd as i32));
@@ -1513,7 +1528,7 @@ impl Service {
                             .with_context(|| format!("Unknown user {}", user))?;
                         nix::unistd::chown(Path::new(path), Some(user.uid), Some(user.gid))?;
                         self.client
-                            .persist_put_fd(key.clone(), socket.as_fd())
+                            .persist_put_fd(key.clone(), socket.as_fd(), "bind_unix")
                             .await?;
                     }
                     fds.push((key, *fd as i32));
@@ -1674,8 +1689,12 @@ impl Service {
             .context("Failed to start process")?;
         info!("Process started");
 
-        self.client.persist_close_fd(&stdout_write_key).await?;
-        self.client.persist_close_fd(&stderr_write_key).await?;
+        self.client
+            .persist_close_fd(&stdout_write_key, "close_stdout_write")
+            .await?;
+        self.client
+            .persist_close_fd(&stderr_write_key, "close_stderr_write")
+            .await?;
         let stdout =
             tokio::io::unix::AsyncFd::with_interest(stdout_read, tokio::io::Interest::READABLE)?;
         let stderr =
@@ -1774,7 +1793,7 @@ impl Service {
             .await
         {
             for key in keys {
-                let _ = self.client.persist_close_fd(&key).await;
+                let _ = self.client.persist_close_fd(&key, "cleanup_instance").await;
             }
         }
         let _ = std::fs::remove_dir_all(format!(
@@ -1791,7 +1810,7 @@ impl Service {
             .persist_list_fds(Some(format!("service.{}.", self.name)))
             .await?
         {
-            let _ = self.client.persist_close_fd(&key).await;
+            let _ = self.client.persist_close_fd(&key, "cleanup").await;
         }
         for key in self
             .client

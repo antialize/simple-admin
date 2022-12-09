@@ -3,7 +3,7 @@ use std::{
     io::Write,
     net::ToSocketAddrs,
     os::unix::{
-        prelude::{BorrowedFd, OwnedFd},
+        prelude::{AsRawFd, BorrowedFd, OwnedFd},
         process::ExitStatusExt,
     },
     path::Path,
@@ -820,7 +820,8 @@ impl Client {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    pub async fn persist_put_fd(&self, key: String, fd: BorrowedFd<'_>) -> Result<()> {
+    pub async fn persist_put_fd(&self, key: String, fd: BorrowedFd<'_>, loc: &str) -> Result<()> {
+        info!("persist_put_fd {}: {} @ {}", key, fd.as_raw_fd(), loc);
         let id = self.next_persist_idc();
         self.send_persist_request_success(persist_daemon::Message::PutFd { id, key }, Some(fd))
             .await
@@ -862,7 +863,8 @@ impl Client {
         }
     }
 
-    pub async fn persist_close_fd(&self, key: &str) -> Result<()> {
+    pub async fn persist_close_fd(&self, key: &str, loc: &str) -> Result<()> {
+        info!("persist_close_fd {} @ {}", key, loc);
         self.send_persist_request_success(
             persist_daemon::Message::CloseFd {
                 id: self.next_persist_idc(),
