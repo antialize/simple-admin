@@ -158,6 +158,8 @@ WatchdogSec=400s
 ExecStart=/usr/local/bin/sadmin client-daemon
 Restart=always
 Type=notify
+LogRateLimitIntervalSec=60s
+LogRateLimitBurst=10000000
 
 [Install]
 WantedBy=multi-user.target
