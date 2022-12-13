@@ -31,6 +31,7 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::{
+    client::TlsStream,
     rustls::{self, OwnedTrustAnchor},
     TlsConnector,
 };
@@ -232,21 +233,30 @@ pub struct Client {
     pub journal_socket: tokio::net::UnixDatagram,
 }
 
+async fn write_all_and_flush(v: &mut WriteHalf<TlsStream<TcpStream>>, data: &[u8]) -> Result<()> {
+    v.write_all(data).await?;
+    v.flush().await?;
+    Ok(())
+}
+
 impl Client {
     pub async fn send_message(self: &Arc<Self>, message: ClientMessage) {
         let mut message = serde_json::to_vec(&message).unwrap();
+        if message.contains(&30) {
+            panic!("Failed to encode message, it contains 30");
+        }
         message.push(30);
         loop {
             let mut s = self.sender.lock().await;
             if let Some(v) = &mut *s {
-                let write_all = v.write_all(&message);
+                let write_all = write_all_and_flush(v, &message);
                 let recv_failure = self.recv_failure_notify.notified();
                 let sleep = tokio::time::sleep(Duration::from_secs(40));
                 tokio::select!(
                     val = write_all => {
                         if let Err(e) = val {
                             // The send errored out, notify the recv half so we can try to initiate a new connection
-                            error!("Failed seding message to backend: {}", e);
+                            error!("Failed sending message to backend: {}", e);
                             self.send_failure_notify.notify_one();
                             *s = None
                         }
