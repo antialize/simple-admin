@@ -450,8 +450,12 @@ impl State {
             None,
             &path,
             nix::sys::stat::Mode::from_bits_truncate(0o600),
-            nix::sys::stat::FchmodatFlags::NoFollowSymlink,
-        )?;
+            // Note, NoFollowSymlink is NOT implemented on 20.04,
+            // even though it's what we would prefer here.
+            // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
+            nix::sys::stat::FchmodatFlags::FollowSymlink,
+        )
+        .with_context(|| format!("Unable to chmod {:?}", path))?;
 
         info!("Listining on {:?}", path);
 

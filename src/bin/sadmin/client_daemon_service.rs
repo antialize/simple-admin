@@ -1460,8 +1460,12 @@ impl Service {
             None,
             Path::new(&notify_path),
             nix::sys::stat::Mode::from_bits_truncate(0o600),
-            nix::sys::stat::FchmodatFlags::NoFollowSymlink,
-        )?;
+            // Note, NoFollowSymlink is NOT implemented on 20.04,
+            // even though it's what we would prefer here.
+            // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
+            nix::sys::stat::FchmodatFlags::FollowSymlink,
+        )
+        .with_context(|| format!("Unable to chmod {:?}", notify_path))?;
         if let Some(user) = &user {
             nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
         }
@@ -1522,8 +1526,12 @@ impl Service {
                             None,
                             Path::new(path),
                             nix::sys::stat::Mode::from_bits_truncate(0o777 ^ *umask),
-                            nix::sys::stat::FchmodatFlags::NoFollowSymlink,
-                        )?;
+                            // Note, NoFollowSymlink is NOT implemented on 20.04,
+                            // even though it's what we would prefer here.
+                            // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
+                            nix::sys::stat::FchmodatFlags::FollowSymlink,
+                        )
+                        .with_context(|| format!("Unable to chmod {:?}", path))?;
                         let user = nix::unistd::User::from_name(user)?
                             .with_context(|| format!("Unknown user {}", user))?;
                         nix::unistd::chown(Path::new(path), Some(user.uid), Some(user.gid))?;
