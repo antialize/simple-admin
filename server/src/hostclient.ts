@@ -278,6 +278,7 @@ export class HostClient extends JobOwner {
             if (this.used == 0)
                 messageData = part;
             else {
+                part.copy(this.buff, this.used);
                 messageData = this.buff.slice(0, this.used + part.length);
                 this.used = 0;
             }
