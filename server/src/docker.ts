@@ -604,7 +604,7 @@ try:
 
         print(f"$ docker rename {container} {old_container}")
         sys.stdout.flush()
-        subprocess.call(['docker', 'config', t, 'rename', container, old_container])
+        subprocess.call(['docker', '--config', t, 'rename', container, old_container])
     elif usePodman:
         run("systemctl", "stop", container)
         subprocess.call(["podman", "rm", "--force", container])
