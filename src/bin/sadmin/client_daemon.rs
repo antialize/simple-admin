@@ -720,7 +720,7 @@ impl Client {
                     send.send(DataMessage {
                         id,
                         source: None,
-                        data: base64::encode(&serde_json::to_string(input_json).unwrap()).into(),
+                        data: base64::encode(serde_json::to_string(input_json).unwrap()).into(),
                         eof: Some(true),
                     })
                     .unwrap();
@@ -1265,7 +1265,7 @@ impl Client {
                     if matches!(m.porcelain, Some(crate::service_control::Porcelain::V1)) {
                         let status = service.status_json().await?;
                         let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                            data: base64::encode(&serde_json::to_string_pretty(&status)?),
+                            data: base64::encode(serde_json::to_string_pretty(&status)?),
                         })?;
                         socket.write_u32(v.len().try_into()?).await?;
                         socket.write_all(&v).await?;
@@ -1284,7 +1284,7 @@ impl Client {
                             status.insert(service.name().to_string(), service.status_json().await?);
                         }
                         let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                            data: base64::encode(&serde_json::to_string_pretty(&status)?),
+                            data: base64::encode(serde_json::to_string_pretty(&status)?),
                         })?;
                         socket.write_u32(v.len().try_into()?).await?;
                         socket.write_all(&v).await?;
