@@ -988,7 +988,7 @@ impl Client {
             password,
         })?;
         auth_message.push(30);
-        write.write_all(&auth_message).await?;
+        write_all_and_flush(&mut write, &auth_message).await?;
 
         *self.sender.lock().await = Some(write);
         self.new_send_notify.notify_one();
