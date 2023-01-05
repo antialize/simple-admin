@@ -901,6 +901,7 @@ impl Service {
                     ssl_subcert: Default::default(),
                     pre_deploy: Default::default(),
                     pre_start: Default::default(),
+                    post_start: Default::default(),
                     max_memory: Default::default(),
                     extract_files: Default::default(),
                     service_executable: Default::default(),
@@ -1781,6 +1782,17 @@ impl Service {
         } else {
             status.get_mut().unwrap().state = ServiceState::Running;
         }
+
+        // Run run post_start
+        for (idx, src) in desc.post_start.iter().enumerate() {
+            let src = if let Some(pod_name) = &pod_name {
+                src.replace("%$%CONTAINER%$%", pod_name)
+            } else {
+                src.clone()
+            };
+            run_script(format!("poststart {}", idx), &src, log).await?;
+        }
+
         Ok((instance, status.into_inner().unwrap()))
     }
 

@@ -281,6 +281,8 @@ pub struct ServiceDescription {
     pub pre_deploy: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pre_start: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub post_start: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_memory: Option<Size>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
