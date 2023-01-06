@@ -585,7 +585,16 @@ impl Stop {
         loop {
             match self
                 .service
-                .process_service_instance(rt, &mut self.instance, status, log, false, true, timeout)
+                .process_service_instance(
+                    rt,
+                    &mut self.instance,
+                    status,
+                    log,
+                    false,
+                    true,
+                    timeout,
+                    None,
+                )
                 .await?
             {
                 ProcessServiceInstanceRes::Timeout | ProcessServiceInstanceRes::WatchdogTimeout => {
@@ -799,6 +808,7 @@ impl Service {
                     false,
                     true,
                     None,
+                    None,
                 )
                 .await
             {
@@ -840,6 +850,7 @@ impl Service {
                                 false,
                                 false,
                                 Some(Instant::now() + Duration::from_secs(10)),
+                                None,
                             )
                             .await?
                         {
@@ -917,6 +928,7 @@ impl Service {
                     env: Default::default(),
                     pod_env: Default::default(),
                     overlap_stop_signal: Default::default(),
+                    start_magic: Default::default(),
                 },
                 extra_env: Default::default(),
                 instance_id: 0,
@@ -1246,9 +1258,10 @@ impl Service {
         stop_ready: bool,
         with_watchdog_timeout: bool,
         timeout: Option<Instant>,
+        stop_start_magic: Option<&str>,
     ) -> Result<ProcessServiceInstanceRes> {
         let timeout_duration = status.lock().unwrap().description.watchdog_timeout;
-
+        let mut stdout_tail = Vec::new();
         while i.go_stdout || i.go_stderr || i.code.is_none() {
             tokio::select! {
                 _ = run_token.cancelled() => {
@@ -1261,18 +1274,34 @@ impl Service {
                     return Ok(ProcessServiceInstanceRes::Timeout)
                 }
                 g = i.stdout.readable(), if i.go_stdout => {
-                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf).map_err(|v| v.into())){
-                    Ok(Ok(v)) => {
-                        log.stdout(&i.buf[..v]).await?;
+                    let pfx = stdout_tail.len();
+                    i.buf[..pfx].copy_from_slice(&stdout_tail);
+                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf[pfx..]).map_err(|v| v.into())){
+                    Ok(Ok(mut v)) => {
+                        v += pfx;
+                        log.stdout(&i.buf[pfx..v]).await?;
 
                         send_journal_messages(
                             &self.client.journal_socket,
                             Priority::Info,
-                            &i.buf[..v],
+                            &i.buf[pfx..v],
                             &self.name,
                             i.instance_id
                         ).await?;
 
+                        if let Some(stop_start_magic) = stop_start_magic {
+                            let l = stop_start_magic.len();
+                            if v >= l {
+                                for x in 0 .. (v-l) {
+                                    if &i.buf[x..x+l] == stop_start_magic.as_bytes() {
+                                        return Ok(ProcessServiceInstanceRes::Ready)
+                                    }
+                                }
+                            }
+                            let tl = usize::min(v, l);
+                            stdout_tail.resize(tl, 0);
+                            stdout_tail.copy_from_slice(&i.buf[v-tl..v])
+                        }
                         if v == 0 {
                             i.go_stdout = false;
                             info!("Finished reading from stdout for {}", self.name);
@@ -1760,6 +1789,7 @@ impl Service {
                     false,
                     desc.start_timeout
                         .map(|v| Instant::now() + Duration::from(v)),
+                    None,
                 )
                 .await?
             {
@@ -1779,6 +1809,40 @@ impl Service {
                 }
             }
             info!("Service ready");
+            status.get_mut().unwrap().state = ServiceState::Ready;
+        } else if let Some(start_magic) = &desc.start_magic {
+            let rt = RunToken::new();
+            match self
+                .process_service_instance(
+                    &rt,
+                    &mut instance,
+                    &self.status,
+                    log,
+                    false,
+                    false,
+                    desc.start_timeout
+                        .map(|v| Instant::now() + Duration::from(v)),
+                    Some(start_magic),
+                )
+                .await?
+            {
+                ProcessServiceInstanceRes::Canceled
+                | ProcessServiceInstanceRes::WatchdogTimeout => {
+                    bail!("Logic error in start service")
+                }
+                ProcessServiceInstanceRes::Ready => (),
+                ProcessServiceInstanceRes::Finished => {
+                    bail!("Service exited before being ready ")
+                }
+                ProcessServiceInstanceRes::Timeout => {
+                    log.stdout("Did not start fast enough. Sending sigkill\n".as_bytes())
+                        .await?;
+                    self.client.persist_signal_process(process_key, 9).await?;
+                    bail!("Timeout wating for {} to start, sending sigkill", self.name)
+                }
+            }
+            info!("Service ready");
+
             status.get_mut().unwrap().state = ServiceState::Ready;
         } else {
             status.get_mut().unwrap().state = ServiceState::Running;

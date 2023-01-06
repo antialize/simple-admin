@@ -311,4 +311,6 @@ pub struct ServiceDescription {
     pub pod_env: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlap_stop_signal: Option<Signal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_magic: Option<String>,
 }
