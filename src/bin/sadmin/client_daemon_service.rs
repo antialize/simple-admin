@@ -36,17 +36,18 @@ use crate::service_description::ServiceDescription;
 
 const SERVICES_BUF_SIZE: usize = 1024 * 64;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StatusJsonV1 {
-    name: String,
-    state: ServiceState,
-    status: String,
-    deploy_user: String,
-    deploy_time: SystemTime,
-    start_stop_time: SystemTime,
-    instance_id: u64,
-    pod_name: Option<String>,
-    image: Option<String>,
+    pub name: String,
+    pub state: ServiceState,
+    pub status: String,
+    pub deploy_user: String,
+    pub deploy_time: SystemTime,
+    pub start_stop_time: SystemTime,
+    pub instance_id: u64,
+    pub pod_name: Option<String>,
+    pub image: Option<String>,
+    pub run_user: String,
 }
 
 #[derive(Serialize)]
@@ -384,7 +385,7 @@ fn bind_key(bind: &Bind, service: &str) -> String {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-enum ServiceState {
+pub enum ServiceState {
     Starting,
     Ready,
     Stopping,
@@ -1958,6 +1959,12 @@ impl Service {
             pod_name: status.pod_name.clone(),
             image: status.image.clone(),
             start_stop_time: status.start_stop_time,
+            run_user: status
+                .description
+                .user
+                .as_deref()
+                .unwrap_or("root")
+                .to_string(),
         })
     }
 }
