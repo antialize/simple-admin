@@ -1262,6 +1262,7 @@ impl Service {
     ) -> Result<ProcessServiceInstanceRes> {
         let timeout_duration = status.lock().unwrap().description.watchdog_timeout;
         let mut stdout_tail = Vec::new();
+        let mut stderr_tail = Vec::new();
         while i.go_stdout || i.go_stderr || i.code.is_none() {
             tokio::select! {
                 _ = run_token.cancelled() => {
@@ -1288,8 +1289,7 @@ impl Service {
                             &self.name,
                             i.instance_id
                         ).await?;
-
-                        if let Some(stop_start_magic) = stop_start_magic {
+                        if let Some(stop_start_magic) = &stop_start_magic {
                             let l = stop_start_magic.len();
                             if v >= l {
                                 for x in 0 .. (v-l) {
@@ -1313,25 +1313,42 @@ impl Service {
                     }
                 },
                 g = i.stderr.readable(), if i.go_stderr => {
-                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf).map_err(|v| v.into())){
-                        Ok(Ok(v)) => {
-                            log.stderr(&i.buf[..v]).await?;
-                            send_journal_messages(
-                                &self.client.journal_socket,
-                                Priority::Error,
-                                &i.buf[..v],
-                                &self.name,
-                                i.instance_id
-                            ).await?;
+                    let pfx = stderr_tail.len();
+                    i.buf[..pfx].copy_from_slice(&stderr_tail);
+                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf[pfx..]).map_err(|v| v.into())){
+                    Ok(Ok(mut v)) => {
+                        v += pfx;
+                        log.stderr(&i.buf[pfx..v]).await?;
 
-                            if v == 0 {
-                                i.go_stderr = false;
-                                info!("Finished reading from stderr for {}", self.name);
+                        send_journal_messages(
+                            &self.client.journal_socket,
+                            Priority::Info,
+                            &i.buf[pfx..v],
+                            &self.name,
+                            i.instance_id
+                        ).await?;
+                        if let Some(stop_start_magic) = &stop_start_magic {
+                            let l = stop_start_magic.len();
+                            if v >= l {
+                                for x in 0 .. (v-l) {
+                                    if &i.buf[x..x+l] == stop_start_magic.as_bytes() {
+                                        return Ok(ProcessServiceInstanceRes::Ready)
+                                    }
+                                }
                             }
+                            let tl = usize::min(v, l);
+                            stderr_tail.resize(tl, 0);
+                            stderr_tail.copy_from_slice(&i.buf[v-tl..v])
                         }
-                        Err(_) => {continue}
-                        Ok(Err(e)) => bail!("Failed reading from stdout: {}", e),
+                        if v == 0 {
+                            i.go_stderr = false;
+                            info!("Finished reading from stderr for {}", self.name);
+
                         }
+                    }
+                    Err(_) => {continue}
+                    Ok(Err(e)) => bail!("Failed reading from stderr: {}", e),
+                    }
                 },
                 c = &mut i.dead, if i.code.is_none() => {
                     info!("Process died");
