@@ -1,7 +1,7 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{stdout, Write},
+    io::{stderr, stdout, Write},
     path::PathBuf,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -73,6 +73,19 @@ pub struct Deploy {
     image: Option<String>,
 }
 
+/// Remove service
+///
+/// Stop and remove a given service, it will
+/// have to be redeployed to be recreated
+#[derive(clap::Parser, Serialize, Deserialize)]
+pub struct Shell {
+    /// Name of the service to start shell in
+    pub service: String,
+
+    #[clap(default_value = "/bin/sh")]
+    pub shell: String,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct DeployMsg {
     pub image: Option<String>,
@@ -87,6 +100,7 @@ pub enum Action {
     Status(Status),
     Remove(Remove),
     Deploy(Deploy),
+    Shell(Shell),
     /// Stop all services without storing the stopped state, in preparation for machine shutdown
     Shutdown,
 }
@@ -113,6 +127,62 @@ pub enum DaemonControlMessage {
     Shutdown,
 }
 
+pub async fn run_shell(args: Shell) -> Result<()> {
+    let msg = serde_json::to_vec(&DaemonControlMessage::Status(Status {
+        service: Some(args.service),
+        porcelain: Some(Porcelain::V1),
+    }))?;
+    let mut socket = tokio::net::UnixStream::connect(CONTROL_SOCKET_PATH)
+        .await
+        .with_context(|| format!("Connecting to client daemon at {}", CONTROL_SOCKET_PATH))?;
+    socket.write_u32(msg.len().try_into()?).await?;
+    socket.write_all(&msg).await?;
+    let mut buf = Vec::new();
+
+    let mut status = Vec::new();
+    loop {
+        let len = socket.read_u32().await?;
+        buf.resize(len.try_into()?, 0);
+        socket.read_exact(&mut buf).await?;
+        let msg: DaemonControlMessage = serde_json::from_slice(&buf)?;
+        match msg {
+            DaemonControlMessage::Stdout { data } => {
+                status.extend_from_slice(&base64::decode(data)?);
+            }
+            DaemonControlMessage::Stderr { data } => {
+                let mut o = stderr().lock();
+                o.write_all(&base64::decode(data)?)?;
+                o.flush()?;
+            }
+            DaemonControlMessage::Finished { code } if code == 0 => break,
+            DaemonControlMessage::Finished { code } => {
+                std::process::exit(code);
+            }
+            _ => {}
+        }
+    }
+
+    let status: crate::client_daemon_service::StatusJsonV1 = serde_json::from_slice(&status)
+        .with_context(|| format!("Invalid status json: {}", String::from_utf8_lossy(&status)))?;
+    let pod_name = status
+        .pod_name
+        .context("Service not running in container")?;
+
+    let status = std::process::Command::new("/usr/bin/sudo")
+        .arg("-iu")
+        .arg(status.run_user)
+        .arg("podman")
+        .arg("exec")
+        .arg("-it")
+        .arg(pod_name)
+        .arg(args.shell)
+        .status()?;
+    if let Some(code) = status.code() {
+        std::process::exit(code);
+    }
+    bail!("Unable to run shell {}", status)
+}
+
 #[allow(clippy::read_zero_byte_vec)]
 pub async fn run(args: Service) -> Result<()> {
     let msg = match args.action {
@@ -132,6 +202,7 @@ pub async fn run(args: Service) -> Result<()> {
                 config: Box::new(config),
             })
         }
+        Action::Shell(s) => return run_shell(s).await,
     };
     let msg = serde_json::to_vec(&msg)?;
     let mut socket = tokio::net::UnixStream::connect(CONTROL_SOCKET_PATH)
@@ -152,7 +223,7 @@ pub async fn run(args: Service) -> Result<()> {
                 o.flush()?;
             }
             DaemonControlMessage::Stderr { data } => {
-                let mut o = stdout().lock();
+                let mut o = stderr().lock();
                 o.write_all(&base64::decode(data)?)?;
                 o.flush()?;
             }
