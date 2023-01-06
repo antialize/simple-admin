@@ -15,7 +15,7 @@ rand = "0.8.5"
 rpassword = "7.0.0"
 serde = { version = "1.0.144", default-features = false, features=['std', 'derive']}
 serde_json = { version = "1.0.85", default-features = false, features=['std'] }
-tokio = { version = "1.21.1", default-features = false, features=['rt', 'net', 'fs', 'sync', 'macros', 'time', 'process', 'signal'] }
+tokio = { version = "1.23.1", default-features = false, features=['rt', 'net', 'fs', 'sync', 'macros', 'time', 'process', 'signal'] }
 tokio-rustls = "0.23.4"
 tokio-tungstenite = { version = "0.18", features=['rustls-tls-webpki-roots']}
 webpki = "0.22.0"
