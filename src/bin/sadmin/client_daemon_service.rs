@@ -2001,11 +2001,12 @@ impl Service {
         use std::fmt::Write;
         let msg = if full {
             let status = self.status.lock().unwrap();
+            let running = self.run_task.lock().unwrap().is_some();
             let mut msg = format!(
                 "name: {}\nstate: {:?}\nstatus: {}\ndeployed by: {}\ndeployed at: {}\ninstance_id: {}\n",
                 self.name,
                 status.state,
-                status.status,
+                if running {&status.status} else {"stopped"},
                 status.deploy_user,
                 chrono::DateTime::<chrono::Utc>::from(status.deploy_time).format("%Y-%m-%d %H:%M:%S"),
                 status.instance_id
