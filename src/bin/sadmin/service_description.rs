@@ -312,5 +312,17 @@ pub struct ServiceDescription {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlap_stop_signal: Option<Signal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_signal: Option<Signal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_magic: Option<String>,
+}
+
+impl ServiceDescription {
+    pub fn get_stop_timeout(&self) -> Duration {
+        self.stop_timeout.unwrap_or(Duration::S(30.0))
+    }
+
+    pub fn get_stop_signal(&self) -> Signal {
+        self.stop_signal.unwrap_or(Signal::Term)
+    }
 }

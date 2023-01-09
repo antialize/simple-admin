@@ -460,7 +460,7 @@ enum StopState {
 
 struct Stop {
     service: Arc<Service>,
-    timeout: Option<std::time::Instant>,
+    timeout: std::time::Instant,
     state: StopState,
     process_key: String,
     instance: ServiceInstance,
@@ -491,20 +491,20 @@ impl Stop {
             Err(_) => bail!("Failed to wait for task"),
         };
 
-        let (process_key, stop_timeout, user, pod_name, overlap_stop_signal) = {
+        let (process_key, stop_timeout, user, pod_name, overlap_stop_signal, stop_signal) = {
             let status = status.lock().unwrap();
             let process_key = status.process_key.clone().context("Expected process key")?;
             (
                 process_key,
-                status.description.stop_timeout,
+                status.description.get_stop_timeout(),
                 status.description.user.clone(),
                 status.pod_name.clone(),
                 status.description.overlap_stop_signal,
+                status.description.get_stop_signal(),
             )
         };
         info!("Stopping {}", service.name);
-        let signal = if overlap { overlap_stop_signal } else { None }
-            .unwrap_or(crate::service_description::Signal::Term);
+        let signal = if overlap { overlap_stop_signal } else { None }.unwrap_or(stop_signal);
 
         if let Some(pod_name) = pod_name {
             let mut line = Vec::new();
@@ -557,7 +557,7 @@ impl Stop {
                 .persist_signal_process(process_key.clone(), signal.number())
                 .await?;
         }
-        let timeout = stop_timeout.map(|v| std::time::Instant::now() + Duration::from(v));
+        let timeout = std::time::Instant::now() + Duration::from(stop_timeout);
         Ok(Some(Self {
             service,
             timeout,
@@ -578,8 +578,7 @@ impl Stop {
             return Ok(true);
         }
         let (timeout, our_timeout) = match (timeout, self.timeout) {
-            (Some(o), None) => (Some(o), true),
-            (Some(o), Some(v)) if o < v => (Some(o), true),
+            (Some(o), v) if o < v => (o, true),
             (_, v) => (v, false),
         };
         loop {
@@ -592,7 +591,7 @@ impl Stop {
                     log,
                     false,
                     true,
-                    timeout,
+                    Some(timeout),
                     None,
                 )
                 .await?
@@ -619,7 +618,7 @@ impl Stop {
                             .await?;
                         self.state = StopState::Sent9;
                         self.timeout =
-                            Some(std::time::Instant::now() + std::time::Duration::from_secs(10));
+                            std::time::Instant::now() + std::time::Duration::from_secs(10);
                     }
                 }
                 ProcessServiceInstanceRes::Canceled => return Ok(false),
@@ -826,6 +825,7 @@ impl Service {
                     };
                     instance = None;
                     log.stdout(b"Serivce stop unexpectily").await?;
+                    self.cleanup_instance(instance_id).await?;
                 }
                 Ok(ProcessServiceInstanceRes::WatchdogTimeout) => {
                     error!("Service {} timeouted waiting for watchdog", self.name);
@@ -865,6 +865,7 @@ impl Service {
                             }
                         }
                     }
+                    self.cleanup_instance(instance_id).await?;
                     instance = None;
                 }
                 Err(e) => {
@@ -929,6 +930,7 @@ impl Service {
                     pod_env: Default::default(),
                     overlap_stop_signal: Default::default(),
                     start_magic: Default::default(),
+                    stop_signal: Default::default(),
                 },
                 extra_env: Default::default(),
                 instance_id: 0,
@@ -1937,6 +1939,7 @@ impl Service {
 
     pub async fn stop(self: &Arc<Self>, log: &mut RemoteLogTarget<'_>) -> Result<()> {
         if self.run_task.lock().unwrap().is_none() {
+            self.cleanup().await?;
             bail!("Service is not running")
         }
         self.stop_inner(log).await?;
@@ -1954,6 +1957,7 @@ impl Service {
         if self.run_task.lock().unwrap().is_some() {
             bail!("Service is already running")
         }
+        self.cleanup().await?;
         let (desc, extra_env, image, deploy_user, deploy_time) = {
             let s = self.status.lock().unwrap();
             (
@@ -1997,11 +2001,12 @@ impl Service {
         use std::fmt::Write;
         let msg = if full {
             let status = self.status.lock().unwrap();
+            let running = self.run_task.lock().unwrap().is_some();
             let mut msg = format!(
                 "name: {}\nstate: {:?}\nstatus: {}\ndeployed by: {}\ndeployed at: {}\ninstance_id: {}\n",
                 self.name,
                 status.state,
-                status.status,
+                if running {&status.status} else {"stopped"},
                 status.deploy_user,
                 chrono::DateTime::<chrono::Utc>::from(status.deploy_time).format("%Y-%m-%d %H:%M:%S"),
                 status.instance_id
