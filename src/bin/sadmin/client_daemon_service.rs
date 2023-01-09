@@ -826,6 +826,7 @@ impl Service {
                     };
                     instance = None;
                     log.stdout(b"Serivce stop unexpectily").await?;
+                    self.cleanup_instance(instance_id).await?;
                 }
                 Ok(ProcessServiceInstanceRes::WatchdogTimeout) => {
                     error!("Service {} timeouted waiting for watchdog", self.name);
@@ -865,6 +866,7 @@ impl Service {
                             }
                         }
                     }
+                    self.cleanup_instance(instance_id).await?;
                     instance = None;
                 }
                 Err(e) => {
@@ -1937,6 +1939,7 @@ impl Service {
 
     pub async fn stop(self: &Arc<Self>, log: &mut RemoteLogTarget<'_>) -> Result<()> {
         if self.run_task.lock().unwrap().is_none() {
+            self.cleanup().await?;
             bail!("Service is not running")
         }
         self.stop_inner(log).await?;
@@ -1954,6 +1957,7 @@ impl Service {
         if self.run_task.lock().unwrap().is_some() {
             bail!("Service is already running")
         }
+        self.cleanup().await?;
         let (desc, extra_env, image, deploy_user, deploy_time) = {
             let s = self.status.lock().unwrap();
             (
