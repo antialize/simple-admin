@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use client_daemon::ClientDaemon;
 use connection::{Config, Connection};
+use debug_persist::DebugPersist;
 use docker_deploy::DockerDeploy;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
@@ -14,6 +15,7 @@ use upgrade::{Setup, Upgrade};
 mod client_daemon;
 mod client_daemon_service;
 mod connection;
+mod debug_persist;
 mod docker_deploy;
 mod dyn_format;
 mod finite_float;
@@ -80,6 +82,7 @@ enum Action {
     PersistDaemon(PersistDaemon),
     Service(Service),
     Setup(Setup),
+    DebugPersist(DebugPersist),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -161,6 +164,7 @@ async fn main() -> Result<()> {
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
+        Action::DebugPersist(args) => debug_persist::run(args).await,
         Action::Service(args) => service_control::run(args).await,
         Action::Setup(args) => upgrade::setup(args).await,
     }
