@@ -1,5 +1,6 @@
 use crate::message::Message;
 use anyhow::{bail, Context, Result};
+use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -338,7 +339,8 @@ impl Connection {
         dockerconfig.auths.insert(
             self.server_host.clone(),
             DockerAuth {
-                auth: base64::encode(format!("{}:{}", user, session).as_bytes()),
+                auth: base64::engine::general_purpose::STANDARD_NO_PAD
+                    .encode(format!("{}:{}", user, session).as_bytes()),
             },
         );
         std::fs::create_dir_all(dockerconfpath.parent().context("Expected parent")?)?;

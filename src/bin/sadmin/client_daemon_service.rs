@@ -17,6 +17,7 @@ use crate::{
 };
 
 use anyhow::{bail, Context, Result};
+use base64::Engine;
 use bytes::BytesMut;
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use log::{debug, error, info};
@@ -188,7 +189,7 @@ impl<'a> RemoteLogTarget<'a> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::encode(data),
+                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -202,7 +203,7 @@ impl<'a> RemoteLogTarget<'a> {
             } => send_journal_messages(socket, Priority::Info, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::encode(data),
+                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -215,7 +216,9 @@ impl<'a> RemoteLogTarget<'a> {
                         client_daemon::DataMessage {
                             id: *id,
                             source: Some(client_daemon::DataSource::Stdout),
-                            data: base64::encode(data).into(),
+                            data: base64::engine::general_purpose::STANDARD_NO_PAD
+                                .encode(data)
+                                .into(),
                             eof: None,
                         },
                     ))
@@ -229,7 +232,7 @@ impl<'a> RemoteLogTarget<'a> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::encode(data),
+                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -243,7 +246,7 @@ impl<'a> RemoteLogTarget<'a> {
             } => send_journal_messages(socket, Priority::Error, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::encode(data),
+                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -256,7 +259,9 @@ impl<'a> RemoteLogTarget<'a> {
                         client_daemon::DataMessage {
                             id: *id,
                             source: Some(client_daemon::DataSource::Stderr),
-                            data: base64::encode(data).into(),
+                            data: base64::engine::general_purpose::STANDARD_NO_PAD
+                                .encode(data)
+                                .into(),
                             eof: None,
                         },
                     ))
@@ -1474,19 +1479,19 @@ impl Service {
             None => None,
         };
 
-        CgroupBuilder::new("sadmin").build(Box::new(cgroups_rs::hierarchies::V2::new()));
+        CgroupBuilder::new("sadmin").build(Box::new(cgroups_rs::hierarchies::V2::new()))?;
         let cgroup_name = format!("sadmin/{}", desc.name);
         if let Some(v) = desc.max_memory {
             CgroupBuilder::new(&cgroup_name)
                 .memory()
                 .memory_hard_limit(u64::from(v).try_into()?)
                 .done()
-                .build(Box::new(cgroups_rs::hierarchies::V2::new()));
+                .build(Box::new(cgroups_rs::hierarchies::V2::new()))?;
         } else {
             CgroupBuilder::new(&cgroup_name)
                 .memory()
                 .done()
-                .build(Box::new(cgroups_rs::hierarchies::V2::new()));
+                .build(Box::new(cgroups_rs::hierarchies::V2::new()))?;
         }
 
         // Run run prestart

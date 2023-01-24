@@ -13,6 +13,7 @@ use std::{
 };
 
 use anyhow::{bail, ensure, Context, Result};
+use base64::Engine;
 use bytes::BytesMut;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -328,7 +329,9 @@ impl Client {
             RunInstantStdinOutputType::Text => {
                 String::from_utf8_lossy(&output.stdout).to_string().into()
             }
-            RunInstantStdinOutputType::Base64 => base64::encode(&output.stdout).into(),
+            RunInstantStdinOutputType::Base64 => base64::engine::general_purpose::STANDARD_NO_PAD
+                .encode(&output.stdout)
+                .into(),
             RunInstantStdinOutputType::Json => serde_json::from_slice(&output.stdout)?,
             RunInstantStdinOutputType::Utf8 => String::from_utf8(output.stdout)?.into(),
         };
@@ -385,7 +388,9 @@ impl Client {
                     self.send_message(ClientMessage::Data(DataMessage {
                         id,
                         source: Some(source),
-                        data: base64::encode(&buf).into(),
+                        data: base64::engine::general_purpose::STANDARD_NO_PAD
+                            .encode(&buf)
+                            .into(),
                         eof: Some(s == 0),
                     }))
                     .await;
@@ -467,7 +472,7 @@ impl Client {
                 Some(v) => v,
             };
             let bytes = match data.data.as_str() {
-                Some(v) => base64::decode(v)?,
+                Some(v) => base64::engine::general_purpose::STANDARD_NO_PAD.decode(v)?,
                 None => bail!("Expected string data"),
             };
             write.write_all(&bytes).await?;
@@ -655,7 +660,9 @@ impl Client {
                 self.send_message(ClientMessage::Data(DataMessage {
                     id,
                     source: Some(DataSource::Stderr),
-                    data: base64::encode(&format!("Error deploying service: {:?}", e)).into(),
+                    data: base64::engine::general_purpose::STANDARD_NO_PAD
+                        .encode(&format!("Error deploying service: {:?}", e))
+                        .into(),
                     eof: Some(true),
                 }))
                 .await;
@@ -720,7 +727,9 @@ impl Client {
                     send.send(DataMessage {
                         id,
                         source: None,
-                        data: base64::encode(serde_json::to_string(input_json).unwrap()).into(),
+                        data: base64::engine::general_purpose::STANDARD_NO_PAD
+                            .encode(serde_json::to_string(input_json).unwrap())
+                            .into(),
                         eof: Some(true),
                     })
                     .unwrap();
@@ -1265,7 +1274,8 @@ impl Client {
                     if matches!(m.porcelain, Some(crate::service_control::Porcelain::V1)) {
                         let status = service.status_json().await?;
                         let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                            data: base64::encode(serde_json::to_string_pretty(&status)?),
+                            data: base64::engine::general_purpose::STANDARD_NO_PAD
+                                .encode(serde_json::to_string_pretty(&status)?),
                         })?;
                         socket.write_u32(v.len().try_into()?).await?;
                         socket.write_all(&v).await?;
@@ -1284,7 +1294,8 @@ impl Client {
                             status.insert(service.name().to_string(), service.status_json().await?);
                         }
                         let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                            data: base64::encode(serde_json::to_string_pretty(&status)?),
+                            data: base64::engine::general_purpose::STANDARD_NO_PAD
+                                .encode(serde_json::to_string_pretty(&status)?),
                         })?;
                         socket.write_u32(v.len().try_into()?).await?;
                         socket.write_all(&v).await?;
@@ -1338,7 +1349,8 @@ impl Client {
             Self::send_daemon_control_message(
                 &mut socket,
                 DaemonControlMessage::Stderr {
-                    data: base64::encode(format!("fatal error: {:?}\n", e)),
+                    data: base64::engine::general_purpose::STANDARD_NO_PAD
+                        .encode(format!("fatal error: {:?}\n", e)),
                 },
             )
             .await?;
