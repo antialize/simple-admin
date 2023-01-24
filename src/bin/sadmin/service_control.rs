@@ -1,7 +1,9 @@
 use anyhow::{bail, Context, Result};
+use nix::libc::SIGPIPE;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{stderr, stdout, Write},
+    os::unix::process::ExitStatusExt,
     path::PathBuf,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -73,10 +75,7 @@ pub struct Deploy {
     image: Option<String>,
 }
 
-/// Remove service
-///
-/// Stop and remove a given service, it will
-/// have to be redeployed to be recreated
+/// Spawn as shell in the service container
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Shell {
     /// Name of the service to start shell in
@@ -84,6 +83,29 @@ pub struct Shell {
 
     #[clap(default_value = "/bin/sh")]
     pub shell: String,
+}
+
+/// View logs for the given service
+#[derive(clap::Parser, Serialize, Deserialize)]
+pub struct Logs {
+    /// Name of the service to start shell in
+    pub service: String,
+
+    /// Follow the journal
+    #[clap(long, short = 'f')]
+    pub follow: bool,
+
+    /// Number of journal entries to show
+    #[clap(long, short = 'n')]
+    pub lines: Option<usize>,
+
+    /// Show entries not older than the specified date
+    #[clap(long, short = 'S')]
+    pub since: Option<String>,
+
+    /// Show entries not newer than the specified date
+    #[clap(long, short = 'U')]
+    pub until: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -101,6 +123,7 @@ pub enum Action {
     Remove(Remove),
     Deploy(Deploy),
     Shell(Shell),
+    Logs(Logs),
     /// Stop all services without storing the stopped state, in preparation for machine shutdown
     Shutdown,
 }
@@ -183,6 +206,32 @@ pub async fn run_shell(args: Shell) -> Result<()> {
     bail!("Unable to run shell {}", status)
 }
 
+pub async fn run_logs(args: Logs) -> Result<()> {
+    let mut cmd = std::process::Command::new("/usr/bin/journalctl");
+    cmd.arg(format!("UNIT={}", args.service));
+    if args.follow {
+        cmd.arg("--follow");
+    }
+    if let Some(lines) = &args.lines {
+        cmd.arg(format!("--lines={}", lines));
+    }
+    if let Some(since) = &args.since {
+        cmd.arg(format!("--since={}", since));
+    }
+    if let Some(until) = &args.until {
+        cmd.arg(format!("--until={}", until));
+    }
+
+    let status = cmd.status()?;
+    if let Some(code) = status.code() {
+        std::process::exit(code);
+    }
+    if status.signal() == Some(SIGPIPE) {
+        return Ok(());
+    }
+    bail!("Unable to run shell {}", status)
+}
+
 #[allow(clippy::read_zero_byte_vec)]
 pub async fn run(args: Service) -> Result<()> {
     let msg = match args.action {
@@ -203,6 +252,7 @@ pub async fn run(args: Service) -> Result<()> {
             })
         }
         Action::Shell(s) => return run_shell(s).await,
+        Action::Logs(logs) => return run_logs(logs).await,
     };
     let msg = serde_json::to_vec(&msg)?;
     let mut socket = tokio::net::UnixStream::connect(CONTROL_SOCKET_PATH)
