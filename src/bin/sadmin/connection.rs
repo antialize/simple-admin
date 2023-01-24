@@ -339,7 +339,7 @@ impl Connection {
         dockerconfig.auths.insert(
             self.server_host.clone(),
             DockerAuth {
-                auth: base64::engine::general_purpose::STANDARD_NO_PAD
+                auth: base64::engine::general_purpose::STANDARD
                     .encode(format!("{}:{}", user, session).as_bytes()),
             },
         );

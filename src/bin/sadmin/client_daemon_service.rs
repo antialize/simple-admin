@@ -189,7 +189,7 @@ impl<'a> RemoteLogTarget<'a> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
+                    data: base64::engine::general_purpose::STANDARD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -203,7 +203,7 @@ impl<'a> RemoteLogTarget<'a> {
             } => send_journal_messages(socket, Priority::Info, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
+                    data: base64::engine::general_purpose::STANDARD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -216,7 +216,7 @@ impl<'a> RemoteLogTarget<'a> {
                         client_daemon::DataMessage {
                             id: *id,
                             source: Some(client_daemon::DataSource::Stdout),
-                            data: base64::engine::general_purpose::STANDARD_NO_PAD
+                            data: base64::engine::general_purpose::STANDARD
                                 .encode(data)
                                 .into(),
                             eof: None,
@@ -232,7 +232,7 @@ impl<'a> RemoteLogTarget<'a> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
+                    data: base64::engine::general_purpose::STANDARD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -246,7 +246,7 @@ impl<'a> RemoteLogTarget<'a> {
             } => send_journal_messages(socket, Priority::Error, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD_NO_PAD.encode(data),
+                    data: base64::engine::general_purpose::STANDARD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -259,7 +259,7 @@ impl<'a> RemoteLogTarget<'a> {
                         client_daemon::DataMessage {
                             id: *id,
                             source: Some(client_daemon::DataSource::Stderr),
-                            data: base64::engine::general_purpose::STANDARD_NO_PAD
+                            data: base64::engine::general_purpose::STANDARD
                                 .encode(data)
                                 .into(),
                             eof: None,

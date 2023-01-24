@@ -171,13 +171,11 @@ pub async fn run_shell(args: Shell) -> Result<()> {
         let msg: DaemonControlMessage = serde_json::from_slice(&buf)?;
         match msg {
             DaemonControlMessage::Stdout { data } => {
-                status.extend_from_slice(
-                    &base64::engine::general_purpose::STANDARD_NO_PAD.decode(data)?,
-                );
+                status.extend_from_slice(&base64::engine::general_purpose::STANDARD.decode(data)?);
             }
             DaemonControlMessage::Stderr { data } => {
                 let mut o = stderr().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD_NO_PAD.decode(data)?)?;
+                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Finished { code } if code == 0 => break,
@@ -272,12 +270,12 @@ pub async fn run(args: Service) -> Result<()> {
         match msg {
             DaemonControlMessage::Stdout { data } => {
                 let mut o = stdout().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD_NO_PAD.decode(data)?)?;
+                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Stderr { data } => {
                 let mut o = stderr().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD_NO_PAD.decode(data)?)?;
+                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Finished { code } => {
