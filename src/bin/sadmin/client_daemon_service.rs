@@ -616,19 +616,49 @@ impl Stop {
                     if matches!(self.state, StopState::Sent9) {
                         break;
                     } else {
-                        info!(
-                            "  Timeout waiting for {} to die, sending sigkill",
-                            self.service.name
-                        );
-                        log.stdout(
-                            "Service did not stop within sufficient time. Sending sigkill\n"
-                                .as_bytes(),
-                        )
-                        .await?;
-                        self.service
-                            .client
-                            .persist_signal_process(self.process_key.clone(), 9)
+                        let (user, pod_name) = {
+                            let status = status.lock().unwrap();
+                            (status.pod_name.clone(), status.description.user.clone())
+                        };
+                        if let Some(pod_name) = pod_name {
+                            info!(
+                                "  Timeout waiting for {} to die, running podman kill",
+                                self.service.name
+                            );
+                            log.stdout(
+                                "Service did not stop within sufficient time. running podman kill\n"
+                                    .as_bytes(),
+                            )
                             .await?;
+                            let output = podman_user_command(user.as_deref())?
+                                .arg("kill")
+                                .arg(pod_name)
+                                .output()
+                                .await
+                                .context("Failed running podman kill")?;
+                            if !output.status.success() {
+                                bail!(
+                                    "Failed running podman kill: {}\n{}{}",
+                                    output.status,
+                                    String::from_utf8_lossy(&output.stdout),
+                                    String::from_utf8_lossy(&output.stdout)
+                                );
+                            }
+                        } else {
+                            info!(
+                                "  Timeout waiting for {} to die, sending sigkill",
+                                self.service.name
+                            );
+                            log.stdout(
+                                "Service did not stop within sufficient time. Sending sigkill\n"
+                                    .as_bytes(),
+                            )
+                            .await?;
+                            self.service
+                                .client
+                                .persist_signal_process(self.process_key.clone(), 9)
+                                .await?;
+                        }
                         self.state = StopState::Sent9;
                         self.timeout =
                             std::time::Instant::now() + std::time::Duration::from_secs(10);
