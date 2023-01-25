@@ -1558,10 +1558,15 @@ impl Service {
         for bind in desc.bind.iter() {
             let key = bind_key(bind, &self.name);
             match bind {
-                Bind::Tcp { bind, fd } => {
+                Bind::Tcp {
+                    bind,
+                    fd,
+                    nonblocking,
+                } => {
                     if !self.client.persist_has_fd(key.clone()).await? {
                         bind_keys.push(key.clone());
                         let socket = std::net::TcpListener::bind(bind)?;
+                        socket.set_nonblocking(*nonblocking)?;
                         self.client
                             .persist_put_fd(key.clone(), socket.as_fd(), "bind_tcp")
                             .await?;
@@ -1573,10 +1578,12 @@ impl Service {
                     fd,
                     user,
                     umask,
+                    nonblocking,
                 } => {
                     if !self.client.persist_has_fd(key.clone()).await? {
                         bind_keys.push(key.clone());
                         let socket = std::os::unix::net::UnixListener::bind(path)?;
+                        socket.set_nonblocking(*nonblocking)?;
                         nix::sys::stat::fchmodat(
                             None,
                             Path::new(path),

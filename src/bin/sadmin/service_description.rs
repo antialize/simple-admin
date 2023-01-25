@@ -243,12 +243,16 @@ pub enum Bind {
     Tcp {
         bind: String,
         fd: u16,
+        #[serde(default)]
+        nonblocking: bool,
     },
     UnixStream {
         path: String,
         fd: u16,
         user: String,
         umask: u32,
+        #[serde(default)]
+        nonblocking: bool,
     },
 }
 
