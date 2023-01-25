@@ -20,7 +20,7 @@ use anyhow::{bail, Context, Result};
 use base64::Engine;
 use bytes::BytesMut;
 use cgroups_rs::cgroup_builder::CgroupBuilder;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use nix::{
     sys::memfd::{memfd_create, MemFdCreateFlag},
     unistd::User,
@@ -93,6 +93,26 @@ async fn send_journal_messages(
         send_journal_message(socket, priority, line, unit, instance_id).await?;
     }
     Ok(())
+}
+
+fn podman_user_command(user: Option<&str>) -> Result<tokio::process::Command> {
+    let mut cmd = tokio::process::Command::new("/usr/bin/podman");
+    cmd.env_clear()
+        .current_dir("/tmp")
+        .env(
+            "PATH",
+            "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        )
+        .kill_on_drop(true);
+    if let Some(user) = &user {
+        let user = nix::unistd::User::from_name(user)?
+            .with_context(|| format!("Unknown user {}", user))?;
+        cmd.env("USER", user.name)
+            .env("HOME", user.dir)
+            .uid(user.uid.as_raw())
+            .gid(user.gid.as_raw());
+    }
+    Ok(cmd)
 }
 
 /// Append message to systemd journal
@@ -521,28 +541,16 @@ impl Stop {
             )?;
             log.stdout(&line).await?;
 
-            let mut cmd = tokio::process::Command::new("/usr/bin/podman");
-            cmd.arg("kill")
+            info!("  Running podman kill");
+
+            let output = podman_user_command(user.as_deref())?
+                .arg("kill")
                 .arg(pod_name)
                 .arg("--signal")
                 .arg(signal.name())
-                .env_clear()
-                .current_dir("/tmp")
-                .env(
-                    "PATH",
-                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                )
-                .kill_on_drop(true);
-            if let Some(user) = &user {
-                let user = nix::unistd::User::from_name(user)?
-                    .with_context(|| format!("Unknown user {}", user))?;
-                cmd.env("USER", user.name)
-                    .env("HOME", user.dir)
-                    .uid(user.uid.as_raw())
-                    .gid(user.gid.as_raw());
-            }
-            info!("  Running podman kill");
-            let output = cmd.output().await.context("Failed running podman kill")?;
+                .output()
+                .await
+                .context("Failed running podman kill")?;
             if !output.status.success() {
                 bail!(
                     "Failed running podman kill: {}\n{}{}",
@@ -1935,6 +1943,42 @@ impl Service {
         {
             let _ = self.client.persist_signal_process(key, 9).await;
         }
+        let user = self.status.lock().unwrap().description.user.clone();
+
+        match podman_user_command(user.as_deref())?
+            .arg("container")
+            .arg("ls")
+            .arg("-qf")
+            .arg(format!("name=sa_{}_[0-9+]", self.name))
+            .output()
+            .await
+            .map(|v| (v.status, String::from_utf8(v.stdout)))
+        {
+            Ok((status, Ok(output))) if status.success() => {
+                for line in output.lines() {
+                    let id = line.trim();
+                    if id.is_empty() {
+                        continue;
+                    }
+                    match podman_user_command(user.as_deref())?
+                        .arg("kill")
+                        .arg(id)
+                        .status()
+                        .await
+                    {
+                        Ok(e) if e.success() => {}
+                        Ok(e) => warn!("Failed running podman kill {}", e),
+                        Err(e) => warn!("Failed running podman kill {}", e),
+                    }
+                }
+            }
+            Ok((status, Ok(_))) => warn!("Failed running podman container ls status: {}", status),
+            Ok((status, Err(e))) => warn!(
+                "Failed running podman container ls status: {}, invalid output: {}",
+                status, e
+            ),
+            Err(e) => warn!("Failed running podman container ls {}", e),
+        };
         let _ = std::fs::remove_dir_all(format!("/run/simpleadmin/services/{}", self.name));
         Ok(())
     }
