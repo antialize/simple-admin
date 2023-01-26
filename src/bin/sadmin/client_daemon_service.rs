@@ -859,7 +859,7 @@ impl Service {
                     bail!("Logic error")
                 }
                 Ok(ProcessServiceInstanceRes::Finished) => {
-                    error!("Service {} stopped unexpectily", self.name);
+                    error!("Service {} stopped unexpectedly", self.name);
                     let instance_id = self.status.lock().unwrap().instance_id;
                     let mut log = RemoteLogTarget::Unit {
                         name: self.name.clone(),
@@ -867,23 +867,40 @@ impl Service {
                         socket: &self.client.journal_socket,
                     };
                     instance = None;
-                    log.stdout(b"Serivce stop unexpectily").await?;
+                    log.stdout(b"Serivce stop unexpectedly").await?;
                     self.cleanup_instance(instance_id).await?;
                 }
                 Ok(ProcessServiceInstanceRes::WatchdogTimeout) => {
-                    error!("Service {} timeouted waiting for watchdog", self.name);
-                    let (instance_id, process_key) = {
+                    error!("Service {} timeout waiting for watchdog", self.name);
+                    let (instance_id, process_key, user, podname) = {
                         let status = self.status.lock().unwrap();
-                        (status.instance_id, status.process_key.clone())
+                        (
+                            status.instance_id,
+                            status.process_key.clone(),
+                            status.description.user.clone(),
+                            status.pod_name.clone(),
+                        )
                     };
                     let mut log = RemoteLogTarget::Unit {
                         name: self.name.clone(),
                         instance_id,
                         socket: &self.client.journal_socket,
                     };
-                    log.stdout(b"Timouted waiting for watchdog").await?;
+                    log.stdout(b"Timeout waiting for watchdog").await?;
                     if let Some(process_key) = process_key {
-                        self.client.persist_signal_process(process_key, 9).await?;
+                        if let Some(podname) = podname {
+                            let status = podman_user_command(user.as_deref())?
+                                .arg("kill")
+                                .arg(podname)
+                                .status()
+                                .await?;
+                            if !status.success() {
+                                error!("Failed running podman kill {}", status);
+                                log.stdout(b"Failed running podman kill").await?;
+                            }
+                        } else {
+                            self.client.persist_signal_process(process_key, 9).await?;
+                        }
                         match self
                             .process_service_instance(
                                 &run_token,
@@ -1005,7 +1022,8 @@ impl Service {
         // Find user
         let user = match &desc.user {
             Some(user) => Some(
-                nix::unistd::User::from_name(user)?
+                nix::unistd::User::from_name(user)
+                    .with_context(|| format!("Failed to get user {}", user))?
                     .with_context(|| format!("Unknown user {}", user))?,
             ),
             None => None,
@@ -1032,7 +1050,13 @@ impl Service {
                     &None,
                     log,
                 )
-                .await?;
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed running /usr/bin/loginctl enable-linger {}",
+                        user.name
+                    )
+                })?;
             }
         }
 
@@ -1043,9 +1067,12 @@ impl Service {
             .write(true)
             .mode(0o600)
             .open(&auth_path)?
-            .write_all(&serde_json::to_vec(&dc)?)?;
+            .write_all(&serde_json::to_vec(&dc)?)
+            .with_context(|| format!("Failed to write to {:?}", auth_path))?;
+
         if let Some(user) = &user {
-            nix::unistd::chown(&auth_path, Some(user.uid), Some(user.gid))?;
+            nix::unistd::chown(&auth_path, Some(user.uid), Some(user.gid))
+                .with_context(|| format!("Failed to chown {:?}", auth_path))?;
         }
 
         // Pull new image
@@ -1059,9 +1086,10 @@ impl Service {
                 &user,
                 log,
             )
-            .await?;
+            .await
+            .context("Failed to run podman pull")?;
             if !res.success() {
-                bail!("Error running podman: {:?}", res);
+                bail!("Error running podman pull: {:?}", res);
             }
         }
 
@@ -1084,7 +1112,9 @@ impl Service {
 
         // Run pre_deploy
         for (idx, src) in desc.pre_deploy.iter().enumerate() {
-            run_script(format!("predeploy {}", idx), src, log).await?;
+            run_script(format!("predeploy {}", idx), src, log)
+                .await
+                .with_context(|| format!("Failed running predeploy script {}", idx))?;
         }
 
         // Extract files
@@ -1117,13 +1147,15 @@ impl Service {
                 &user,
                 log,
             )
-            .await?;
+            .await
+            .context("Failed running podman run")?;
             if !res.success() {
-                bail!("Error running podman: {:?}", res);
+                bail!("Error running podman run: {:?}", res);
             }
             let t = tempfile::TempDir::new()?;
             if let Some(user) = &user {
-                nix::unistd::chown(t.path(), Some(user.uid), Some(user.gid))?;
+                nix::unistd::chown(t.path(), Some(user.uid), Some(user.gid))
+                    .context("Failed chowing tempdir")?;
             }
             for f in &desc.extract_files {
                 let tf = t
@@ -1137,9 +1169,10 @@ impl Service {
                     &user,
                     log,
                 )
-                .await?;
+                .await
+                .context("Error running podman cp")?;
                 if !res.success() {
-                    bail!("Error running podman: {:?}", res);
+                    bail!("Error running podman cp: {:?}", res);
                 }
 
                 let (dir, name) = f.dst.rsplit_once('/').unwrap_or((".", &f.dst));
@@ -1149,7 +1182,7 @@ impl Service {
                 } else {
                     None
                 };
-                std::fs::rename(&tf, &f.dst)?;
+                std::fs::rename(&tf, &f.dst).context("Failed renaming after podman cp")?;
                 actions.push(DeployAction::ExtractFile {
                     path: f.dst.clone(),
                     backup,
@@ -1162,7 +1195,8 @@ impl Service {
                 &user,
                 log,
             )
-            .await?;
+            .await
+            .context("Failed running podman kill")?;
         }
 
         let (instance, mut status) = self
@@ -1253,10 +1287,10 @@ impl Service {
             }
             Err(e) => {
                 error!(
-                    "Deployment failed for {}: {:?}. Restoring state",
-                    self.name, e
+                    "Deployment failed for {}: {:#?}. Restoring state\n{:?}\n{}",
+                    self.name, e, e, e
                 );
-                log.stderr(format!("Deployment failed: {:?}. Restoring state\n", e).as_bytes())
+                log.stderr(format!("Deployment failed 2: {:?}. Restoring state\n", e).as_bytes())
                     .await?;
                 actions.reverse();
                 for action in actions {
@@ -1404,11 +1438,11 @@ impl Service {
                     let msg = match std::str::from_utf8(msg) {
                         Ok(v) => v.trim(),
                         Err(_) => {
-                            info!("Got none utf-8 notify message '{:?}'", msg);
+                            info!("Got none utf-8 notify message {}: '{:?}'", i.instance_id, msg);
                             continue;
                         }
                     };
-                    info!("Got notify message '{}'", msg);
+                    info!("Got notify message {}: '{}' from", i.instance_id, msg);
                     if msg == "READY=1" {
                         status.lock().unwrap().state = ServiceState::Ready;
                         if stop_ready {
