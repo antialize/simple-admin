@@ -105,8 +105,8 @@ fn podman_user_command(user: Option<&str>) -> Result<tokio::process::Command> {
         )
         .kill_on_drop(true);
     if let Some(user) = &user {
-        let user = nix::unistd::User::from_name(user)?
-            .with_context(|| format!("Unknown user {}", user))?;
+        let user =
+            nix::unistd::User::from_name(user)?.with_context(|| format!("Unknown user {user}"))?;
         cmd.env("USER", user.name)
             .env("HOME", user.dir)
             .uid(user.uid.as_raw())
@@ -137,7 +137,7 @@ async fn send_journal_message(
     msg.extend(b"UNIT=");
     msg.extend(unit.as_bytes());
     msg.push(b'\n');
-    let _ = writeln!(msg, "INSTANCE={}", instance_id);
+    let _ = writeln!(msg, "INSTANCE={instance_id}");
     if message.contains(&b'\n') {
         msg.extend(b"MESSAGE\n");
         msg.extend((message.len() as u64).to_le_bytes());
@@ -295,10 +295,10 @@ impl<'a> RemoteLogTarget<'a> {
 async fn run_script(name: String, src: &String, log: &mut RemoteLogTarget<'_>) -> Result<()> {
     let (first, _) = src
         .split_once('\n')
-        .with_context(|| format!("Expected two lines in script {}", name))?;
+        .with_context(|| format!("Expected two lines in script {name}"))?;
     let interperter = first
         .strip_prefix("#!")
-        .with_context(|| format!("Expected interperter in script {}", name))?;
+        .with_context(|| format!("Expected interperter in script {name}"))?;
     let mut f = tempfile::Builder::new().prefix(&name).tempfile()?;
     f.write_all(src.as_bytes())?;
     f.flush()?;
@@ -404,8 +404,8 @@ fn create_pipe() -> Result<(OwnedFd, OwnedFd), std::io::Error> {
 
 fn bind_key(bind: &Bind, service: &str) -> String {
     match bind {
-        Bind::Tcp { bind, .. } => format!("service.{}.bind.{}", service, bind),
-        Bind::UnixStream { path, .. } => format!("service.{}.bind.{}", service, path),
+        Bind::Tcp { bind, .. } => format!("service.{service}.bind.{bind}"),
+        Bind::UnixStream { path, .. } => format!("service.{service}.bind.{path}"),
     }
 }
 
@@ -816,8 +816,7 @@ impl Service {
                             );
                             log.stdout(
                                 format!(
-                                    "Failed starting service: {:?}. Will retry in {} secs\n",
-                                    e, SLEEP_TIME
+                                    "Failed starting service: {e:?}. Will retry in {SLEEP_TIME} secs\n"
                                 )
                                 .as_bytes(),
                             )
@@ -937,7 +936,7 @@ impl Service {
                         socket: &self.client.journal_socket,
                     };
                     error!("Service {} failed: {:?}", self.name, e);
-                    log.stdout(format!("Service failed:{}\n", e).as_bytes())
+                    log.stdout(format!("Service failed:{e}\n").as_bytes())
                         .await?;
 
                     self.cleanup_instance(instance_id).await?;
@@ -1023,8 +1022,8 @@ impl Service {
         let user = match &desc.user {
             Some(user) => Some(
                 nix::unistd::User::from_name(user)
-                    .with_context(|| format!("Failed to get user {}", user))?
-                    .with_context(|| format!("Unknown user {}", user))?,
+                    .with_context(|| format!("Failed to get user {user}"))?
+                    .with_context(|| format!("Unknown user {user}"))?,
             ),
             None => None,
         };
@@ -1068,11 +1067,11 @@ impl Service {
             .mode(0o600)
             .open(&auth_path)?
             .write_all(&serde_json::to_vec(&dc)?)
-            .with_context(|| format!("Failed to write to {:?}", auth_path))?;
+            .with_context(|| format!("Failed to write to {auth_path:?}"))?;
 
         if let Some(user) = &user {
             nix::unistd::chown(&auth_path, Some(user.uid), Some(user.gid))
-                .with_context(|| format!("Failed to chown {:?}", auth_path))?;
+                .with_context(|| format!("Failed to chown {auth_path:?}"))?;
         }
 
         // Pull new image
@@ -1112,9 +1111,9 @@ impl Service {
 
         // Run pre_deploy
         for (idx, src) in desc.pre_deploy.iter().enumerate() {
-            run_script(format!("predeploy {}", idx), src, log)
+            run_script(format!("predeploy {idx}"), src, log)
                 .await
-                .with_context(|| format!("Failed running predeploy script {}", idx))?;
+                .with_context(|| format!("Failed running predeploy script {idx}"))?;
         }
 
         // Extract files
@@ -1176,7 +1175,7 @@ impl Service {
                 }
 
                 let (dir, name) = f.dst.rsplit_once('/').unwrap_or((".", &f.dst));
-                let tmp = format!("{}/.sadmin_backup_{}~", dir, name);
+                let tmp = format!("{dir}/.sadmin_backup_{name}~");
                 let backup = if std::fs::rename(&f.dst, &tmp).is_ok() {
                     Some(tmp)
                 } else {
@@ -1290,7 +1289,7 @@ impl Service {
                     "Deployment failed for {}: {:#?}. Restoring state\n{:?}\n{}",
                     self.name, e, e, e
                 );
-                log.stderr(format!("Deployment failed 2: {:?}. Restoring state\n", e).as_bytes())
+                log.stderr(format!("Deployment failed 2: {e:?}. Restoring state\n").as_bytes())
                     .await?;
                 actions.reverse();
                 for action in actions {
@@ -1546,7 +1545,7 @@ impl Service {
         let user = match &desc.user {
             Some(user) => Some(
                 nix::unistd::User::from_name(user)?
-                    .with_context(|| format!("Unknown user {}", user))?,
+                    .with_context(|| format!("Unknown user {user}"))?,
             ),
             None => None,
         };
@@ -1568,7 +1567,7 @@ impl Service {
 
         // Run run prestart
         for (idx, src) in desc.pre_start.iter().enumerate() {
-            run_script(format!("prestart {}", idx), src, log).await?;
+            run_script(format!("prestart {idx}"), src, log).await?;
         }
 
         let stdout_write_key = format!("service.{}.{}.stdout_write", desc.name, instance_id);
@@ -1581,7 +1580,7 @@ impl Service {
         let (stderr_read, stderr_write) = create_pipe()?;
         let dir = format!("/run/simpleadmin/services/{}/{}", desc.name, instance_id);
         std::fs::create_dir_all(&dir)?;
-        let notify_path = format!("{}/notify.socket", dir);
+        let notify_path = format!("{dir}/notify.socket");
         let notify_socket = UnixDatagram::bind(&notify_path)?;
         nix::sys::stat::fchmodat(
             None,
@@ -1592,7 +1591,7 @@ impl Service {
             // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
             nix::sys::stat::FchmodatFlags::FollowSymlink,
         )
-        .with_context(|| format!("Unable to chmod {:?}", notify_path))?;
+        .with_context(|| format!("Unable to chmod {notify_path:?}"))?;
         if let Some(user) = &user {
             nix::unistd::chown(notify_path.as_str(), Some(user.uid), Some(user.gid))?;
         }
@@ -1665,9 +1664,9 @@ impl Service {
                             // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
                             nix::sys::stat::FchmodatFlags::FollowSymlink,
                         )
-                        .with_context(|| format!("Unable to chmod {:?}", path))?;
+                        .with_context(|| format!("Unable to chmod {path:?}"))?;
                         let user = nix::unistd::User::from_name(user)?
-                            .with_context(|| format!("Unknown user {}", user))?;
+                            .with_context(|| format!("Unknown user {user}"))?;
                         nix::unistd::chown(Path::new(path), Some(user.uid), Some(user.gid))?;
                         self.client
                             .persist_put_fd(key.clone(), socket.as_fd(), "bind_unix")
@@ -1753,9 +1752,9 @@ impl Service {
                 pod_name.clone(),
                 "--sdnotify=ignore".to_string(),
                 "--env".to_string(),
-                format!("NOTIFY_SOCKET=/run/sdnotify/{}", notify_name),
+                format!("NOTIFY_SOCKET=/run/sdnotify/{notify_name}"),
                 "-v".to_string(),
-                format!("{}:/run/sdnotify", notify_dir),
+                format!("{notify_dir}:/run/sdnotify"),
                 "--systemd=false".to_string(),
             ];
 
@@ -1771,13 +1770,13 @@ impl Service {
             for m in &desc.pod_mount {
                 let (o, v) = match m.split_once(':') {
                     Some((s, _)) => (s, m.clone()),
-                    None => (m.as_str(), format!("{}:{}", m, m)),
+                    None => (m.as_str(), format!("{m}:{m}")),
                 };
                 if Path::new(o).exists() {
                     args.push("-v".to_string());
                     args.push(v);
                 } else {
-                    log.stdout(format!("Will not mount '{}' as it does not exist\n", o).as_bytes())
+                    log.stdout(format!("Will not mount '{o}' as it does not exist\n").as_bytes())
                         .await?;
                 }
             }
@@ -1958,7 +1957,7 @@ impl Service {
             } else {
                 src.clone()
             };
-            run_script(format!("poststart {}", idx), &src, log).await?;
+            run_script(format!("poststart {idx}"), &src, log).await?;
         }
 
         Ok((instance, status.into_inner().unwrap()))
@@ -2132,10 +2131,10 @@ impl Service {
                 status.instance_id
             );
             if let Some(image) = &status.image {
-                writeln!(msg, "image: {}", image)?;
+                writeln!(msg, "image: {image}")?;
             }
             if let Some(pod) = &status.pod_name {
-                writeln!(msg, "pod_name: {}", pod)?;
+                writeln!(msg, "pod_name: {pod}")?;
             }
             writeln!(
                 msg,
@@ -2190,7 +2189,7 @@ impl client_daemon::Client {
 
         for (name, state) in services? {
             let status: ServiceStatus = serde_json::from_str(&state)
-                .with_context(|| format!("Unable to load state for {}", name))?;
+                .with_context(|| format!("Unable to load state for {name}"))?;
             info!("Restore service {}, {:?}", name, &status.process_key,);
             let dead = if let Some(process_key) = &status.process_key {
                 let (dead_send, dead_recv) = tokio::sync::oneshot::channel();
@@ -2223,7 +2222,7 @@ impl client_daemon::Client {
             service
                 .load_from_status(status, dead, running)
                 .await
-                .with_context(|| format!("Unable to load service state {}", name))?;
+                .with_context(|| format!("Unable to load service state {name}"))?;
         }
         Ok(())
     }

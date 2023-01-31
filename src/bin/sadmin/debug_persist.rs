@@ -34,7 +34,7 @@ pub async fn run(_: DebugPersist) -> Result<()> {
         "======================================> fds <============================================"
     );
     for fd in fd_keys {
-        println!("{}", fd);
+        println!("{fd}");
     }
 
     Ok(())

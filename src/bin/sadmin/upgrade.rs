@@ -51,10 +51,7 @@ struct Release {
 pub async fn upgrade(args: Upgrade) -> Result<()> {
     println!("Finding release");
     let url = match args.version {
-        Some(v) => format!(
-            "https://api.github.com/repos/antialize/simple-admin/releases/tag/{}",
-            v
-        ),
+        Some(v) => format!("https://api.github.com/repos/antialize/simple-admin/releases/tag/{v}"),
         None => "https://api.github.com/repos/antialize/simple-admin/releases/latest".to_string(),
     };
 

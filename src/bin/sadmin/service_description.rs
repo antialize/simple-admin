@@ -73,11 +73,11 @@ impl Serialize for Duration {
         S: serde::Serializer,
     {
         match self {
-            Duration::MS(v) => serializer.serialize_str(&format!("{}ms", v)),
-            Duration::S(v) => serializer.serialize_str(&format!("{}s", v)),
-            Duration::M(v) => serializer.serialize_str(&format!("{}m", v)),
-            Duration::H(v) => serializer.serialize_str(&format!("{}h", v)),
-            Duration::D(v) => serializer.serialize_str(&format!("{}d", v)),
+            Duration::MS(v) => serializer.serialize_str(&format!("{v}ms")),
+            Duration::S(v) => serializer.serialize_str(&format!("{v}s")),
+            Duration::M(v) => serializer.serialize_str(&format!("{v}m")),
+            Duration::H(v) => serializer.serialize_str(&format!("{v}h")),
+            Duration::D(v) => serializer.serialize_str(&format!("{v}d")),
         }
     }
 }
@@ -165,11 +165,11 @@ impl Serialize for Size {
         S: serde::Serializer,
     {
         match self {
-            Size::B(v) => serializer.serialize_str(&format!("{}B", v)),
-            Size::KB(v) => serializer.serialize_str(&format!("{}Kb", v)),
-            Size::MB(v) => serializer.serialize_str(&format!("{}Mb", v)),
-            Size::GB(v) => serializer.serialize_str(&format!("{}Gb", v)),
-            Size::TB(v) => serializer.serialize_str(&format!("{}Tb", v)),
+            Size::B(v) => serializer.serialize_str(&format!("{v}B")),
+            Size::KB(v) => serializer.serialize_str(&format!("{v}Kb")),
+            Size::MB(v) => serializer.serialize_str(&format!("{v}Mb")),
+            Size::GB(v) => serializer.serialize_str(&format!("{v}Gb")),
+            Size::TB(v) => serializer.serialize_str(&format!("{v}Tb")),
         }
     }
 }

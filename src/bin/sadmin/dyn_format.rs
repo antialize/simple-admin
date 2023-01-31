@@ -36,12 +36,12 @@ impl Display for RelTime {
         for (k, d) in x {
             let v = (seconds / d) as i64;
             return match v {
-                1 => write!(f, "{} {} ago", v, k),
-                v if v > 1 => write!(f, "{} {}s ago", v, k),
+                1 => write!(f, "{v} {k} ago"),
+                v if v > 1 => write!(f, "{v} {k}s ago"),
                 _ => continue,
             };
         }
-        write!(f, "{} seconds ago", seconds)
+        write!(f, "{seconds} seconds ago")
     }
 }
 
@@ -96,10 +96,10 @@ impl<'a> std::fmt::Display for FormatArg<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FormatArg::String(v) => f.write_str(v),
-            FormatArg::Float(v) => write!(f, "{}", v),
-            FormatArg::Number(v) => write!(f, "{}", v),
-            FormatArg::Bool(v) => write!(f, "{}", v),
-            FormatArg::RelTime(v) => write!(f, "{}", v),
+            FormatArg::Float(v) => write!(f, "{v}"),
+            FormatArg::Number(v) => write!(f, "{v}"),
+            FormatArg::Bool(v) => write!(f, "{v}"),
+            FormatArg::RelTime(v) => write!(f, "{v}"),
             FormatArg::Dict(_) => f.write_str("dict"),
             FormatArg::Missing => f.write_str("missing"),
             FormatArg::None => f.write_str("none"),
@@ -125,7 +125,7 @@ pub fn dyn_format(format: &str, args: &dyn GetFmtArgDict) -> Result<String> {
                         let v = v.strip_suffix(']').unwrap_or(v);
                         match args.get_fmt_arg(v) {
                             FormatArg::Dict(a) => args = a,
-                            a => write!(res, "{}", a)?,
+                            a => write!(res, "{a}")?,
                         }
                     }
                 }

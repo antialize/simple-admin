@@ -78,7 +78,7 @@ impl<'a> Display for NameOrId<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NameOrId::Name(v) => f.write_str(v),
-            NameOrId::Id(v) => write!(f, "{}", v),
+            NameOrId::Id(v) => write!(f, "{v}"),
         }
     }
 }
@@ -171,7 +171,7 @@ fn group_deployments(
             groups.extend(
                 by_host
                     .into_iter()
-                    .map(|(host, group)| (format!("{} on {}", image, host), group)),
+                    .map(|(host, group)| (format!("{image} on {host}"), group)),
             );
         }
     }

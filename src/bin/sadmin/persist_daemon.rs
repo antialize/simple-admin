@@ -219,7 +219,7 @@ impl State {
                         .map_err(|e| {
                             std::io::Error::new(
                                 std::io::ErrorKind::AddrNotAvailable,
-                                format!("failed to put process into cgroup: {}", e),
+                                format!("failed to put process into cgroup: {e}"),
                             )
                         })?
                 }
@@ -441,10 +441,10 @@ impl State {
             let _ = std::fs::remove_file(&path);
         } else if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
-                .with_context(|| format!("Unable to create dir {:?}", parent))?;
+                .with_context(|| format!("Unable to create dir {parent:?}"))?;
         }
         let listener =
-            UnixListener::bind(&path).with_context(|| format!("Unable to bind to {:?}", path))?;
+            UnixListener::bind(&path).with_context(|| format!("Unable to bind to {path:?}"))?;
         // The socket does not accept connections util listen in called so there is no race here
         nix::sys::stat::fchmodat(
             None,
@@ -455,7 +455,7 @@ impl State {
             // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
             nix::sys::stat::FchmodatFlags::FollowSymlink,
         )
-        .with_context(|| format!("Unable to chmod {:?}", path))?;
+        .with_context(|| format!("Unable to chmod {path:?}"))?;
 
         info!("Listining on {:?}", path);
 

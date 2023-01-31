@@ -158,7 +158,7 @@ pub async fn run_shell(args: Shell) -> Result<()> {
     }))?;
     let mut socket = tokio::net::UnixStream::connect(CONTROL_SOCKET_PATH)
         .await
-        .with_context(|| format!("Connecting to client daemon at {}", CONTROL_SOCKET_PATH))?;
+        .with_context(|| format!("Connecting to client daemon at {CONTROL_SOCKET_PATH}"))?;
     socket.write_u32(msg.len().try_into()?).await?;
     socket.write_all(&msg).await?;
     let mut buf = Vec::new();
@@ -214,13 +214,13 @@ pub async fn run_logs(args: Logs) -> Result<()> {
         cmd.arg("--follow");
     }
     if let Some(lines) = &args.lines {
-        cmd.arg(format!("--lines={}", lines));
+        cmd.arg(format!("--lines={lines}"));
     }
     if let Some(since) = &args.since {
-        cmd.arg(format!("--since={}", since));
+        cmd.arg(format!("--since={since}"));
     }
     if let Some(until) = &args.until {
-        cmd.arg(format!("--until={}", until));
+        cmd.arg(format!("--until={until}"));
     }
 
     let status = cmd.status()?;
@@ -258,7 +258,7 @@ pub async fn run(args: Service) -> Result<()> {
     let msg = serde_json::to_vec(&msg)?;
     let mut socket = tokio::net::UnixStream::connect(CONTROL_SOCKET_PATH)
         .await
-        .with_context(|| format!("Connecting to client daemon at {}", CONTROL_SOCKET_PATH))?;
+        .with_context(|| format!("Connecting to client daemon at {CONTROL_SOCKET_PATH}"))?;
     socket.write_u32(msg.len().try_into()?).await?;
     socket.write_all(&msg).await?;
     let mut buf = Vec::new();

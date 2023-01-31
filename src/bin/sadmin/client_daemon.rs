@@ -661,7 +661,7 @@ impl Client {
                     id,
                     source: Some(DataSource::Stderr),
                     data: base64::engine::general_purpose::STANDARD
-                        .encode(&format!("Error deploying service: {:?}", e))
+                        .encode(&format!("Error deploying service: {e:?}"))
                         .into(),
                     eof: Some(true),
                 }))
@@ -714,7 +714,7 @@ impl Client {
             ClientMessage::RunInstant(ri) => {
                 let id = ri.id;
 
-                let task = TaskBuilder::new(format!("run_instant_{}", id))
+                let task = TaskBuilder::new(format!("run_instant_{id}"))
                     .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_run_instant(run_token, ri));
 
@@ -737,7 +737,7 @@ impl Client {
                     self.script_stdin.lock().unwrap().insert(id, send);
                 }
 
-                let task = TaskBuilder::new(format!("run_script_{}", id))
+                let task = TaskBuilder::new(format!("run_script_{id}"))
                     .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_run_script(run_token, ri, recv));
 
@@ -745,7 +745,7 @@ impl Client {
             }
             ClientMessage::DeployService(ds) => {
                 let id = ds.id;
-                TaskBuilder::new(format!("deploy_service_{}", id))
+                TaskBuilder::new(format!("deploy_service_{id}"))
                     .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_deploy_service(run_token, ds));
             }
@@ -892,7 +892,7 @@ impl Client {
             None,
         )
         .await
-        .with_context(|| format!("Close fd {}", key))
+        .with_context(|| format!("Close fd {key}"))
     }
 
     pub async fn persist_list_processes(&self, key_prefix: Option<String>) -> Result<Vec<String>> {
@@ -974,14 +974,13 @@ impl Client {
                     password: String,
                 }
                 let c: AuthConfig = serde_json::from_slice(&v)
-                    .with_context(|| format!("Error parsing '{}'", auth_path))?;
+                    .with_context(|| format!("Error parsing '{auth_path}'"))?;
                 c.password
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 let password = self.config.password.clone().with_context(|| {
                     format!(
-                        "Could not find '{}', so we expect a password in the config file",
-                        auth_path
+                        "Could not find '{auth_path}', so we expect a password in the config file"
                     )
                 })?;
                 warn!("Having the password in the config file is insecure, consider moving it to '{}'", auth_path);
@@ -1350,7 +1349,7 @@ impl Client {
                 &mut socket,
                 DaemonControlMessage::Stderr {
                     data: base64::engine::general_purpose::STANDARD
-                        .encode(format!("fatal error: {:?}\n", e)),
+                        .encode(format!("fatal error: {e:?}\n")),
                 },
             )
             .await?;
@@ -1427,12 +1426,11 @@ async fn connect_to_persist(retry: usize) -> Result<tokio::net::UnixStream> {
 pub fn get_db() -> Result<rusqlite::Connection> {
     const DB_PATH: &str = "/var/cache/simpleadmin/client.db3";
     if let Some(parent) = Path::new(DB_PATH).parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("Unable to create {:?}", parent))?;
+        std::fs::create_dir_all(parent).with_context(|| format!("Unable to create {parent:?}"))?;
     }
 
     let db = rusqlite::Connection::open(DB_PATH)
-        .with_context(|| format!("Unable to open database {}", DB_PATH))?;
+        .with_context(|| format!("Unable to open database {DB_PATH}"))?;
 
     db.execute(
         "CREATE TABLE IF NOT EXISTS services (

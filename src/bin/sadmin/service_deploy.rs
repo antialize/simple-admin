@@ -55,14 +55,14 @@ pub async fn deploy(config: Config, args: ServiceDeploy) -> Result<()> {
     loop {
         match c.recv().await? {
             Message::DockerDeployLog { r#ref, message } if r#ref == msg_ref => {
-                print!("{}", message);
+                print!("{message}");
             }
             Message::DockerDeployEnd {
                 r#ref,
                 message,
                 status,
             } if r#ref == msg_ref => {
-                println!("{}", message);
+                println!("{message}");
                 if !status {
                     bail!("Deployment failed");
                 }
@@ -85,14 +85,14 @@ pub async fn redeploy(config: Config, args: ServiceRedeploy) -> Result<()> {
     loop {
         match c.recv().await? {
             Message::DockerDeployLog { r#ref, message } if r#ref == msg_ref => {
-                print!("{}", message);
+                print!("{message}");
             }
             Message::DockerDeployEnd {
                 r#ref,
                 message,
                 status,
             } if r#ref == msg_ref => {
-                println!("{}", message);
+                println!("{message}");
                 if !status {
                     bail!("Deployment failed");
                 }

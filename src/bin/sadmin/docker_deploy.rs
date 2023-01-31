@@ -42,14 +42,14 @@ pub async fn deploy(config: Config, args: DockerDeploy) -> Result<()> {
     loop {
         match c.recv().await? {
             Message::DockerDeployLog { r#ref, message } if r#ref == msg_ref => {
-                println!("{}", message);
+                println!("{message}");
             }
             Message::DockerDeployEnd {
                 r#ref,
                 message,
                 status,
             } if r#ref == msg_ref => {
-                println!("{}", message);
+                println!("{message}");
                 if !status {
                     bail!("Deployment failed");
                 }

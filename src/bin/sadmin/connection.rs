@@ -178,7 +178,7 @@ impl Connection {
             if !private.exists() {
                 continue;
             }
-            let public = home_dir.join(format!("{}.pub", k));
+            let public = home_dir.join(format!("{k}.pub"));
             let pk = match std::fs::read(public) {
                 Ok(v) => v,
                 Err(_) => continue,
@@ -238,7 +238,7 @@ impl Connection {
                     Err(e) => return Err(e.into()),
                 };
                 let marker = "# sadmin sshHostCaPub";
-                let line = format!("@cert-authority * {} {}", ssh_host_ca, marker);
+                let line = format!("@cert-authority * {ssh_host_ca} {marker}");
                 if !lines.contains(&line) {
                     lines.retain(|v| !v.ends_with(marker) && !v.is_empty());
                     lines.push(line);
@@ -250,7 +250,7 @@ impl Connection {
             match res.ssh_crt {
                 Some(v) => {
                     std::fs::write(
-                        home_dir.join(format!("{}-cert.pub", ssh_public_key)),
+                        home_dir.join(format!("{ssh_public_key}-cert.pub")),
                         v.as_bytes(),
                     )?;
                 }
@@ -282,7 +282,7 @@ impl Connection {
             bail!("No username provided")
         }
 
-        let pwd = rpassword::prompt_password(format!("Password for {}: ", user))?;
+        let pwd = rpassword::prompt_password(format!("Password for {user}: "))?;
 
         let otp = if self.otp {
             None
@@ -340,7 +340,7 @@ impl Connection {
             self.server_host.clone(),
             DockerAuth {
                 auth: base64::engine::general_purpose::STANDARD
-                    .encode(format!("{}:{}", user, session).as_bytes()),
+                    .encode(format!("{user}:{session}").as_bytes()),
             },
         );
         std::fs::create_dir_all(dockerconfpath.parent().context("Expected parent")?)?;

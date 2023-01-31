@@ -133,8 +133,7 @@ impl<'de> Deserialize<'de> for Type {
             serde_json::Value::String(v) if v == "root" => Ok(Type::Root),
             serde_json::Value::String(v) if v == "type" => Ok(Type::Type),
             v => Err(D::Error::custom(format!(
-                "expected uint or root found {:?}",
-                v
+                "expected uint or root found {v:?}"
             ))),
         }
     }
