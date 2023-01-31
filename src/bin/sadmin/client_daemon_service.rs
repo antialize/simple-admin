@@ -1551,19 +1551,19 @@ impl Service {
             None => None,
         };
 
-        CgroupBuilder::new("sadmin").build(Box::new(cgroups_rs::hierarchies::V2::new()))?;
+        CgroupBuilder::new("sadmin").build(Box::new(cgroups_rs::hierarchies::V2::new()));
         let cgroup_name = format!("sadmin/{}", desc.name);
         if let Some(v) = desc.max_memory {
             CgroupBuilder::new(&cgroup_name)
                 .memory()
                 .memory_hard_limit(u64::from(v).try_into()?)
                 .done()
-                .build(Box::new(cgroups_rs::hierarchies::V2::new()))?;
+                .build(Box::new(cgroups_rs::hierarchies::V2::new()));
         } else {
             CgroupBuilder::new(&cgroup_name)
                 .memory()
                 .done()
-                .build(Box::new(cgroups_rs::hierarchies::V2::new()))?;
+                .build(Box::new(cgroups_rs::hierarchies::V2::new()));
         }
 
         // Run run prestart

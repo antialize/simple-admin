@@ -30,7 +30,7 @@ indicatif = "0.17.1"
 nix = { version = "0.26.0", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde_yaml = "0.9.13"
-cgroups-rs = "0.3.0"
+cgroups-rs = "0.2.11"
 passfd = "0.1.4"
 tokio-tasks = "0.1.0"
 chrono = {version = "0.4.22", default-features = false, features = ["std"] }
