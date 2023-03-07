@@ -1,9 +1,11 @@
 use anyhow::{bail, Context, Result};
 use base64::Engine;
+use chrono::prelude::*;
+use chrono::{DateTime, TimeZone};
 use nix::libc::SIGPIPE;
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{stderr, stdout, Write},
+    io::{stderr, stdout, BufRead, Write},
     os::unix::process::ExitStatusExt,
     path::PathBuf,
 };
@@ -207,6 +209,14 @@ pub async fn run_shell(args: Shell) -> Result<()> {
     bail!("Unable to run shell {}", status)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+struct LogLine<'a> {
+    message: std::borrow::Cow<'a, String>,
+    instance: &'a str,
+    __realtime_timestamp: &'a str,
+}
+
 pub async fn run_logs(args: Logs) -> Result<()> {
     let mut cmd = std::process::Command::new("/usr/bin/journalctl");
     cmd.arg(format!("UNIT={}", args.service));
@@ -222,8 +232,67 @@ pub async fn run_logs(args: Logs) -> Result<()> {
     if let Some(until) = &args.until {
         cmd.arg(format!("--until={until}"));
     }
+    cmd.arg("--output-fields=INSTANCE,MESSAGE,__REALTIME_TIMESTAMP");
+    cmd.arg("--output=json");
+    cmd.stdout(std::process::Stdio::piped());
+    let mut child = cmd.spawn()?;
+    let stdout = child.stdout.take().unwrap();
+    let mut stdout = std::io::BufReader::new(stdout);
+    let mut line = String::new();
+    let mut instances = std::collections::HashMap::new();
+    let mut print_date = None;
+    let now: DateTime<Local> = Local::now();
+    while stdout.read_line(&mut line)? != 0 {
+        let l: LogLine = serde_json::from_str(line.trim())
+            .with_context(|| format!("Parsing log line {line}"))?;
+        let t: i64 = l
+            .__realtime_timestamp
+            .parse()
+            .with_context(|| format!("Parsing time stamp {}", l.__realtime_timestamp))?;
+        let t: DateTime<Local> = Utc.timestamp_nanos(t * 1000).into();
 
-    let status = cmd.status()?;
+        let print_date = match print_date {
+            Some(v) => v,
+            None => {
+                let v = t.year() != now.year() || t.month() != now.month() || t.day() != now.day();
+                print_date = Some(v);
+                v
+            }
+        };
+        let instance = match instances.get(l.instance) {
+            Some(v) => *v,
+            None => {
+                let id = instances.len() as u32;
+                instances.insert(l.instance.to_string(), id);
+                id
+            }
+        };
+        if print_date {
+            println!(
+                "{:02}/{:02} {:02}:{:02}:{:02}.{:03} {:2}: {}",
+                t.month(),
+                t.day(),
+                t.hour(),
+                t.minute(),
+                t.second(),
+                t.nanosecond() / 1_000_000,
+                instance,
+                l.message
+            );
+        } else {
+            println!(
+                "{:02}:{:02}:{:02}.{:03} {:2}: {}",
+                t.hour(),
+                t.minute(),
+                t.second(),
+                t.nanosecond() / 1_000_000,
+                instance,
+                l.message
+            );
+        }
+        line.clear();
+    }
+    let status = child.wait()?;
     if let Some(code) = status.code() {
         std::process::exit(code);
     }
