@@ -212,9 +212,9 @@ pub async fn run_shell(args: Shell) -> Result<()> {
 #[derive(Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 struct LogLine<'a> {
-    message: std::borrow::Cow<'a, String>,
-    instance: &'a str,
-    __realtime_timestamp: &'a str,
+    message: Option<std::borrow::Cow<'a, String>>,
+    instance: Option<&'a str>,
+    __realtime_timestamp: Option<&'a str>,
 }
 
 pub async fn run_logs(args: Logs) -> Result<()> {
@@ -245,12 +245,18 @@ pub async fn run_logs(args: Logs) -> Result<()> {
     while stdout.read_line(&mut line)? != 0 {
         let l: LogLine = serde_json::from_str(line.trim())
             .with_context(|| format!("Parsing log line {line}"))?;
-        let t: i64 = l
-            .__realtime_timestamp
-            .parse()
-            .with_context(|| format!("Parsing time stamp {}", l.__realtime_timestamp))?;
-        let t: DateTime<Local> = Utc.timestamp_nanos(t * 1000).into();
-
+        let t: DateTime<Local> = match l.__realtime_timestamp {
+            Some(v) => {
+                let t: i64 = v
+                    .parse()
+                    .with_context(|| format!("Parsing time stamp {v}"))?;
+                Utc.timestamp_nanos(t * 1000).into()
+            }
+            None => {
+                line.clear();
+                continue;
+            }
+        };
         let print_date = match print_date {
             Some(v) => v,
             None => {
@@ -259,14 +265,18 @@ pub async fn run_logs(args: Logs) -> Result<()> {
                 v
             }
         };
-        let instance = match instances.get(l.instance) {
-            Some(v) => *v,
-            None => {
-                let id = instances.len() as u32;
-                instances.insert(l.instance.to_string(), id);
-                id
-            }
+        let instance = match l.instance {
+            Some(v) => match instances.get(v) {
+                Some(v) => *v,
+                None => {
+                    let id = instances.len() as u32 + 1;
+                    instances.insert(v.to_string(), id);
+                    id
+                }
+            },
+            None => 0,
         };
+        let message = l.message.unwrap_or_default();
         if print_date {
             println!(
                 "{:02}/{:02} {:02}:{:02}:{:02}.{:03} {:2}: {}",
@@ -277,7 +287,7 @@ pub async fn run_logs(args: Logs) -> Result<()> {
                 t.second(),
                 t.nanosecond() / 1_000_000,
                 instance,
-                l.message
+                message
             );
         } else {
             println!(
@@ -287,7 +297,7 @@ pub async fn run_logs(args: Logs) -> Result<()> {
                 t.second(),
                 t.nanosecond() / 1_000_000,
                 instance,
-                l.message
+                message
             );
         }
         line.clear();
