@@ -29,7 +29,7 @@
     "priorityqueuejs": "^2.0.0",
     "shell-quote": "^1.7.3",
     "speakeasy": "^2.0.0",
-    "sqlite3": "^5.0.3",
+    "sqlite3": "^5.1.5",
     "ts-node": "^10.2.1",
     "typescript": "^4.4.3",
     "unixcrypt": "github:scalgo/unixcrypt#dist",
