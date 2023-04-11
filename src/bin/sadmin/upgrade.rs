@@ -149,6 +149,7 @@ pub async fn setup(_: Setup) -> Result<()> {
         b"[Unit]
 Description=Simple admin client
 Requires=simpleadmin-persist.service
+After=network.target
 
 [Service]
 WatchdogSec=400s
