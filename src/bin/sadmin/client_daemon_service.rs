@@ -535,9 +535,10 @@ impl Stop {
             let mut line = Vec::new();
             writeln!(
                 &mut line,
-                "{}$ podman kill {}",
+                "{}$ podman kill {} --signal {}",
                 user.as_deref().unwrap_or("root"),
-                pod_name
+                pod_name,
+                signal.name(),
             )?;
             log.stdout(&line).await?;
 
@@ -616,7 +617,7 @@ impl Stop {
                     if matches!(self.state, StopState::Sent9) {
                         break;
                     } else {
-                        let (user, pod_name) = {
+                        let (pod_name, user) = {
                             let status = status.lock().unwrap();
                             (status.pod_name.clone(), status.description.user.clone())
                         };
@@ -1214,13 +1215,11 @@ impl Service {
         let instance_id = status.instance_id;
         let status = std::sync::Mutex::new(status);
 
-        info!("Atempting to stop old service 1");
         let mut stop = match Stop::new(self.clone(), &run_task, &status, true, log).await? {
             Some(stop) => stop,
             None => return Ok(()),
         };
         let rt = RunToken::new();
-        info!("Atempting to stop old service 2");
         if stop
             .run(
                 &rt,
@@ -1232,7 +1231,10 @@ impl Service {
         {
             return Ok(());
         }
-        log.stdout(b"It is taking a long time for the service to stop. Moving the stopping to a background").await?;
+        log.stdout(format!("It is taking a long time for the service to stop. Moving the stopping to a background. \
+It will be hard killed in {:?} if it does not stop before that. ",
+            stop.timeout.duration_since(Instant::now())).as_bytes()
+    ).await?;
         info!(
             "It is taking long for {}.{} to stop, moving to background",
             self.name, instance_id
