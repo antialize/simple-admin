@@ -410,7 +410,6 @@ fn bind_key(bind: &Bind, service: &str) -> String {
 }
 
 fn merge(src: &Path, dst: &Path) -> Result<()> {
-    info!("Merging {src:?} to {dst:?}");
     match dst.symlink_metadata() {
         Ok(v) if v.is_dir() => {
             let dir =
