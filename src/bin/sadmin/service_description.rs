@@ -229,6 +229,8 @@ impl<'de> Deserialize<'de> for Size {
 pub struct ExtractFile {
     pub src: String,
     pub dst: String,
+    #[serde(default)]
+    pub merge: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
