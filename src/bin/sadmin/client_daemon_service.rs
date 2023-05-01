@@ -409,6 +409,32 @@ fn bind_key(bind: &Bind, service: &str) -> String {
     }
 }
 
+fn merge(src: &Path, dst: &Path) -> Result<()> {
+    info!("Merging {src:?} to {dst:?}");
+    match dst.symlink_metadata() {
+        Ok(v) if v.is_dir() => {
+            let dir =
+                std::fs::read_dir(src).with_context(|| format!("Failed to read dir {src:?}"))?;
+            for ent in dir {
+                let ent = ent?;
+                merge(&ent.path(), &dst.join(ent.file_name()))?;
+            }
+        }
+        Ok(_) => {
+            std::fs::rename(src, dst)
+                .with_context(|| format!("Failed renaming {src:?} to {dst:?}"))?;
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::rename(src, dst)
+                .with_context(|| format!("Failed renaming {src:?} to {dst:?}"))?;
+        }
+        e => {
+            e.with_context(|| format!("Bad destination {dst:?}"))?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum ServiceState {
     Starting,
@@ -1133,24 +1159,20 @@ impl Service {
             });
             let res = forward_command(
                 tokio::process::Command::new("/usr/bin/podman")
-                    .arg("run")
-                    .arg("--rm")
+                    .arg("create")
                     .arg("--network")
                     .arg("none")
                     .arg("--name")
                     .arg(&name)
-                    .arg("--detach")
-                    .arg("--entrypoint")
-                    .arg("/usr/bin/sleep")
                     .arg(image)
-                    .arg("10m"),
+                    .arg("/bin/false"),
                 &user,
                 log,
             )
             .await
-            .context("Failed running podman run")?;
+            .context("Failed running podman create")?;
             if !res.success() {
-                bail!("Error running podman run: {:?}", res);
+                bail!("Error running podman create: {:?}", res);
             }
             let t = tempfile::TempDir::new()?;
             if let Some(user) = &user {
@@ -1158,45 +1180,78 @@ impl Service {
                     .context("Failed chowing tempdir")?;
             }
             for f in &desc.extract_files {
-                let tf = t
-                    .path()
-                    .join(Path::new(&f.dst).file_name().context("Missing name")?);
-                let res = forward_command(
-                    tokio::process::Command::new("/usr/bin/podman")
-                        .arg("cp")
-                        .arg(format!("{}:{}", name, f.src))
-                        .arg(&tf),
-                    &user,
-                    log,
-                )
-                .await
-                .context("Error running podman cp")?;
-                if !res.success() {
-                    bail!("Error running podman cp: {:?}", res);
-                }
-
-                let (dir, name) = f.dst.rsplit_once('/').unwrap_or((".", &f.dst));
-                let tmp = format!("{dir}/.sadmin_backup_{name}~");
-                let backup = if std::fs::rename(&f.dst, &tmp).is_ok() {
-                    Some(tmp)
+                if let Some(d) = f.dst.strip_suffix('/') {
+                    let res = forward_command(
+                        tokio::process::Command::new("/usr/bin/podman")
+                            .arg("cp")
+                            .arg(format!("{}:{}", name, f.src))
+                            .arg(format!("{}/", t.path().to_str().unwrap())),
+                        &user,
+                        log,
+                    )
+                    .await
+                    .context("Error running podman cp")?;
+                    if !res.success() {
+                        bail!("Error running podman cp: {:?}", res);
+                    }
+                    if f.merge {
+                        // For merging we do not support reverting
+                        merge(t.path(), Path::new(&f.dst))?;
+                    } else {
+                        let (parent, name) = d.rsplit_once('/').context("Bad dest name")?;
+                        let tmp = format!("{parent}/.sadmin_backup_{name}~");
+                        let backup = if std::fs::rename(&f.dst, &tmp).is_ok() {
+                            Some(tmp)
+                        } else {
+                            None
+                        };
+                        actions.push(DeployAction::ExtractFile {
+                            path: f.dst.clone(),
+                            backup,
+                        });
+                        std::fs::rename(t.path(), &f.dst)
+                            .context("Failed renaming after podman cp")?;
+                    }
                 } else {
-                    None
-                };
-                std::fs::rename(&tf, &f.dst).context("Failed renaming after podman cp")?;
-                actions.push(DeployAction::ExtractFile {
-                    path: f.dst.clone(),
-                    backup,
-                })
+                    let tf = t
+                        .path()
+                        .join(Path::new(&f.dst).file_name().context("Missing name")?);
+                    let res = forward_command(
+                        tokio::process::Command::new("/usr/bin/podman")
+                            .arg("cp")
+                            .arg(format!("{}:{}", name, f.src))
+                            .arg(&tf),
+                        &user,
+                        log,
+                    )
+                    .await
+                    .context("Error running podman cp")?;
+                    if !res.success() {
+                        bail!("Error running podman cp: {:?}", res);
+                    }
+                    let (dir, name) = f.dst.rsplit_once('/').unwrap_or((".", &f.dst));
+                    let tmp = format!("{dir}/.sadmin_backup_{name}~");
+                    let backup = if std::fs::rename(&f.dst, &tmp).is_ok() {
+                        Some(tmp)
+                    } else {
+                        None
+                    };
+                    actions.push(DeployAction::ExtractFile {
+                        path: f.dst.clone(),
+                        backup,
+                    });
+                    std::fs::rename(&tf, &f.dst).context("Failed renaming after podman cp")?;
+                }
             }
             forward_command(
                 tokio::process::Command::new("/usr/bin/podman")
-                    .arg("kill")
+                    .arg("rm")
                     .arg(&name),
                 &user,
                 log,
             )
             .await
-            .context("Failed running podman kill")?;
+            .context("Failed running podman rm")?;
         }
 
         let (instance, mut status) = self
