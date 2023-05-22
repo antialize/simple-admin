@@ -7,6 +7,7 @@ use docker_deploy::DockerDeploy;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
+use misc::GetRoot;
 use persist_daemon::PersistDaemon;
 use service_control::Service;
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
@@ -22,6 +23,7 @@ mod finite_float;
 mod list_deployments;
 mod list_images;
 mod message;
+mod misc;
 mod persist_daemon;
 mod service_control;
 mod service_deploy;
@@ -75,6 +77,7 @@ enum Action {
     ListDeployments(ListDeployments),
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
+    GetRoot(GetRoot),
     ServiceDeploy(ServiceDeploy),
     ServiceRedeploy(ServiceRedeploy),
     ClientDaemon(ClientDaemon),
@@ -159,6 +162,7 @@ async fn main() -> Result<()> {
         Action::Deauth(args) => deauth(config, args).await,
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
+        Action::GetRoot(args) => misc::get_root(config, args).await,
         Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
         Action::ServiceRedeploy(args) => service_deploy::redeploy(config, args).await,
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
