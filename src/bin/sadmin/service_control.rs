@@ -86,6 +86,10 @@ pub struct Shell {
 
     #[clap(default_value = "/bin/sh")]
     pub shell: String,
+
+    /// Command line arguments given to the shell
+    #[clap(trailing_var_arg = true)]
+    pub shell_args: Vec<String>,
 }
 
 /// View logs for the given service
@@ -202,6 +206,7 @@ pub async fn run_shell(args: Shell) -> Result<()> {
         .arg("-it")
         .arg(pod_name)
         .arg(args.shell)
+        .args(args.shell_args)
         .status()?;
     if let Some(code) = status.code() {
         std::process::exit(code);
