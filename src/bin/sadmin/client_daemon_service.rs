@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     io::Write,
     os::unix::prelude::{AsFd, AsRawFd, FromRawFd, OpenOptionsExt, OsStrExt, OwnedFd},
     path::Path,
@@ -12,7 +13,7 @@ use crate::{
     client_daemon::{self, SERVICE_ORDER},
     persist_daemon,
     service_control::DaemonControlMessage,
-    service_description::{Bind, ServiceType},
+    service_description::{Bind, ServiceMetrics, ServiceType},
     tokio_passfd::MyAsFd,
 };
 
@@ -36,6 +37,181 @@ use tokio_tasks::{cancelable, RunToken, Task, TaskBase, TaskBuilder};
 use crate::service_description::ServiceDescription;
 
 const SERVICES_BUF_SIZE: usize = 1024 * 64;
+
+enum MetricItem<'a> {
+    Comment {
+        line: &'a str,
+    },
+    Value {
+        name: &'a str,
+        properties: Vec<(&'a str, &'a str)>,
+        tail: &'a str,
+    },
+}
+
+impl<'a> Display for MetricItem<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MetricItem::Comment { line } => f.write_str(line),
+            MetricItem::Value {
+                name,
+                properties,
+                tail,
+            } => {
+                f.write_str(name)?;
+                if !properties.is_empty() {
+                    let mut first = true;
+                    f.write_str("{")?;
+                    for (k, v) in properties {
+                        if first {
+                            first = false;
+                        } else {
+                            f.write_str(",")?;
+                        }
+                        f.write_str(k)?;
+                        f.write_str("=")?;
+                        f.write_str(v)?;
+                    }
+                    f.write_str("}")?;
+                }
+                f.write_str(" ")?;
+                f.write_str(tail)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+fn parse_metrics(metrics: &str) -> Result<Vec<MetricItem<'_>>> {
+    let mut res = Vec::new();
+    let mut it = metrics.char_indices().peekable();
+    loop {
+        while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+            it.next();
+        }
+        let (line_start, c) = match it.next() {
+            Some(v) => v,
+            None => break,
+        };
+        if c == '#' {
+            let end = loop {
+                match it.next() {
+                    Some((o, v)) if v == '\n' => break o,
+                    Some(_) => (),
+                    None => break metrics.len(),
+                }
+            };
+            res.push(MetricItem::Comment {
+                line: &metrics[line_start..end],
+            });
+            continue;
+        }
+        let end = loop {
+            match it.peek() {
+                Some((o, v)) if *v == '{' || *v == ' ' => break *o,
+                Some(_) => it.next(),
+                None => bail!("Unexpected end of file"),
+            };
+        };
+        let name = &metrics[line_start..end];
+        while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+            it.next();
+        }
+
+        let (mut start, c) = match it.peek() {
+            Some(v) => *v,
+            None => bail!("Unexpected end of file"),
+        };
+        let mut properties = Vec::new();
+        if c == '{' {
+            it.next();
+            while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+                it.next();
+            }
+            loop {
+                let (start, c) = match it.peek() {
+                    Some(v) => *v,
+                    None => bail!("Unexpected end of file"),
+                };
+                if c == '}' {
+                    break;
+                }
+                let end = loop {
+                    match it.peek() {
+                        Some((o, v)) if *v == ' ' || *v == '=' => break *o,
+                        Some(_) => it.next(),
+                        None => bail!("Unexpected end of file"),
+                    };
+                };
+                let k = &metrics[start..end];
+                // Skip whitespace
+                while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+                    it.next();
+                }
+                // Skip = and whitespace
+                match it.next() {
+                    Some((_, v)) if v == '=' => (),
+                    _ => bail!("Expected ="),
+                };
+                while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+                    it.next();
+                }
+                let v = match it.next() {
+                    Some((start, v)) if v == '\"' => loop {
+                        match it.next() {
+                            Some((o, v)) if v == '"' => break &metrics[start..o + 1],
+                            Some(_) => (),
+                            None => bail!("Unexpected end of file"),
+                        };
+                    },
+                    Some((start, _)) => loop {
+                        match it.peek() {
+                            Some((o, v)) if *v == ' ' || *v == ',' || *v == '}' => {
+                                break &metrics[start..*o]
+                            }
+                            Some(_) => it.next(),
+                            None => bail!("Unexpected end of file"),
+                        };
+                    },
+                    None => bail!("Unexpected end of file"),
+                };
+                // Skip whitespace
+                while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+                    it.next();
+                }
+                if it.peek().map(|(_, c)| *c == ',') == Some(true) {
+                    it.next();
+                }
+                properties.push((k, v));
+            }
+            it.next();
+            while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
+                it.next();
+            }
+            let s = match it.peek() {
+                Some((s, _)) => *s,
+                None => bail!("Unexpected end of file"),
+            };
+            start = s;
+        }
+
+        let end = loop {
+            match it.next() {
+                Some((o, v)) if v == '\n' => break o,
+                Some(_) => (),
+                None => break metrics.len(),
+            }
+        };
+        let tail = &metrics[start..end];
+        let i = MetricItem::Value {
+            name,
+            properties,
+            tail,
+        };
+        res.push(i)
+    }
+    Ok(res)
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct StatusJsonV1 {
@@ -472,6 +648,7 @@ struct ServiceStatus {
     stderr_key: Option<String>,
     notify_key: Option<String>,
     process_key: Option<String>,
+    metrics_path: Option<String>,
     start_stop_time: std::time::SystemTime,
     deploy_time: std::time::SystemTime,
     deploy_user: String,
@@ -1016,6 +1193,7 @@ impl Service {
                     overlap_stop_signal: Default::default(),
                     start_magic: Default::default(),
                     stop_signal: Default::default(),
+                    metrics: Default::default(),
                 },
                 extra_env: Default::default(),
                 instance_id: 0,
@@ -1024,6 +1202,7 @@ impl Service {
                 stderr_key: None,
                 notify_key: None,
                 process_key: None,
+                metrics_path: None,
                 start_stop_time: SystemTime::now(),
                 deploy_time: SystemTime::now(),
                 deploy_user: "unset".to_string(),
@@ -1626,6 +1805,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
             run_script(format!("prestart {idx}"), src, log).await?;
         }
 
+        let dir = format!("/run/simpleadmin/services/{}/{}", desc.name, instance_id);
         let stdout_write_key = format!("service.{}.{}.stdout_write", desc.name, instance_id);
         let stdout_read_key = format!("service.{}.{}.stdout_read", desc.name, instance_id);
         let stderr_write_key = format!("service.{}.{}.stderr_write", desc.name, instance_id);
@@ -1634,10 +1814,34 @@ It will be hard killed in {:?} if it does not stop before that. ",
         let process_key = format!("service.{}.{}", desc.name, instance_id);
         let (stdout_read, stdout_write) = create_pipe()?;
         let (stderr_read, stderr_write) = create_pipe()?;
-        let dir = format!("/run/simpleadmin/services/{}/{}", desc.name, instance_id);
         std::fs::create_dir_all(&dir)?;
         let notify_path = format!("{dir}/notify.socket");
         let notify_socket = UnixDatagram::bind(&notify_path)?;
+
+        let metrics_path = if matches!(desc.metrics, Some(ServiceMetrics::SimpleSocket { .. })) {
+            let mdir = format!("{dir}/metrics");
+            std::fs::create_dir_all(&mdir)?;
+
+            if let Some(user) = &user {
+                nix::unistd::chown(mdir.as_str(), Some(user.uid), Some(user.gid))?;
+            }
+
+            nix::sys::stat::fchmodat(
+                None,
+                Path::new(&mdir),
+                nix::sys::stat::Mode::from_bits_truncate(0o700),
+                // Note, NoFollowSymlink is NOT implemented on 20.04,
+                // even though it's what we would prefer here.
+                // We have to pass 0 as flags, which is spelled "FollowSymlink" in this library.
+                nix::sys::stat::FchmodatFlags::FollowSymlink,
+            )
+            .with_context(|| format!("Unable to chmod {mdir:?}"))?;
+
+            Some(format!("{dir}/metrics/socket"))
+        } else {
+            None
+        };
+
         nix::sys::stat::fchmodat(
             None,
             Path::new(&notify_path),
@@ -1759,7 +1963,9 @@ It will be hard killed in {:?} if it does not stop before that. ",
         }
         let (sp, pod_name) = if let Some(exec) = &desc.service_executable {
             env.push(("NOTIFY_SOCKET".to_string(), notify_path.clone()));
-
+            if let Some(metrics_path) = &metrics_path {
+                env.push(("METRICS_SOCKET".to_string(), metrics_path.clone()));
+            }
             let mut line = Vec::new();
             write!(
                 &mut line,
@@ -1813,7 +2019,11 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 format!("{notify_dir}:/run/sdnotify"),
                 "--systemd=false".to_string(),
             ];
-
+            if let Some(metrics_path) = &metrics_path {
+                assert_eq!(&format!("{notify_dir}/metrics/socket"), metrics_path);
+                args.push("--env".to_string());
+                args.push("METRICS_SOCKET=/run/sdnotify/metrics/socket".to_string());
+            }
             for env in desc.pod_env.keys() {
                 args.push("--env".to_string());
                 args.push(env.clone());
@@ -1908,6 +2118,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
             stderr_key: Some(stderr_read_key),
             notify_key: Some(notify_key),
             process_key: Some(process_key.clone()),
+            metrics_path,
             start_stop_time: SystemTime::now(),
             deploy_time: SystemTime::now(),
             deploy_user,
@@ -2126,6 +2337,93 @@ It will be hard killed in {:?} if it does not stop before that. ",
         self.cleanup().await?;
         self.persist_status()?;
         Ok(())
+    }
+
+    pub async fn get_metrics_inner(&self) -> Result<Option<String>> {
+        let (state, metrics, start_time, metrics_path) = {
+            let status = self.status.lock().unwrap();
+            (
+                status.state,
+                status.description.metrics.clone(),
+                status.start_stop_time,
+                status.metrics_path.clone(),
+            )
+        };
+        match state {
+            ServiceState::Starting
+            | ServiceState::Stopping
+            | ServiceState::Stopped
+            | ServiceState::New => return Ok(None),
+            ServiceState::Ready | ServiceState::Reloading | ServiceState::Running => (),
+        }
+        let (body, instance, job) = match metrics {
+            Some(ServiceMetrics::SimpleSocket { job, instance }) => {
+                let mut socket =
+                    tokio::net::UnixStream::connect(metrics_path.context("Missing metrics_path")?)
+                        .await?;
+                let mut body = String::new();
+                socket.read_to_string(&mut body).await?;
+                (body, instance, job)
+            }
+            Some(ServiceMetrics::Http {
+                job,
+                instance,
+                port,
+                path,
+            }) => {
+                let body = reqwest::get(format!("http://127.0.0.1:{}{}", port, path))
+                    .await?
+                    .text()
+                    .await?;
+                (body, instance, job)
+            }
+            None => return Ok(None),
+        };
+
+        let body = parse_metrics(&body)?;
+        let mut res = String::new();
+        use std::fmt::Write;
+        let job = format!("\"{job}\"");
+        let instance = format!("\"{instance}\"");
+        for mut line in body {
+            match &mut line {
+                MetricItem::Comment { .. } => (),
+                MetricItem::Value { properties, .. } => {
+                    properties.retain(|(k, _)| *k != "instance" && *k != job);
+                    properties.push(("job", &job));
+                    properties.push(("instance", &instance));
+                }
+            }
+            writeln!(&mut res, "{}", line)?;
+        }
+        let start_time = start_time
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs_f64()
+            .to_string();
+        writeln!(
+            &mut res,
+            "{}",
+            MetricItem::Value {
+                name: "sadmin_service_start_time",
+                properties: vec![("job", &job), ("instance", &instance),],
+                tail: &start_time
+            }
+        )?;
+        Ok(Some(res))
+    }
+
+    pub async fn get_metrics(self: Arc<Self>) -> Option<String> {
+        match tokio::time::timeout(Duration::from_secs(2), self.get_metrics_inner()).await {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => {
+                warn!("Failure getting metrics for {}: {}", self.name(), e);
+                None
+            }
+            Err(_) => {
+                warn!("Timeout getting metrics for {}", self.name());
+                None
+            }
+        }
     }
 
     pub async fn start(self: &Arc<Self>, log: &mut RemoteLogTarget<'_>) -> Result<()> {
