@@ -230,6 +230,20 @@ pub struct ServiceRedeployStart {
 }
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Object<T> {
+    pub id: u64,
+    pub r#type: u64,
+    pub name: String,
+    pub category: String,
+    pub content: T,
+    pub version: Option<u64>,
+    pub comment: String,
+    pub author: Option<String>,
+    pub time: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum Message {
     RequestAuthStatus {
@@ -326,7 +340,9 @@ pub enum Message {
     DockerListImageTagHistory,
     DockerListImageTagHistoryRes,
     EndLog,
-    FetchObject,
+    FetchObject {
+        id: u64,
+    },
     GetObjectHistory,
     GetObjectHistoryRes,
     GetObjectId,
@@ -337,7 +353,10 @@ pub enum Message {
     ModifiedFilesList,
     ModifiedFilesResolve,
     ModifiedFilesScan,
-    ObjectChanged,
+    ObjectChanged {
+        id: u64,
+        object: Vec<Object<serde_json::Value>>
+    },
     ResetServerState,
     SaveObject,
     Search,
