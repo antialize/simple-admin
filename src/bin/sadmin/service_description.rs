@@ -268,6 +268,21 @@ pub enum ServiceType {
     Notify,
     Plain,
 }
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ServiceMetrics {
+    SimpleSocket {
+        job: String,
+        instance: String,
+    },
+    Http {
+        job: String,
+        instance: String,
+        port: u16,
+        path: String,
+    },
+}
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ServiceDescription {
@@ -321,6 +336,8 @@ pub struct ServiceDescription {
     pub stop_signal: Option<Signal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_magic: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<ServiceMetrics>,
 }
 
 impl ServiceDescription {

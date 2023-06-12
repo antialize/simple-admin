@@ -16,6 +16,7 @@ use anyhow::{bail, ensure, Context, Result};
 use base64::Engine;
 use bytes::BytesMut;
 use log::{debug, error, info, warn};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
@@ -227,6 +228,8 @@ pub struct Client {
     persist_responses: Mutex<HashMap<u64, PersistMessageSender>>,
     persist_idc: AtomicU64,
     persist_sender: tokio::sync::Mutex<OwnedWriteHalf>,
+    password: String,
+    metrics_token: Option<String>,
     pub db: Mutex<rusqlite::Connection>,
     pub dead_process_handlers: Mutex<HashMap<String, tokio::sync::oneshot::Sender<i32>>>,
 
@@ -966,34 +969,9 @@ impl Client {
         let domain = rustls::ServerName::try_from(server_host.as_str())?;
         let (read, mut write) = tokio::io::split(self.connector.connect(domain, stream).await?);
 
-        let auth_path = "/etc/sadmin_client_auth.json";
-        let password = match std::fs::read(auth_path) {
-            Ok(v) => {
-                #[derive(Deserialize)]
-                struct AuthConfig {
-                    password: String,
-                }
-                let c: AuthConfig = serde_json::from_slice(&v)
-                    .with_context(|| format!("Error parsing '{auth_path}'"))?;
-                c.password
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let password = self.config.password.clone().with_context(|| {
-                    format!(
-                        "Could not find '{auth_path}', so we expect a password in the config file"
-                    )
-                })?;
-                warn!("Having the password in the config file is insecure, consider moving it to '{}'", auth_path);
-                password
-            }
-            Err(e) => {
-                bail!("Unable to read '{}': {:?}", auth_path, e);
-            }
-        };
-
         let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
             hostname: self.config.hostname.as_ref().unwrap().clone(),
-            password,
+            password: self.password.clone(),
         })?;
         auth_message.push(30);
         write_all_and_flush(&mut write, &auth_message).await?;
@@ -1379,6 +1357,81 @@ impl Client {
                 .create(|run_token| self.clone().handle_control_client(run_token, socket));
         }
     }
+
+    async fn get_metrics(self: &Arc<Self>) -> Result<String> {
+        let services = self.services.lock().unwrap().clone();
+
+        let res = futures_util::future::join_all(
+            services.into_values().map(|service| service.get_metrics()),
+        )
+        .await;
+        let res: Vec<_> = res.into_iter().flatten().collect();
+        Ok(res.join(""))
+    }
+
+    async fn handle_web_request(
+        self: Arc<Self>,
+        _socket_addr: std::net::SocketAddr,
+        r: hyper::Request<hyper::Body>,
+    ) -> Result<hyper::Response<hyper::Body>> {
+        if r.uri().path() == "/metrics" {
+            if let Some(token) = &self.metrics_token {
+                let url = match Url::parse(&r.uri().to_string()) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Ok(hyper::Response::builder()
+                            .status(500)
+                            .body(format!("Invalid url:\n{e:?}").into())?)
+                    }
+                };
+                if !url
+                    .query_pairs()
+                    .any(|(k, v)| k == "token" && v.as_ref() == token)
+                {
+                    return Ok(hyper::Response::builder()
+                        .status(403)
+                        .body("Invalid token".into())?);
+                }
+            }
+            match self.get_metrics().await {
+                Ok(v) => Ok(hyper::Response::builder().status(200).body(v.into())?),
+                Err(e) => Ok(hyper::Response::builder()
+                    .status(500)
+                    .body(format!("Failed producing metrics:\n{e:?}").into())?),
+            }
+        } else {
+            Ok(hyper::Response::builder()
+                .status(404)
+                .body("Not found".into())?)
+        }
+    }
+
+    async fn webserver(self: Arc<Self>, run_token: RunToken) -> Result<()> {
+        let make_service =
+            hyper::service::make_service_fn(|socket: &hyper::server::conn::AddrStream| {
+                let remote_addr = socket.remote_addr();
+                let this = self.clone();
+                async move {
+                    Ok::<_, hyper::Error>(hyper::service::service_fn(move |r| {
+                        let this = this.clone();
+                        async move { this.handle_web_request(remote_addr, r).await }
+                    }))
+                }
+            });
+
+        let port = match std::env::var("WEB_PORT") {
+            Ok(v) => v.parse()?,
+            Err(_) => 674,
+        };
+
+        let server = hyper::Server::bind(&([127, 0, 0, 1], port).into()).serve(make_service);
+
+        let grace_ful = server.with_graceful_shutdown(run_token.cancelled());
+
+        grace_ful.await?;
+
+        Ok(())
+    }
 }
 
 async fn connect_to_persist(retry: usize) -> Result<tokio::net::UnixStream> {
@@ -1486,6 +1539,33 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         .duration_since(std::time::SystemTime::UNIX_EPOCH)?
         .as_micros() as u64;
 
+    let auth_path = "/etc/sadmin_client_auth.json";
+    let (password, metrics_token) = match std::fs::read(auth_path) {
+        Ok(v) => {
+            #[derive(Deserialize)]
+            struct AuthConfig {
+                password: String,
+                metrics_token: Option<String>,
+            }
+            let c: AuthConfig = serde_json::from_slice(&v)
+                .with_context(|| format!("Error parsing '{auth_path}'"))?;
+            (c.password, c.metrics_token)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let password = config.password.clone().with_context(|| {
+                format!("Could not find '{auth_path}', so we expect a password in the config file")
+            })?;
+            warn!(
+                "Having the password in the config file is insecure, consider moving it to '{}'",
+                auth_path
+            );
+            (password, None)
+        }
+        Err(e) => {
+            bail!("Unable to read '{}': {:?}", auth_path, e);
+        }
+    };
+
     let client = Arc::new(Client {
         connector,
         config,
@@ -1502,6 +1582,8 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         dead_process_handlers: Default::default(),
         services: Default::default(),
         journal_socket,
+        password,
+        metrics_token,
     });
 
     TaskBuilder::new("run_control")
@@ -1523,6 +1605,11 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         .shutdown_order(UPSTREAM_ORDER)
         .main()
         .create(|run_token| client.clone().run(run_token));
+
+    TaskBuilder::new("webserver")
+        .shutdown_order(CONTROL_ORDER)
+        .main()
+        .create(|run_token| client.clone().webserver(run_token));
 
     tokio::spawn(async {
         tokio::signal::ctrl_c().await.unwrap();

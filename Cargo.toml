@@ -34,3 +34,5 @@ cgroups-rs = "0.2"
 passfd = "0.1"
 tokio-tasks = "0.1"
 chrono = {version = "0.4", default-features = false, features = ["std", "clock"] }
+hyper = { version = "0.14", features = ["server", "http1"] }
+
