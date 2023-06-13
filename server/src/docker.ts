@@ -767,6 +767,9 @@ finally:
                 for (const v of hostInfo.variables)
                     variables[v.key] = v.value;
 
+                for (let i=0; i < 10; ++i)
+                    variables["token_"+i] = crypto.randomBytes(24).toString('base64url');
+
                 const content = JSON.parse(configRow.content);
 
                 let raw_conf = content.content;
