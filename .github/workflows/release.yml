@@ -103,6 +103,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./sadmin-client-win.zip
-          asset_name: sadmin-client-win.zip
-          asset_content_type: application/zip
+          asset_path: target/release/sadmin.exe
+          asset_name: sadmin.exe
+          asset_content_type: application/x-msdownload
