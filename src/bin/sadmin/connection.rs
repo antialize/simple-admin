@@ -4,10 +4,11 @@ use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+#[cfg(unix)]
+use std::os::unix::prelude::OpenOptionsExt;
 use std::{
     fs::OpenOptions,
     io::{BufRead, Write},
-    os::unix::prelude::OpenOptionsExt,
     path::PathBuf,
 };
 use tokio_tungstenite::tungstenite::Message as WSMessage;
@@ -213,13 +214,13 @@ impl Connection {
             };
         };
 
-        OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .mode(0o600)
-            .open(&self.key_file)?
-            .write_all(res.key.as_bytes())?;
+        let mut opt = OpenOptions::new();
+        opt.create(true).truncate(true).write(true);
+
+        #[cfg(unix)]
+        opt.mode(0o600);
+
+        opt.open(&self.key_file)?.write_all(res.key.as_bytes())?;
 
         std::fs::write(&self.crt_file, res.crt)?;
         std::fs::write(&self.ca_file, res.ca_pem)?;
@@ -319,13 +320,13 @@ impl Connection {
         let session = res.session.unwrap();
 
         std::fs::create_dir_all(self.cookie_file.parent().context("Expected parent")?)?;
-        OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .mode(0o600)
-            .open(&self.cookie_file)?
-            .write_all(session.as_bytes())?;
+        let mut opt = OpenOptions::new();
+        opt.create(true).truncate(true).write(true);
+
+        #[cfg(unix)]
+        opt.mode(0o600);
+
+        opt.open(&self.cookie_file)?.write_all(session.as_bytes())?;
 
         let dockerconfpath = dirs::home_dir()
             .context("Expected homedir")?
