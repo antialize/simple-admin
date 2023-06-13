@@ -7,9 +7,30 @@ on:
 name: Upload Release Asset
 
 jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: true
+          prerelease: false
+      - run: echo "${{ steps.create_release.outputs.upload_url }}" > ./upload_url
+      - name: Store url
+        uses: actions/upload-artifact@v3
+        with:
+          name: upload_url
+          path: ./upload_url
   linux:
     name: Upload Release Asset Linux
     runs-on: ubuntu-20.04
+    needs: create_release
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -20,29 +41,29 @@ jobs:
       - run: cargo build --release --features=daemon
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client target/release/sadmin
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get release url 1
+        uses: actions/download-artifact@v3
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          name: upload_url
+      - name: Get release url 2
+        id: upload_url
+        uses: andstor/file-reader-action@v1
+        with:
+          path: upload_url
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.upload_url.outputs.contents }}
           asset_path: ./sadmin-client.zip
           asset_name: sadmin-client.zip
           asset_content_type: application/zip
   osx:
     name: Upload Release Asset OSX
     runs-on: macos-latest
+    needs: create_release
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -52,30 +73,30 @@ jobs:
           override: true
       - run: cargo build --release
       - run: strip target/release/sadmin
-      - run: zip --junk-paths sadmin-client target/release/sadmin
-      - name: Create Release OSX
-        id: create_release_osx
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: zip --junk-paths sadmin-client-osx target/release/sadmin
+      - name: Get release url 1
+        uses: actions/download-artifact@v3
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          name: upload_url
+      - name: Get release url 2
+        id: upload_url
+        uses: andstor/file-reader-action@v1
+        with:
+          path: upload_url
       - name: Upload Release Asset OSX
         id: upload-release-asset-osx
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.upload_url.outputs.contents }}
           asset_path: ./sadmin-client-osx.zip
           asset_name: sadmin-client-osx.zip
           asset_content_type: application/zip
   win:
     name: Upload Release Asset Win
     runs-on: windows-latest
+    needs: create_release
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -85,24 +106,22 @@ jobs:
           override: true
       - run: cargo build --release
       - run: strip target/release/sadmin.exe
-      - run: zip --junk-paths sadmin-client target/release/sadmin.exe
-      - name: Create Release Win
-        id: create_release_win
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get release url 1
+        uses: actions/download-artifact@v3
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          name: upload_url
+      - name: Get release url 2
+        id: upload_url
+        uses: andstor/file-reader-action@v1
+        with:
+          path: upload_url
       - name: Upload Release Asset Win
         id: upload-release-asset-win
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.upload_url.outputs.contents }}
           asset_path: target/release/sadmin.exe
           asset_name: sadmin.exe
           asset_content_type: application/x-msdownload
