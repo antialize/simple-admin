@@ -1,20 +1,28 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
+#[cfg(feature = "daemon")]
 use client_daemon::ClientDaemon;
 use connection::{Config, Connection};
+#[cfg(feature = "daemon")]
 use debug_persist::DebugPersist;
 use docker_deploy::DockerDeploy;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
+#[cfg(feature = "daemon")]
 use persist_daemon::PersistDaemon;
+#[cfg(feature = "daemon")]
 use service_control::Service;
+#[cfg(feature = "daemon")]
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 use upgrade::{Setup, Upgrade};
+#[cfg(feature = "daemon")]
 mod client_daemon;
+#[cfg(feature = "daemon")]
 mod client_daemon_service;
 mod connection;
+#[cfg(feature = "daemon")]
 mod debug_persist;
 mod docker_deploy;
 mod dyn_format;
@@ -22,10 +30,15 @@ mod finite_float;
 mod list_deployments;
 mod list_images;
 mod message;
+#[cfg(feature = "daemon")]
 mod persist_daemon;
+#[cfg(feature = "daemon")]
 mod service_control;
+#[cfg(feature = "daemon")]
 mod service_deploy;
+#[cfg(feature = "daemon")]
 mod service_description;
+#[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;
 
@@ -75,13 +88,19 @@ enum Action {
     ListDeployments(ListDeployments),
     #[clap(alias("dockerDeploy"))]
     DockerDeploy(DockerDeploy),
-    ServiceDeploy(ServiceDeploy),
-    ServiceRedeploy(ServiceRedeploy),
-    ClientDaemon(ClientDaemon),
     Upgrade(Upgrade),
-    PersistDaemon(PersistDaemon),
-    Service(Service),
     Setup(Setup),
+    #[cfg(feature = "daemon")]
+    ServiceDeploy(ServiceDeploy),
+    #[cfg(feature = "daemon")]
+    ServiceRedeploy(ServiceRedeploy),
+    #[cfg(feature = "daemon")]
+    ClientDaemon(ClientDaemon),
+    #[cfg(feature = "daemon")]
+    PersistDaemon(PersistDaemon),
+    #[cfg(feature = "daemon")]
+    Service(Service),
+    #[cfg(feature = "daemon")]
     DebugPersist(DebugPersist),
 }
 
@@ -121,18 +140,26 @@ async fn deauth(config: Config, args: Deauth) -> Result<()> {
 async fn main() -> Result<()> {
     let mut args = Args::parse();
 
-    let config_path = match &args.config {
-        Some(v) => v.as_path(),
+    let config_path: Cow<std::path::Path> = match &args.config {
+        Some(v) => v.as_path().into(),
         None => {
             let p = std::path::Path::new("/etc/simpleadmin_client.json");
             if p.is_file() {
-                p
+                p.into()
             } else {
-                std::path::Path::new("/etc/sadmin.json")
+                let p = std::path::Path::new("/etc/sadmin.json");
+                if p.is_file() {
+                    p.into()
+                } else {
+                    let mut p = dirs::home_dir().context("Expected home dir")?;
+                    p.push(".config");
+                    p.push("simpleadmin_client.json");
+                    p.into()
+                }
             }
         }
     };
-    let config_data = match std::fs::read(config_path) {
+    let config_data = match std::fs::read(&config_path) {
         Ok(v) => v,
         Err(e) => bail!("Unable to read configfile {:?}: {}", config_path, e),
     };
@@ -159,13 +186,19 @@ async fn main() -> Result<()> {
         Action::Deauth(args) => deauth(config, args).await,
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
-        Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
-        Action::ServiceRedeploy(args) => service_deploy::redeploy(config, args).await,
-        Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
-        Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
-        Action::DebugPersist(args) => debug_persist::run(args).await,
-        Action::Service(args) => service_control::run(args).await,
         Action::Setup(args) => upgrade::setup(args).await,
+        #[cfg(feature = "daemon")]
+        Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
+        #[cfg(feature = "daemon")]
+        Action::ServiceRedeploy(args) => service_deploy::redeploy(config, args).await,
+        #[cfg(feature = "daemon")]
+        Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
+        #[cfg(feature = "daemon")]
+        Action::PersistDaemon(args) => persist_daemon::persist_daemon(args).await,
+        #[cfg(feature = "daemon")]
+        Action::DebugPersist(args) => debug_persist::run(args).await,
+        #[cfg(feature = "daemon")]
+        Action::Service(args) => service_control::run(args).await,
     }
 }

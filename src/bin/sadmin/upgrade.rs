@@ -3,7 +3,9 @@ use bytes::{BufMut, BytesMut};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde::{Deserialize, Serialize};
-use std::{io::Write, os::unix::prelude::OpenOptionsExt};
+use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::prelude::OpenOptionsExt;
 
 use crate::connection::Config;
 
@@ -114,12 +116,13 @@ pub async fn upgrade(args: Upgrade) -> Result<()> {
             .progress_chars("#>-"),
     );
     pb.set_position(0);
-    let mut out = std::fs::File::options()
-        .truncate(true)
-        .mode(0o755)
-        .create(true)
-        .write(true)
-        .open("/usr/local/bin/.sadmin~")?;
+    let mut opt = std::fs::File::options();
+    opt.truncate(true).create(true).write(true);
+
+    #[cfg(unix)]
+    opt.mode(0o755);
+
+    let mut out = opt.open("/usr/local/bin/.sadmin~")?;
     std::io::copy(&mut pb.wrap_read(file), &mut out)?;
     pb.finish();
     std::mem::drop(out);
@@ -196,11 +199,11 @@ WantedBy=multi-user.target
             struct AuthConfig {
                 password: String,
             }
-            let mut f = std::fs::OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .write(true)
+            let mut opt = std::fs::OpenOptions::new();
+            opt.create(true).truncate(true).write(true);
+            #[cfg(unix)]
+            opt.mode(0o600);
+            let mut f = opt
                 .open("/etc/sadmin_client_auth.json")
                 .context("Unable to create /etc/sadmin_client_auth.json")?;
             f.write_all(serde_json::to_string_pretty(&AuthConfig { password })?.as_bytes())?;

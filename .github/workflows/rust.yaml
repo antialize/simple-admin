@@ -14,6 +14,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --features=daemon
 
   fmt:
     name: Rustfmt
@@ -45,10 +46,10 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --features=daemon -- -D warnings
 
   build:
-    name: Build
+    name: Build Linux
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -58,10 +59,46 @@ jobs:
           toolchain: stable
           override: true
 
+      - run: cargo build --release --features=daemon
+      - run: strip target/release/sadmin
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sadmin_linux
+          path: target/release/sadmin
+
+  build_mac:
+    name: Build OSX
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
       - run: cargo build --release
       - run: strip target/release/sadmin
 
       - uses: actions/upload-artifact@v3
         with:
-          name: sadmin
+          name: sadmin_osx
           path: target/release/sadmin
+
+  build_win:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo build --release
+      - run: strip target/release/sadmin.exe
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sadmin_win
+          path: target/release/sadmin.exe
+
+
