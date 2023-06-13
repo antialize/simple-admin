@@ -1,4 +1,4 @@
-use anyhow::{bail, Result, Context};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 #[cfg(feature = "daemon")]
 use client_daemon::ClientDaemon;
@@ -15,7 +15,7 @@ use persist_daemon::PersistDaemon;
 use service_control::Service;
 #[cfg(feature = "daemon")]
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
-use std::{path::PathBuf, borrow::Cow};
+use std::{borrow::Cow, path::PathBuf};
 use upgrade::{Setup, Upgrade};
 #[cfg(feature = "daemon")]
 mod client_daemon;
@@ -140,18 +140,26 @@ async fn deauth(config: Config, args: Deauth) -> Result<()> {
 async fn main() -> Result<()> {
     let mut args = Args::parse();
 
-    let config_path = match &args.config {
-        Some(v) => v.as_path(),
+    let config_path: Cow<std::path::Path> = match &args.config {
+        Some(v) => v.as_path().into(),
         None => {
             let p = std::path::Path::new("/etc/simpleadmin_client.json");
             if p.is_file() {
-                p
+                p.into()
             } else {
-                std::path::Path::new("/etc/sadmin.json")
+                let p = std::path::Path::new("/etc/sadmin.json");
+                if p.is_file() {
+                    p.into()
+                } else {
+                    let mut p = dirs::home_dir().context("Expected home dir")?;
+                    p.push(".config");
+                    p.push("simpleadmin_client.json");
+                    p.into()
+                }
             }
         }
     };
-    let config_data = match std::fs::read(config_path) {
+    let config_data = match std::fs::read(&config_path) {
         Ok(v) => v,
         Err(e) => bail!("Unable to read configfile {:?}: {}", config_path, e),
     };
