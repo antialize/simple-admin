@@ -6,6 +6,7 @@ import { Job } from "./job";
 import * as message from './messages';
 import getOrInsert from "./shared/getOrInsert";
 import nullCheck from "./shared/nullCheck";
+import { log } from "winston";
 
 const cronId = 10240;
 const systemdServiceId = 10206;
@@ -46,6 +47,7 @@ export class ModifiedFiles {
     async scan(client?: WebClient, act?:IModifiedFilesScan) {
         if (this.scanning) return;
 
+        const origLastScanTime = this.lastScan;
         this.scanning = true;
         this.lastScan = +new Date() / 1000;
         await this.broadcast_changes();
@@ -99,6 +101,9 @@ for path in sys.argv[1:]:
 sys.stdout.write(json.dumps(ans))
 sys.stdout.flush()
 `;
+                let scan_timeout = setTimeout(() => {
+                    reject(new Error("Timeout runnig scan on "+host.hostname));
+                }, 60000);
                
                 class FileContentJob extends Job {  
                     out: string = "";
@@ -128,10 +133,12 @@ sys.stdout.flush()
                                 this.out += obj.data;
                             break;
                         case 'success':
+                            clearTimeout(scan_timeout);
                             if (obj.code == 0) accept({host: hostId, content: JSON.parse(this.out).content});
                             else reject(new Error("Script returned " + obj.code) );
                             break;    
                         case 'failure':
+                            clearTimeout(scan_timeout);
                             reject(new Error("Script failure"));
                             break;
                         }
@@ -141,62 +148,70 @@ sys.stdout.flush()
             }));
         }
 
-        for (const {host, content} of await Promise.all(promises)) {
-            if (!content) throw new Error("Failed to run on host " + host);
-            let objs = objects.get(host);
-            if(!objs || objs.length != content.length) 
-                throw new Error("Not all files there");
-            let modified = new Map<string, Obj>();;
-            for (let i=0; i < objs.length; ++i) {
-                if (objs[i].path != content[i].path)
-                    throw new Error("Path error");
+        try {
+            for (const {host, content} of await Promise.all(promises)) {
+                if (!content) throw new Error("Failed to run on host " + host);
+                let objs = objects.get(host);
+                if(!objs || objs.length != content.length) {
+                    throw new Error("Not all files there");
+                }
+                let modified = new Map<string, Obj>();;
+                for (let i=0; i < objs.length; ++i) {
+                    if (objs[i].path != content[i].path)
+                        throw new Error("Path error");
 
-                objs[i].actual = content[i].data;
-                if (objs[i].actual == objs[i].data)
-                    continue;
-                modified.set(objs[i].path, objs[i]);
-            }
-            for (let m of this.modifiedFiles) {
-                if (m.host != host) continue;
-                const p = nullCheck(this.props.get(m.id));
-                let alter = <A>(o: A, n: A) : A => {
-                    if (o != n) p.updated =true;
-                    return n;
+                    objs[i].actual = content[i].data;
+                    if (objs[i].actual == objs[i].data)
+                        continue;
+                    modified.set(objs[i].path, objs[i]);
                 }
-                const o = modified.get(m.path);
-                if (o === undefined) {
-                    p.dead = alter(p.dead, true);
-                    continue;
-                }
-                modified.delete(m.path);
-                p.dead = alter(p.dead, false);
-                m.actual = alter(m.actual, nullCheck(o.actual));
-                m.deployed = alter(m.deployed, o.data);
-                m.object = alter(m.object, o.object);
-                m.path = alter(m.path, o.path);
-                m.type = alter(m.type, o.type);
-            }
-            for (const [path, o] of modified) {
-                const id = this.idc++;
-                if (!o.actual) {
-                    console.log("Actual is missing!", o);
-                    continue;
-                }
-                this.modifiedFiles.push(
-                    {
-                        id,
-                        type: o.type,
-                        actual: nullCheck(o.actual),
-                        deployed: o.data,
-                        host: o.host,
-                        path: o.path,
-                        object: o.object,
-                        current: null
+                for (let m of this.modifiedFiles) {
+                    if (m.host != host) continue;
+                    const p = nullCheck(this.props.get(m.id));
+                    let alter = <A>(o: A, n: A) : A => {
+                        if (o != n) p.updated =true;
+                        return n;
                     }
-                )
-                this.props.set(id, {dead: false, updated: true});
-                msg.emit(o.host, "Modified file", "The file "+o.path+" has been modified since it was deployed");
+                    const o = modified.get(m.path);
+                    if (o === undefined) {
+                        p.dead = alter(p.dead, true);
+                        continue;
+                    }
+                    modified.delete(m.path);
+                    p.dead = alter(p.dead, false);
+                    m.actual = alter(m.actual, nullCheck(o.actual));
+                    m.deployed = alter(m.deployed, o.data);
+                    m.object = alter(m.object, o.object);
+                    m.path = alter(m.path, o.path);
+                    m.type = alter(m.type, o.type);
+                }
+                for (const [path, o] of modified) {
+                    const id = this.idc++;
+                    if (!o.actual) {
+                        console.log("Actual is missing!", o);
+                        continue;
+                    }
+                    this.modifiedFiles.push(
+                        {
+                            id,
+                            type: o.type,
+                            actual: nullCheck(o.actual),
+                            deployed: o.data,
+                            host: o.host,
+                            path: o.path,
+                            object: o.object,
+                            current: null
+                        }
+                    )
+                    this.props.set(id, {dead: false, updated: true});
+                    msg.emit(o.host, "Modified file", "The file "+o.path+" has been modified since it was deployed");
+                }
             }
+        } catch(err) {
+            this.scanning = false;
+            this.lastScan = origLastScanTime;
+            await this.broadcast_changes();
+            throw (err);
         }
 
         if (this.modifiedFiles.length != 0) {
@@ -230,6 +245,13 @@ sys.stdout.flush()
         await this.broadcast_changes();
     }
 
+    async scan_wrapped() {
+        try {
+            await this.scan()
+        } catch(err) {
+            log('error', "Error scanning for modified files: " + err);
+        }
+    }
     async resolve(client: WebClient, act:IModifiedFilesResolve) {
         let f: ModifiedFile | null = null;
         for (const o of this.modifiedFiles)
@@ -330,7 +352,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
     }
 
     constructor() {
-        setTimeout(()=>this.scan(), 1000*2*60);
-        setInterval(()=>this.scan(), 1000*60*60*12);
+        setTimeout(()=>this.scan_wrapped(), 1000*2*60);
+        setInterval(()=>this.scan_wrapped(), 1000*60*60*12);
     }
 }
