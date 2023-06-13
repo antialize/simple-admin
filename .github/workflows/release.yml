@@ -7,8 +7,8 @@ on:
 name: Upload Release Asset
 
 jobs:
-  build:
-    name: Upload Release Asset
+  linux:
+    name: Upload Release Asset Linux
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -17,7 +17,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: cargo build --release
+      - run: cargo build --release --features=daemon
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client target/release/sadmin
       - name: Create Release
@@ -39,4 +39,70 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./sadmin-client.zip
           asset_name: sadmin-client.zip
+          asset_content_type: application/zip
+  osx:
+    name: Upload Release Asset OSX
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo build --release
+      - run: strip target/release/sadmin
+      - run: zip --junk-paths sadmin-client target/release/sadmin
+      - name: Create Release OSX
+        id: create_release_osx
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset OSX
+        id: upload-release-asset-osx
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./sadmin-client-osx.zip
+          asset_name: sadmin-client-osx.zip
+          asset_content_type: application/zip
+  win:
+    name: Upload Release Asset Win
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo build --release
+      - run: strip target/release/sadmin.exe
+      - run: zip --junk-paths sadmin-client target/release/sadmin.exe
+      - name: Create Release Win
+        id: create_release_win
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset Win
+        id: upload-release-asset-win
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./sadmin-client-win.zip
+          asset_name: sadmin-client-win.zip
           asset_content_type: application/zip
