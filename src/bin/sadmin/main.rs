@@ -13,7 +13,6 @@ use message::{LogOut, Message};
 use persist_daemon::PersistDaemon;
 #[cfg(feature = "daemon")]
 use service_control::Service;
-#[cfg(feature = "daemon")]
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
 use std::{borrow::Cow, path::PathBuf};
 use upgrade::{Setup, Upgrade};
@@ -34,7 +33,6 @@ mod message;
 mod persist_daemon;
 #[cfg(feature = "daemon")]
 mod service_control;
-#[cfg(feature = "daemon")]
 mod service_deploy;
 #[cfg(feature = "daemon")]
 mod service_description;
@@ -90,9 +88,7 @@ enum Action {
     DockerDeploy(DockerDeploy),
     Upgrade(Upgrade),
     Setup(Setup),
-    #[cfg(feature = "daemon")]
     ServiceDeploy(ServiceDeploy),
-    #[cfg(feature = "daemon")]
     ServiceRedeploy(ServiceRedeploy),
     #[cfg(feature = "daemon")]
     ClientDaemon(ClientDaemon),
@@ -188,9 +184,7 @@ async fn main() -> Result<()> {
         Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::Setup(args) => upgrade::setup(args).await,
-        #[cfg(feature = "daemon")]
         Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,
-        #[cfg(feature = "daemon")]
         Action::ServiceRedeploy(args) => service_deploy::redeploy(config, args).await,
         #[cfg(feature = "daemon")]
         Action::ClientDaemon(args) => client_daemon::client_daemon(config, args).await,
