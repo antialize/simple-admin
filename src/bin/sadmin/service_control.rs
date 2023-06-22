@@ -81,6 +81,11 @@ pub struct Deploy {
 /// Spawn as shell in the service container
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct Shell {
+    /// If set, do not allocate a pseudo-TTY for the shell. See the
+    /// `--tty, -t` flag in the podman-exec(1) man page.
+    #[clap(long)]
+    pub no_tty: bool,
+
     /// Name of the service to start shell in
     pub service: String,
 
@@ -198,12 +203,16 @@ pub async fn run_shell(args: Shell) -> Result<()> {
         .pod_name
         .context("Service not running in container")?;
 
-    let status = std::process::Command::new("/usr/bin/sudo")
-        .arg("-iu")
+    let mut cmd = std::process::Command::new("/usr/bin/sudo");
+    cmd.arg("-iu")
         .arg(status.run_user)
         .arg("podman")
         .arg("exec")
-        .arg("-it")
+        .arg("-i");
+    if !args.no_tty {
+        cmd.arg("-t");
+    }
+    let status = cmd
         .arg(pod_name)
         .arg(args.shell)
         .args(args.shell_args)
