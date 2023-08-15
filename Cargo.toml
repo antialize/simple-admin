@@ -23,7 +23,7 @@ base64 = "0.21.0"
 bytes = "1"
 dirs = "5"
 futures-util = "0.3"
-itertools = "0.10"
+itertools = "0.11"
 log = {version = "0.4", optional=true}
 rand = "0.8"
 rpassword = "7"
@@ -31,9 +31,9 @@ serde = { version = "1", default-features = false, features=['std', 'derive']}
 serde_json = { version = "1", default-features = false, features=['std'] }
 tokio = { version = "1", default-features = false, features=['rt', 'net', 'fs', 'sync', 'macros', 'time', 'process', 'signal'] }
 tokio-rustls = {version="0.24", optional=true}
-tokio-tungstenite = { version = "0.18", features=['rustls-tls-webpki-roots']}
+tokio-tungstenite = { version = "0.20", features=['rustls-tls-webpki-roots']}
 webpki = "0.22"
-webpki-roots = "0.23"
+webpki-roots = "0.25"
 simple_logger = {version = "4", default-features=false }
 tempfile = {version="3", optional=true}
 clap = {version = "4", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}

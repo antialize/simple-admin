@@ -985,8 +985,8 @@ impl Client {
         let notifier = SdNotify::from_env().ok();
         let mut first = true;
         loop {
-            let mut read = match cancelable(&run_token, self.connect_to_upstream()).await {
-                Ok(Ok(read)) => {
+            let mut read = match cancelable(&run_token, timeout(Duration::from_secs(60), self.connect_to_upstream())).await {
+                Ok(Ok(Ok(read))) => {
                     if let Some(notifier) = &notifier {
                         if first {
                             notifier.notify_ready()?;
@@ -996,7 +996,7 @@ impl Client {
                     }
                     read
                 }
-                Ok(Err(e)) => {
+                Ok(Ok(Err(e))) => {
                     info!("Error connecting to upstream: {:?}", e);
                     if let Some(notifier) = &notifier {
                         if first {
@@ -1012,6 +1012,10 @@ impl Client {
                     {
                         return Ok(());
                     }
+                    continue;
+                }
+                Ok(Err(e)) => {
+                    info!("Timeout connecting to upstream");
                     continue;
                 }
                 Err(_) => return Ok(()),
