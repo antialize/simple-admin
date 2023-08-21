@@ -283,7 +283,11 @@ impl Connection {
             bail!("No username provided")
         }
 
-        let pwd = rpassword::prompt_password(format!("Password for {user}: "))?;
+        let pwd = if let Ok(v) = std::env::var("SADMIN_PASS") {
+            v
+        } else {
+            rpassword::prompt_password(format!("Password for {user}: "))?
+        };
 
         let otp = if self.otp {
             None
