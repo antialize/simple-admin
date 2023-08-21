@@ -985,7 +985,12 @@ impl Client {
         let notifier = SdNotify::from_env().ok();
         let mut first = true;
         loop {
-            let mut read = match cancelable(&run_token, timeout(Duration::from_secs(60), self.connect_to_upstream())).await {
+            let mut read = match cancelable(
+                &run_token,
+                timeout(Duration::from_secs(60), self.connect_to_upstream()),
+            )
+            .await
+            {
                 Ok(Ok(Ok(read))) => {
                     if let Some(notifier) = &notifier {
                         if first {
@@ -1014,7 +1019,7 @@ impl Client {
                     }
                     continue;
                 }
-                Ok(Err(e)) => {
+                Ok(Err(_)) => {
                     info!("Timeout connecting to upstream");
                     continue;
                 }
@@ -1525,7 +1530,7 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
     let (persist_read, persist_write) = persistent_con.into_split();
     let mut root_cert_store = rustls::RootCertStore::empty();
 
-    root_cert_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+    root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
         OwnedTrustAnchor::from_subject_spki_name_constraints(
             ta.subject,
             ta.spki,
