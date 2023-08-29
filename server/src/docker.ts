@@ -749,7 +749,7 @@ finally:
             let usePodman = false;
             if (act.config) {
                 const configRow = await db.get("SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226", act.config);
-                const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
+                const hostRow = await db.get("SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
                 const rootRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", rootInstanceId, rootId);
                 if (!configRow) {
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Could not find specified config "+act.config});
@@ -764,6 +764,7 @@ finally:
                 let variables: {[key:string]: string} = {};
                 for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                     variables[v.key] = v.value;
+                variables["nodename"] = hostRow.name;
                 for (const v of hostInfo.variables)
                     variables[v.key] = v.value;
 
@@ -977,7 +978,7 @@ finally:
                 return;
             }
 
-            const hostRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
+            const hostRow = await db.get("SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", host.id, hostId);
             const rootRow = await db.get("SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?", rootInstanceId, rootId);
             if (!hostRow || !rootRow) {
                 client.sendMessage({type: ACTION.DockerDeployDone, ref, status: false, message: "Could not find root or host"});
@@ -987,6 +988,7 @@ finally:
             let variables: {[key:string]: string} = {};
             for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                 variables[v.key] = v.value;
+            variables["nodename"] = hostRow.name;
             for (const v of hostInfo.variables)
                 variables[v.key] = v.value;
             for (let i=0; i < 10; ++i)
