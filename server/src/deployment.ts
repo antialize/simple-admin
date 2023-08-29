@@ -209,7 +209,8 @@ export class Deployment {
                 type DagNode = SentinalDagNode | NormalDagNode;
 
                 const hostObject = objects[hostId];
-                const hostVariables = nullCheck(visitObject(hostId, rootVariable, hostId)).variables;
+                let hostVariables = nullCheck(visitObject(hostId, rootVariable, hostId)).variables;
+                hostVariables["nodename"] = hostObject.name;
                 const nodes = new Map<string, { node: NormalDagNode, sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode, sentinal: SentinalDagNode }>();
                 const topVisiting = new Set<number>();
