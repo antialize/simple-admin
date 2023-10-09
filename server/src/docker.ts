@@ -369,15 +369,31 @@ class Docker {
 
             // Validate that we have all the parts.
             for (const layer of manifest.layers) {
-                const {digest} = layer;
+                const {digest, size, mediaType} = layer;
                 if (!HASH_PATTERN.test(digest)) {
                     log('error', "Docker put manifest: bad layer digest", digest);
                     res.status(400).end();
                     return;
                 }
-                // TODO: await fs.access() instead.
+                if (mediaType != "application/vnd.docker.image.rootfs.diff.tar.gzip") {
+                    log('error', "Docker put manifest: layer has invalid media type media type", digest, mediaType);
+                    //res.status(400).end();
+                    //return
+                }
+
                 try {
-                    fs.accessSync(docker_blobs_path + digest);
+                    const s = await new Promise<fs.Stats>((resolve, reject) => {
+                        fs.stat(docker_blobs_path + digest, (err, stat) => {
+                            if (err != null) {
+                                reject(err);
+                            }
+                            resolve(stat);
+                        });});
+                    if (s.size != size) {
+                        log('error', "Docker put manifest: layer has wrong size", digest, s.size, size);
+                        //res.status(400).end();
+                        //return
+                    }
                 } catch (e) {
                     log('error', "Docker put manifest: layer digest does not exist", digest);
                     res.status(400).end();
