@@ -275,20 +275,20 @@ class Docker {
 
         // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
         if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs") {
-            const b = p[4];
-            if (!HASH_PATTERN.test(b)) {
-                log('error', "Docker get blob: bad name", b);
+            const digest = p[4];
+            if (!HASH_PATTERN.test(digest)) {
+                console.error("Docker get blob: bad name", {digest});
                 res.status(400).end();
                 return;
             }
-            const path = docker_blobs_path + b;
+            const path = docker_blobs_path + digest;
             if (!fs.existsSync(path)) {
-                log('error', "Docker get blob: found ", b);
+                console.error("Docker get blob: not found", {digest});
                 res.status(404).end();
                 return;
             }
-            log('info', "Docker get blob", b);
-            res.sendFile(path);
+
+            res.sendFile(path, {headers: {"Docker-Content-Digest": digest, "Content-Type": "application/octet-stream"}});
             return;
         }
 
@@ -308,9 +308,8 @@ class Docker {
 
         //TODO
         // GET /v2/<name>/tags/list Tags Fetch the tags under the repository identified by name.
-        // GET /v2/<name>/blobs/uploads/<uuid> Blob Upload Retrieve status of upload identified by uuid. The primary purpose of this endpoint is to resolve the current status of a resumable upload.
         // GET /v2/_catalog	Catalog	Retrieve a sorted, json list of repositories available in the registry.
-        log('info', "Docker unhandled get", req.url, req.params);
+        console.log("Docker unhandled get", {url: req.url, params: req.params});
         res.status(404).end();
     }
 
