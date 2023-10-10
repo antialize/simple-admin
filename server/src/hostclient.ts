@@ -139,16 +139,6 @@ export class HostClient extends JobOwner {
         this.pingTimer = setTimeout(() => { this.sendPing() }, 9000);
     }
 
-    async setReconnectTimeout() {
-        const id = this.id;
-        if (id === null || this.hostname === null) return;
-        let c = await db.getHostContentByName(this.hostname);
-        if (!c || !c.content || !c.content.messageOnDown) return;
-        hostClients.downMessageTimeouts[id] = setTimeout(() => {
-            msg.emit(id, "Host down", "Has been down for more than 5 minutes.");
-        }, 5*60*60);
-    }
-
     onClose() {
         if (this.pingTimer != null)
             clearTimeout(this.pingTimer);
@@ -162,9 +152,6 @@ export class HostClient extends JobOwner {
 
         if (this.id == null) throw Error("Missing host id");
 
-        if (!this.closeHandled)
-            msg.emit(this.id, "Host down", "Connection closed.");
-
         console.log("Client disconnected", { hostname: this.hostname });
 
         if (this.id in hostClients.hostClients)
@@ -173,8 +160,6 @@ export class HostClient extends JobOwner {
         let act: IHostDown = { type: ACTION.HostDown, id: this.id };
         webClients.broadcast(act);
         this.kill();
-
-        this.setReconnectTimeout();
     }
 
     removeJob(job: Job, m: message.Failure | message.Success | null) {
@@ -206,11 +191,6 @@ export class HostClient extends JobOwner {
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;
-                const to = hostClients.downMessageTimeouts[this.id];
-                if (to) {
-                    clearTimeout(to);
-                    delete hostClients.downMessageTimeouts[this.id];
-                }
                 hostClients.hostClients[this.id] = this;
                 let act: IHostUp = { type: ACTION.HostUp, id: this.id };
                 webClients.broadcast(act);
@@ -294,7 +274,6 @@ export class HostClient extends JobOwner {
 }
 
 export class HostClients {
-    downMessageTimeouts: {[id:number]: NodeJS.Timer} = {};
     hostClients: { [id: number]: HostClient } = {};
     start() {
         const privateKey = fs.readFileSync('domain.key', 'utf8');
