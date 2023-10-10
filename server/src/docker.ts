@@ -255,6 +255,24 @@ class Docker {
             return;
         }
 
+        // GET /v2/<name>/blobs/uploads/<uuid> Blob Upload Retrieve status of upload identified by uuid. The primary purpose of this endpoint is to resolve the current status of a resumable upload.
+        if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs" && p[4] == "uploads") {
+            const un = p[5];
+            const u = this.activeUploads.get(un);
+            if (!u) {
+                console.log("Docker get blob: missing", {uuid: un});
+                res.status(404).end();
+                return;
+            }
+
+            res.setHeader("Location", req.url);
+            res.setHeader("Range", "0-" + u.count.value);
+            res.setHeader("Docker-Upload-UUID", un);
+            res.status(202);
+            res.end();
+            return;
+        }
+
         // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
         if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs") {
             const b = p[4];
