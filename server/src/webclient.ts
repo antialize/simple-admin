@@ -12,7 +12,7 @@ import * as crypt from './crypt'
 import * as helmet from 'helmet'
 import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
 import { errorHandler } from './error'
-import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn, IVariables, rootInstanceId, rootId } from './shared/type'
+import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn, IVariables, rootInstanceId, rootId, hostId, Host } from './shared/type'
 import nullCheck from './shared/nullCheck'
 import setup from './setup'
 import * as crypto from 'crypto';
@@ -613,8 +613,17 @@ export class WebClients {
     }
 
     async countMessages(req: express.Request, res: express.Response) {
+        let downHosts = 0;
+        for (const row of await db.all("SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1", [hostId])) {
+            if (hostClients.hostClients[row['id']]?.auth || !row['content'])
+                continue;
+            let content: Host = JSON.parse(row['content']);
+            if (content.messageOnDown)
+                downHosts += 1;
+        }
+
         res.header('Content-Type', 'application/json; charset=utf-8')
-            .json({ 'count': await msg.getCount() }).end();
+            .json({ 'count': downHosts + await msg.getCount() }).end();
     }
 
     async metrics(req: express.Request, res: express.Response) {
