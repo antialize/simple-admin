@@ -314,7 +314,6 @@ class Docker {
     }
 
     handleUpload(req: express.Request, upload: Upload, final: boolean): Promise<void> {
-        //TODO read possible range parameters here
         return new Promise((resolve, reject) => {
             req.pipe(upload.count, { end: final });
             req.pipe(upload.hash, { end: final });
@@ -345,16 +344,57 @@ class Docker {
             const un = p[5]
             const u = this.activeUploads.get(un);
             if (!u) {
-                log('error', "Docker put blob: missing", un);
+                console.error("Docker put blob: missing", {uuid: un});
                 res.status(404).end();
                 return;
-            }
-           
-            await this.handleUpload(req, u, true);
 
-            log('info', "Docker put blob", un);
+            }
+
+            const start_size = u.count.value;
+            const cl = req.headers['content-length'];
+            let expected_size: number | undefined = undefined;
+            if (cl != undefined) {
+                expected_size = +cl;
+            }
+            const cr = req.headers['content-range'];
+            if (cr != undefined) {
+                const [start, end] = cr.split("-").map((v) => +v);
+                if (start != start_size) {
+                    console.error("Uploaded chunk not at end of", {uuid, start, start_size, url: req.url});
+                    res.status(500).end();
+                }
+                if (expected_size != undefined) {
+                    if (end-start != expected_size) {
+                        console.error("Inconsistent content-range and content-length", {uuid, start, end, expected_size, url: req.url});
+                        res.status(400).end();
+                        return;
+                    }
+                }
+                expected_size = end-start;
+            }
+
+            this.activeUploads.delete(un);
+
+            await this.handleUpload(req, u, true);
             const digest = req.query.digest;
-            // TODO verify digest u.hash.digest('hex'));
+
+            if (expected_size != undefined) {
+                if (u.count.value != start_size + expected_size) {
+                    console.error("Uploaded bytes does not match expected size", {uuid, recieved: u.count.value - start_size, expected_size, url: req.url});
+                    res.status(400).end();
+                    return;
+                }
+            }
+
+            const actual_digest = "sha256:" + u.hash.digest('hex');
+
+            if (digest != actual_digest) {
+                console.error("Invalid digest of uploaded chunk", {uuid, digest, actual_digest});
+                res.status(400).end();
+                return;
+            }
+            console.log("Docker put blob", {uuid: un, total_size: u.count.value, expected_size, content_length: cl, contest_range: cr, digest});
+
             fs.renameSync(docker_upload_path + un, docker_blobs_path + digest);
             res.setHeader("Location", "/v2/" + p[2] + "/blobs/" + digest);
             //res.setHeader("Range", "0-"+u.count.value);
