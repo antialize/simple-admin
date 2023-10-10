@@ -433,8 +433,8 @@ class Docker {
                 }
                 if (mediaType != "application/vnd.docker.image.rootfs.diff.tar.gzip") {
                     console.error("Docker put manifest: layer has invalid media type media type", {digest, mediaType});
-                    //res.status(400).end();
-                    //return
+                    res.status(400).end();
+                    return
                 }
 
                 try {
@@ -520,8 +520,42 @@ class Docker {
                 res.status(404).end();
                 return;
             }
+            let start_size = u.count.value;
+
            
+            let cl = req.headers['content-length'];
+            let expected_size: number | undefined = undefined;
+            if (cl != undefined) {
+                expected_size = +cl;
+            }
+            let cr = req.headers['content-range'];
+            if (cr != undefined) {
+                const [start, end] = cr.split("-").map((v) => +v);
+                if (start != start_size) {
+                    console.error("Uploaded chunk not at end of", {uuid, start, start_size});
+                    res.status(500).end();
+                }
+                if (expected_size != undefined) {
+                    if (end-start != expected_size) {
+                        console.error("Inconsistent content-range and content-length", {uuid, start, end, expected_size});
+                        res.status(400).end();
+                        return;
+                    }
+                }
+                expected_size = end-start;
+            }
+
             await this.handleUpload(req, u, false);
+            if (expected_size != undefined) {
+                if (u.count.value != start_size + expected_size) {
+                    console.error("Uploaded bytes does not match expected size", {uuid, recieved: u.count.value - start_size, expected_size});
+                    res.status(400).end();
+                    return;
+                }
+            }
+
+            console.log("Docker patch", {uuid, uploaded: u.count.value, content_length: cl, content_range: cr });
+
             res.setHeader("Location", req.url);
             res.setHeader("Range", "0-" + u.count.value);
             res.setHeader("Content-Length", "0");
