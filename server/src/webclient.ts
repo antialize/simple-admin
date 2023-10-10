@@ -15,7 +15,6 @@ import { errorHandler } from './error'
 import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn, IVariables, rootInstanceId, rootId } from './shared/type'
 import nullCheck from './shared/nullCheck'
 import setup from './setup'
-import { log } from 'winston';
 import * as crypto from 'crypto';
 import { config } from './config'
 import * as speakeasy from 'speakeasy';
@@ -44,7 +43,7 @@ export class WebClient extends JobOwner {
         this.connection.on('close', () => this.onClose());
         this.connection.on('message', (msg: string) => this.onMessage(msg).catch(errorHandler("WebClient::message", this)));
         this.connection.on('error', (err) => {
-            log('waring', "Web client error", { err });
+            console.warn("Web client error", { err });
         });
     }
 
@@ -63,7 +62,7 @@ export class WebClient extends JobOwner {
 
         switch (act.type) {
             case ACTION.RequestAuthStatus:
-                log('info', "AuthStatus", this.host, this.auth.session, this.auth.user);
+                console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
                 this.sendAuthStatus(act.session || null);
                 break;
             case ACTION.Login:
@@ -137,7 +136,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                log("info", "logout", this.host, this.auth.user, this.auth.session, act.forgetPwd, act.forgetOtp);
+                console.log("logout", this.host, this.auth.user, this.auth.session, act.forgetPwd, act.forgetOtp);
                 if (act.forgetPwd) await db.run("UPDATE `sessions` SET `pwd`=null WHERE `sid`=?", this.auth.session);
                 if (act.forgetOtp) {
                     await db.run("UPDATE `sessions` SET `otp`=null WHERE `sid`=?", this.auth.session);
@@ -329,7 +328,7 @@ export class WebClient extends JobOwner {
                         let res: IAlert = { type: ACTION.Alert, title: "Cannot delete object", message: "The object can not be delete as it is in use by:\n" + conflicts.join("\n") };
                         this.sendMessage(res);
                     } else {
-                        log('info', 'Web client delete object', { id: act.id });
+                        console.log('Web client delete object', { id: act.id });
                         await db.changeObject(act.id, null, nullCheck(this.auth.user));
                         let res2: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                         webClients.broadcast(res2);
@@ -533,7 +532,7 @@ export class WebClient extends JobOwner {
                 this.sendMessage(res2);
                 break;
             default:
-                log("warn", "Web client unknown message", { act });
+                console.warn("Web client unknown message", { act });
         }
     }
 
@@ -541,7 +540,7 @@ export class WebClient extends JobOwner {
         this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
                 if (Object.getOwnPropertyNames(err).length != 0)
-                    log("warn", "Web client error sending message", { err, host:this.host });
+                    console.warn("Web client error sending message", { err, host:this.host });
                 this.connection.terminate();
                 this.onClose();
             }
@@ -596,7 +595,7 @@ async function sendInitialState(c: WebClient) {
         const x = JSON.stringify((action as any)[id]);
         if (x) m[id] = x.length;
     }
-    log("info", "Send initial state", m);
+    console.log("Send initial state", m);
     c.sendMessage(action);
 }
 
@@ -668,10 +667,10 @@ export class WebClients {
 
     startServer() {
         this.httpServer.listen(8182, "localhost", function() {
-            log('info', "Web server started on port 443");
+            console.log("Web server started on port 443");
         });
         this.httpServer.on('close', () => {
-            log('info', "Web server stopped");
+            console.log("Web server stopped");
         });
     }
 }

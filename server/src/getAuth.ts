@@ -1,5 +1,4 @@
 import { db } from './instances';
-import { log } from 'winston';
 import { config } from './config';
 
 export interface AuthInfo {
@@ -39,7 +38,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
             otp = (row[`otp`] != null && row['otp'] + otpExpiration > now);
         }
         catch (e) {
-            log('error', 'Query failed', e);
+            console.error('Query failed', e);
             return noAccess;
         }
     }
@@ -98,7 +97,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
             }
         }
         catch (e) {
-            log('error', 'Query failed', e);
+            console.error('Query failed', e);
             return noAccess;
         }
     }

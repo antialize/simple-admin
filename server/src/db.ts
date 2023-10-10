@@ -5,7 +5,7 @@ import { Host, hostId, IVariables, rootId, rootInstanceId, userId } from './shar
 import { ErrorType, SAError } from './error'
 type IV = { id: number, version: number };
 import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
-import { log } from 'winston';
+
 import nullCheck from './shared/nullCheck';
 
 export class DB {
@@ -104,7 +104,7 @@ export class DB {
         }
         this.nextObjectId = Math.max((await q("SELECT max(`id`) as `id` FROM `objects`"))['id'] + 1, this.nextObjectId);
 
-        log("info", "Db inited", { nextObjectId: this.nextObjectId });
+        console.log("Db inited", { nextObjectId: this.nextObjectId });
     }
 
 

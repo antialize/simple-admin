@@ -5,14 +5,11 @@ import {Msg} from './msg'
 import {Deployment} from './deployment'
 import * as instances from './instances';
 import {errorHandler} from './error'
-import {log} from 'winston';
 import { ModifiedFiles } from './modifiedfiles';
-import winston = require('winston');
 
 const exitHook = require('async-exit-hook');
 
-winston.add(new winston.transports.Console());
-log("info", "STARTING SERVER");
+console.log("STARTING SERVER");
 
 async function setup() {
     instances.setMsg(new Msg());

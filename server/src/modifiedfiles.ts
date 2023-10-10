@@ -6,7 +6,6 @@ import { Job } from "./job";
 import * as message from './messages';
 import getOrInsert from "./shared/getOrInsert";
 import nullCheck from "./shared/nullCheck";
-import { log } from "winston";
 
 const cronId = 10240;
 const systemdServiceId = 10206;
@@ -249,7 +248,7 @@ sys.stdout.flush()
         try {
             await this.scan()
         } catch(err) {
-            log('error', "Error scanning for modified files: " + err);
+            console.error("Error scanning for modified files: " + err);
         }
     }
     async resolve(client: WebClient, act:IModifiedFilesResolve) {
