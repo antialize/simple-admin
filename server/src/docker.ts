@@ -260,13 +260,13 @@ class Docker {
             const un = p[5];
             const u = this.activeUploads.get(un);
             if (!u) {
-                console.log("Docker get blob: missing", {uuid: un});
+                //console.log("Docker get blob: missing", {uuid: un});
                 res.status(404).end();
                 return;
             }
 
             res.setHeader("Location", req.url);
-            res.setHeader("Range", "0-" + u.count.value);
+            res.setHeader("Range", "0-" + (u.count.value-1));
             res.setHeader("Docker-Upload-UUID", un);
             res.status(202);
             res.end();
@@ -283,7 +283,7 @@ class Docker {
             }
             const path = docker_blobs_path + digest;
             if (!fs.existsSync(path)) {
-                console.error("Docker get blob: not found", {digest});
+                //console.error("Docker get blob: not found", {digest});
                 res.status(404).end();
                 return;
             }
@@ -300,7 +300,7 @@ class Docker {
                 res.status(404).end();
                 return;
             }
-            console.log("Docker get manifest", {row: row['hash']});
+            // console.log("Docker get manifest", {row: row['hash']});
             res.header("Content-Type", "application/vnd.docker.distribution.manifest.v2+json");
             res.send(row['manifest']).end();
             return;
@@ -393,7 +393,7 @@ class Docker {
                 res.status(400).end();
                 return;
             }
-            console.log("Docker put blob", {uuid: un, total_size: u.count.value, expected_size, content_length: cl, contest_range: cr, digest});
+            //console.log("Docker put blob", {uuid: un, total_size: u.count.value, expected_size, content_length: cl, contest_range: cr, digest});
 
             fs.renameSync(docker_upload_path + un, docker_blobs_path + digest);
             res.setHeader("Location", "/v2/" + p[2] + "/blobs/" + digest);
@@ -418,7 +418,7 @@ class Docker {
                 req.on('error', rej);
             });
 
-            console.log("Docker put manifest", {name: p[2], reference: p[4]});
+            // console.log("Docker put manifest", {name: p[2], reference: p[4]});
 
             // Validate that manifest is JSON.
             const manifest = JSON.parse(content);
@@ -447,8 +447,8 @@ class Docker {
                         });});
                     if (s.size != size) {
                         console.error("Docker put manifest: layer has wrong size", {digest, diskSize: s.size, manifestSize: size});
-                        //res.status(400).end();
-                        //return
+                        res.status(400).end();
+                        return
                     }
                 } catch (e) {
                     console.error("Docker put manifest: layer digest does not exist", {digest});
@@ -554,10 +554,10 @@ class Docker {
                 }
             }
 
-            console.log("Docker patch", {uuid, uploaded: u.count.value, content_length: cl, content_range: cr });
+            //console.log("Docker patch", {uuid, uploaded: u.count.value, content_length: cl, content_range: cr });
 
             res.setHeader("Location", req.url);
-            res.setHeader("Range", "0-" + u.count.value);
+            res.setHeader("Range", "0-" + (u.count.value-1));
             res.setHeader("Content-Length", "0");
             res.setHeader("Docker-Upload-UUID", uuid);
             res.status(202);
@@ -587,7 +587,7 @@ class Docker {
             res.statusCode = 202;
             res.statusMessage = "Accepted";
             res.end();
-            console.log("Docker post", {uuid: u});
+            //console.log("Docker post", {uuid: u});
             return;
         }
 
