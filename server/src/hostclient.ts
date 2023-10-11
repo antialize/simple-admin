@@ -6,7 +6,6 @@ import { JobOwner } from './jobowner'
 import * as crypt from './crypt'
 import { webClients, msg, hostClients, db } from './instances'
 import { descript, errorHandler } from './error';
-import { log } from 'winston';
 import { Job } from './job';
 import * as crt from './crt';
 
@@ -39,7 +38,7 @@ export class HostClient extends JobOwner {
         this.socket.on('close', () => this.onClose());
         this.socket.on('data', (data: any) => this.onData(data as Buffer));
         this.socket.on('error', (err: Error) => {
-            log('warn', "Client socket error", { hostname: this.hostname, error: err });
+            console.warn("Client socket error", { hostname: this.hostname, error: err });
         });
         this.pingTimer = setTimeout(() => { this.sendPing() }, 10000);
     }
@@ -128,7 +127,7 @@ export class HostClient extends JobOwner {
     onPingTimeout() {
         this.pingTimer = null;
         this.closeHandled = true;
-        log('warn', "Client ping timeout", { hostname: this.hostname });
+        console.warn("Client ping timeout", { hostname: this.hostname });
         this.socket.end();
     }
 
@@ -140,16 +139,6 @@ export class HostClient extends JobOwner {
         this.pingTimer = setTimeout(() => { this.sendPing() }, 9000);
     }
 
-    async setReconnectTimeout() {
-        const id = this.id;
-        if (id === null || this.hostname === null) return;
-        let c = await db.getHostContentByName(this.hostname);
-        if (!c || !c.content || !c.content.messageOnDown) return;
-        hostClients.downMessageTimeouts[id] = setTimeout(() => {
-            msg.emit(id, "Host down", "Has been down for more than 5 minutes.");
-        }, 5*60*60);
-    }
-
     onClose() {
         if (this.pingTimer != null)
             clearTimeout(this.pingTimer);
@@ -157,16 +146,13 @@ export class HostClient extends JobOwner {
             clearTimeout(this.certificateTimer);
 
         if (!this.auth) {
-            log('info', "Bad auth for client", { hostname: this.hostname });
+            console.log("Bad auth for client", { hostname: this.hostname });
             return;
         }
 
         if (this.id == null) throw Error("Missing host id");
 
-        if (!this.closeHandled)
-            msg.emit(this.id, "Host down", "Connection closed.");
-
-        log('info', "Client disconnected", { hostname: this.hostname });
+        console.log("Client disconnected", { hostname: this.hostname });
 
         if (this.id in hostClients.hostClients)
             delete hostClients.hostClients[this.id];
@@ -174,8 +160,6 @@ export class HostClient extends JobOwner {
         let act: IHostDown = { type: ACTION.HostDown, id: this.id };
         webClients.broadcast(act);
         this.kill();
-
-        this.setReconnectTimeout();
     }
 
     removeJob(job: Job, m: message.Failure | message.Success | null) {
@@ -195,7 +179,7 @@ export class HostClient extends JobOwner {
         const obj: message.Incomming = JSON.parse(msg.toString('utf8'))
         if (this.auth === null) {
             if (obj.type != "auth") {
-                log('warn', "Client invalid auth", { address: this.socket.remoteAddress, port: this.socket.remotePort, obj });
+                console.warn("Client invalid auth", { address: this.socket.remoteAddress, port: this.socket.remotePort });
                 this.socket.end();
                 this.auth = false;
                 return;
@@ -203,21 +187,16 @@ export class HostClient extends JobOwner {
 
             let [id, _] = await Promise.all<number | null, void>([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
-                log('info', "Client authorized", { hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort });
+                console.log("Client authorized", { hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort });
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;
-                const to = hostClients.downMessageTimeouts[this.id];
-                if (to) {
-                    clearTimeout(to);
-                    delete hostClients.downMessageTimeouts[this.id];
-                }
                 hostClients.hostClients[this.id] = this;
                 let act: IHostUp = { type: ACTION.HostUp, id: this.id };
                 webClients.broadcast(act);
                 this.signHostCertificate();
             } else {
-                log('warn', "Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort, obj});
+                console.warn("Client invalid auth", {address: this.socket.remoteAddress, port: this.socket.remotePort});
                 this.socket.end();
                 this.auth = false;
             }
@@ -238,7 +217,7 @@ export class HostClient extends JobOwner {
     }
 
     async signHostCertificate() {
-        log("info", `Signing SSH host certificate for ${this.hostname}`);
+        console.log(`Signing SSH host certificate for ${this.hostname}`);
         if (this.certificateTimer != null) {
             clearTimeout(this.certificateTimer);
             this.certificateTimer = null;
@@ -262,7 +241,7 @@ export class HostClient extends JobOwner {
         } catch (e) {
             let d = descript(e);
             console.log(e);
-            log('error', "An error occured in host ssh certificate generation", {typename: d.typeName, description: d.description, err: e});
+            console.error("An error occured in host ssh certificate generation", {typename: d.typeName, description: d.description, err: e});
         }
         this.certificateTimer = setTimeout(() => this.signHostCertificate(), 24*3600*1000);
     }
@@ -295,7 +274,6 @@ export class HostClient extends JobOwner {
 }
 
 export class HostClients {
-    downMessageTimeouts: {[id:number]: NodeJS.Timer} = {};
     hostClients: { [id: number]: HostClient } = {};
     start() {
         const privateKey = fs.readFileSync('domain.key', 'utf8');
@@ -303,12 +281,12 @@ export class HostClients {
         const options = { key: privateKey, cert: certificate };
 
         const hostServer = tls.createServer(options, socket => {
-            log('info', "Client connected", {address: socket.remoteAddress, port: socket.remotePort});
+            console.log("Client connected", {address: socket.remoteAddress, port: socket.remotePort});
             new HostClient(socket);
         });
 
         setInterval(() => {
-            log('info', "Updating host-server ssl cert");
+            console.log("Updating host-server ssl cert");
             hostServer.setSecureContext({
                 cert: fs.readFileSync('chained.pem', 'utf8'),
                 key: fs.readFileSync('domain.key', 'utf8')
@@ -316,14 +294,14 @@ export class HostClients {
         },86400000);
 
         hostServer.on('error', (err) => {
-            log('error', "Host server error", {err});
+            console.error("Host server error", {err});
         });
         hostServer.listen(8888, '0.0.0.0');
         hostServer.on('listening' , () => {
-            log('info', "Host server started on port 8888");
+            console.log("Host server started on port 8888");
         });
         hostServer.on('close' , () => {
-            log('info', "Host server stopped");
+            console.log("Host server stopped");
         });
     }
 }

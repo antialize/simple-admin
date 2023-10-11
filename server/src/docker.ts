@@ -1,5 +1,4 @@
 import * as express from 'express';
-import { log } from 'winston';
 import * as fs from 'fs';
 import {v4 as uuid} from 'uuid';
 import * as crypto from 'crypto';
@@ -126,13 +125,13 @@ class Docker {
         const r2 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_crt'");
         if (r2) this.ca_crt = r2['value'];
         if (!this.ca_key) {
-            log('info', "Generating ca key");
+            console.log("Generating ca key");
             this.ca_key = await crt.generate_key();
             await db.insert("REPLACE INTO kvp (key,value) VALUES (?, ?)", "ca_key", this.ca_key);
         }
 
         if (!this.ca_crt) {
-            log('info', "Generating ca crt");
+            console.log("Generating ca crt");
             this.ca_crt = await crt.generate_ca_crt(this.ca_key);
             await db.insert("REPLACE INTO kvp (key, value) VALUES (?,?)", "ca_crt", this.ca_crt);
         }
@@ -165,7 +164,7 @@ class Docker {
                     return a.user;
             }
 
-            log('error', "Auth failure", {address: req.connection.remoteAddress, parts});
+            console.error("Auth failure", {address: req.connection.remoteAddress, parts});
             res.status(403)
                 .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
                 .header('Content-Type', 'application/json; charset=utf-8')
@@ -213,7 +212,7 @@ class Docker {
                 res.status(404).end();
             }
         } catch (e) {
-            log('error', "EXCEPTION", {e});
+            console.error("EXCEPTION", {e});
             res.status(500).end();
         }
     }
@@ -222,7 +221,7 @@ class Docker {
         try {
             const token = req.query.token;
             if (!token || token !== config.usedImagesToken) {
-                log('error', "access error");
+                console.error("access error");
                 res.status(403).end();
                 return;
             }
@@ -238,7 +237,7 @@ class Docker {
             res.status(200).end();
         } catch (e) {
             console.error(e, (e as any).stack);
-            log('error', "EXCEPTION", {e});
+            console.error("EXCEPTION", {e});
             res.status(500).end();
         }
     }
@@ -256,22 +255,40 @@ class Docker {
             return;
         }
 
-        // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
-        if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs") {
-            const b = p[4];
-            if (!HASH_PATTERN.test(b)) {
-                log('error', "Docker get blob: bad name", b);
-                res.status(400).end();
-                return;
-            }
-            const path = docker_blobs_path + b;
-            if (!fs.existsSync(path)) {
-                log('error', "Docker get blob: found ", b);
+        // GET /v2/<name>/blobs/uploads/<uuid> Blob Upload Retrieve status of upload identified by uuid. The primary purpose of this endpoint is to resolve the current status of a resumable upload.
+        if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs" && p[4] == "uploads") {
+            const un = p[5];
+            const u = this.activeUploads.get(un);
+            if (!u) {
+                //console.log("Docker get blob: missing", {uuid: un});
                 res.status(404).end();
                 return;
             }
-            log('info', "Docker get blob", b);
-            res.sendFile(path);
+
+            res.setHeader("Location", req.url);
+            res.setHeader("Range", "0-" + (u.count.value-1));
+            res.setHeader("Docker-Upload-UUID", un);
+            res.status(202);
+            res.end();
+            return;
+        }
+
+        // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
+        if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "blobs") {
+            const digest = p[4];
+            if (!HASH_PATTERN.test(digest)) {
+                console.error("Docker get blob: bad name", {digest});
+                res.status(400).end();
+                return;
+            }
+            const path = docker_blobs_path + digest;
+            if (!fs.existsSync(path)) {
+                //console.error("Docker get blob: not found", {digest});
+                res.status(404).end();
+                return;
+            }
+
+            res.sendFile(path, {headers: {"Docker-Content-Digest": digest, "Content-Type": "application/octet-stream"}});
             return;
         }
 
@@ -279,11 +296,11 @@ class Docker {
         if (p.length == 5 && p[0] == "" && p[1] == 'v2' && p[3] == "manifests") {
             const row = await db.get("SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1", p[2], p[4], p[4]);
             if (!row) {
-                log('error', "Docker get manifest: not found", p[2], [4])
+                console.error("Docker get manifest: not found", {project: p[2], identifier: p[4]})
                 res.status(404).end();
                 return;
             }
-            log('info', "Docker get manifest", row['hash']);
+            // console.log("Docker get manifest", {row: row['hash']});
             res.header("Content-Type", "application/vnd.docker.distribution.manifest.v2+json");
             res.send(row['manifest']).end();
             return;
@@ -291,14 +308,12 @@ class Docker {
 
         //TODO
         // GET /v2/<name>/tags/list Tags Fetch the tags under the repository identified by name.
-        // GET /v2/<name>/blobs/uploads/<uuid> Blob Upload Retrieve status of upload identified by uuid. The primary purpose of this endpoint is to resolve the current status of a resumable upload.
         // GET /v2/_catalog	Catalog	Retrieve a sorted, json list of repositories available in the registry.
-        log('info', "Docker unhandled get", req.url, req.params);
+        console.log("Docker unhandled get", {url: req.url, params: req.params});
         res.status(404).end();
     }
 
     handleUpload(req: express.Request, upload: Upload, final: boolean): Promise<void> {
-        //TODO read possible range parameters here
         return new Promise((resolve, reject) => {
             req.pipe(upload.count, { end: final });
             req.pipe(upload.hash, { end: final });
@@ -312,7 +327,7 @@ class Docker {
         try {
             return await this.putInner(req, res);
         } catch (e) {
-            log('error', "Uncaught exception in docker.put", e);
+            console.error("Uncaught exception in docker.put", e);
             res.status(500).end();
         }
     }
@@ -329,16 +344,57 @@ class Docker {
             const un = p[5]
             const u = this.activeUploads.get(un);
             if (!u) {
-                log('error', "Docker put blob: missing", un);
+                console.error("Docker put blob: missing", {uuid: un});
                 res.status(404).end();
                 return;
-            }
-           
-            await this.handleUpload(req, u, true);
 
-            log('info', "Docker put blob", un);
+            }
+
+            const start_size = u.count.value;
+            const cl = req.headers['content-length'];
+            let expected_size: number | undefined = undefined;
+            if (cl != undefined) {
+                expected_size = +cl;
+            }
+            const cr = req.headers['content-range'];
+            if (cr != undefined) {
+                const [start, end] = cr.split("-").map((v) => +v);
+                if (start != start_size) {
+                    console.error("Uploaded chunk not at end of", {uuid, start, start_size, url: req.url});
+                    res.status(500).end();
+                }
+                if (expected_size != undefined) {
+                    if (end-start != expected_size) {
+                        console.error("Inconsistent content-range and content-length", {uuid, start, end, expected_size, url: req.url});
+                        res.status(400).end();
+                        return;
+                    }
+                }
+                expected_size = end-start;
+            }
+
+            this.activeUploads.delete(un);
+
+            await this.handleUpload(req, u, true);
             const digest = req.query.digest;
-            // TODO verify digest u.hash.digest('hex'));
+
+            if (expected_size != undefined) {
+                if (u.count.value != start_size + expected_size) {
+                    console.error("Uploaded bytes does not match expected size", {uuid, recieved: u.count.value - start_size, expected_size, url: req.url});
+                    res.status(400).end();
+                    return;
+                }
+            }
+
+            const actual_digest = "sha256:" + u.hash.digest('hex');
+
+            if (digest != actual_digest) {
+                console.error("Invalid digest of uploaded chunk", {uuid, digest, actual_digest});
+                res.status(400).end();
+                return;
+            }
+            //console.log("Docker put blob", {uuid: un, total_size: u.count.value, expected_size, content_length: cl, contest_range: cr, digest});
+
             fs.renameSync(docker_upload_path + un, docker_blobs_path + digest);
             res.setHeader("Location", "/v2/" + p[2] + "/blobs/" + digest);
             //res.setHeader("Range", "0-"+u.count.value);
@@ -362,24 +418,40 @@ class Docker {
                 req.on('error', rej);
             });
 
-            log('info', "Docker put manifest", p[2], p[4]);
+            // console.log("Docker put manifest", {name: p[2], reference: p[4]});
 
             // Validate that manifest is JSON.
             const manifest = JSON.parse(content);
 
             // Validate that we have all the parts.
             for (const layer of manifest.layers) {
-                const {digest} = layer;
+                const {digest, size, mediaType} = layer;
                 if (!HASH_PATTERN.test(digest)) {
-                    log('error', "Docker put manifest: bad layer digest", digest);
+                    console.error("Docker put manifest: bad layer digest", {digest});
                     res.status(400).end();
                     return;
                 }
-                // TODO: await fs.access() instead.
+                if (mediaType != "application/vnd.docker.image.rootfs.diff.tar.gzip") {
+                    console.error("Docker put manifest: layer has invalid media type media type", {digest, mediaType});
+                    res.status(400).end();
+                    return
+                }
+
                 try {
-                    fs.accessSync(docker_blobs_path + digest);
+                    const s = await new Promise<fs.Stats>((resolve, reject) => {
+                        fs.stat(docker_blobs_path + digest, (err, stat) => {
+                            if (err != null) {
+                                reject(err);
+                            }
+                            resolve(stat);
+                        });});
+                    if (s.size != size) {
+                        console.error("Docker put manifest: layer has wrong size", {digest, diskSize: s.size, manifestSize: size});
+                        res.status(400).end();
+                        return
+                    }
                 } catch (e) {
-                    log('error', "Docker put manifest: layer digest does not exist", digest);
+                    console.error("Docker put manifest: layer digest does not exist", {digest});
                     res.status(400).end();
                     return;
                 }
@@ -389,7 +461,7 @@ class Docker {
             // Read config
             const configDigest = manifest.config.digest;
             if (!HASH_PATTERN.test(configDigest)) {
-                log('error', "Docker put manifest: bad config digest", configDigest);
+                console.error("Docker put manifest: bad config digest", configDigest);
                 res.status(400).end();
                 return;
             }
@@ -428,7 +500,7 @@ class Docker {
             return;
         }
 
-        log('info', "Docker unhandled put", req.url);
+        console.log("Docker unhandled put", {url: req.url});
         res.status(404).end();
     }
 
@@ -441,25 +513,59 @@ class Docker {
 
         // PATCH /v2/<name>/blobs/uploads/<uuid> Blob Upload Upload a chunk of data for the specified upload.
         if (p.length == 6 && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
-            const un = p[5];
-            const u = this.activeUploads.get(un);
+            const uuid = p[5];
+            const u = this.activeUploads.get(uuid);
             if (!u) {
-                log('info', "Docker patch blob: missing", un);
+                console.error("Docker patch blob: missing", {uuid});
                 res.status(404).end();
                 return;
             }
+            let start_size = u.count.value;
+
            
+            let cl = req.headers['content-length'];
+            let expected_size: number | undefined = undefined;
+            if (cl != undefined) {
+                expected_size = +cl;
+            }
+            let cr = req.headers['content-range'];
+            if (cr != undefined) {
+                const [start, end] = cr.split("-").map((v) => +v);
+                if (start != start_size) {
+                    console.error("Uploaded chunk not at end of", {uuid, start, start_size});
+                    res.status(500).end();
+                }
+                if (expected_size != undefined) {
+                    if (end-start != expected_size) {
+                        console.error("Inconsistent content-range and content-length", {uuid, start, end, expected_size});
+                        res.status(400).end();
+                        return;
+                    }
+                }
+                expected_size = end-start;
+            }
+
             await this.handleUpload(req, u, false);
+            if (expected_size != undefined) {
+                if (u.count.value != start_size + expected_size) {
+                    console.error("Uploaded bytes does not match expected size", {uuid, recieved: u.count.value - start_size, expected_size});
+                    res.status(400).end();
+                    return;
+                }
+            }
+
+            //console.log("Docker patch", {uuid, uploaded: u.count.value, content_length: cl, content_range: cr });
+
             res.setHeader("Location", req.url);
-            res.setHeader("Range", "0-" + u.count.value);
+            res.setHeader("Range", "0-" + (u.count.value-1));
             res.setHeader("Content-Length", "0");
-            res.setHeader("Docker-Upload-UUID", un);
+            res.setHeader("Docker-Upload-UUID", uuid);
             res.status(202);
             res.end();
             return;
         }
 
-        log('info', "Docker unhandled patch", req.url);
+        console.log("Docker unhandled patch", {url: req.url});
         res.status(404).end();
     }
 
@@ -481,11 +587,11 @@ class Docker {
             res.statusCode = 202;
             res.statusMessage = "Accepted";
             res.end();
-            log('info', "Docker post", u);
+            //console.log("Docker post", {uuid: u});
             return;
         }
 
-        log('info', "Docker unhandled post", req.url);
+        console.log("Docker unhandled post", {url: req.url});
         res.status(404).end();
     }
 
@@ -496,7 +602,7 @@ class Docker {
         // DELETE /v2/<name>/manifests/<reference> Manifest	Delete the manifest identified by name and reference. Note that a manifest can only be deleted by digest.
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
-        log('info', "Docker unhandled delete", req.url);
+        console.log("Docker unhandled delete", {url: req.url});
         res.status(404).end();
     }
 
@@ -714,7 +820,7 @@ finally:
 
     async deploy(client: WebClient, act: IDockerDeployStart) {
         try {
-            log('info', "Docker deploy start", act.ref);
+            console.log("Docker deploy start", {ref: act.ref});
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
@@ -862,7 +968,7 @@ finally:
 
                 } catch (e) {
                     client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed"});
-                    log('error', "Deployment failed", e)
+                    console.error("Deployment failed", e)
 
                     if (act.restoreOnFailure && oldDeploy) {
                         client.sendMessage({type: ACTION.DockerDeployLog, ref: act.ref, message: "Deployment failed attempting to redeploy old"});
@@ -907,7 +1013,7 @@ finally:
             }
          } catch (e) {
             client.sendMessage({type: ACTION.DockerDeployDone, ref: act.ref, status: false, message: "Deployment failed due to an exception"});
-            log('error', "Deployment failed due to an exception", e);
+            console.error("Deployment failed due to an exception", e);
          }
     }
 
@@ -965,7 +1071,7 @@ finally:
         project: string|null,
         doTemplate: boolean) {
         try {
-            log('info', "service deploy start", ref);
+            console.log("service deploy start", {ref: ref});
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
@@ -1107,7 +1213,7 @@ finally:
             }
         } catch (e) {
             client.sendMessage({type: ACTION.DockerDeployDone, ref, status: false, message: "Deployment failed "});
-            log('error', "Service deployment failed", e);
+            console.error("Service deployment failed", e);
         }
     }
 
@@ -1378,12 +1484,12 @@ finally:
         try {
             const o = this.delayedDeploymentInformations.get(id);
             if (!o) return;
-            log("info", "We did an deployment but we did not hear anything from the client");
+            console.log("We did an deployment but we did not hear anything from the client");
             o.timeout = null;
             this.delayedDeploymentInformations.delete(id);
             await this.handleDeployment(o);
         } catch (e) {
-            log("info", "Uncaught exception in handleDeploymentTimeout", e);
+            console.log("Uncaught exception in handleDeploymentTimeout", e);
         }
     }
 
@@ -1394,7 +1500,7 @@ finally:
             if (obj.full) containers.clear();
             const images = this.hostImages.get(host.id);
             if (!images) {
-                log('error', "No images for host", host.id);
+                console.error("No images for host", host.id);
                 return;
             }
 
@@ -1438,13 +1544,13 @@ finally:
                 containers.set(u.id, u);
                 const image = images.get(u.image);
                 if (!image) {
-                    //log('error', "Could not find image for container")
+                    //console.error("Could not find image for container")
                     continue;
                 }
                 const container = u.name.substr(1); //For some reason there is a slash in the string??
                 const row = await db.get("SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1", host.id, container);
                 if (!row || !row.project) {
-                    //log('info', "Could not find project for container", container, row);
+                    //console.log("Could not find project for container", container, row);
                     continue;
                 }
                 const project = row.project;
@@ -1507,7 +1613,7 @@ finally:
             }
         } catch (e) {
             console.log(e);
-            log("info", "Uncaught exception in handleHostDockerContainers", e);
+            console.log("Uncaught exception in handleHostDockerContainers", e);
         }
     }
 
@@ -1648,7 +1754,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                 }));
             }
         } catch (err) {
-            console.log("ERROR", err);
+            console.error(err);
         }
     }
 }
