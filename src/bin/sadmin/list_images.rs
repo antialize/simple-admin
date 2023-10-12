@@ -32,7 +32,7 @@ pub struct ListImages {
 
     /// Only display the most recent N images
     #[clap(long, short('n'))]
-    tail: Option<usize>,
+    tail: Option<Vec<usize>>,
 
     /// Only print tags for this image
     #[clap(long, short)]
@@ -104,7 +104,7 @@ pub async fn list_images(config: Config, args: ListImages) -> Result<()> {
             images.retain(|i| &i.image == image);
         }
         if full {
-            if let Some(tail) = args.tail {
+            if let Some(tail) = args.tail.as_ref().and_then(|l| l.last().cloned()) {
                 images.reverse();
                 images.truncate(tail);
                 images.reverse();
