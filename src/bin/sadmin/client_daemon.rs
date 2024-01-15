@@ -32,11 +32,7 @@ use tokio::{
     },
     time::timeout,
 };
-use tokio_rustls::{
-    client::TlsStream,
-    rustls::self,
-    TlsConnector,
-};
+use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
 use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
 
 use crate::{
@@ -1044,7 +1040,7 @@ impl Client {
                 tokio::select! {
                     val = read => {
                         match val {
-                            Ok(r) if r == 0 => {
+                            Ok(0) => {
                                 error!("Connection to server closed cleanly");
                                 self.recv_failure_notify.notify_one();
                                 break
@@ -1178,8 +1174,7 @@ impl Client {
             Ok(v) => v?,
             Err(_) => return Ok(()),
         };
-        let mut buf = Vec::new();
-        buf.resize(len.try_into()?, 0);
+        let mut buf = vec![0; len.try_into()?];
         match cancelable(run_token, socket.read_exact(&mut buf)).await {
             Ok(v) => v?,
             Err(_) => return Ok(()),
@@ -1465,8 +1460,7 @@ async fn connect_to_persist(retry: usize) -> Result<tokio::net::UnixStream> {
     socket.write_all(&v).await?;
     loop {
         let len = timeout(Duration::from_secs(10), socket.read_u32()).await??;
-        let mut buf = Vec::new();
-        buf.resize(len.try_into()?, 0);
+        let mut buf = vec![0; len.try_into()?];
         timeout(Duration::from_secs(10), socket.read_exact(&mut buf)).await??;
         let msg: persist_daemon::Message = serde_json::from_slice(&buf)?;
         if msg.with_fd() {

@@ -99,6 +99,7 @@ pub struct DockerPinnedImageTag {
     pub tag: String,
 }
 
+#[allow(clippy::enum_variant_names)]
 pub enum Type {
     Id(u64),
     Root,
@@ -229,6 +230,7 @@ pub struct ServiceRedeployStart {
     pub deployment_id: u64,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum Message {

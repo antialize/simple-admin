@@ -96,7 +96,7 @@ fn parse_metrics(metrics: &str) -> Result<Vec<MetricItem<'_>>> {
         if c == '#' {
             let end = loop {
                 match it.next() {
-                    Some((o, v)) if v == '\n' => break o,
+                    Some((o, '\n')) => break o,
                     Some(_) => (),
                     None => break metrics.len(),
                 }
@@ -150,16 +150,16 @@ fn parse_metrics(metrics: &str) -> Result<Vec<MetricItem<'_>>> {
                 }
                 // Skip = and whitespace
                 match it.next() {
-                    Some((_, v)) if v == '=' => (),
+                    Some((_, '=')) => (),
                     _ => bail!("Expected ="),
                 };
                 while it.peek().map(|v| v.1.is_whitespace()) == Some(true) {
                     it.next();
                 }
                 let v = match it.next() {
-                    Some((start, v)) if v == '\"' => loop {
+                    Some((start, '\"')) => loop {
                         match it.next() {
-                            Some((o, v)) if v == '"' => break &metrics[start..o + 1],
+                            Some((o, '"')) => break &metrics[start..o + 1],
                             Some(_) => (),
                             None => bail!("Unexpected end of file"),
                         };
@@ -197,7 +197,7 @@ fn parse_metrics(metrics: &str) -> Result<Vec<MetricItem<'_>>> {
 
         let end = loop {
             match it.next() {
-                Some((o, v)) if v == '\n' => break o,
+                Some((o, '\n')) => break o,
                 Some(_) => (),
                 None => break metrics.len(),
             }
@@ -548,7 +548,7 @@ async fn forward_command(
             }
             v = stdout.read_buf(&mut stdout_buf), if stdout_result.is_none() => {
                 match v {
-                    Ok(v) if v == 0 => stdout_result = Some(Ok(())),
+                    Ok(0) => stdout_result = Some(Ok(())),
                     Ok(_) => {
                         log.stdout(&stdout_buf).await?;
                         stdout_buf.clear();
@@ -558,7 +558,7 @@ async fn forward_command(
             }
             v = stderr.read_buf(&mut stderr_buf), if stderr_result.is_none() => {
                 match v {
-                    Ok(v) if v == 0 => stderr_result = Some(Ok(())),
+                    Ok(0) => stderr_result = Some(Ok(())),
                     Ok(_) => {
                         log.stderr(&stderr_buf).await?;
                         stderr_buf.clear();
@@ -949,8 +949,6 @@ impl Service {
                 None => std::time::Instant::now(),
             };
 
-            let mut buf = Vec::new();
-            buf.resize(SERVICES_BUF_SIZE, 0);
             let instance = ServiceInstance {
                 stdout: AsyncFd::new(stdout)?,
                 stderr: AsyncFd::new(stderr)?,
@@ -959,7 +957,7 @@ impl Service {
                 instance_id: status.instance_id,
                 pod_name: status.pod_name.clone(),
                 watchdog_timout,
-                buf,
+                buf: vec![0; SERVICES_BUF_SIZE],
                 go_stderr: true,
                 go_stdout: true,
                 code: None,
@@ -2130,8 +2128,6 @@ It will be hard killed in {:?} if it does not stop before that. ",
             Some(v) => std::time::Instant::now() + std::time::Duration::from(v),
             None => std::time::Instant::now(),
         };
-        let mut buf = Vec::new();
-        buf.resize(SERVICES_BUF_SIZE, 0);
         let mut instance = ServiceInstance {
             stdout,
             stderr,
@@ -2142,7 +2138,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
             watchdog_timout,
             go_stdout: true,
             go_stderr: true,
-            buf,
+            buf: vec![0; SERVICES_BUF_SIZE],
             code: None,
         };
         info!("Waiting for service to be ready");
