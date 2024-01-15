@@ -161,7 +161,7 @@ export class ModifiedFileRevolver extends React.Component<{id:number}, {content:
         const current = o.current || "";
         const content = this.state.content === null?current:this.state.content;
         const patch = Diff.createPatch(o.path, o.deployed, o.actual || "", "","");
-        const patched = Diff.applyPatch(content, patch);
+        const patched = Diff.applyPatch(content, patch) || null;
         return <div className="modified_container">
             <div style={{gridArea: "head"}}>
                 <Typography component="span" style={{display:"inline"}}>Show diff: </Typography>
