@@ -1,12 +1,10 @@
-import * as React from "react";
-import Box from './Box';
-import Message from './Message';
-import MessageGroup from './MessageGroup';
-import Typography from "@material-ui/core/Typography";
-import state from "./state";
 import { observer } from "mobx-react";
+import state from "./state";
 import nullCheck from "./shared/nullCheck";
-
+import Message from "./Message";
+import Box from "./Box";
+import { Typography } from "@mui/material";
+import MessageGroup from "./MessageGroup";
 
 interface MGroup {
     ids : number[];
@@ -18,7 +16,7 @@ interface MGroup {
 const Messages = observer(function Messages({host}: {host?:number}) {
     const messages: {id:number, time:number}[] = [];
     let count = 0;
-    for (const [id, message] of state.messages) {
+    for (const [_, message] of state.messages) {
         if (host != null && message.host != host) continue;
         if (!message.dismissed) count++
         messages.push({id: message.id, time: message.time});

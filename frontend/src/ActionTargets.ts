@@ -1,9 +1,9 @@
 import { IAction, ACTION } from "./shared/actions";
 import getOrInsert from './shared/getOrInsert';
 
-export interface ActionTarget {
-    handle: (action: IAction) => boolean;
-}
+
+
+type ActionTarget = (action: IAction) => boolean;
 
 export class ActionTargets {
     targets: Map<ACTION, Set<ActionTarget>> = new Map;

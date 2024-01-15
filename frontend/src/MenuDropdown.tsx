@@ -1,25 +1,17 @@
-import * as React from "react";
-import IconButton from "@material-ui/core/IconButton";
-import Menu from "@material-ui/core/Menu";
-import MenuIcon from '@material-ui/icons/Menu';
-import { useState } from "react";
-import MenuItem from "@material-ui/core/MenuItem";
-import Button from "@material-ui/core/Button";
-import { HotKeyListener } from "./HotKey";
+import { Button, IconButton, Menu, MenuItem } from "@mui/material";
+import React, { useContext, useState } from "react";
+import MenuIcon from '@mui/icons-material/Menu';
+import { useHotkeys } from "react-hotkeys-hook";
 
 const DropDownOpen = React.createContext({
     open: false,
-    setOpen: (open:boolean) => {}
+    setOpen: (_:boolean) => {}
 });
 
-export class DropDownItem extends React.Component<{onClick?: (e : React.MouseEvent)=>void, children?: React.ReactNode, href?:string}, {}> {
-    render() {
-        const p=this.props;
-        return <MenuItem onClick={(e)=>{this.context.setOpen(false); p.onClick && p.onClick(e)}}>{p.children}</MenuItem>;
-    }
-};
-DropDownItem.contextType = DropDownOpen;
-
+export function DropDownItem(p: {onClick?: (e : React.MouseEvent)=>void, children?: React.ReactNode, href?:string}) {
+    let context = useContext(DropDownOpen);
+    return <MenuItem onClick={(e)=>{context.setOpen(false); p.onClick && p.onClick(e)}}>{p.children}</MenuItem>;
+}
 
 function MenuDropdown({ title, children, hotkey }: {
     hotkey?: string
@@ -28,32 +20,26 @@ function MenuDropdown({ title, children, hotkey }: {
 }) {
     const [open, setOpen] = useState(false);
     const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-    const handlers: {[key:string]: (e:KeyboardEvent)=>void} = {};
     if (hotkey)
-        handlers[hotkey] = (e)=>{
-            setOpen(true);
-        }
+        useHotkeys(hotkey, ()=>{setOpen(true);});
     return (
         <DropDownOpen.Provider value={{open, setOpen}}>
-            <HotKeyListener handlers={handlers}>
-                {title?
-                    <Button
-                        aria-owns={open ? 'render-props-menu' : undefined}
-                        aria-haspopup="true"
-                        onClick={event => {setAnchor(event.currentTarget); setOpen(true)}}
-                        >
-                        {title}
-                    </Button>
-                    : <IconButton aria-owns={open ? 'render-props-menu' : undefined} aria-haspopup="true" onClick={event => { setAnchor(event.currentTarget); setOpen(true); }}>
-                        <MenuIcon />
-                    </IconButton>
-                }
-                <Menu id="render-props-menu" anchorEl={anchor} open={open} onClose={() => setOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} transformOrigin={{ vertical: "top", horizontal: "left" }}>
-                    {children}
-                </Menu>
-            </HotKeyListener>
+            {title?
+                <Button
+                    aria-owns={open ? 'render-props-menu' : undefined}
+                    aria-haspopup="true"
+                    onClick={event => {setAnchor(event.currentTarget); setOpen(true)}}
+                    >
+                    {title}
+                </Button>
+                : <IconButton aria-owns={open ? 'render-props-menu' : undefined} aria-haspopup="true" onClick={event => { setAnchor(event.currentTarget); setOpen(true); }}>
+                    <MenuIcon />
+                </IconButton>
+            }
+            <Menu id="render-props-menu" anchorEl={anchor} open={open} onClose={() => setOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} transformOrigin={{ vertical: "top", horizontal: "left" }}>
+                {children}
+            </Menu>
         </DropDownOpen.Provider>)
-
 }
 
 export default MenuDropdown;

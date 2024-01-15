@@ -1,17 +1,17 @@
+import type { ActionTargets } from "./ActionTargets";
 import type DeploymentState from "./deployment/DeploymentState";
+import type DockerContainersState from "./DockerContairsState";
+import type DockerImagesState from "./DockerImagesState";
 import type LoginState from "./LoginState";
+import type ModifiedFilesState from "./ModifiedFilesState";
 import type ObjectState from "./ObjectState";
 import type PageState from "./PageState";
+import type SearchState from "./SearchState";
 import type { IAction, IMessage }  from "./shared/actions";
 import type { IObject2, IObjectDigest } from "./shared/state";
 import type { IType } from "./shared/type";
-import { observable, computed, makeObservable } from "mobx";
-import type { ActionTargets } from "./ActionTargets";
-import type { DockerImagesState } from "./DockerImages";
-import type { DockerContainersState } from "./DockerContainers";
-import type { ModifiedFilesState } from "./ModifiedFiles";
-import type { DockerDeployState} from "./DockerDeploy";
-import type { SearchState } from "./Search";
+import { computed, observable, makeObservable } from "mobx";
+
 
 
 export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
@@ -20,7 +20,7 @@ class State {
     constructor() {
         makeObservable(this)
     }
-    
+
     @observable
     connectionStatus: CONNECTION_STATUS = CONNECTION_STATUS.CONNECTED;
 
@@ -55,7 +55,7 @@ class State {
     @computed
     get activeMessages() {
         let cnt = 0;
-        for (const [n, m] of this.messages)
+        for (const [_, m] of this.messages)
             if (!m.dismissed)
                 cnt += 1;
         return cnt;
@@ -79,8 +79,8 @@ class State {
     @observable
     objectUsedBy: Map<number, Set<number>> = new Map;
 
-    //@observable
-    //host_up: Map<Number, boolean> = new Map;
+    @observable
+    host_up: Map<Number, boolean> = new Map;
 
     @observable.shallow
     dockerImages: DockerImagesState | null = null;
@@ -90,9 +90,6 @@ class State {
 
     @observable.shallow
     modifiedFiles: ModifiedFilesState | null = null;
-
-    @observable.shallow
-    dockerDeploy: DockerDeployState | null = null;
 
     @observable.shallow
     search: SearchState | null = null;

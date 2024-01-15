@@ -1,10 +1,8 @@
-import * as React from "react";
 import * as State from '.././shared/state';
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Typography from "@material-ui/core/Typography";
 import state from "../state";
 import { observer } from "mobx-react";
 import Error from "../Error";
+import { CircularProgress, Typography } from '@mui/material';
 
 const Header = observer(function Header() {
     const deployment = state.deployment;

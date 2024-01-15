@@ -1,5 +1,4 @@
-import * as React from 'react';
-import CircularProgress from '@material-ui/core/CircularProgress';
+import { CircularProgress } from '@mui/material';
 import { Remote } from './Remote';
 
 interface ExtractRemoteGood<T> {state: 'good', data: T};

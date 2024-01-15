@@ -11,7 +11,7 @@ class DerivedState {
             id: number;
             name: string;
         }[] = [];
-        for (const [key, type] of state.types) {
+        for (const [_, type] of state.types) {
             if (type.content.kind == "trigger")
                 continue;
             ans.push({ id: type.id, name: nullCheck(type.content.plural) });
@@ -32,7 +32,7 @@ class DerivedState {
     @computed
     get triggers() {
         let triggers: IObject2<IType>[] = [];
-        for (const [key, type] of state.types) {
+        for (const [_, type] of state.types) {
             if (type.content.kind != "trigger")
                 continue;
             triggers.push(type);

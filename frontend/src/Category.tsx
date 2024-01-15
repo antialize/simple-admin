@@ -1,5 +1,4 @@
-import * as React from "react";
-import Select from "./Select";
+import { Autocomplete, TextField } from "@mui/material";
 import state from "./state";
 import { observer } from "mobx-react";
 
@@ -7,20 +6,22 @@ const Category = observer(function Category({category, type, setCategory}:{categ
     let catagories: Set<string> = new Set();
     const digests = state.objectDigests.get(type);
     if (digests)
-        for (const [key, val] of digests)
+        for (const [_, val] of digests)
             catagories.add(val.category)
     let cat2 = [];
     for (const cat of catagories) {
-        cat2.push({value:cat, label:cat});
+        cat2.push(cat);
     }
-    return <Select
-        placeholder="Category"
-        create
+    return <Autocomplete
         options={cat2}
-        type='single'
-        value={{value:category, label:category}}
-        onChange={(value)=>value && setCategory(value.value)}
-        />;
+        freeSolo
+        renderInput={(params) => (
+            <TextField {...params} placeholder="Category" variant="standard"  />
+        )}
+        value={category}
+        onChange={(_, value)=>value && setCategory(value)}
+    />
+
 });
 
 export default Category;

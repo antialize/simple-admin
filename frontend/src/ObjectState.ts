@@ -61,7 +61,7 @@ class ObjectState {
         };
         state.sendMessage(a);
     }
-    
+
     @action.bound
     resetState() {
         const a :IResetServerState = {
@@ -142,7 +142,7 @@ class ObjectState {
             if (cp.version == null) {
                 // We have no version so lets pick the newest
                 cp.version = 1;
-                for (let [v, e] of this.versions)
+                for (let [v, _] of this.versions)
                     cp.version = Math.max(cp.version, v);
             }
             if (this.current != null && this.current.version == cp.version)

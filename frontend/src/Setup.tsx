@@ -1,6 +1,5 @@
-import * as React from "react";
+import { Typography } from "@mui/material";
 import state from "./state";
-import { Typography } from "@material-ui/core";
 import { observer } from "mobx-react";
 
 const Setup = observer(function Setup({hostid}:{hostid:number}) {

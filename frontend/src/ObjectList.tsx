@@ -1,14 +1,8 @@
-import * as React from "react";
-import * as State from './shared/state'
-import Button from "@material-ui/core/Button";
-import Link from "@material-ui/core/Link";
-import List from "@material-ui/core/List";
-import ListItem from "@material-ui/core/ListItem";
-import TextField from "@material-ui/core/TextField";
-import Typography from '@material-ui/core/Typography';
-import state from "./state";
 import { observer } from "mobx-react";
-import nullCheck from './shared/nullCheck';
+import state from "./state";
+import { Button, Link, List, ListItem, TextField, Typography } from "@mui/material";
+import nullCheck from "./shared/nullCheck";
+import * as State from './shared/state';
 
 const ObjectList = observer(function ObjectList({type}:{type:number}) {
     const page = state.page;
@@ -17,7 +11,7 @@ const ObjectList = observer(function ObjectList({type}:{type:number}) {
     let lst = [];
     const digests = state.objectDigests.get(type);
     if (digests !== undefined) {
-        for (let [i, v] of digests) {
+        for (let [_, v] of digests) {
             if (v.name.toLowerCase().includes(filter.toLowerCase()))
                 lst.push(v);
         }
@@ -29,7 +23,7 @@ const ObjectList = observer(function ObjectList({type}:{type:number}) {
             </Typography>
             <TextField placeholder="Filter" onChange={(e)=>{state.objectListFilter.set(type,e.target.value);}} value={filter}/>
             <List>
-                {lst.map(v => 
+                {lst.map(v =>
                     <ListItem
                         key={v.id}
                         onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id})}

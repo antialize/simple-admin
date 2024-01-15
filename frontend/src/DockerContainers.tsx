@@ -1,120 +1,18 @@
-import * as React from 'react';
-import { ACTION, IDockerListDeploymentsRes, DockerDeployment, IDockerDeploymentsChanged, IDockerListDeploymentHistoryRes } from './shared/actions';
-import { observable, action, ObservableMap, makeObservable } from 'mobx';
-import { observer } from 'mobx-react';
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Box from './Box';
-import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
-import { hostId } from './shared/type';
-import Button from '@material-ui/core/Button';
-import UnixTime from './UnixTime';
-import { IPage } from './shared/state';
+import { observer } from "mobx-react";
 import state from "./state";
+import extractRemote from "./extractRemote";
+import { hostId } from "./shared/type";
+import { IPage } from "./shared/state";
 import * as State from './shared/state'
-import { InformationListRow, InformationList } from './InformationList';
-import Typography from '@material-ui/core/Typography';
-import Remote from './Remote'
-import styles from './styles'
-import extractRemote from './extractRemote';
-import getOrInsert from './shared/getOrInsert';
+import UnixTime from "./UnixTime";
+import { Button, Typography } from "@mui/material";
+import { ACTION } from "./shared/actions";
 import Error from "./Error";
-import nullCheck from './shared/nullCheck';
+import Box from "./Box";
+import { InformationList, InformationListRow } from "./InformationList";
+import InfoTable, { InfoTableHeader } from "./InfoTable";
 
-export class DockerContainersState {
-    constructor() {
-        makeObservable(this)
-    }
-    
-    @observable
-    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: 'initial'};
-
-    @observable
-    containerHistory: ObservableMap<number, ObservableMap<string,  Remote< ObservableMap<number, DockerDeployment> >>> = new ObservableMap;
-
-    @action
-    load() {
-        if (this.hosts.state != 'initial') return;
-        state.sendMessage({
-            type: ACTION.DockerListDeployments,
-            ref: 0
-        });
-        this.hosts = {state: 'loading'}
-    }
-
-    @action
-    loadHistory(host:number, container: string) {
-        let c1 = this.containerHistory.get(host);
-        if (!c1) {
-            c1 = new ObservableMap();
-            this.containerHistory.set(host, c1);
-        }
-        let c2 = c1.get(container);
-        if (c2 && c2.state != 'initial') return;
-        state.sendMessage({
-            type: ACTION.DockerListDeploymentHistory,
-            host: host,
-            name: container,
-            ref: 0
-        });
-        c1.set(container, {state: "loading"});
-    }
-
-    @action
-    handleLoad(act: IDockerListDeploymentsRes) {
-        if (this.hosts.state != 'data')
-            this.hosts = {state: 'data', data: new ObservableMap()};
-
-        for (const tag of act.deployments) {
-            getOrInsert(this.hosts.data, tag.host, ()=>[]).push(tag);
-        }
-    }
-
-    @action
-    handleLoadHistory(act: IDockerListDeploymentHistoryRes) {
-        const h = this.containerHistory.get(+act.host);
-        if (!h) return;
-        const m = new ObservableMap();
-        for (const d of act.deployments)
-            m.set(d.id, d);
-        h.set(act.name, {state: 'data', data:m});
-    }
-
-    @action
-    handleChange(act: IDockerDeploymentsChanged) {
-        if (this.hosts.state == 'data') {
-            const hosts = this.hosts.data;
-            for (const tag of act.changed) {
-                let found = false;
-                const lst = getOrInsert(hosts, tag.host, ()=>[]);
-                for (let i=0; i < lst.length; ++i) {
-                    if (lst[i].name != tag.name) continue;
-                    found = true;
-                    if (lst[i].id <= tag.id)
-                        lst[i] = tag;
-                }
-                if (!found) lst.push(tag);
-
-            }
-            for (const tag of act.removed) {
-                let lst = hosts.get(tag.host);
-                if (!lst) continue;
-                hosts.set(tag.host, lst.filter((e) => e.name != tag.name));
-            }
-        }
-
-        for (const tag of act.changed) {
-            const h = this.containerHistory.get(tag.host);
-            if (!h) continue;
-            const hh = h.get(tag.name);
-            if (!hh || hh.state !== 'data') continue;
-            hh.data.set(tag.id, tag);
-        }
-    }
-}
-
-export const HostDockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host:number; title?:string, standalone: boolean} & StyledComponentProps) {
-    const classes = p.classes;
-    if (!classes) return <Error>Missing classes</Error>;
+export const HostDockerContainers = observer(function DockerContainers(p:{host:number; title?:string, standalone: boolean}) {
     const dockerContainers = state.dockerContainers;
     if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
     const r = extractRemote(dockerContainers.hosts);
@@ -172,28 +70,28 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
         <th>Hash</th>
         <th>Start</th>
         <th>End</th>
-        <td>Actions</td>
+        <th>Actions</th>
     </tr>;
 
     if (p.standalone)
         return (
             <Box title="Docker containers">
-                <table className={classes.infoTable}>
+                <InfoTable>
                     <thead >
                        {headers}
                     </thead>
                     <tbody>
                         {rows}
                     </tbody>
-                </table>
+                </InfoTable>
             </Box>);
 
     return <>
         <thead >
             <tr>
-                <th colSpan={10} className={classes.infoTableHeader}>
+                <InfoTableHeader colSpan={10}>
                     {p.title || hostName}
-                </th>
+                </InfoTableHeader>
             </tr>
             {headers}
         </thead>
@@ -201,12 +99,9 @@ export const HostDockerContainers = withStyles(styles)(observer(function DockerC
             {rows}
         </tbody>
         </>;
+});
 
-}));
-
-export const DockerContainers = withStyles(styles)(observer(function DockerContainers(p:{host?:string} & StyledComponentProps) {
-    const classes = p.classes;
-    if (!classes) return <Error>Missing p.classes</Error>;
+export const DockerContainers = observer(function DockerContainers(_:{host?:string}) {
     const dockerContainers = state.dockerContainers;
     if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
     const r = extractRemote(dockerContainers.hosts);
@@ -223,13 +118,13 @@ export const DockerContainers = withStyles(styles)(observer(function DockerConta
         lst.push(<HostDockerContainers key={host} host={host} standalone={false}/>)
 
     return <Box title="Docker containers">
-         <table className={classes.infoTable}>
+         <InfoTable>
             {lst}
-         </table>
+         </InfoTable>
         </Box>;
-}));
+});
 
-export const DockerContainerDetails = withStyles(styles)(observer(function DockerContainerDetails(p:StyledComponentProps) {
+export const DockerContainerDetails = observer(function DockerContainerDetails() {
     const spage = state.page;
     if (!spage) return <Error>Missing state.page</Error>;
     const page = spage.current;
@@ -251,7 +146,6 @@ export const DockerContainerDetails = withStyles(styles)(observer(function Docke
     if (img && img.labels)
         commit = (img.labels.GIT_BRANCH || "") + " " + (img.labels.GIT_COMMIT || "");
 
-    const now = +new Date()/1000;
 
     return <Box title={`Docker containers details: ${page.container}@${hostName}`}>
         <InformationList>
@@ -270,11 +164,9 @@ export const DockerContainerDetails = withStyles(styles)(observer(function Docke
             <InformationListRow name="Config"><Typography><pre>{container.config}</pre></Typography></InformationListRow>
         </InformationList>
     </Box>;
-}));
+});
 
-export const DockerContainerHistory = withStyles(styles)(observer(function DockerContainerHistory(p: StyledComponentProps) {
-    const classes = p.classes;
-    if (!classes) return <Error>Missing classes</Error>;
+export const DockerContainerHistory = observer(function DockerContainerHistory() {
     const s = state.dockerContainers;
     if (!s) return <Error>Missing state.dockerContainers</Error>;
     const spage = state.page;
@@ -291,7 +183,7 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
     const history = r.data;
 
     let containers = [];
-    for (const [id, c] of history)
+    for (const [_, c] of history)
         containers.push(c);
 
     containers.sort((a, b)=> {
@@ -314,13 +206,12 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
                 <td>{container.end?<UnixTime time={container.end} />:null}</td>
                 <td>
                     <Button onClick={(e)=>spage.onClick(e, detailsPage)} href={spage.link(detailsPage)}>Details</Button>
-                    <Button onClick={(event)=>nullCheck(state.dockerDeploy).deploy({host: page.host, container: container.name, image: container.image, config: container.config, event})} disabled={nullCheck(state.dockerDeploy).deploying}>Redeploy</Button>
                 </td>
             </tr>
         )
     }
     return <Box title={`Docker containers history: ${page.container}@${hostName}`}>
-        <table className={classes.infoTable}>
+        <InfoTable>
             <thead >
                 <tr>
                     <th>Commit</th>
@@ -328,13 +219,13 @@ export const DockerContainerHistory = withStyles(styles)(observer(function Docke
                     <th>Image</th>
                     <th>Start</th>
                     <th>End</th>
-                    <td>Actions</td>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {rows}
             </tbody>
-         </table>
+         </InfoTable>
         </Box>;
-}));
+});
 

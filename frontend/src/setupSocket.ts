@@ -1,15 +1,15 @@
-import * as Cookies from 'js-cookie';
+import Cookies from 'js-cookie';
 import * as State from './shared/state';
-import ObjectState from "./ObjectState";
 import state, { CONNECTION_STATUS } from "./state";
 import { IAction, ACTION, IRequestAuthStatus } from './shared/actions';
 import { add, clear } from './deployment/Log';
-import { remoteHost } from './config';
-import { action, runInAction } from "mobx";
-import { typeId } from "./shared/type";
+import { runInAction } from "mobx";
 import nullCheck from "./shared/nullCheck";
-import getOrInsert from "./shared/getOrInsert";
+import getOrInsert from './shared/getOrInsert';
+import { typeId } from './shared/type';
+import ObjectState from './ObjectState';
 import { getReferences } from './shared/getReferences';
+
 
 export let socket: WebSocket | null = null;
 let reconnectTime = 1;
@@ -18,7 +18,7 @@ export const setupSocket = () => {
     if (reconnectTime < 1000 * 10)
         reconnectTime = reconnectTime * 2;
     state.connectionStatus = CONNECTION_STATUS.CONNECTING;
-    socket = new WebSocket('wss://' + remoteHost + '/sysadmin');
+    socket = new WebSocket( (window.location.protocol == "http:"? "ws://" : "wss://") + window.location.host + '/sysadmin');
     socket.onmessage = data => {
         const loaded = state.loaded;
         const d = JSON.parse(data.data) as IAction;
@@ -26,7 +26,7 @@ export const setupSocket = () => {
             const tt = nullCheck(state.actionTargets).targets.get(d.type);
             if (tt)
                 for (const t of tt)
-                    if (t.handle(d))
+                    if (t(d))
                         return;
         }
         if (d.type == ACTION.ClearDeploymentLog) {
@@ -119,12 +119,11 @@ export const setupSocket = () => {
                     state.messages.set(d.message.id, d.message);
                 });
                 break;
-                ;
             case ACTION.ObjectChanged:
                 runInAction(() => {
                     if (d.object.length == 0) {
                         state.types.delete(d.id);
-                        for (const [key, values] of state.objectDigests)
+                        for (const [_, values] of state.objectDigests)
                             values.delete(d.id);
                         state.objects.delete(d.id);
                     }

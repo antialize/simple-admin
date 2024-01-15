@@ -1,58 +1,14 @@
-import * as React from 'react';
-import state from './state';
-import { ACTION, ISearchRes } from './shared/actions';
-import { observable, action, makeObservable } from 'mobx';
-import { observer } from 'mobx-react';
-import Box from './Box';
-import { withStyles, StyledComponentProps } from "@material-ui/core/styles";
-import styles from './styles'
-import * as State from './shared/state'
-import { IPage } from './shared/state';
-import Button from '@material-ui/core/Button';
+import state from "./state";
 import Error from "./Error";
-import nullCheck from "./shared/nullCheck"
-import { Link, TextField } from '@material-ui/core';
-import CircularProgress from "@material-ui/core/CircularProgress";
+import { observer } from "mobx-react";
+import { IPage } from "./shared/state";
+import * as State from "./shared/state";
+import { Button, CircularProgress, Link, TextField } from "@mui/material";
+import nullCheck from "./shared/nullCheck";
+import Box from "./Box";
+import InfoTable from "./InfoTable";
 
-
-export class SearchState {
-    constructor() {
-        makeObservable(this)
-    }
-
-    @observable
-    key: string = "";
-
-    @observable
-    searchKey: string = "";
-
-    @observable.shallow
-    objects: {type: number, id: number, version: number, name: string, comment: string, content: string}[] = [];
-
-    @observable
-    searching: boolean = false;
-
-    @observable
-    content: number | null = null;
-
-    @action
-    search() {
-        this.objects = [];
-        this.searchKey = this.key;
-        this.searching = true;
-        if (this.key) {
-            state.sendMessage({type:ACTION.Search, ref: 0, pattern: "%"+this.key.replace(" ", "%") + "%"});
-        }
-    }
-
-    @action
-    handleSearch(res: ISearchRes) {
-        this.searching = false;
-        this.objects = res.objects;
-    }
-}
-
-export const Search = withStyles(styles)(observer(function Search(p:StyledComponentProps) {
+const Search = observer(function Search() {
     let s = state.search;
     if (s == null) {
         return <Error>Missing state.searchState</Error>;
@@ -85,11 +41,11 @@ export const Search = withStyles(styles)(observer(function Search(p:StyledCompon
     }
     return <Box title="Search" expanded={true} collapsable={false}>
         <form action="javascript:void(0);" onSubmit={(e)=>{nullCheck(s).search(); e.preventDefault(); return false;}}>
-            <TextField fullWidth={true} name="search" helperText="Search" value={s.key} onChange={(e)=>nullCheck(s).key=e.target.value}/>
+            <TextField variant="standard" fullWidth={true} name="search" helperText="Search" value={s.key} onChange={(e)=>nullCheck(s).key=e.target.value}/>
         </form>
         {s.searching?<CircularProgress/>:null}
         {rows.length != 0?
-        <table className={nullCheck(p.classes).infoTable}>
+        <InfoTable>
             <thead >
                 <tr>
                     <th>Type</th>
@@ -103,8 +59,10 @@ export const Search = withStyles(styles)(observer(function Search(p:StyledCompon
             <tbody>
                 {rows}
             </tbody>
-        </table>
+        </InfoTable>
         :null}
     </Box>;
-}));
+});
 
+
+export default Search;

@@ -41,7 +41,6 @@ class UnixTime extends React.Component<{time:number}, {delta: number}> {
         const time = this.props.time;
         const d = new Date(time*1000);
         const title = ""+d;
-        
 
         if (delta < 60*60*72) {
             let de=delta;

@@ -1,10 +1,9 @@
-import * as React from "react";
 import * as State from './shared/state';
-import Button from "@material-ui/core/Button";
 import state from "./state";
 import { observer } from "mobx-react";
 import { rootInstanceId, rootId } from './shared/type';
 import MenuDropdown, { DropDownItem } from "./MenuDropdown";
+import { Button } from '@mui/material';
 
 export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:number}) {
     const page = state.page;
@@ -12,7 +11,7 @@ export const ObjectMenuList = observer(function ObjectMenuList({type}:{type:numb
     let lst = [];
     const digests = state.objectDigests.get(type);
     if (digests !== undefined) {
-        for (let [i, v] of digests) {
+        for (let [_, v] of digests) {
             lst.push(v);
         }
         lst.sort((l,r)=>{return l.name < r.name ? -1 : 1;});

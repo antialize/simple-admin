@@ -1,8 +1,7 @@
 export interface RemoteData<T> {
     state: 'data',
     data: T;
-} 
-
+}
 export interface RemoteError<E> {
     state: 'error',
     data: E;

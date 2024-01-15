@@ -1,24 +1,19 @@
 
-import * as React from "react";
-import Box from './Box';
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import HostExtra from './HostExtra';
-import Type from './Type';
-import Typography from "@material-ui/core/Typography";
-import UserExtra from './UserExtra';
 import state from './state';
-import { DEPLOYMENT_STATUS, IPage, PAGE_TYPE } from './shared/state'
-import { hostId, userId} from './shared/type'
-import { observer } from 'mobx-react';
 import Error from "./Error";
-import Select from "@material-ui/core/Select";
-import MenuItem from "@material-ui/core/MenuItem";
-import UnixTime from "./UnixTime";
-import { InformationList, InformationListRow } from "./InformationList";
-import { Link } from "@material-ui/core";
+import { observer } from 'mobx-react';
+import { Button, CircularProgress, Link, MenuItem, Select } from '@mui/material';
+import { DEPLOYMENT_STATUS, IPage, PAGE_TYPE } from './shared/state';
+import UnixTime from './UnixTime';
+import { hostId, userId } from './shared/type';
+import Box from './Box';
+import { InformationList, InformationListRow } from './InformationList';
+import Type from './Type';
+import UserExtra from './UserExtra';
+import HostExtra from './HostExtra';
 
-const ObjectView = observer(function ObjectView ({type, id, version}:{type:number, id?:number, version?:number}) {
+
+const ObjectView = observer(function ObjectView ({type, id}:{type:number, id?:number, version?:number}) {
     const deployment = state.deployment;
     if (!deployment) return <Error>Missing state.deployment</Error>;
     const o = id && state.objects.get(id);
@@ -28,7 +23,7 @@ const ObjectView = observer(function ObjectView ({type, id, version}:{type:numbe
     if (!stype) return <Error>Missing type</Error>;
 
     const page = state.page;
-    if (page === null) return <span>Missing state.page</span>;
+    if (page === null) return <Error>Missing state.page</Error>;
 
     let typeName = stype.name;
     let extra = null;
@@ -62,7 +57,7 @@ const ObjectView = observer(function ObjectView ({type, id, version}:{type:numbe
     for (const item of history) {
         if (item.version == lastVersion) continue;
         lastVersion = item.version;
-        historyItems.push(<MenuItem value={item.version}>{item.version} by {item.author||"unknown"}&nbsp;<UnixTime time={item.time || 0} /> </MenuItem>);
+        historyItems.push(<MenuItem key={item.version} value={item.version}>{item.version} by {item.author||"unknown"}&nbsp;<UnixTime time={item.time || 0} /> </MenuItem>);
     }
 
     if (type == hostId) {
@@ -92,14 +87,13 @@ const ObjectView = observer(function ObjectView ({type, id, version}:{type:numbe
         }
     }
 
-
     return (
         <div>
             <Box title={typeName} expanded={true} collapsable={true}>
                 <div>
                     <InformationList key={id + "_history"}>
                         <InformationListRow name="Version">
-                            <Select key="history" value={o.current.version || 0} onChange={(e) => {
+                            <Select variant="standard" key="history" value={o.current.version || 0} onChange={(e) => {
                                  if (touched && !confirm("Discard current changes and load version " + (e.target.value as any) + "?")) return;
                                  o.setCurrentVersion(e.target.value as number)
                              }}>

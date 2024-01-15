@@ -1,7 +1,7 @@
-import * as React from "react";
 import state from "../state";
 import { observer } from "mobx-react";
 import Error from "../Error";
+
 const Messages = observer(function Messages() {
     const deployment = state.deployment;
     if (deployment === null) return <Error>Missing state.deployments</Error>;

@@ -1,13 +1,12 @@
-import * as React from "react";
 import * as State from '.././shared/state';
-import Editor from '../Editor';
-import Typography from "@material-ui/core/Typography";
 import state from "../state";
 import { IType, TypePropType } from '.././shared/type';
 import { InformationList, InformationListRow } from '../InformationList';
 import { observer } from "mobx-react";
 import nullCheck from '.././shared/nullCheck';
 import Error from '../Error';
+import { Typography } from '@mui/material';
+import Editor from '../Editor';
 
 function CententInfo(p: {c:{[key:string]:any} | null, t: State.IObject2<IType>}) {
     if (!p.c) return <Error>Missing p.c</Error>;
@@ -57,7 +56,7 @@ const Details = observer(function Details({index}:{index:number}) {
                     <CententInfo c={o.nextContent} t={t}/>
                 </div>: null}
             <Typography variant="h4">Script</Typography>
-            <Editor title="Script" setLang={(lang:string)=>{}} lang="Python" fixedLang={true} readOnly={true} setData={(data:string)=>{}} data={o.script} />
+            <Editor title="Script" setLang={(_:string)=>{}} lang="Python" fixedLang={true} readOnly={true} setData={(_:string)=>{}} data={o.script} />
         </div>;
 });
 

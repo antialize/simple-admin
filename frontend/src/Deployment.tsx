@@ -1,11 +1,11 @@
-import * as React from "react";
-import Buttons from './deployment/Buttons';
-import Header from './deployment/Header';
 import Items from './deployment/Items'
 import Log from './deployment/Log';
-import Message from './deployment/Messages';
 
-function Deployment(props:{}) {
+import Buttons from "./deployment/Buttons";
+import Header from "./deployment/Header";
+import Message from "./deployment/Message";
+
+function Deployment() {
     return (
         <div className="deployment_container">
             <Header />

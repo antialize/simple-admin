@@ -1,7 +1,7 @@
-import * as React from "react";
-import Select from "./Select";
-import state from "./state";
 import { observer } from "mobx-react";
+import state from "./state";
+import { Autocomplete, TextField } from "@mui/material";
+
 
 interface IProps {
     selected: number[];
@@ -27,15 +27,20 @@ const ObjectSelector = observer(function ObjectSelector(p:IProps) {
     }
 
     return (
-        <Select
-            type='multi'
+        <Autocomplete options={all}
+            disableClearable
+            multiple
             fullWidth
-            options={all}
+            renderInput={(params) => (
+                <TextField
+                {...params}
+                variant="standard"
+                placeholder="Select objects"
+                />
+            )}
             value={selected}
-            onChange={(value) => p.setSelected((value as Item[]).map(i=>i.value))}
-            placeholder="Select objects"
-            />
-    )
+            onChange={(_, values) => p.setSelected(values.map(i=>i.value))}
+        />);
 });
 
 export default ObjectSelector;

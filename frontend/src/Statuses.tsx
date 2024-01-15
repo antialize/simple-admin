@@ -1,15 +1,15 @@
-import * as React from "react";
-import HostChip from './HostChip';
-import Typography from "@material-ui/core/Typography";
-import state from "./state";
-import { hostId } from './shared/type';
 import { observer } from "mobx-react";
+import state from "./state";
+import { hostId } from "./shared/type";
+import { Typography } from "@mui/material";
+import HostChip from "./HostChip";
+
 
 const Statuses = observer(function Statuses() {
     const catagories: { [key: string]: {id: number, name: string}[] } = {};
     const hosts = state.objectDigests.get(hostId);
     if (!hosts) return null;
-    for (const [id, host] of hosts) {
+    for (const [_, host] of hosts) {
         const cat = host.category || "Other";
         if (!(cat in catagories)) catagories[cat] = [];
         catagories[cat].push({id: host.id, name: host.name});

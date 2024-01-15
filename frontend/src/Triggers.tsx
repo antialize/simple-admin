@@ -1,39 +1,21 @@
-import * as React from "react";
-import MenuItem from "@material-ui/core/MenuItem";
-import Select from "@material-ui/core/Select";
-import TextField from "@material-ui/core/TextField";
-import { Theme, StyleRules, createStyles, withStyles, StyledComponentProps } from "@material-ui/core/styles";
+
 import { TypePropType, ITrigger } from './shared/type'
 import { observer } from "mobx-react";
 import derivedState from "./derivedState";
-import nullCheck from './shared/nullCheck';
+import { MenuItem, Select, TextField } from '@mui/material';
 
 interface TriggersProps {
     triggers:ITrigger[];
     setTriggers: (triggers: ITrigger[])=>void;
 }
 
-const styles = (theme:Theme) : StyleRules => {
-    return createStyles({
-        th: {
-            color: theme.palette.text.primary
-        },
-        td: {
-            color: theme.palette.text.primary
-        },
-        tr: {
-            backgroundColor: theme.palette.background.paper,
-            color: theme.palette.text.primary
-        }});
-}
+const Triggers = observer(function Triggers(p:TriggersProps) {
+    let triggers = p.triggers.slice(0);
+    let rows: JSX.Element[] =[];
+    let setTriggers = () => {
+        p.setTriggers(triggers.filter(t => t.id != 0));
+    }
 
-const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponentProps) {
-	let triggers = p.triggers.slice(0);
-	let rows: JSX.Element[] =[];
-	let setTriggers = () => {
-		p.setTriggers(triggers.filter(t => t.id != 0));
-	}
-	
     for (let i=0; i <= triggers.length; ++i) {
 		const v = i < triggers.length && triggers[i];
 
@@ -44,7 +26,7 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
                 switch (item.type) {
                 case TypePropType.text: {
                     let itt = item; //hintText={item.title}
-                    fields.push(<TextField key={item.name} value={(v && v.values && v.values[item.name]) || item.default} disabled={!v} onChange={(e) => {triggers[i].values = Object.assign({}, triggers[i].values); triggers[i].values[itt.name] = e.target.value; setTriggers();}}/>);
+                    fields.push(<TextField key={item.name} value={(v && v.values && v.values[item.name]) || item.default} disabled={!v} onChange={(e) => {triggers[i].values = Object.assign({}, triggers[i].values); triggers[i].values[itt.name] = e.target.value; setTriggers();}} variant="standard"/>);
                 }
                 }
             }
@@ -53,6 +35,7 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
 			<tr key={i}>
 				<td>
                     <Select
+                        variant="standard"
                         value={(v && v.id) || 0}
                         onChange={(e) => {
                             if (v)
@@ -70,11 +53,11 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
 		   </tr>);
     }
 
-    const classes = nullCheck(p.classes);
+
     return (
         <table>
             <thead>
-            <tr><th className={classes.th}>Type</th><th className={classes.th}>Content</th><th className={classes.th}></th></tr>
+            <tr><th>Type</th><th>Content</th><th></th></tr>
             </thead>
             <tbody>
             {rows}
@@ -82,12 +65,6 @@ const TriggersImpl = observer(function Triggers(p:TriggersProps & StyledComponen
         </table>
     )
 });
-
-function TriggersI(p:TriggersProps & StyledComponentProps) {
-    return <TriggersImpl setTriggers={p.setTriggers} triggers={p.triggers} classes={p.classes}/>;
-}
-
-const Triggers = withStyles(styles)(TriggersI);
 
 export default Triggers;
 

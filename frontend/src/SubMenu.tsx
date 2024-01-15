@@ -1,6 +1,4 @@
-import * as React from "react";
-import Menu from "@material-ui/core/Menu";
-import MenuItem from "@material-ui/core/MenuItem";
+import { Menu, MenuItem } from "@mui/material";
 import { useState } from "react";
 
 function SubMenu({ title, children }: {

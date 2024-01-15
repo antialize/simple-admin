@@ -1,14 +1,14 @@
 import * as $ from 'jquery'
 import * as React from "react";
 import * as State from './shared/state'
-import ObjectState from "./ObjectState";
-import state from "./state";
 import { action, makeObservable, observable, runInAction } from "mobx";
-import { hostId } from './shared/type';
-import getOrInsert from './shared/getOrInsert';
 import nullCheck from './shared/nullCheck';
+import state from './state';
+import getOrInsert from './shared/getOrInsert';
+import ObjectState from './ObjectState';
+import { hostId } from './shared/type';
 
-function never(n:never, message:string) {
+function never(_:never, message:string) {
     console.error(message);
 }
 
@@ -16,7 +16,7 @@ class PageState {
     constructor() {
         makeObservable(this)
     }
-    
+
     @observable
     nextNewObjectId:number = -2;
 
@@ -61,15 +61,11 @@ class PageState {
         case State.PAGE_TYPE.DockerImageHistory:
             nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
             break;
-        case State.PAGE_TYPE.DockerDeploy:
-            nullCheck(state.dockerImages).load();
-            nullCheck(state.dockerContainers).load();
-            break;
         default:
             never(p, "Unhandled page");
         }
     }
-  
+
     set current(p: State.IPage) {
         runInAction(()=>{
             this.current_ = p;
@@ -124,9 +120,6 @@ class PageState {
         case State.PAGE_TYPE.DockerContainers:
             o['page'] = 'dockerContainers';
             break;
-        case State.PAGE_TYPE.DockerDeploy:
-            o['page'] = 'dockerDeploy';
-            break;
         case State.PAGE_TYPE.ModifiedFiles:
             o['page'] = 'modifiedFiles';
             break;
@@ -158,7 +151,7 @@ class PageState {
         }
         return "?"+$.param(o)
     }
-    
+
     @action
     setFromUrl() {
         const getUrlParameter = (name:string) => {
@@ -206,9 +199,6 @@ class PageState {
             break;
         case 'dockerImageHistory':
             this.current = {type: State.PAGE_TYPE.DockerImageHistory, project: getUrlParameter("project"), tag: getUrlParameter("tag")};
-            break;
-        case 'dockerDeploy':
-            this.current = {type: State.PAGE_TYPE.DockerDeploy};
             break;
         case 'search':
             this.current = {type: State.PAGE_TYPE.Search};

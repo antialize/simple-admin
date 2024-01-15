@@ -1,33 +1,48 @@
-import * as React from "react";
 import {FitAddon} from 'xterm-addon-fit';
 import { Terminal } from 'xterm';
-import nullCheck from '.././shared/nullCheck';
+import { useEffect, useRef } from 'react';
 
 let fit = new FitAddon();
-let theTerm = new Terminal({cursorBlink: false, scrollback: 100000});
-theTerm.loadAddon(fit);
-let oldCount: number = 0;
-let clearCount: number = 0;
+let term = new Terminal({cursorBlink: false, scrollback: 100000});
+term.loadAddon(fit);
 
 export function clear() {
-    theTerm.clear();
+    term.clear();
 }
 
 export function add(bytes: string) {
-    theTerm.write(bytes);
+    term.write(bytes);
 }
 
-export class Log extends React.Component<{}, {}> {
-    div: HTMLDivElement | null = null;
+export default function Log() {
+    const div = useRef<HTMLDivElement| null>(null);
+    useEffect(() => {
+        if (div.current == null) return;
 
-    componentDidMount() {
-        theTerm.open(nullCheck(this.div));
-        fit.fit();
-    }
+        // Delay opening the terminal to the div has rendered
+        let t = window.setTimeout(() => {
+            if (!div.current) return;
+            if (!term.element) {
+                term.open(div.current);
+            } else {
+                div.current.appendChild(term.element);
+            }
+            fit.fit();
+        }, 0);
 
-    render() {
-        return <div className="deployment_log" ref={(div)=>this.div=div}/>
-    }
+        let interval = window.setInterval(() => {
+            fit.fit();
+        }, 500);
+
+        return ()=>{
+            window.clearTimeout(t);
+            window.clearInterval(interval);
+            if (term.element && term.element.parentNode == div.current) {
+                console.log("Unmount", term.element, term.element.parentNode);
+                div.current?.removeChild(term.element);
+            }
+        };
+    }, []);
+
+    return <div className="deployment_log" ref={div} />
 }
-
-export default Log;

@@ -1,16 +1,69 @@
-import * as React from "react";
 import * as State from '.././shared/state';
-import Item from './Item';
 import state from "../state";
 import { observer } from "mobx-react";
-import { withStyles, Theme, StyleRules, createStyles, StyledComponentProps } from "@material-ui/core/styles";
 import Error from "../Error";
+import { Button, Checkbox, styled, useTheme } from '@mui/material';
 
-const ItemsImpl = observer(function ItemImpl(p:StyledComponentProps) {
+const Table = styled('table')({});
+interface IProps {
+    index: number;
+}
+
+const Item = observer(function Item(p:IProps) {
+    let theme = useTheme();
+
     const deployment = state.deployment;
     if (deployment === null) return <Error>Missing state.deployment</Error>;
-    const classes = p.classes;
-    if (!classes) return <Error>Missing classes</Error>;
+    const page = state.page;
+    if (page === null) return <Error>Missing state.page</Error>;
+    let o = deployment.objects[p.index];
+   
+    let s = {};
+    switch(o.status) {
+    case State.DEPLOYMENT_OBJECT_STATUS.Deplying:
+        s = {
+            "& td" : {backgroundColor: theme.palette.mode == "dark" ? "#990" : "yellow"}
+        };
+        break;
+    case State.DEPLOYMENT_OBJECT_STATUS.Failure:
+        s = {
+                    "& td" : {backgroundColor: theme.palette.mode == "dark" ? "#600" : "#F77"}
+        };
+        break
+    case State.DEPLOYMENT_OBJECT_STATUS.Success:
+        s = {"& td" : {backgroundColor: theme.palette.mode == "dark" ? "#060" : "#7F7"}};
+        break;
+    case State.DEPLOYMENT_OBJECT_STATUS.Normal:
+        s = o.enabled?{}:{
+            "& td" : {color: theme.palette.text.disabled}
+        };
+        break;
+    }
+    let act:string | null = null;
+    switch(o.action) {
+    case State.DEPLOYMENT_OBJECT_ACTION.Add: act="Add"; break;
+    case State.DEPLOYMENT_OBJECT_ACTION.Modify: act="Modify"; break;
+    case State.DEPLOYMENT_OBJECT_ACTION.Remove: act="Remove"; break;
+    case State.DEPLOYMENT_OBJECT_ACTION.Trigger: act="Trigger"; break;
+    }
+    const canSelect = deployment.status == State.DEPLOYMENT_STATUS.ReviewChanges;
+    return (<tr style={s} key={o.index}>
+        <td>{o.hostName}</td>
+        <td>{o.title}</td>
+        <td>{o.typeName}</td>
+        <td>{act}</td>
+        <td><Checkbox checked={o.enabled} disabled={!canSelect} onChange={(e)=>deployment.toggle(o.index, e.target.checked)}/></td>
+        <td><Button onClick={(e)=>{
+            page.onClick(e, {type:State.PAGE_TYPE.DeploymentDetails, index: o.index})}}
+            href={page.link({type:State.PAGE_TYPE.DeploymentDetails, index: o.index})}>Details</Button></td>
+        </tr>
+    );
+});
+
+
+const Items = observer(function ItemImpl() {
+    const deployment = state.deployment;
+    if (deployment === null) return <Error>Missing state.deployment</Error>;
 
     switch (deployment.status) {
     case State.DEPLOYMENT_STATUS.BuildingTree:
@@ -24,13 +77,41 @@ const ItemsImpl = observer(function ItemImpl(p:StyledComponentProps) {
     }
     const c = deployment.objects.length;
     let rows: JSX.Element[] = [];
-    
+
     for (let i=0; i < c; ++i)
-        rows.push(<Item index={i} classes={classes}/>);
+        rows.push(<Item index={i}/>);
 
     return (
         <div className="deployment_items">
-            <table className={classes.table}>
+            <Table sx={{
+                borderCollapse: 'collapse',
+                borderWidth: 1,
+                borderColor: 'background.paper',
+                borderStyle: 'solid',
+                width: '100%',
+                '& th' :{
+                    color: "text.primary",
+                    borderWidth: 1,
+                    borderColor: "background.paper",
+                    borderStyle: 'solid',
+                },
+                "& tr" : {
+                    borderWidth: 1,
+                    borderColor: "background.paper",
+                    borderStyle: 'solid',
+                    color: "text.primary",
+                    backgroundColor: "background.default",
+                },
+                "& td" : {
+                    borderWidth: 1,
+                    borderColor: "background.paper",
+                    borderStyle: 'solid',
+                    padding: "4px"
+                },
+                '& tr:nth-child(even)': {
+                    backgroundColor: "background.paper",
+                }
+            }}>
                 <thead>
                     <tr>
                         <th >Host</th><th >Object</th><th >Type</th><th >Action</th><th >Enable</th><th >Details</th>
@@ -39,58 +120,9 @@ const ItemsImpl = observer(function ItemImpl(p:StyledComponentProps) {
                 <tbody>
                     {rows}
                 </tbody>
-            </table>
+            </Table>
         </div>);
 });
 
-const styles = (theme:Theme) : StyleRules => {
-    return createStyles({
-        table: {
-            borderCollapse: 'collapse',
-            borderWidth: 1,
-            borderColor: theme.palette.background.paper,
-            borderStyle: 'solid',
-            width: '100%',
-            '& th' :{
-                color: theme.palette.text.primary,
-                borderWidth: 1,
-                borderColor: theme.palette.background.paper,
-                borderStyle: 'solid',
-            },
-            "& tr" : {
-                borderWidth: 1,
-                borderColor: theme.palette.background.paper,
-                borderStyle: 'solid',
-                color: theme.palette.text.primary,
-                backgroundColor: theme.palette.background.default,
-            },
-            "& td" : {
-                borderWidth: 1,
-                borderColor: theme.palette.background.paper,
-                borderStyle: 'solid',
-                padding: 4
-            },
-            '& tr:nth-child(even)': {
-                backgroundColor: theme.palette.background.paper,
-            }
-        },
-        active: {
-            "& td" : {backgroundColor: theme.palette.type == "dark" ? "#990" : "yellow"}
-        },
-        failure: {
-            "& td" : {backgroundColor: theme.palette.type == "dark" ? "#600" : "#F77"}
-        },
-        success: {
-            "& td" : {backgroundColor: theme.palette.type == "dark" ? "#060" : "#7F7"}
-        },
-        normal: {
-        },
-        disabled: {
-            "& td" : {color: theme.palette.text.disabled}
-        }
 
-        });
-}
-
-const Items = withStyles(styles)(ItemsImpl);
 export default Items;

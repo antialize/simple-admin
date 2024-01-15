@@ -1,5 +1,3 @@
-import {IType} from './type'
-
 export enum PAGE_TYPE {
     Dashbord,
     Deployment,
@@ -7,7 +5,6 @@ export enum PAGE_TYPE {
     DockerContainerDetails,
     DockerContainerHistory,
     DockerContainers,
-    DockerDeploy,
     DockerImageHistory,
     DockerImages,
     ModifiedFile,
@@ -80,10 +77,6 @@ export interface IDockerContainerHistory {
     container: string;
 }
 
-export interface IDockerDeploy {
-    type: PAGE_TYPE.DockerDeploy;
-}
-
 export interface IModifiedFilesPage {
     type: PAGE_TYPE.ModifiedFiles;
 }
@@ -102,7 +95,6 @@ export type IPage =
     | IDockerContainersPage
     | IDockerImageHistory
     | IDockerImagesPage
-    | IDockerDeploy
     | IModifiedFilePage
     | IModifiedFilesPage
     | IObjectListPage
