@@ -336,7 +336,7 @@ async fn send_journal_message(
     // Slow path, send over memfd
     let name = std::ffi::CString::new("logging")?;
     let memfd = memfd_create(&name, MemFdCreateFlag::MFD_ALLOW_SEALING)?;
-    let mut memfd = unsafe { std::fs::File::from_raw_fd(memfd) };
+    let mut memfd = std::fs::File::from(memfd);
     memfd.write_all(&msg)?;
     nix::fcntl::fcntl(
         memfd.as_raw_fd(),

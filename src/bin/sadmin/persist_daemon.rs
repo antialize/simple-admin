@@ -482,7 +482,7 @@ pub async fn persist_daemon(args: PersistDaemon) -> Result<()> {
     // Reserve low numbered fds
     let efd = nix::sys::eventfd::eventfd(0, nix::sys::eventfd::EfdFlags::EFD_CLOEXEC)
         .context("Unable to create event fd")?;
-    for fd in efd + 1..20 {
+    for fd in efd.as_raw_fd() + 1..20 {
         nix::unistd::dup3(3, fd, nix::fcntl::OFlag::O_CLOEXEC).context("Dupping more")?;
     }
     simple_logger::SimpleLogger::new()

@@ -34,7 +34,7 @@ use tokio::{
 };
 use tokio_rustls::{
     client::TlsStream,
-    rustls::{self, OwnedTrustAnchor},
+    rustls::self,
     TlsConnector,
 };
 use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
@@ -966,7 +966,7 @@ impl Client {
             .context("Unable to resolve host")?;
 
         let stream = TcpStream::connect(&addr).await?;
-        let domain = rustls::ServerName::try_from(server_host.as_str())?;
+        let domain = rustls::pki_types::ServerName::try_from(server_host.as_str())?.to_owned();
         let (read, mut write) = tokio::io::split(self.connector.connect(domain, stream).await?);
 
         let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
@@ -1530,16 +1530,9 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
     let (persist_read, persist_write) = persistent_con.into_split();
     let mut root_cert_store = rustls::RootCertStore::empty();
 
-    root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().map(|v| v.to_owned()));
 
     let client_config = rustls::ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(root_cert_store)
         .with_no_client_auth();
     let connector = TlsConnector::from(Arc::new(client_config));
