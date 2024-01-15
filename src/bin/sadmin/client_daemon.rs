@@ -606,8 +606,8 @@ impl Client {
         self: &Arc<Self>,
         msg: DeployServiceMessage,
     ) -> Result<ClientMessage> {
-        let d: ServiceDescription =
-            serde_yaml::from_str(&msg.description).context("Parsing description")?;
+        let d: ServiceDescription = serde_yaml::from_str(&msg.description)
+            .with_context(|| format!("Parsing description: '{}'", msg.description))?;
 
         let service = self
             .services
