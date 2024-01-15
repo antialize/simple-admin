@@ -32,11 +32,7 @@ use tokio::{
     },
     time::timeout,
 };
-use tokio_rustls::{
-    client::TlsStream,
-    rustls::{self, OwnedTrustAnchor},
-    TlsConnector,
-};
+use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
 use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
 
 use crate::{
@@ -606,8 +602,8 @@ impl Client {
         self: &Arc<Self>,
         msg: DeployServiceMessage,
     ) -> Result<ClientMessage> {
-        let d: ServiceDescription =
-            serde_yaml::from_str(&msg.description).context("Parsing description")?;
+        let d: ServiceDescription = serde_yaml::from_str(&msg.description)
+            .with_context(|| format!("Parsing description: '{}'", msg.description))?;
 
         let service = self
             .services
@@ -966,7 +962,7 @@ impl Client {
             .context("Unable to resolve host")?;
 
         let stream = TcpStream::connect(&addr).await?;
-        let domain = rustls::ServerName::try_from(server_host.as_str())?;
+        let domain = rustls::pki_types::ServerName::try_from(server_host.as_str())?.to_owned();
         let (read, mut write) = tokio::io::split(self.connector.connect(domain, stream).await?);
 
         let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
@@ -1044,7 +1040,7 @@ impl Client {
                 tokio::select! {
                     val = read => {
                         match val {
-                            Ok(r) if r == 0 => {
+                            Ok(0) => {
                                 error!("Connection to server closed cleanly");
                                 self.recv_failure_notify.notify_one();
                                 break
@@ -1178,8 +1174,7 @@ impl Client {
             Ok(v) => v?,
             Err(_) => return Ok(()),
         };
-        let mut buf = Vec::new();
-        buf.resize(len.try_into()?, 0);
+        let mut buf = vec![0; len.try_into()?];
         match cancelable(run_token, socket.read_exact(&mut buf)).await {
             Ok(v) => v?,
             Err(_) => return Ok(()),
@@ -1465,8 +1460,7 @@ async fn connect_to_persist(retry: usize) -> Result<tokio::net::UnixStream> {
     socket.write_all(&v).await?;
     loop {
         let len = timeout(Duration::from_secs(10), socket.read_u32()).await??;
-        let mut buf = Vec::new();
-        buf.resize(len.try_into()?, 0);
+        let mut buf = vec![0; len.try_into()?];
         timeout(Duration::from_secs(10), socket.read_exact(&mut buf)).await??;
         let msg: persist_daemon::Message = serde_json::from_slice(&buf)?;
         if msg.with_fd() {
@@ -1530,16 +1524,9 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
     let (persist_read, persist_write) = persistent_con.into_split();
     let mut root_cert_store = rustls::RootCertStore::empty();
 
-    root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-        OwnedTrustAnchor::from_subject_spki_name_constraints(
-            ta.subject,
-            ta.spki,
-            ta.name_constraints,
-        )
-    }));
+    root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().map(|v| v.to_owned()));
 
     let client_config = rustls::ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(root_cert_store)
         .with_no_client_auth();
     let connector = TlsConnector::from(Arc::new(client_config));

@@ -189,7 +189,7 @@ pub async fn run_shell(args: Shell) -> Result<()> {
                 o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
                 o.flush()?;
             }
-            DaemonControlMessage::Finished { code } if code == 0 => break,
+            DaemonControlMessage::Finished { code: 0 } => break,
             DaemonControlMessage::Finished { code } => {
                 std::process::exit(code);
             }
