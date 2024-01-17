@@ -1,30 +1,30 @@
 import state from "./state";
-import {IAction, ACTION, IStartLog, IEndLog} from './shared/actions';
-import nullCheck from "./shared/nullCheck"
-import { MutableRefObject, useEffect, useRef } from "react";
-import { Typography } from "@mui/material";
+import {type IAction, ACTION, type IStartLog, type IEndLog} from "./shared/actions";
+import nullCheck from "./shared/nullCheck";
+import {type MutableRefObject, useEffect, useRef} from "react";
+import {Typography} from "@mui/material";
 
 let idc = 0;
 
 /*
  * Display a log for a given host.
  *
- * The log is maintaied by the component outside of redux, and even outside of react. For performance, 
+ * The log is maintaied by the component outside of redux, and even outside of react. For performance,
  * new lines are simply added to the end of an ul.
  */
 export default function Log(props: {
-    type: 'dmesg' | 'file' | 'journal';
+    type: "dmesg" | "file" | "journal";
     unit?: string;
     host: number;
 }) {
-    let ul: MutableRefObject<HTMLUListElement | null> = useRef(null);
+    const ul: MutableRefObject<HTMLUListElement | null> = useRef(null);
 
     useEffect(() => {
         if (ul.current == null) return;
-        let ulv = ul.current;
+        const ulv = ul.current;
 
         const id = idc++;
-        const handle = (action:IAction) => {
+        const handle = (action: IAction) => {
             if (action.type != ACTION.AddLogLines) return false;
             if (action.id != id) return false;
 
@@ -42,7 +42,7 @@ export default function Log(props: {
             host: props.host,
             logtype: props.type,
             unit: props.unit,
-            id: id
+            id,
         };
         state.sendMessage(msg);
         nullCheck(state.actionTargets).add(ACTION.AddLogLines, handle);
@@ -50,12 +50,26 @@ export default function Log(props: {
         return () => {
             const msg: IEndLog = {
                 type: ACTION.EndLog,
-                id: id,
-                host: props.host
-            }
+                id,
+                host: props.host,
+            };
             state.sendMessage(msg);
             nullCheck(state.actionTargets).remove(ACTION.AddLogLines, handle);
-        }
+        };
     }, []);
-    return <Typography><ul ref={ul} style={{margin:0, listStyleType: 'none', overflowY: 'scroll', overflowX: 'auto', maxHeight: '500px', padding: 0}}/></Typography>;
+    return (
+        <Typography>
+            <ul
+                ref={ul}
+                style={{
+                    margin: 0,
+                    listStyleType: "none",
+                    overflowY: "scroll",
+                    overflowX: "auto",
+                    maxHeight: "500px",
+                    padding: 0,
+                }}
+            />
+        </Typography>
+    );
 }

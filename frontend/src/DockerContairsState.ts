@@ -1,55 +1,63 @@
-import { ObservableMap, action, makeObservable, observable } from "mobx";
-import Remote from "./Remote";
-import { ACTION, DockerDeployment, IDockerDeploymentsChanged, IDockerListDeploymentHistoryRes, IDockerListDeploymentsRes } from "./shared/actions";
+import {ObservableMap, action, makeObservable, observable} from "mobx";
+import type Remote from "./Remote";
+import {
+    ACTION,
+    type DockerDeployment,
+    type IDockerDeploymentsChanged,
+    type IDockerListDeploymentHistoryRes,
+    type IDockerListDeploymentsRes,
+} from "./shared/actions";
 import state from "./state";
 import getOrInsert from "./shared/getOrInsert";
 
 export default class DockerContainersState {
     constructor() {
-        makeObservable(this)
+        makeObservable(this);
     }
-    
-    @observable
-    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: 'initial'};
 
     @observable
-    containerHistory: ObservableMap<number, ObservableMap<string,  Remote< ObservableMap<number, DockerDeployment> >>> = new ObservableMap;
+    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: "initial"};
+
+    @observable
+    containerHistory = new ObservableMap<
+        number,
+        ObservableMap<string, Remote<ObservableMap<number, DockerDeployment>>>
+    >();
 
     @action
     load() {
-        if (this.hosts.state != 'initial') return;
+        if (this.hosts.state != "initial") return;
         state.sendMessage({
             type: ACTION.DockerListDeployments,
-            ref: 0
+            ref: 0,
         });
-        this.hosts = {state: 'loading'}
+        this.hosts = {state: "loading"};
     }
 
     @action
-    loadHistory(host:number, container: string) {
+    loadHistory(host: number, container: string) {
         let c1 = this.containerHistory.get(host);
         if (!c1) {
             c1 = new ObservableMap();
             this.containerHistory.set(host, c1);
         }
-        let c2 = c1.get(container);
-        if (c2 && c2.state != 'initial') return;
+        const c2 = c1.get(container);
+        if (c2 && c2.state != "initial") return;
         state.sendMessage({
             type: ACTION.DockerListDeploymentHistory,
-            host: host,
+            host,
             name: container,
-            ref: 0
+            ref: 0,
         });
         c1.set(container, {state: "loading"});
     }
 
     @action
     handleLoad(act: IDockerListDeploymentsRes) {
-        if (this.hosts.state != 'data')
-            this.hosts = {state: 'data', data: new ObservableMap()};
+        if (this.hosts.state != "data") this.hosts = {state: "data", data: new ObservableMap()};
 
         for (const tag of act.deployments) {
-            getOrInsert(this.hosts.data, tag.host, ()=>[]).push(tag);
+            getOrInsert(this.hosts.data, tag.host, () => []).push(tag);
         }
     }
 
@@ -58,31 +66,31 @@ export default class DockerContainersState {
         const h = this.containerHistory.get(+act.host);
         if (!h) return;
         const m = new ObservableMap();
-        for (const d of act.deployments)
-            m.set(d.id, d);
-        h.set(act.name, {state: 'data', data:m});
+        for (const d of act.deployments) m.set(d.id, d);
+        h.set(act.name, {state: "data", data: m});
     }
 
     @action
     handleChange(act: IDockerDeploymentsChanged) {
-        if (this.hosts.state == 'data') {
+        if (this.hosts.state == "data") {
             const hosts = this.hosts.data;
             for (const tag of act.changed) {
                 let found = false;
-                const lst = getOrInsert(hosts, tag.host, ()=>[]);
-                for (let i=0; i < lst.length; ++i) {
+                const lst = getOrInsert(hosts, tag.host, () => []);
+                for (let i = 0; i < lst.length; ++i) {
                     if (lst[i].name != tag.name) continue;
                     found = true;
-                    if (lst[i].id <= tag.id)
-                        lst[i] = tag;
+                    if (lst[i].id <= tag.id) lst[i] = tag;
                 }
                 if (!found) lst.push(tag);
-
             }
             for (const tag of act.removed) {
-                let lst = hosts.get(tag.host);
+                const lst = hosts.get(tag.host);
                 if (!lst) continue;
-                hosts.set(tag.host, lst.filter((e) => e.name != tag.name));
+                hosts.set(
+                    tag.host,
+                    lst.filter(e => e.name != tag.name),
+                );
             }
         }
 
@@ -90,7 +98,7 @@ export default class DockerContainersState {
             const h = this.containerHistory.get(tag.host);
             if (!h) continue;
             const hh = h.get(tag.name);
-            if (!hh || hh.state !== 'data') continue;
+            if (!hh || hh.state !== "data") continue;
             hh.data.set(tag.id, tag);
         }
     }

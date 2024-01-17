@@ -1,26 +1,26 @@
-import {FitAddon} from 'xterm-addon-fit';
-import { Terminal } from 'xterm';
-import { useEffect, useRef } from 'react';
+import {FitAddon} from "xterm-addon-fit";
+import {Terminal} from "xterm";
+import {useEffect, useRef} from "react";
 
-let fit = new FitAddon();
-let term = new Terminal({cursorBlink: false, scrollback: 100000});
+const fit = new FitAddon();
+const term = new Terminal({cursorBlink: false, scrollback: 100000});
 term.loadAddon(fit);
 
-export function clear() {
+export function clear(): void {
     term.clear();
 }
 
-export function add(bytes: string) {
+export function add(bytes: string): void {
     term.write(bytes);
 }
 
-export default function Log() {
-    const div = useRef<HTMLDivElement| null>(null);
+export default function Log(): JSX.Element {
+    const div = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
         if (div.current == null) return;
 
         // Delay opening the terminal to the div has rendered
-        let t = window.setTimeout(() => {
+        const t = window.setTimeout(() => {
             if (!div.current) return;
             if (!term.element) {
                 term.open(div.current);
@@ -30,11 +30,11 @@ export default function Log() {
             fit.fit();
         }, 0);
 
-        let interval = window.setInterval(() => {
+        const interval = window.setInterval(() => {
             fit.fit();
         }, 500);
 
-        return ()=>{
+        return () => {
             window.clearTimeout(t);
             window.clearInterval(interval);
             if (term.element && term.element.parentNode == div.current) {
@@ -44,5 +44,5 @@ export default function Log() {
         };
     }, []);
 
-    return <div className="deployment_log" ref={div} />
+    return <div className="deployment_log" ref={div} />;
 }

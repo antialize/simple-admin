@@ -1,19 +1,19 @@
 export interface RemoteData<T> {
-    state: 'data',
+    state: "data";
     data: T;
 }
 export interface RemoteError<E> {
-    state: 'error',
+    state: "error";
     data: E;
 }
 
 export interface RemoteInitial {
-    state: 'initial'
+    state: "initial";
 }
 
 export interface RemoteLoading {
-    state: 'loading'
+    state: "loading";
 }
 
-export type Remote<T, E={}> = RemoteData<T> | RemoteError<E> | RemoteInitial | RemoteLoading;
+export type Remote<T, E = unknown> = RemoteData<T> | RemoteError<E> | RemoteInitial | RemoteLoading;
 export default Remote;

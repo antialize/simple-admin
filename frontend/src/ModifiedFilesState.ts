@@ -1,17 +1,17 @@
-import { action, makeObservable, observable } from "mobx";
-import Remote from "./Remote";
-import { ACTION, IModifiedFilesChanged, ModifiedFile } from "./shared/actions";
+import {action, makeObservable, observable} from "mobx";
+import type Remote from "./Remote";
+import {ACTION, type IModifiedFilesChanged, type ModifiedFile} from "./shared/actions";
 import state from "./state";
 import nullCheck from "./shared/nullCheck";
-import { PAGE_TYPE } from "./shared/state";
+import {PAGE_TYPE} from "./shared/state";
 
 export default class ModifiedFilesState {
     constructor() {
-        makeObservable(this)
+        makeObservable(this);
     }
 
     @observable
-    modifiedFiles: Remote< Map<number, ModifiedFile> > = {state: 'initial'};
+    modifiedFiles: Remote<Map<number, ModifiedFile>> = {state: "initial"};
 
     @observable
     scanning: boolean = false;
@@ -22,51 +22,46 @@ export default class ModifiedFilesState {
     @observable
     saveTime: number | null = null;
 
-
     private saveInterval: any = null;
 
     load() {
-        if (this.modifiedFiles.state != 'initial') return;
+        if (this.modifiedFiles.state != "initial") return;
         state.sendMessage({
-            type: ACTION.ModifiedFilesList
+            type: ACTION.ModifiedFilesList,
         });
-        this.modifiedFiles = {state: 'loading'};
+        this.modifiedFiles = {state: "loading"};
     }
 
     @action
-    handleChange(act : IModifiedFilesChanged) {
-        if (act.full)
-            this.modifiedFiles = {state: 'data', data: new Map()};
-        if (this.modifiedFiles.state != 'data')
-            return;
+    handleChange(act: IModifiedFilesChanged) {
+        if (act.full) this.modifiedFiles = {state: "data", data: new Map()};
+        if (this.modifiedFiles.state != "data") return;
         this.scanning = act.scanning;
         this.lastScanTime = act.lastScanTime;
-        for (const id of act.removed)
-            this.modifiedFiles.data.delete(id);
-        for (const f of act.changed)
-            this.modifiedFiles.data.set(f.id, f);
+        for (const id of act.removed) this.modifiedFiles.data.delete(id);
+        for (const f of act.changed) this.modifiedFiles.data.set(f.id, f);
     }
 
     scan() {
         state.sendMessage({
-            type: ACTION.ModifiedFilesScan
+            type: ACTION.ModifiedFilesScan,
         });
     }
 
-    revert(id:number) {
+    revert(id: number) {
         if (!confirm("Are you sure you want to revert the file on the remote host?")) return;
         state.sendMessage({
             type: ACTION.ModifiedFilesResolve,
             id,
             action: "redeploy",
-            newCurrent: null
+            newCurrent: null,
         });
         nullCheck(state.page).set({type: PAGE_TYPE.ModifiedFiles});
     }
 
-    save(id:number, newCurrent:string) {
+    save(id: number, newCurrent: string) {
         if (!newCurrent) return;
-        if (this.modifiedFiles.state != 'data') return;
+        if (this.modifiedFiles.state != "data") return;
         const f = this.modifiedFiles.data.get(id);
         if (!f) return;
         if (!confirm("Are you sure you want save the current object?")) return;
@@ -74,12 +69,12 @@ export default class ModifiedFilesState {
             type: ACTION.ModifiedFilesResolve,
             id,
             action: "updateCurrent",
-            newCurrent
+            newCurrent,
         });
 
         this.saveTime = 10;
 
-        this.saveInterval = setInterval(()=>{
+        this.saveInterval = setInterval(() => {
             if (this.saveTime === null) return;
             --this.saveTime;
             if (this.saveTime > 0) return;
@@ -89,4 +84,4 @@ export default class ModifiedFilesState {
             this.saveInterval = null;
         }, 500);
     }
-};
+}

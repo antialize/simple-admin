@@ -1,5 +1,12 @@
 export enum TypePropType {
-    none, bool, text, password, document, choice, typeContent, number,
+    none,
+    bool,
+    text,
+    password,
+    document,
+    choice,
+    typeContent,
+    number,
 }
 
 export interface IBoolTypeProp {
@@ -64,14 +71,21 @@ export interface ITypeContentTypeProp {
     name: string;
 }
 
-
 export interface INoneTypeProp {
     type: TypePropType.none;
 }
 
-export type ITypeProp = IBoolTypeProp | ITextTypeProp | INumberTypeProp | IPasswordTypeProp | IDocumentTypeProp | IChoiceTypeProp | ITypeContentTypeProp | INoneTypeProp ;
+export type ITypeProp =
+    | IBoolTypeProp
+    | ITextTypeProp
+    | INumberTypeProp
+    | IPasswordTypeProp
+    | IDocumentTypeProp
+    | IChoiceTypeProp
+    | ITypeContentTypeProp
+    | INoneTypeProp;
 
-export type KindType = "host" | "root" | "collection" | "delta" | "sum" | "type" | "trigger"
+export type KindType = "host" | "root" | "collection" | "delta" | "sum" | "type" | "trigger";
 
 export interface IType {
     plural?: string;
@@ -90,7 +104,7 @@ export interface IType {
 }
 
 export interface IVariables {
-    variables: {key:string, value:string}[];
+    variables: Array<{key: string; value: string}>;
 }
 
 export interface IContains {
@@ -102,11 +116,12 @@ export interface ISudoOn {
 }
 
 export interface ITrigger {
-    id:number, values: {[key:string]: any};
+    id: number;
+    values: Record<string, any>;
 }
 
 export interface ITriggers {
-    triggers:ITrigger[];
+    triggers: ITrigger[];
 }
 
 export interface IDepends {
@@ -125,4 +140,3 @@ export const rootId = 3;
 export const userId = 4;
 export const packageId = 10;
 export const rootInstanceId = 100;
-

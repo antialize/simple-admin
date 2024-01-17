@@ -1,39 +1,60 @@
-import { observer } from "mobx-react";
+import {observer} from "mobx-react";
 import state from "./state";
-import { Button, Link, List, ListItem, TextField, Typography } from "@mui/material";
+import {Button, Link, List, ListItem, TextField, Typography} from "@mui/material";
 import nullCheck from "./shared/nullCheck";
-import * as State from './shared/state';
+import * as State from "./shared/state";
 
-const ObjectList = observer(function ObjectList({type}:{type:number}) {
+const ObjectList = observer(function ObjectList({type}: {type: number}) {
     const page = state.page;
     if (page === null) return <span>Missing state.page</span>;
-    let filter = (state.objectListFilter.get(type) || "");
-    let lst = [];
+    const filter = state.objectListFilter.get(type) ?? "";
+    const lst = [];
     const digests = state.objectDigests.get(type);
     if (digests !== undefined) {
-        for (let [_, v] of digests) {
-            if (v.name.toLowerCase().includes(filter.toLowerCase()))
-                lst.push(v);
+        for (const [_, v] of digests) {
+            if (v.name.toLowerCase().includes(filter.toLowerCase())) lst.push(v);
         }
-        lst.sort((l,r)=>{return l.name < r.name ? -1 : 1;});
+        lst.sort((l, r) => {
+            return l.name < r.name ? -1 : 1;
+        });
     }
-    return <>
+    return (
+        <>
             <Typography variant="h5" component="h3">
                 List of {nullCheck(state.types.get(type)).content.plural}
             </Typography>
-            <TextField placeholder="Filter" onChange={(e)=>{state.objectListFilter.set(type,e.target.value);}} value={filter}/>
+            <TextField
+                placeholder="Filter"
+                onChange={e => {
+                    state.objectListFilter.set(type, e.target.value);
+                }}
+                value={filter}
+            />
             <List>
-                {lst.map(v =>
+                {lst.map(v => (
                     <ListItem
                         key={v.id}
-                        onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type, id: v.id})}
-                        >
+                        onClick={e => {
+                            page.onClick(e, {
+                                type: State.PAGE_TYPE.Object,
+                                objectType: type,
+                                id: v.id,
+                            });
+                        }}>
                         <Link color={"textPrimary" as any}>{v.name}</Link>
-                    </ListItem>)}
+                    </ListItem>
+                ))}
             </List>
-            <Button variant="contained" onClick={(e)=>page.onClick(e, {type:State.PAGE_TYPE.Object, objectType: type})} href={page.link({type:State.PAGE_TYPE.Object, objectType: type})}>Add new</Button>
-        </>;
+            <Button
+                variant="contained"
+                onClick={e => {
+                    page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type});
+                }}
+                href={page.link({type: State.PAGE_TYPE.Object, objectType: type})}>
+                Add new
+            </Button>
+        </>
+    );
 });
 
 export default ObjectList;
-

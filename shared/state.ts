@@ -11,7 +11,7 @@ export enum PAGE_TYPE {
     ModifiedFiles,
     Object,
     ObjectList,
-    Search
+    Search,
 }
 
 export interface IObjectDigest {
@@ -31,7 +31,7 @@ export interface IObjectPage {
     objectType: number;
     id?: number;
     version?: number;
-};
+}
 
 export interface IDashbordPage {
     type: PAGE_TYPE.Dashbord;
@@ -59,7 +59,7 @@ export interface IDockerContainersPage {
 }
 
 export interface IDockerImageHistory {
-    type: PAGE_TYPE.DockerImageHistory
+    type: PAGE_TYPE.DockerImageHistory;
     project: string;
     tag: string;
 }
@@ -99,8 +99,7 @@ export type IPage =
     | IModifiedFilesPage
     | IObjectListPage
     | IObjectPage
-    | ISearchPage
-    ;
+    | ISearchPage;
 
 export interface IObject2<T> {
     id: number;
@@ -114,17 +113,34 @@ export interface IObject2<T> {
     time: number | null;
 }
 
-export enum DEPLOYMENT_STATUS { Done, BuildingTree, InvilidTree, ComputingChanges, ReviewChanges, Deploying }
+export enum DEPLOYMENT_STATUS {
+    Done,
+    BuildingTree,
+    InvilidTree,
+    ComputingChanges,
+    ReviewChanges,
+    Deploying,
+}
 
-export enum DEPLOYMENT_OBJECT_STATUS { Normal, Deplying, Success, Failure }
-export enum DEPLOYMENT_OBJECT_ACTION { Add, Modify, Remove, Trigger, Monitor }
-
+export enum DEPLOYMENT_OBJECT_STATUS {
+    Normal,
+    Deplying,
+    Success,
+    Failure,
+}
+export enum DEPLOYMENT_OBJECT_ACTION {
+    Add,
+    Modify,
+    Remove,
+    Trigger,
+    Monitor,
+}
 
 export interface IDeploymentTrigger {
-    typeId: number,
-    script: string,
-    content: {[key:string]:any},
-    title: string,
+    typeId: number;
+    script: string;
+    content: Record<string, any>;
+    title: string;
 }
 
 export interface IDeploymentObject {
@@ -139,12 +155,11 @@ export interface IDeploymentObject {
 
     script: string;
     prevScript: string | null;
-    nextContent: {[key:string]: any} | null;
-    prevContent: {[key:string]: any} | null;
+    nextContent: Record<string, any> | null;
+    prevContent: Record<string, any> | null;
     id: number | null;
     typeId: number | null;
     typeName: string;
     triggers: IDeploymentTrigger[];
     deploymentOrder: number;
 }
-
