@@ -1,79 +1,86 @@
-import { IPage, IObjectDigest, IObject2, DEPLOYMENT_OBJECT_STATUS, DEPLOYMENT_STATUS, IDeploymentObject } from './state';
-import { IType } from './type'
+import {
+    type IPage,
+    type IObjectDigest,
+    type IObject2,
+    type DEPLOYMENT_OBJECT_STATUS,
+    type DEPLOYMENT_STATUS,
+    type IDeploymentObject,
+} from "./state";
+import {type IType} from "./type";
 
 export enum ACTION {
-    AddDeploymentLog="AddDeploymentLog",
-    AddLogLines="AddLogLines",
-    AddMessage="AddMessage",
-    Alert="Alert",
-    AuthStatus="AuthStatus",
-    CancelDeployment="CancelDeployment",
-    ClearDeploymentLog="ClearDeploymentLog",
-    DeleteObject="DeleteObject",
-    DeployObject="DeployObject",
-    DockerContainerForget="DockerContainerForget",
-    DockerContainerRemove="DockerContainerRemove",
-    DockerContainerStart="DockerContainerStart",
-    DockerContainerStop="DockerContainerStop",
-    DockerDeployDone="DockerDeployEnd",
-    DockerDeployLog="DockerDeployLog",
-    DockerDeploymentsChanged="DockerDeploymentsChanged",
-    DockerDeployStart="DockerDeployStart",
-    DockerImageSetPin="DockerImageSetPin",
-    DockerImageTagSetPin="DockerImageTagSetPin",
-    DockerListDeploymentHistory="DockerListDeploymentHistory",
-    DockerListDeploymentHistoryRes="DockerListDeploymentHistoryRes",
-    DockerListDeployments="DockerListDeployments",
-    DockerListDeploymentsRes="DockerListDeploymentsRes",
-    DockerListImageByHash="DockerListImageByHash",
-    DockerListImageByHashRes="DockerListImageByHashRes",
-    DockerListImageTagHistory="DockerListImageTagHistory",
-    DockerListImageTagHistoryRes="DockerListImageTagHistoryRes",
-    DockerListImageTags="DockerListImageTags",
-    DockerListImageTagsChanged="DockerListImageTagsChanged",
-    DockerListImageTagsRes="DockerListImageTagsRes",
-    EndLog="EndLog",
-    FetchObject="FetchObject",
-    GenerateKey="GenerateKey",
-    GenerateKeyRes="GenerateKeyRes",
-    GetObjectHistory="GetObjectHistory",
-    GetObjectHistoryRes="GetObjectHistoryRes",
-    GetObjectId="GetObjectId",
-    GetObjectIdRes="GetObjectIdRes",
-    HostDown="HostDown",
-    HostUp="HostUp",
-    ListModifiedFiles="ListModifiedFiles",
-    Login="Login",
-    Logout="LogOut",
-    MessageTextRep="MessageTextRep",
-    MessageTextReq="MessageTextReq",
-    ModifiedFilesChanged="ModifiedFilesChanged",
-    ModifiedFilesList="ModifiedFilesList",
-    ModifiedFilesResolve="ModifiedFilesResolve",
-    ModifiedFilesScan="ModifiedFilesScan",
-    ObjectChanged="ObjectChanged",
-    RequestAuthStatus="RequestAuthStatus",
-    RequestInitialState="RequestInitialState",
-    ResetServerState="ResetServerState",
-    SaveObject="SaveObject",
-    Search="Search",
-    SearchRes="SearchRes",
-    ServiceDeployStart="ServiceDeployStart",
-    ServiceRedeployStart="ServiceRedeployStart",
-    SetDeploymentMessage="SetDeploymentMessage",
-    SetDeploymentObjects="SetDeploymentObjects",
-    SetDeploymentObjectStatus="SetDeploymentObjectStatus",
-    SetDeploymentStatus="SetDeploymentStatus",
-    SetInitialState="SetInitialState",
-    SetMessagesDismissed="SetMessageDismissed",
-    SetPage="SetPage",
-    StartDeployment="StartDeployment",
-    StartLog="StartLog",
-    StatValueChanges="StatValueChanges",
-    StopDeployment="StopDeployment",
-    SubscribeStatValues="SubscribeStatValues",
-    ToggleDeploymentObject="ToggleDeploymentObject",
-    UpdateStatus="UpdateStatus",
+    AddDeploymentLog = "AddDeploymentLog",
+    AddLogLines = "AddLogLines",
+    AddMessage = "AddMessage",
+    Alert = "Alert",
+    AuthStatus = "AuthStatus",
+    CancelDeployment = "CancelDeployment",
+    ClearDeploymentLog = "ClearDeploymentLog",
+    DeleteObject = "DeleteObject",
+    DeployObject = "DeployObject",
+    DockerContainerForget = "DockerContainerForget",
+    DockerContainerRemove = "DockerContainerRemove",
+    DockerContainerStart = "DockerContainerStart",
+    DockerContainerStop = "DockerContainerStop",
+    DockerDeployDone = "DockerDeployEnd",
+    DockerDeployLog = "DockerDeployLog",
+    DockerDeploymentsChanged = "DockerDeploymentsChanged",
+    DockerDeployStart = "DockerDeployStart",
+    DockerImageSetPin = "DockerImageSetPin",
+    DockerImageTagSetPin = "DockerImageTagSetPin",
+    DockerListDeploymentHistory = "DockerListDeploymentHistory",
+    DockerListDeploymentHistoryRes = "DockerListDeploymentHistoryRes",
+    DockerListDeployments = "DockerListDeployments",
+    DockerListDeploymentsRes = "DockerListDeploymentsRes",
+    DockerListImageByHash = "DockerListImageByHash",
+    DockerListImageByHashRes = "DockerListImageByHashRes",
+    DockerListImageTagHistory = "DockerListImageTagHistory",
+    DockerListImageTagHistoryRes = "DockerListImageTagHistoryRes",
+    DockerListImageTags = "DockerListImageTags",
+    DockerListImageTagsChanged = "DockerListImageTagsChanged",
+    DockerListImageTagsRes = "DockerListImageTagsRes",
+    EndLog = "EndLog",
+    FetchObject = "FetchObject",
+    GenerateKey = "GenerateKey",
+    GenerateKeyRes = "GenerateKeyRes",
+    GetObjectHistory = "GetObjectHistory",
+    GetObjectHistoryRes = "GetObjectHistoryRes",
+    GetObjectId = "GetObjectId",
+    GetObjectIdRes = "GetObjectIdRes",
+    HostDown = "HostDown",
+    HostUp = "HostUp",
+    ListModifiedFiles = "ListModifiedFiles",
+    Login = "Login",
+    Logout = "LogOut",
+    MessageTextRep = "MessageTextRep",
+    MessageTextReq = "MessageTextReq",
+    ModifiedFilesChanged = "ModifiedFilesChanged",
+    ModifiedFilesList = "ModifiedFilesList",
+    ModifiedFilesResolve = "ModifiedFilesResolve",
+    ModifiedFilesScan = "ModifiedFilesScan",
+    ObjectChanged = "ObjectChanged",
+    RequestAuthStatus = "RequestAuthStatus",
+    RequestInitialState = "RequestInitialState",
+    ResetServerState = "ResetServerState",
+    SaveObject = "SaveObject",
+    Search = "Search",
+    SearchRes = "SearchRes",
+    ServiceDeployStart = "ServiceDeployStart",
+    ServiceRedeployStart = "ServiceRedeployStart",
+    SetDeploymentMessage = "SetDeploymentMessage",
+    SetDeploymentObjects = "SetDeploymentObjects",
+    SetDeploymentObjectStatus = "SetDeploymentObjectStatus",
+    SetDeploymentStatus = "SetDeploymentStatus",
+    SetInitialState = "SetInitialState",
+    SetMessagesDismissed = "SetMessageDismissed",
+    SetPage = "SetPage",
+    StartDeployment = "StartDeployment",
+    StartLog = "StartLog",
+    StatValueChanges = "StatValueChanges",
+    StopDeployment = "StopDeployment",
+    SubscribeStatValues = "SubscribeStatValues",
+    ToggleDeploymentObject = "ToggleDeploymentObject",
+    UpdateStatus = "UpdateStatus",
 }
 
 export type Ref = number | string;
@@ -86,7 +93,7 @@ export interface IFetchObject {
 export interface IObjectChanged {
     type: ACTION.ObjectChanged;
     id: number;
-    object: IObject2<any>[];
+    object: Array<IObject2<any>>;
 }
 
 export interface ISetPageAction {
@@ -108,21 +115,21 @@ export interface IMessage {
 
 export interface ISetInitialState {
     type: ACTION.SetInitialState;
-    objectNamesAndIds: { [cls: string]: IObjectDigest[] };
+    objectNamesAndIds: Record<string, IObjectDigest[]>;
     messages: IMessage[];
     deploymentObjects: IDeploymentObject[];
     deploymentStatus: DEPLOYMENT_STATUS;
     deploymentMessage: string;
     deploymentLog: string[];
-    types: { [id:number]: IObject2<IType>};
+    types: Record<number, IObject2<IType>>;
     hostsUp: number[];
-    usedBy: [number, number][];
+    usedBy: Array<[number, number]>;
 }
 
 export interface IStartLog {
     type: ACTION.StartLog;
     host: number;
-    logtype: 'file' | 'dmesg' | 'journal'
+    logtype: "file" | "dmesg" | "journal";
     id: number;
     unit?: string;
 }
@@ -142,13 +149,13 @@ export interface IAddLogLines {
 export interface IMessageTextReqAction {
     type: ACTION.MessageTextReq;
     id: number;
-};
+}
 
 export interface IMessageTextRepAction {
     type: ACTION.MessageTextRep;
     id: number;
     message: string;
-};
+}
 
 export interface IAddMessage {
     type: ACTION.AddMessage;
@@ -171,20 +178,20 @@ export interface ISaveObject {
 export interface ISearch {
     type: ACTION.Search;
     ref: Ref;
-    pattern: String;
+    pattern: string;
 }
 
 export interface ISearchRes {
     type: ACTION.SearchRes;
     ref: Ref;
-    objects: {
-        type: number,
-        id: number,
-        version: number,
-        name: string,
+    objects: Array<{
+        type: number;
+        id: number;
+        version: number;
+        name: string;
         comment: string;
         content: string;
-    }[];
+    }>;
 }
 
 export interface IHostDown {
@@ -267,7 +274,7 @@ export interface IAlert {
     message: string;
     title: string;
 }
-    
+
 export interface IRequestAuthStatus {
     type: ACTION.RequestAuthStatus;
     session?: string;
@@ -284,7 +291,7 @@ export interface IAuthStatus {
     dockerPull: boolean;
     dockerPush: boolean;
     session: string | null;
-};
+}
 
 export interface ILogin {
     type: ACTION.Login;
@@ -308,7 +315,7 @@ export interface ISubscribeStatValues {
     target: number;
     host: number;
     values: string[] | null;
-};
+}
 
 export interface IStatValueChanges {
     type: ACTION.StatValueChanges;
@@ -318,7 +325,7 @@ export interface IStatValueChanges {
     value: number;
     level: number;
     index: number;
-};
+}
 
 export interface IDockerDeployStart {
     type: ACTION.DockerDeployStart;
@@ -331,7 +338,7 @@ export interface IDockerDeployStart {
 }
 
 export interface IServiceDeployStart {
-    type: ACTION.ServiceDeployStart
+    type: ACTION.ServiceDeployStart;
     ref: Ref;
     host: number | string;
     description: string;
@@ -339,7 +346,7 @@ export interface IServiceDeployStart {
 }
 
 export interface IServiceRedeployStart {
-    type: ACTION.ServiceRedeployStart
+    type: ACTION.ServiceRedeployStart;
     ref: Ref;
     deploymentId: number;
 }
@@ -396,11 +403,11 @@ export interface IGetObjectHistoryRes {
     type: ACTION.GetObjectHistoryRes;
     ref: Ref;
     id: number;
-    history: {
-        version: number,
-        time: number,
-        author: string | null
-    }[];
+    history: Array<{
+        version: number;
+        time: number;
+        author: string | null;
+    }>;
 }
 
 export interface IDockerListImageTags {
@@ -416,7 +423,7 @@ export interface DockerImageTag {
     time: number;
     user: string;
     pin: boolean;
-    labels: {[key: string]: string};
+    labels: Record<string, string>;
     removed: number | null;
 }
 
@@ -424,14 +431,14 @@ export interface IDockerListImageTagsRes {
     type: ACTION.DockerListImageTagsRes;
     ref: Ref;
     tags: DockerImageTag[];
-    pinnedImageTags?: {image: string, tag:string}[];
+    pinnedImageTags?: Array<{image: string; tag: string}>;
 }
 
 export interface IDockerImageTagsCharged {
     type: ACTION.DockerListImageTagsChanged;
     changed: DockerImageTag[];
-    removed: {image: string, hash:string}[];
-    imageTagPinChanged?: {image: string, tag: string, pin:boolean}[];
+    removed: Array<{image: string; hash: string}>;
+    imageTagPinChanged?: Array<{image: string; tag: string; pin: boolean}>;
 }
 
 export interface IDockerListDeployments {
@@ -449,7 +456,7 @@ export interface DockerDeployment {
     name: string;
     user: string;
     start: number;
-    end: number | null
+    end: number | null;
     host: number;
     state?: string;
     config: string;
@@ -467,7 +474,7 @@ export interface IDockerListDeploymentsRes {
 export interface IDockerDeploymentsChanged {
     type: ACTION.DockerDeploymentsChanged;
     changed: DockerDeployment[];
-    removed: {host:number, name:string}[];
+    removed: Array<{host: number; name: string}>;
 }
 
 export interface IDockerContainerStart {
@@ -503,7 +510,7 @@ export interface IDockerListImageByHash {
 export interface IDockerListImageByHashRes {
     type: ACTION.DockerListImageByHashRes;
     ref: Ref;
-    tags: {[hash: string]: DockerImageTag};
+    tags: Record<string, DockerImageTag>;
 }
 
 export interface IDockerImageSetPin {

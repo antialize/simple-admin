@@ -1,18 +1,18 @@
-import { IAction, ACTION } from "./shared/actions";
-import getOrInsert from './shared/getOrInsert';
+import {type IAction, type ACTION} from "./shared/actions";
+import getOrInsert from "./shared/getOrInsert";
 
-export interface ActionTarget {
-    handle: (action: IAction) => boolean;
-}
+type ActionTarget = (action: IAction) => boolean;
 
 export class ActionTargets {
-    targets: Map<ACTION, Set<ActionTarget>> = new Map;
-    add(action: ACTION, target: ActionTarget) {
-        getOrInsert(this.targets, action, ()=>new Set()).add(target);
+    targets = new Map<ACTION, Set<ActionTarget>>();
+    add(action: ACTION, target: ActionTarget): void {
+        getOrInsert(this.targets, action, () => new Set()).add(target);
     }
-    remove(action: ACTION, target: ActionTarget) {
+
+    remove(action: ACTION, target: ActionTarget): void {
         const p = this.targets.get(action);
-        p && p.delete(target);
+        if (p != null) {
+            p.delete(target);
+        }
     }
 }
-

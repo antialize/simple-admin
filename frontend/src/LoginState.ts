@@ -1,17 +1,19 @@
-import * as Cookies from "js-cookie"
-import state, { CONNECTION_STATUS } from "./state";
-import { ILogin, ACTION, ILogout } from './shared/actions';
-import { observable, action, makeObservable } from "mobx";
+import Cookies from "js-cookie";
+import state, {CONNECTION_STATUS} from "./state";
+import {type ILogin, ACTION, type ILogout} from "./shared/actions";
+import {observable, action, makeObservable} from "mobx";
 
 class LoginState {
     constructor() {
-        makeObservable(this)
+        makeObservable(this);
     }
-    
+
     @observable
     user: string = "";
+
     @observable
     pwd: string = "";
+
     @observable
     otp: string = "";
 
@@ -21,7 +23,7 @@ class LoginState {
             type: ACTION.Login,
             user: this.user,
             pwd: this.pwd,
-            otp: this.otp
+            otp: this.otp,
         };
         state.sendMessage(l);
         state.connectionStatus = CONNECTION_STATUS.AUTHENTICATING;
@@ -29,12 +31,13 @@ class LoginState {
         this.pwd = "";
         this.otp = "";
     }
+
     @action
     logout(forgetOtp: boolean) {
         const l: ILogout = {
             type: ACTION.Logout,
             forgetPwd: true,
-            forgetOtp
+            forgetOtp,
         };
         state.sendMessage(l);
         state.loaded = false;
@@ -45,6 +48,6 @@ class LoginState {
             Cookies.remove("simple-admin-session");
         }
     }
-};
+}
 
 export default LoginState;

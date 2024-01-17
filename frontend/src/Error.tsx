@@ -1,6 +1,4 @@
-import * as React from 'react';
-
-export function Error({children}:{children:string}) {
+export function Error({children}: {children: string}) {
     return <span style={{background: "red"}}>{children}</span>;
 }
 

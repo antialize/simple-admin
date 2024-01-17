@@ -1,26 +1,32 @@
+import type {ActionTargets} from "./ActionTargets";
 import type DeploymentState from "./deployment/DeploymentState";
+import type DockerContainersState from "./DockerContairsState";
+import type DockerImagesState from "./DockerImagesState";
 import type LoginState from "./LoginState";
+import type ModifiedFilesState from "./ModifiedFilesState";
 import type ObjectState from "./ObjectState";
 import type PageState from "./PageState";
-import type { IAction, IMessage }  from "./shared/actions";
-import type { IObject2, IObjectDigest } from "./shared/state";
-import type { IType } from "./shared/type";
-import { observable, computed, makeObservable } from "mobx";
-import type { ActionTargets } from "./ActionTargets";
-import type { DockerImagesState } from "./DockerImages";
-import type { DockerContainersState } from "./DockerContainers";
-import type { ModifiedFilesState } from "./ModifiedFiles";
-import type { DockerDeployState} from "./DockerDeploy";
-import type { SearchState } from "./Search";
+import type SearchState from "./SearchState";
+import type {IAction, IMessage} from "./shared/actions";
+import type {IObject2, IObjectDigest} from "./shared/state";
+import type {IType} from "./shared/type";
+import {computed, observable, makeObservable} from "mobx";
 
-
-export enum CONNECTION_STATUS {CONNECTING, CONNECTED, AUTHENTICATING, LOGIN, INITING, INITED, WAITING};
+export enum CONNECTION_STATUS {
+    CONNECTING,
+    CONNECTED,
+    AUTHENTICATING,
+    LOGIN,
+    INITING,
+    INITED,
+    WAITING,
+}
 
 class State {
     constructor() {
-        makeObservable(this)
+        makeObservable(this);
     }
-    
+
     @observable
     connectionStatus: CONNECTION_STATUS = CONNECTION_STATUS.CONNECTED;
 
@@ -33,54 +39,54 @@ class State {
 
     @observable
     authUser: string | null = null;
+
     @observable
-    authOtp: boolean = false
+    authOtp: boolean = false;
+
     @observable
     authMessage: string | null = null;
 
     @observable
-    types: Map<number, IObject2<IType>> = new Map;
+    types = new Map<number, IObject2<IType>>();
 
     @observable
-    objectDigests: Map<number, Map<number, IObjectDigest>> = new Map;
+    objectDigests = new Map<number, Map<number, IObjectDigest>>();
 
     actionTargets: ActionTargets | null = null;
 
     @observable
-    objectListFilter: Map<number, string> = new Map;
+    objectListFilter = new Map<number, string>();
 
     @observable
-    messages: Map<number, IMessage> = new Map;
+    messages = new Map<number, IMessage>();
 
     @computed
-    get activeMessages() {
+    get activeMessages(): number {
         let cnt = 0;
-        for (const [n, m] of this.messages)
-            if (!m.dismissed)
-                cnt += 1;
+        for (const [_, m] of this.messages) if (!m.dismissed) cnt += 1;
         return cnt;
     }
 
     @observable
-    messageExpanded: Map<number, boolean> = new Map;
+    messageExpanded = new Map<number, boolean>();
 
     @observable
-    messageGroupExpanded: Map<number, boolean> = new Map;
+    messageGroupExpanded = new Map<number, boolean>();
 
     @observable
-    serviceListFilter: Map<number, string> = new Map;
+    serviceListFilter = new Map<number, string>();
 
     @observable
-    serviceLogVisibility: Map<number, Map<string, boolean>> = new Map;
+    serviceLogVisibility = new Map<number, Map<string, boolean>>();
 
     @observable
-    objects: Map<number, ObjectState> = new Map;
+    objects = new Map<number, ObjectState>();
 
     @observable
-    objectUsedBy: Map<number, Set<number>> = new Map;
+    objectUsedBy = new Map<number, Set<number>>();
 
-    //@observable
-    //host_up: Map<Number, boolean> = new Map;
+    @observable
+    host_up = new Map<number, boolean>();
 
     @observable.shallow
     dockerImages: DockerImagesState | null = null;
@@ -92,21 +98,18 @@ class State {
     modifiedFiles: ModifiedFilesState | null = null;
 
     @observable.shallow
-    dockerDeploy: DockerDeployState | null = null;
-
-    @observable.shallow
     search: SearchState | null = null;
 
     @observable
-    hostsUp: Set<number> = new Set;
+    hostsUp = new Set<number>();
 
-    doSendMessage: null | ((act:IAction)=>void)  = null;
+    doSendMessage: null | ((act: IAction) => void) = null;
 
-    sendMessage(act:IAction) {
+    sendMessage(act: IAction): void {
         if (this.doSendMessage === null) throw Error("doSentMessage not set");
         this.doSendMessage(act);
     }
-};
+}
 
-export let state = new State();
+export const state = new State();
 export default state;
