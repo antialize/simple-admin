@@ -1,38 +1,40 @@
-import * as message from './messages'
-import {HostClient} from './hostclient'
-import {JobOwner} from './jobowner'
+import * as message from './messages';
+import { HostClient } from './hostclient';
+import { JobOwner } from './jobowner';
 
 export abstract class Job {
     id: number;
     running: boolean = false;
     client: HostClient | null;
-    constructor(client: HostClient, id:number | null = null, public owner:JobOwner | null = null) {
+    constructor(
+        client: HostClient,
+        id: number | null = null,
+        public owner: JobOwner | null = null,
+    ) {
         this.client = client;
-        if (id === null)
-            this.id = client.nextJobId++;
-        else
-            this.id = id;
+        if (id === null) this.id = client.nextJobId++;
+        else this.id = id;
         this.client.jobs[this.id] = this;
         if (this.owner !== null) this.owner.jobs[this.id] = this;
     }
-    
-   handleMessage(obj: message.Incomming) {
-        switch(obj.type) {
-        case 'success':
-            this.running = false;
-            this.kill(obj);
-            break;    
-        case 'failure':
-            this.running = false;
-            this.kill(obj);
-            break;
+
+    handleMessage(obj: message.Incomming) {
+        switch (obj.type) {
+            case 'success':
+                this.running = false;
+                this.kill(obj);
+                break;
+            case 'failure':
+                this.running = false;
+                this.kill(obj);
+                break;
         }
     }
 
-    kill(msg: message.Failure|message.Success|null = null) {
+    kill(msg: message.Failure | message.Success | null = null) {
         if (this.client !== null) {
             if (this.running) {
-                let msg: message.Kill = {'type': 'kill', 'id': this.id}
+                let msg: message.Kill = { type: 'kill', id: this.id };
                 this.client.sendMessage(msg);
             }
             this.client.removeJob(this, msg);

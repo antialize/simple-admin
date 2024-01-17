@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check": "tsc --noEmit",
     "lint": "eslint src --ext '.tsx,.ts'",
     "lint:fix": "eslint --fix src --ext '.tsx,.ts'",
     "format": "prettier --write 'src/**/*.{ts,tsx,html}'",
