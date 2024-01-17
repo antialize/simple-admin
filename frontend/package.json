@@ -7,7 +7,8 @@
     "build": "tsc && vite build",
     "lint": "eslint src --ext '.tsx,.ts'",
     "lint:fix": "eslint --fix src --ext '.tsx,.ts'",
-    "format": "prettier --write 'src/**/*.{ts,tsx,html}'"
+    "format": "prettier --write 'src/**/*.{ts,tsx,html}'",
+    "format:check": "prettier -c 'src/**/*.{ts,tsx,html}'"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.1",
