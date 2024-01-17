@@ -1,21 +1,16 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es5",
+        "target": "es6",
         "noImplicitAny": true,
-        "sourceMap": false,
+        "sourceMap": true,
         "downlevelIteration": true,
         "experimentalDecorators": true,
         "strict": true,
-        "lib": ["es6"],
-        "typeRoots" : ["./node_modules/@types", "./typings"]
     },
     "filesGlob": [
         "src/crypt3.d.ts",
         "src/**/*.ts",
         "!./node_modules/**/*.ts"
     ],
-    "files": [
-        ".d.ts"
-    ]
 }

@@ -27,10 +27,10 @@ export class HostClient extends JobOwner {
     hostname: string | null = null;
     id: number | null = null;
     pingId: number = 10;
-    pingTimer: NodeJS.Timer | null = null;
+    pingTimer: ReturnType<typeof setTimeout> | null = null;
     pingStart: number | null = null;
     closeHandled = false;
-    certificateTimer: NodeJS.Timer | null = null;
+    certificateTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -185,14 +185,14 @@ export class HostClient extends JobOwner {
                 return;
             }
 
-            let [id, _] = await Promise.all<number | null, void>([this.validateAuth(obj), delay(1000)]);
+            let [id, _] = await Promise.all([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
                 console.log("Client authorized", { hostname: obj['hostname'], address: this.socket.remoteAddress, port: this.socket.remotePort });
                 this.hostname = obj['hostname'];
                 this.auth = true;
                 this.id = id;
-                hostClients.hostClients[this.id] = this;
-                let act: IHostUp = { type: ACTION.HostUp, id: this.id };
+                hostClients.hostClients[id] = this;
+                let act: IHostUp = { type: ACTION.HostUp, id: id };
                 webClients.broadcast(act);
                 this.signHostCertificate();
             } else {

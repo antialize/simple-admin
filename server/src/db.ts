@@ -186,11 +186,11 @@ export class DB {
         return nullCheck(this.db).prepare(sql);
     }
 
-    
+
     getDeployments(host: number) {
         let db = nullCheck(this.db);
         return new Promise<{ name: string, type: number, title: string, content: string }[]>((cb, cbe) => {
-            db.all("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],
+            db.all<{ name: string, type: number, title: string, content: string }>("SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?", [host],
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -243,7 +243,7 @@ export class DB {
     getUserContent(name: string) {
         let db = nullCheck(this.db);
         return new Promise<string | null>((cb, cbe) => {
-            db.get("SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1", [userId, name],
+            db.get<{content: string}>("SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1", [userId, name],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -258,7 +258,7 @@ export class DB {
     getAllObjects() {
         let db = nullCheck(this.db);
         return new Promise<{ id: number, type: number, name: string, category: string }[]>((cb, cbe) => {
-            db.all("SELECT `id`, `type`, `name`, `category` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+            db.all<{ id: number, type: number, name: string, category: string }>("SELECT `id`, `type`, `name`, `category` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -273,7 +273,7 @@ export class DB {
     getAllObjectsFull() {
         let db = nullCheck(this.db);
         return new Promise<{ id: number, type: number, name: string, content: string, category: string, version: number, comment: string, time: number, author: string|null }[]>((cb, cbe) => {
-            db.all("SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+            db.all<{ id: number, type: number, name: string, content: string, category: string, version: number, comment: string, time: number, author: string|null }>("SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -288,7 +288,7 @@ export class DB {
     getObjectByID(id: number) {
         let db = nullCheck(this.db);
         return new Promise<{ version: number, type: number, name: string, content: string, category: string, comment: string, time: number, author: string | null }[]>((cb, cbe) => {
-            db.all("SELECT `version`, `type`, `name`, `content`, `category`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?", [id],
+            db.all<{ version: number, type: number, name: string, content: string, category: string, comment: string, time: number, author: string | null }>("SELECT `version`, `type`, `name`, `content`, `category`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?", [id],
                 (err, rows) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -303,7 +303,7 @@ export class DB {
     getNewestObjectByID(id: number) {
         let db = nullCheck(this.db);
         return new Promise<{ version: number, type: number, name: string, content: string, category: string, comment: string, time: number, author: string | null}>((cb, cbe) => {
-            db.get("SELECT `version`, `type`, `name`, `content`, `category`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
+            db.get<{ version: number, type: number, name: string, content: string, category: string, comment: string, time: number, author: string | null}>("SELECT `version`, `type`, `name`, `content`, `category`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=? AND `newest`=1", [id],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -329,7 +329,7 @@ export class DB {
             return new Promise<IV>(ins({ id: this.nextObjectId++, version: 1 }));
         }
         return new Promise<IV>((cb, cbe) => {
-            db.get("SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?", [id],
+            db.get<{version: number}>("SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?", [id],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
@@ -354,14 +354,14 @@ export class DB {
     getHostContentByName(hostname: string) {
         let db = nullCheck(this.db);
         return new Promise<{ id: number, content: Host, version: number, type: number, name: string, category: string, comment: string, time: number, author: string | null } | null>((cb, cbe) => {
-            db.get("SELECT `id`, `content`, `version`, `name`, `category`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
+            db.get<{id: number, content: string, version: number, category: string, comment: string,  time: string, author: string|null}>("SELECT `id`, `content`, `version`, `name`, `category`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`=1", [hostId, hostname],
                 (err, row) => {
                     if (err)
                         cbe(new SAError(ErrorType.Database, err));
                     else if (row === undefined)
                         cb(null);
                     else
-                        cb({ id: row['id'], content: JSON.parse(row['content']), version: row['version'], type: hostId, name: hostname, category: row['category'], comment: row['comment'], time: row['time'], author: row['author'] })
+                        cb({ id: row['id'], content: JSON.parse(row['content']), version: row['version'], type: hostId, name: hostname, category: row['category'], comment: row['comment'], time: +row['time'], author: row['author'] })
                 })
         });
     }

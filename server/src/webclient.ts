@@ -9,7 +9,7 @@ import { Job } from './job'
 import { ShellJob } from './jobs/shellJob'
 import { LogJob } from './jobs/logJob'
 import * as crypt from './crypt'
-import * as helmet from 'helmet'
+import helmet from "helmet";
 import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances'
 import { errorHandler } from './error'
 import { IType, typeId, userId, TypePropType, IContains, IDepends, ISudoOn, IVariables, rootInstanceId, rootId, hostId, Host } from './shared/type'
