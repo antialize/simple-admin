@@ -23,12 +23,12 @@ export interface RunInstant {
 }
 
 export interface DeployService {
-    type: "deploy_service";
+    type: 'deploy_service';
     id: number;
     description: String;
     image?: String;
     docker_auth?: String;
-    extra_env?: {[key:string]: string};
+    extra_env?: { [key: string]: string };
     user?: String;
 }
 
