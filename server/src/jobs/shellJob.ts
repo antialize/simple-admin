@@ -31,7 +31,7 @@ export class ShellJob extends Job {
             };
             client.sendMessage(msg);
         });
-        sock.on('close', (_: number, _: string) => {
+        sock.on('close', (_a: number, _b: string) => {
             this.sock = null;
             this.kill();
         });
@@ -49,7 +49,7 @@ export class ShellJob extends Job {
         switch (obj.type) {
             case 'data':
                 if (obj.source == 'stdout') {
-                    if (!this.sock) throw Error('Socket is missig');
+                    if (!this.sock) throw Error('Socket is missing');
                     this.sock.send(Buffer.from(obj.data, 'base64').toString('binary'));
                 }
             default:
