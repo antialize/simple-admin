@@ -344,7 +344,7 @@ async fn send_journal_message(
     )?;
     loop {
         socket.writable().await?;
-        match socket.try_io(tokio::io::Interest::WRITABLE, || {
+        let send_res = socket.try_io(tokio::io::Interest::WRITABLE, || {
             let fds = &[memfd.as_raw_fd()];
             let cmsgs = [nix::sys::socket::ControlMessage::ScmRights(fds)];
             nix::sys::socket::sendmsg::<()>(
@@ -355,7 +355,8 @@ async fn send_journal_message(
                 None,
             )
             .map_err(|v| v.into())
-        }) {
+        });
+        match send_res {
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 continue;
             }
