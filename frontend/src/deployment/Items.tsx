@@ -21,26 +21,19 @@ const Item = observer(function Item(p: IProps) {
     let s = {};
     switch (o.status) {
         case State.DEPLOYMENT_OBJECT_STATUS.Deplying:
-            s = {
-                "& td": {backgroundColor: theme.palette.mode == "dark" ? "#990" : "yellow"},
-            };
+            s = {backgroundColor: theme.palette.mode == "dark" ? "#990" : "yellow"};
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Failure:
-            s = {
-                "& td": {backgroundColor: theme.palette.mode == "dark" ? "#600" : "#F77"},
-            };
+            s = {backgroundColor: theme.palette.mode == "dark" ? "#600" : "#F77"};
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Success:
-            s = {"& td": {backgroundColor: theme.palette.mode == "dark" ? "#060" : "#7F7"}};
+            s = {backgroundColor: theme.palette.mode == "dark" ? "#060" : "#7F7"};
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Normal:
-            s = o.enabled
-                ? {}
-                : {
-                      "& td": {color: theme.palette.text.disabled},
-                  };
+            s = o.enabled ? {} : {color: theme.palette.text.disabled};
             break;
     }
+
     let act: string | null = null;
     switch (o.action) {
         case State.DEPLOYMENT_OBJECT_ACTION.Add:
