@@ -101,7 +101,7 @@ export function generate_crt(
     ca_key: string,
     ca_crt: string,
     srs: string,
-    subcert: string | null = null,
+    subcerts: string[] = [],
     timeoutDays: number = 999,
 ): Promise<string> {
     return new Promise<string>((res, rej) => {
@@ -128,7 +128,7 @@ export function generate_crt(
             '-',
         ];
         let t3: string | null = null;
-        if (subcert) {
+        if (subcerts) {
             t3 = temp_name();
             fs.writeFileSync(
                 t3,
@@ -136,7 +136,7 @@ export function generate_crt(
                     'keyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, keyEncipherment, keyAgreement\n' +
                     'subjectKeyIdentifier = hash\n' +
                     'nameConstraints = critical, permitted;DNS:' +
-                    subcert +
+                    subcerts.map((v) => "permitted;DNS:"+v).join(", ") +
                     '\n',
                 { mode: 0o400 },
             );

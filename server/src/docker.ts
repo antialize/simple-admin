@@ -1047,9 +1047,9 @@ finally:
                 if (content.ssl_service && content.ssl_identity) {
                     const ssl_service = Mustache.render(content.ssl_service, variables).trim();
                     const ssl_identity = Mustache.render(content.ssl_identity, variables).trim();
-                    const ssl_subcert = content.ssl_subcerts
-                        ? Mustache.render(content.ssl_subcerts, variables).trim()
-                        : null;
+                    const ssl_subcerts = content.ssl_subcerts
+                        ? Mustache.render(content.ssl_subcerts, variables).split(",").map((v) => v.trim())
+                        : [];
                     if (ssl_service && ssl_identity) {
                         await this.ensure_ca();
                         const my_key = await crt.generate_key();
@@ -1062,7 +1062,7 @@ finally:
                             this.ca_key,
                             this.ca_crt,
                             my_srs,
-                            ssl_subcert,
+                            ssl_subcerts,
                         );
                         variables['ca_pem'] = crt.strip(this.ca_crt);
                         variables['ssl_key'] = crt.strip(my_key);
