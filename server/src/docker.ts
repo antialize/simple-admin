@@ -1047,9 +1047,17 @@ finally:
                 if (content.ssl_service && content.ssl_identity) {
                     const ssl_service = Mustache.render(content.ssl_service, variables).trim();
                     const ssl_identity = Mustache.render(content.ssl_identity, variables).trim();
-                    const ssl_subcerts = content.ssl_subcerts
-                        ? Mustache.render(content.ssl_subcerts, variables).split(",").map((v) => v.trim())
-                        : [];
+
+                    let ssl_subcerts: string[];
+                    if (content.ssl_subcerts) {
+                        if (Array.isArray(content.ssl_subcerts)) {
+                            ssl_subcerts = content.ssl_subcerts.map((v: string) => Mustache.render(v, variables).trim());
+                        } else {
+                            ssl_subcerts = [Mustache.render(content.ssl_subcerts, variables).trim()];
+                        }
+                    } else {
+                        ssl_subcerts = []
+                    }
                     if (ssl_service && ssl_identity) {
                         await this.ensure_ca();
                         const my_key = await crt.generate_key();
@@ -1390,6 +1398,19 @@ finally:
                     ? Mustache.render(descriptionTemplate, variables)
                     : descriptionTemplate;
                 const description = parse(description_str);
+
+
+                let ssl_subcerts: string[];
+                if (description.ssl_subcerts) {
+                    if (Array.isArray(description.ssl_subcerts)) {
+                        ssl_subcerts = description.ssl_subcerts.map((v: string) => v.trim());
+                    } else {
+                        ssl_subcerts = [description.ssl_subcerts.trim()];
+                    }
+                } else {
+                    ssl_subcerts = []
+                }
+
                 if (description.ssl_service && description.ssl_identity) {
                     await this.ensure_ca();
                     const my_key = await crt.generate_key();
@@ -1398,11 +1419,22 @@ finally:
                         description.ssl_identity + '.' + description.ssl_service,
                     );
                     if (!this.ca_key || !this.ca_crt) throw Error('Logic error');
+
+                    let ssl_subcerts: string[];
+                    if (description.ssl_subcert) {
+                        if (Array.isArray(description.ssl_subcert)) {
+                            ssl_subcerts = description.ssl_subcert.map((v: string) => v.trim());
+                        } else {
+                            ssl_subcerts = [description.ssl_subcert.trim()];
+                        }
+                    } else {
+                        ssl_subcerts = []
+                    }
                     const my_crt = await crt.generate_crt(
                         this.ca_key,
                         this.ca_crt,
                         my_srs,
-                        description.ssl_subcert ?? null,
+                        ssl_subcerts,
                     );
                     variables['ca_pem'] = crt.strip(this.ca_crt);
                     variables['ssl_key'] = crt.strip(my_key);

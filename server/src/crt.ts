@@ -128,7 +128,7 @@ export function generate_crt(
             '-',
         ];
         let t3: string | null = null;
-        if (subcerts) {
+        if (subcerts.length) {
             t3 = temp_name();
             fs.writeFileSync(
                 t3,
