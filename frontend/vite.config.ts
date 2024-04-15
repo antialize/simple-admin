@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const proxy_target = "example.com";
+const proxy_target = "sadmin.scalgo.com";
 
 // https://vitejs.dev/config/
 export default defineConfig({

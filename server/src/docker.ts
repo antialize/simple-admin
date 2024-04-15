@@ -182,7 +182,7 @@ class Docker {
             ).toString('utf8');
 
             // req.connection.remoteAddress
-            let parts = auth.split(':');
+            const parts = auth.split(':');
             if (parts.length > 1) {
                 const a = await getAuth(null, parts.slice(1).join(':'));
                 if (parts[0] == a.user && push ? a.dockerPush : a.dockerPull) return a.user;
@@ -219,7 +219,7 @@ class Docker {
             const p = req.url.split('?')[0].split('/');
             // GET /docker/images/image
             if (p.length == 4 && p[0] == '' && p[1] == 'docker' && p[2] == 'images') {
-                let images: DockerImageTag[] = [];
+                const images: DockerImageTag[] = [];
                 const q =
                     'SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`';
                 for (const row of await db.all(q, p[3])) {
@@ -258,7 +258,7 @@ class Docker {
             const re = new RegExp('^([^/]*)/([^/@:]*)@(sha256:[a-fA-F0-9]*)$');
             const time = +new Date() / 1000;
             for (const image of req.body.images) {
-                let match = re.exec(image);
+                const match = re.exec(image);
                 if (!match) continue;
 
                 await db.run('UPDATE `docker_images` SET `used`=? WHERE `hash`=?', time, match[3]);
@@ -604,14 +604,14 @@ class Docker {
                 res.status(404).end();
                 return;
             }
-            let start_size = u.count.value;
+            const start_size = u.count.value;
 
-            let cl = req.headers['content-length'];
+            const cl = req.headers['content-length'];
             let expected_size: number | undefined = undefined;
             if (cl != undefined) {
                 expected_size = +cl;
             }
-            let cr = req.headers['content-range'];
+            const cr = req.headers['content-range'];
             if (cr != undefined) {
                 const [start, end] = cr.split('-').map((v) => +v);
                 if (start != start_size) {
@@ -741,7 +741,7 @@ class Docker {
             const deployImage = config.hostname + '/' + image + '@' + hash;
 
             const theDocker = usePodman ? 'podman' : 'docker';
-            let o: string[] = [];
+            const o: string[] = [];
             if (usePodman) {
                 o.push(pyStr('podman'), pyStr('create'), pyStr('--authfile'), 'cf');
             } else {
@@ -768,7 +768,7 @@ class Docker {
                 }
             }
 
-            let script = `
+            const script = `
 import os, subprocess, shlex, sys, tempfile, shutil, asyncio, datetime
 started_ok = False
 container = ${pyStr(container)}
@@ -878,7 +878,7 @@ finally:
 
                 constructor() {
                     super(host, null, host);
-                    let msg: message.RunScript = {
+                    const msg: message.RunScript = {
                         type: 'run_script',
                         id: this.id,
                         name: 'docker_deploy.py',
@@ -1030,9 +1030,9 @@ finally:
                     });
                     return;
                 }
-                let hostInfo = JSON.parse(hostRow.content) as Host;
+                const hostInfo = JSON.parse(hostRow.content) as Host;
                 usePodman = !!hostInfo.usePodman;
-                let variables: { [key: string]: string } = {};
+                const variables: { [key: string]: string } = {};
                 for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                     variables[v.key] = v.value;
                 variables['nodename'] = hostRow.name;
@@ -1123,7 +1123,7 @@ finally:
                 );
 
                 try {
-                    let id = this.idc++;
+                    const id = this.idc++;
                     this.delayedDeploymentInformations.set(id, {
                         host: host.id,
                         container,
@@ -1195,7 +1195,7 @@ finally:
                             message: 'Deployment failed attempting to redeploy old',
                         });
                         try {
-                            let id = this.idc++;
+                            const id = this.idc++;
                             this.delayedDeploymentInformations.set(id, {
                                 host: host.id,
                                 container,
@@ -1271,11 +1271,11 @@ finally:
         client: WebClient,
         host: HostClient,
         description: string,
-        docker_auth: String,
-        image: String | null,
+        docker_auth: string,
+        image: string | null,
         extra_env: { [key: string]: string },
         ref: Ref,
-        user: String,
+        user: string,
     ): Promise<void> {
         return new Promise((accept, reject) => {
             class ServiceDeployJob extends Job {
@@ -1284,7 +1284,7 @@ finally:
 
                 constructor() {
                     super(host, null, host);
-                    let msg: message.DeployService = {
+                    const msg: message.DeployService = {
                         type: 'deploy_service',
                         id: this.id,
                         description,
@@ -1371,8 +1371,8 @@ finally:
                 });
                 return;
             }
-            let hostInfo = JSON.parse(hostRow.content) as Host;
-            let variables: { [key: string]: string } = {};
+            const hostInfo = JSON.parse(hostRow.content) as Host;
+            const variables: { [key: string]: string } = {};
             for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                 variables[v.key] = v.value;
             variables['nodename'] = hostRow.name;
@@ -1380,7 +1380,7 @@ finally:
             for (let i = 0; i < 10; ++i)
                 variables['token_' + i] = crypto.randomBytes(24).toString('base64url');
 
-            let extraEnv: { [key: string]: string } = {};
+            const extraEnv: { [key: string]: string } = {};
 
             if (descriptionTemplate.includes('ssl_service')) {
                 variables['ca_pem'] = 'TEMP';
@@ -1425,7 +1425,7 @@ finally:
 
             if (project != null) {
             } else if (imageId) {
-                let p = await this.findImage(imageId);
+                const p = await this.findImage(imageId);
                 if (!p.hash) {
                     client.sendMessage({
                         type: ACTION.DockerDeployDone,
@@ -1474,8 +1474,8 @@ finally:
                     user,
                 );
 
-                let id = this.idc++;
-                let o: DeploymentInfo = {
+                const id = this.idc++;
+                const o: DeploymentInfo = {
                     restore: null,
                     host: host.id,
                     image: project,
@@ -2067,7 +2067,7 @@ finally:
     }
 
     async containerCommand(wc: WebClient, hostId: number, container: string, command: string) {
-        let host = hostClients.hostClients[hostId];
+        const host = hostClients.hostClients[hostId];
         if (!host) return;
 
         const script = `
@@ -2077,7 +2077,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
         class PJob extends Job {
             constructor() {
                 super(host, null, host);
-                let msg: message.RunInstant = {
+                const msg: message.RunInstant = {
                     type: 'run_instant',
                     id: this.id,
                     name: 'pokeContainer.py',
@@ -2095,7 +2095,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
     }
 
     async forgetContainer(wc: WebClient, hostId: number, container: string) {
-        let host = hostClients.hostClients[hostId];
+        const host = hostClients.hostClients[hostId];
         if (!host) return;
         await db.run(
             'DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?',
