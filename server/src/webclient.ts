@@ -113,9 +113,9 @@ export class WebClient extends JobOwner {
 
                 if (!found) {
                     try {
-                        let contentStr = await db.getUserContent(act.user);
+                        const contentStr = await db.getUserContent(act.user);
                         if (contentStr) {
-                            let content = JSON.parse(contentStr);
+                            const content = JSON.parse(contentStr);
                             found = true;
                             pwd = await crypt.validate(act.pwd, content.password);
                             if (act.otp) {
@@ -168,7 +168,7 @@ export class WebClient extends JobOwner {
                             session,
                         );
                     } else if (session) {
-                        let eff = await db.run(
+                        const eff = await db.run(
                             'UPDATE `sessions` SET `pwd`=? WHERE `sid`=?',
                             now,
                             session,
@@ -228,8 +228,8 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                let rows = await db.getObjectByID(act.id);
-                let res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
+                const rows = await db.getObjectByID(act.id);
+                const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                 for (const row of rows) {
                     res.object.push({
                         id: act.id,
@@ -275,7 +275,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                let history: {
+                const history: {
                     version: number;
                     time: number;
                     author: string | null;
@@ -328,7 +328,7 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 {
-                    let row = await msg.getFullText(act.id);
+                    const row = await msg.getFullText(act.id);
                     this.sendMessage({
                         type: ACTION.MessageTextRep,
                         id: act.id,
@@ -344,36 +344,36 @@ export class WebClient extends JobOwner {
                 {
                     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
                     if (!act.obj) throw Error('Missing object in action');
-                    let c = act.obj.content;
+                    const c = act.obj.content;
                     const typeRow = await db.getNewestObjectByID(act.obj.type);
-                    let type = JSON.parse(typeRow.content) as IType;
-                    for (let r of type.content || []) {
+                    const type = JSON.parse(typeRow.content) as IType;
+                    for (const r of type.content || []) {
                         if (r.type != TypePropType.password) continue;
                         if (!(r.name in c) || c[r.name].startsWith('$6$')) continue;
                         c[r.name] = await crypt.hash(c[r.name]);
                     }
 
                     if (act.obj.type == userId && (!c['otp_base32'] || !c['otp_url'])) {
-                        let secret = speakeasy.generateSecret({
+                        const secret = speakeasy.generateSecret({
                             name: 'Simple Admin:' + act.obj.name,
                         });
                         c['otp_base32'] = secret.base32;
                         c['otp_url'] = secret.otpauth_url;
                     }
 
-                    let { id, version } = await db.changeObject(
+                    const { id, version } = await db.changeObject(
                         act.id,
                         act.obj,
                         nullCheck(this.auth.user),
                     );
                     act.obj.version = version;
-                    let res2: IObjectChanged = {
+                    const res2: IObjectChanged = {
                         type: ACTION.ObjectChanged,
                         id: id,
                         object: [act.obj],
                     };
                     webClients.broadcast(res2);
-                    let res3: ISetPageAction = {
+                    const res3: ISetPageAction = {
                         type: ACTION.SetPage,
                         page: { type: PAGE_TYPE.Object, objectType: act.obj.type, id, version },
                     };
@@ -385,7 +385,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                let objects: {
+                const objects: {
                     type: number;
                     id: number;
                     version: number;
@@ -408,7 +408,7 @@ export class WebClient extends JobOwner {
                         version: row.version,
                     });
                 }
-                let res4: ISearchRes = {
+                const res4: ISearchRes = {
                     type: ACTION.SearchRes,
                     ref: act.ref,
                     objects,
@@ -428,16 +428,16 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 {
-                    let objects = await db.getAllObjectsFull();
-                    let conflicts: string[] = [];
-                    for (let object of objects) {
-                        let content = JSON.parse(object.content);
+                    const objects = await db.getAllObjectsFull();
+                    const conflicts: string[] = [];
+                    for (const object of objects) {
+                        const content = JSON.parse(object.content);
                         if (!content) continue;
                         if (object.type == act.id)
                             conflicts.push('* ' + object.name + ' (' + object.type + ') type');
-                        for (let val of ['sudoOn', 'depends', 'contains']) {
+                        for (const val of ['sudoOn', 'depends', 'contains']) {
                             if (!(val in content)) continue;
-                            for (let id of content[val] as number[]) {
+                            for (const id of content[val] as number[]) {
                                 if (id != act.id) continue;
                                 conflicts.push(
                                     '* ' + object.name + ' (' + object.type + ') ' + val,
@@ -446,7 +446,7 @@ export class WebClient extends JobOwner {
                         }
                     }
                     if (conflicts.length > 0) {
-                        let res: IAlert = {
+                        const res: IAlert = {
                             type: ACTION.Alert,
                             title: 'Cannot delete object',
                             message:
@@ -457,13 +457,13 @@ export class WebClient extends JobOwner {
                     } else {
                         console.log('Web client delete object', { id: act.id });
                         await db.changeObject(act.id, null, nullCheck(this.auth.user));
-                        let res2: IObjectChanged = {
+                        const res2: IObjectChanged = {
                             type: ACTION.ObjectChanged,
                             id: act.id,
                             object: [],
                         };
                         webClients.broadcast(res2);
-                        let res3: ISetPageAction = {
+                        const res3: ISetPageAction = {
                             type: ACTION.SetPage,
                             page: { type: PAGE_TYPE.Dashbord },
                         };
@@ -643,10 +643,10 @@ export class WebClient extends JobOwner {
                     docker.ca_key!,
                     docker.ca_crt!,
                     my_srs,
-                    null,
+                    [],
                     1,
                 );
-                let res2: IGenerateKeyRes = {
+                const res2: IGenerateKeyRes = {
                     type: ACTION.GenerateKeyRes,
                     ref: act.ref,
                     ca_pem: docker.ca_crt!,
@@ -696,10 +696,10 @@ async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjectsFull();
     const msgs = msg.getResent();
 
-    let hostsUp: number[] = [];
+    const hostsUp: number[] = [];
     for (const id in hostClients.hostClients) hostsUp.push(+id);
 
-    let action: ISetInitialState = {
+    const action: ISetInitialState = {
         type: ACTION.SetInitialState,
         objectNamesAndIds: {},
         messages: await msgs,
@@ -712,7 +712,7 @@ async function sendInitialState(c: WebClient) {
         usedBy: [],
     };
     for (const row of await rows) {
-        let content = JSON.parse(row.content);
+        const content = JSON.parse(row.content);
         if (row.type == typeId) {
             action.types[row.id] = {
                 id: row.id,
@@ -767,7 +767,7 @@ export class WebClients {
             [hostId],
         )) {
             if (hostClients.hostClients[row['id']]?.auth || !row['content']) continue;
-            let content: Host = JSON.parse(row['content']);
+            const content: Host = JSON.parse(row['content']);
             if (content.messageOnDown) downHosts += 1;
         }
 

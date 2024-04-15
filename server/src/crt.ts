@@ -112,7 +112,7 @@ export function generate_crt(
         fs.writeFileSync(t2, ca_crt, { mode: 0o400 });
         fs.writeFileSync(t4, ca_key, { mode: 0o400 });
 
-        let args = [
+        const args = [
             'x509',
             '-req',
             '-days',
