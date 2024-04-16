@@ -283,6 +283,16 @@ pub enum ServiceMetrics {
         path: String,
     },
 }
+
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum Subcert {
+    One(String),
+    More(Vec<String>),
+}
+
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ServiceDescription {
@@ -297,7 +307,7 @@ pub struct ServiceDescription {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssl_identity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ssl_subcert: Option<String>,
+    pub ssl_subcert: Option<Subcert>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pre_deploy: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -347,5 +357,30 @@ impl ServiceDescription {
 
     pub fn get_stop_signal(&self) -> Signal {
         self.stop_signal.unwrap_or(Signal::Term)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::service_description::{ServiceDescription, Subcert};
+
+    #[test]
+    fn service_escription() {
+        let sd : ServiceDescription = serde_yaml::from_str("
+name: Hat
+service_type: plain
+ssl_subcert:
+  - a
+  - b
+        ").unwrap();
+        assert_eq!(sd.ssl_subcert, Some(Subcert::More(vec!["a".to_string(), "b".to_string()])));
+
+        let sd : ServiceDescription = serde_yaml::from_str("
+name: Hat
+service_type: plain
+ssl_subcert: a
+        ").unwrap();
+        assert_eq!(sd.ssl_subcert, Some(Subcert::One("a".to_string())));
     }
 }
