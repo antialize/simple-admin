@@ -135,7 +135,7 @@ export function generate_crt(
                 'basicConstraints = critical, CA:TRUE\n' +
                     'keyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, keyEncipherment, keyAgreement\n' +
                     'subjectKeyIdentifier = hash\n' +
-                    'nameConstraints = critical, permitted;DNS:' +
+                    'nameConstraints = critical, ' +
                     subcerts.map((v) => "permitted;DNS:"+v).join(", ") +
                     '\n',
                 { mode: 0o400 },
