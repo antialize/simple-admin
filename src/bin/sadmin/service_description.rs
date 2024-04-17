@@ -284,14 +284,12 @@ pub enum ServiceMetrics {
     },
 }
 
-
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Subcert {
     One(String),
     More(Vec<String>),
 }
-
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
@@ -360,27 +358,35 @@ impl ServiceDescription {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::service_description::{ServiceDescription, Subcert};
 
     #[test]
     fn service_escription() {
-        let sd : ServiceDescription = serde_yaml::from_str("
+        let sd: ServiceDescription = serde_yaml::from_str(
+            "
 name: Hat
 service_type: plain
 ssl_subcert:
   - a
   - b
-        ").unwrap();
-        assert_eq!(sd.ssl_subcert, Some(Subcert::More(vec!["a".to_string(), "b".to_string()])));
+        ",
+        )
+        .unwrap();
+        assert_eq!(
+            sd.ssl_subcert,
+            Some(Subcert::More(vec!["a".to_string(), "b".to_string()]))
+        );
 
-        let sd : ServiceDescription = serde_yaml::from_str("
+        let sd: ServiceDescription = serde_yaml::from_str(
+            "
 name: Hat
 service_type: plain
 ssl_subcert: a
-        ").unwrap();
+        ",
+        )
+        .unwrap();
         assert_eq!(sd.ssl_subcert, Some(Subcert::One("a".to_string())));
     }
 }

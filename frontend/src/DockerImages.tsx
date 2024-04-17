@@ -94,7 +94,7 @@ export const DockerImages = observer(function DockerImages() {
                 </tr>,
             );
         }
-        if (!rows) continue;
+        if (!rows.length) continue;
         lst.push(
             <React.Fragment key={project}>
                 <thead>
