@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Display,
     io::Write,
-    os::unix::prelude::{AsFd, AsRawFd, FromRawFd, OpenOptionsExt, OsStrExt, OwnedFd},
+    os::unix::prelude::{AsFd, AsRawFd, OpenOptionsExt, OsStrExt, OwnedFd},
     path::Path,
     process::{ExitStatus, Stdio},
     sync::Arc,
@@ -575,8 +575,9 @@ async fn forward_command(
 }
 
 fn create_pipe() -> Result<(OwnedFd, OwnedFd), std::io::Error> {
-    let (r, w) = nix::unistd::pipe2(nix::fcntl::OFlag::O_CLOEXEC | nix::fcntl::OFlag::O_NONBLOCK)?;
-    unsafe { Ok((OwnedFd::from_raw_fd(r), OwnedFd::from_raw_fd(w))) }
+    Ok(nix::unistd::pipe2(
+        nix::fcntl::OFlag::O_CLOEXEC | nix::fcntl::OFlag::O_NONBLOCK,
+    )?)
 }
 
 fn bind_key(bind: &Bind, service: &str) -> String {
