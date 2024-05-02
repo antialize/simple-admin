@@ -42,6 +42,7 @@ mod upgrade;
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin")]
+#[command(version = include_str!("../../version.txt"))]
 #[command(author = "Jakob Truelsen <jakob@scalgo.com>")]
 #[command(about = "Simpleadmin host components", long_about = None)]
 struct Args {
