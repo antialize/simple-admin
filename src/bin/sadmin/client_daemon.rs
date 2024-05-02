@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     io::Write,
-    net::ToSocketAddrs,
+    net::{SocketAddr, ToSocketAddrs},
     os::unix::{
         prelude::{AsRawFd, BorrowedFd, OwnedFd},
         process::ExitStatusExt,
@@ -1375,9 +1375,8 @@ impl Client {
 
     async fn handle_web_request(
         self: Arc<Self>,
-        _socket_addr: std::net::SocketAddr,
-        r: hyper::Request<hyper::Body>,
-    ) -> Result<hyper::Response<hyper::Body>> {
+        r: hyper::Request<hyper::body::Incoming>,
+    ) -> Result<hyper::Response<http_body_util::Full<bytes::Bytes>>> {
         if r.uri().path() == "/metrics" {
             if let Some(token) = &self.metrics_token {
                 let url = match Url::parse(&r.uri().to_string()) {
@@ -1410,29 +1409,47 @@ impl Client {
         }
     }
 
-    async fn webserver(self: Arc<Self>, run_token: RunToken) -> Result<()> {
-        let make_service =
-            hyper::service::make_service_fn(|socket: &hyper::server::conn::AddrStream| {
-                let remote_addr = socket.remote_addr();
-                let this = self.clone();
-                async move {
-                    Ok::<_, hyper::Error>(hyper::service::service_fn(move |r| {
-                        let this = this.clone();
-                        async move { this.handle_web_request(remote_addr, r).await }
-                    }))
-                }
-            });
+    async fn handle_web_connection(
+        self: Arc<Self>,
+        socket: tokio::net::TcpStream,
+        addr: SocketAddr,
+        run_token: RunToken,
+    ) -> Result<()> {
+        if let Ok(Err(e)) = cancelable(
+            &run_token,
+            hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+                .serve_connection(
+                    hyper_util::rt::TokioIo::new(socket),
+                    hyper::service::service_fn(|r: hyper::Request<hyper::body::Incoming>| {
+                        self.clone().handle_web_request(r)
+                    }),
+                ),
+        )
+        .await
+        {
+            error!("Error handeling web request from {addr:?}: {e:?}");
+        }
+        Ok(())
+    }
 
+    async fn webserver(self: Arc<Self>, run_token: RunToken) -> Result<()> {
         let port = match std::env::var("WEB_PORT") {
             Ok(v) => v.parse()?,
             Err(_) => 674,
         };
 
-        let server = hyper::Server::bind(&([127, 0, 0, 1], port).into()).serve(make_service);
+        let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+        let listener = tokio::net::TcpListener::bind(addr).await?;
 
-        let grace_ful = server.with_graceful_shutdown(run_token.cancelled());
+        loop {
+            let (sock, addr) = match cancelable(&run_token, listener.accept()).await {
+                Ok(v) => v?,
+                Err(_) => break,
+            };
 
-        grace_ful.await?;
+            TaskBuilder::new("web_connection")
+                .create(|run_token| self.clone().handle_web_connection(sock, addr, run_token));
+        }
 
         Ok(())
     }
