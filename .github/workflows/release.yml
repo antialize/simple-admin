@@ -38,6 +38,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - run: echo "${{ github.ref }}" > src/version.txt
       - run: cargo build --release --features=daemon
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client target/release/sadmin
