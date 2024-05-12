@@ -1051,12 +1051,16 @@ finally:
                     let ssl_subcerts: string[];
                     if (content.ssl_subcerts) {
                         if (Array.isArray(content.ssl_subcerts)) {
-                            ssl_subcerts = content.ssl_subcerts.map((v: string) => Mustache.render(v, variables).trim());
+                            ssl_subcerts = content.ssl_subcerts.map((v: string) =>
+                                Mustache.render(v, variables).trim(),
+                            );
                         } else {
-                            ssl_subcerts = [Mustache.render(content.ssl_subcerts, variables).trim()];
+                            ssl_subcerts = [
+                                Mustache.render(content.ssl_subcerts, variables).trim(),
+                            ];
                         }
                     } else {
-                        ssl_subcerts = []
+                        ssl_subcerts = [];
                     }
                     if (ssl_service && ssl_identity) {
                         await this.ensure_ca();
@@ -1399,7 +1403,6 @@ finally:
                     : descriptionTemplate;
                 const description = parse(description_str);
 
-
                 let ssl_subcerts: string[];
                 if (description.ssl_subcerts) {
                     if (Array.isArray(description.ssl_subcerts)) {
@@ -1408,7 +1411,7 @@ finally:
                         ssl_subcerts = [description.ssl_subcerts.trim()];
                     }
                 } else {
-                    ssl_subcerts = []
+                    ssl_subcerts = [];
                 }
 
                 if (description.ssl_service && description.ssl_identity) {
@@ -1428,7 +1431,7 @@ finally:
                             ssl_subcerts = [description.ssl_subcert.trim()];
                         }
                     } else {
-                        ssl_subcerts = []
+                        ssl_subcerts = [];
                     }
                     const my_crt = await crt.generate_crt(
                         this.ca_key,

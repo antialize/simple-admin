@@ -136,7 +136,7 @@ export function generate_crt(
                     'keyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, keyEncipherment, keyAgreement\n' +
                     'subjectKeyIdentifier = hash\n' +
                     'nameConstraints = critical, ' +
-                    subcerts.map((v) => "permitted;DNS:"+v).join(", ") +
+                    subcerts.map((v) => 'permitted;DNS:' + v).join(', ') +
                     '\n',
                 { mode: 0o400 },
             );

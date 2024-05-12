@@ -36,9 +36,12 @@ import * as Mustache from 'mustache';
 import { DeployJob } from './jobs/deployJob';
 import { errorHandler, descript } from './error';
 
+import { promisify } from 'util';
+
 //Type only import
 import { HostClient } from './hostclient';
 import nullCheck from './shared/nullCheck';
+import { exec } from 'child_process';
 
 interface IDeployContent {
     script: string | null;
@@ -902,6 +905,18 @@ export class Deployment {
             if (type && type.content.kind == 'trigger') {
                 ans = await this.deploySingle(hostClient, o.script, o.nextContent);
             } else if (!type || type.content.kind == 'delta') {
+                if (
+                    (o.title == 'headscale' || o.title == 'setup_headscale') &&
+                    o.nextContent != null
+                ) {
+                    const exec2 = promisify(exec);
+                    const { stdout, stderr } = await exec2(
+                        'headscale -o json --force --user sadmin preauthkeys create --reusable --expiration 1h',
+                    );
+                    const output = JSON.parse(stdout);
+                    o.nextContent['scaleAuthKey'] = output['key'];
+                }
+
                 ans = await this.deploySingle(hostClient, o.script, {
                     old: o.prevContent,
                     new: o.nextContent,
