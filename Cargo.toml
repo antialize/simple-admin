@@ -23,7 +23,7 @@ base64 = "0.22"
 bytes = "1"
 dirs = "5"
 futures-util = "0.3"
-itertools = "0.12"
+itertools = "0.13"
 log = {version = "0.4", optional=true}
 rand = "0.8"
 rpassword = "7"
@@ -31,7 +31,7 @@ serde = { version = "1", default-features = false, features=['std', 'derive']}
 serde_json = { version = "1", default-features = false, features=['std'] }
 tokio = { version = "1", default-features = false, features=['rt', 'net', 'fs', 'sync', 'macros', 'time', 'process', 'signal'] }
 tokio-rustls = {version="0.26", optional=true}
-tokio-tungstenite = { version = "0.21", features=['rustls-tls-webpki-roots']}
+tokio-tungstenite = { version = "0.23", features=['rustls-tls-webpki-roots']}
 webpki = "0.22"
 webpki-roots = "0.26"
 simple_logger = {version = "5", default-features=false }
@@ -39,9 +39,9 @@ tempfile = {version="3", optional=true}
 clap = {version = "4", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}
 sdnotify = {version = "0.2", default-features = false, optional=true}
 reqwest = {version = "0.12",  default-features = false, features=['json', 'rustls-tls-webpki-roots']}
-zip = {version= "1",  default-features = false, features=['deflate']}
+zip = {version= "2",  default-features = false, features=['deflate']}
 indicatif = "0.17"
-nix = { version = "0.28", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio"], optional=true}
+nix = { version = "0.29", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio"], optional=true}
 rusqlite = { version = "0.31", features = ["bundled"], optional=true}
 serde_yaml = "0.9"
 cgroups-rs = {version = "0.2", optional=true}

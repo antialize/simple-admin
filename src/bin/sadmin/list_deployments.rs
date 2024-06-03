@@ -119,9 +119,9 @@ fn group_deployments(
 ) -> Vec<(String, Vec<Deployment>)> {
     deployments.sort_unstable_by(|l, r| (&l.image, l.host).cmp(&(&r.image, r.host)));
     let mut groups = Vec::new();
-    for (image, image_group) in &deployments.into_iter().group_by(|v| v.image.clone()) {
+    for (image, image_group) in &deployments.into_iter().chunk_by(|v| v.image.clone()) {
         let mut by_host = image_group
-            .group_by(|i| i.host)
+            .chunk_by(|i| i.host)
             .into_iter()
             .map(|(host_id, b)| {
                 (
@@ -255,7 +255,7 @@ fn list_deployment_groups(
             deployments.push(KeyDeployment(deployment));
         }
 
-        for (mut key, g) in &deployments.into_iter().group_by(|v| v.key()) {
+        for (mut key, g) in &deployments.into_iter().chunk_by(|v| v.key()) {
             key.name = g.map(|v| v.0.name).join(", ");
 
             let mut status_fmt = "- {bold}{red}{name}{reset}".to_string();
