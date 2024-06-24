@@ -41,13 +41,13 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 sid,
             );
             if (!row) return noAccess;
-            if (host !== null && row["host"] != host) return noAccess;
-            user = row["user"];
+            if (host !== null && row.host !== host) return noAccess;
+            user = row.user;
             const pwdExpiration = user === "docker_client" ? 60 * 60 : 12 * 60 * 60; //Passwords time out after 24 hours
             const otpExpiration = user === "docker_client" ? 60 * 60 : 64 * 24 * 60 * 60; //otp time out after 2 months
             const now = (Date.now() / 1000) | 0;
-            pwd = row["pwd"] != null && row["pwd"] + pwdExpiration > now;
-            otp = row[`otp`] != null && row["otp"] + otpExpiration > now;
+            pwd = row.pwd != null && row.pwd + pwdExpiration > now;
+            otp = row.otp != null && row.otp + otpExpiration > now;
         } catch (e) {
             console.error("Query failed", e);
             return noAccess;
@@ -63,14 +63,14 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
     let dockerPush = false;
     let dockerDeploy = false;
     let sslname = null;
-    if (!found && !specialSession && user == "docker_client") {
+    if (!found && !specialSession && user === "docker_client") {
         found = true;
         dockerPull = true;
         dockerPush = true;
     }
     if (!found && !specialSession && config.users) {
         for (const u of config.users) {
-            if (u.name == user) {
+            if (u.name === user) {
                 found = true;
                 admin = true;
                 dockerPull = true;
@@ -87,7 +87,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
             found = true;
             if (specialSession) {
                 const sessions = content.sessions;
-                if (sessions && sessions.split(",").includes(sid)) {
+                if (sessions?.split(",").includes(sid)) {
                     dockerPull = content.dockerPull;
                     dockerPush = content.dockerPush;
                     otp = true;

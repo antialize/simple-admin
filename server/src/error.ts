@@ -34,10 +34,10 @@ export function descript(err: any) {
         description = err.message;
     } else if (err instanceof SAError) {
         type = err.type;
-        description = "" + err.content;
+        description = `${err.content}`;
     } else {
         type = ErrorType.Unknown;
-        description = "" + err;
+        description = `${err}`;
     }
 
     switch (type) {
@@ -59,15 +59,15 @@ export function errorHandler(place: string, webclient?: WebClient | false) {
     return (err: any) => {
         const d = descript(err);
         console.log(err);
-        console.error("An error occured in " + place, {
+        console.error(`An error occured in ${place}`, {
             typename: d.typeName,
             description: d.description,
             err,
         });
         const res: IAlert = {
             type: ACTION.Alert,
-            title: "Error: " + d.typeName,
-            message: "A " + d.type + " error occurned " + place + ": \n" + d.description,
+            title: `Error: ${d.typeName}`,
+            message: `A ${d.type} error occurned ${place}: \n${d.description}`,
         };
         if (webclient === false) {
         } else if (webclient) webclient.sendMessage(res);

@@ -132,12 +132,12 @@ export class DB {
                 d.id,
             ]);
             await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [
-                mv["version"],
+                mv.version,
                 d.id,
             ]);
         }
         this.nextObjectId = Math.max(
-            (await q("SELECT max(`id`) as `id` FROM `objects`"))["id"] + 1,
+            (await q("SELECT max(`id`) as `id` FROM `objects`")).id + 1,
             this.nextObjectId,
         );
 
@@ -236,18 +236,13 @@ export class DB {
                     },
                 );
             });
-        } else {
-            return new Promise<void>((cb, cbe) => {
-                db.all(
-                    "DELETE FROM `deployments` WHERE `host`=? AND `name`=?",
-                    [host, name],
-                    (err) => {
-                        if (err) cbe(new SAError(ErrorType.Database, err));
-                        else cb();
-                    },
-                );
-            });
         }
+        return new Promise<void>((cb, cbe) => {
+            db.all("DELETE FROM `deployments` WHERE `host`=? AND `name`=?", [host, name], (err) => {
+                if (err) cbe(new SAError(ErrorType.Database, err));
+                else cb();
+            });
+        });
     }
 
     resetServer(host: number) {
@@ -426,10 +421,9 @@ export class DB {
                 [id],
                 (err, row) => {
                     if (err) cbe(new SAError(ErrorType.Database, err));
-                    else if (row == undefined)
-                        cbe(new SAError(ErrorType.Database, "Unable to find row"));
+                    else if (!row) cbe(new SAError(ErrorType.Database, "Unable to find row"));
                     else {
-                        const version = row["version"] + 1;
+                        const version = row.version + 1;
                         db.run("UPDATE `objects` SET `newest`=0 WHERE `id` = ?", [id], (err) => {
                             if (err) cbe(new SAError(ErrorType.Database, err));
                             else if (object) ins({ id, version })(cb, cbe);
@@ -470,15 +464,15 @@ export class DB {
                     else if (row === undefined) cb(null);
                     else
                         cb({
-                            id: row["id"],
-                            content: JSON.parse(row["content"]),
-                            version: row["version"],
+                            id: row.id,
+                            content: JSON.parse(row.content),
+                            version: row.version,
                             type: hostId,
                             name: hostname,
-                            category: row["category"],
-                            comment: row["comment"],
-                            time: +row["time"],
-                            author: row["author"],
+                            category: row.category,
+                            comment: row.comment,
+                            time: +row.time,
+                            author: row.author,
                         });
                 },
             );

@@ -36,9 +36,9 @@ import {
     typeId,
 } from "./shared/type";
 
-import { promisify } from "util";
+import { promisify } from "node:util";
 
-import { exec } from "child_process";
+import { exec } from "node:child_process";
 //Type only import
 import type { HostClient } from "./hostclient";
 import nullCheck from "./shared/nullCheck";
@@ -108,9 +108,7 @@ export class Deployment {
                         }
                         return Mustache.render(txt, vars);
                     } catch (err) {
-                        errors.push(
-                            "Template error in " + name + " of " + deploymentTitle + ": " + err,
-                        );
+                        errors.push(`Template error in ${name} of ${deploymentTitle}: ${err}`);
                         console.log(err);
                     }
                     return "";
@@ -130,7 +128,7 @@ export class Deployment {
                         }
                         case TypePropType.choice: {
                             let v = objContent[item.name] as string;
-                            if (v == undefined || v === null) v = item.default;
+                            if (v === undefined || v === null) v = item.default;
                             if (item.variable) {
                                 hasVars = true;
                                 variables[item.variable] = v;
@@ -140,7 +138,7 @@ export class Deployment {
                         }
                         case TypePropType.document: {
                             let v = objContent[item.name] as string;
-                            if (v == undefined || v === null) v = "";
+                            if (v === undefined || v === null) v = "";
                             if (item.template) v = template(item.name, v, variables);
                             if (item.variable) {
                                 hasVars = true;
@@ -151,20 +149,20 @@ export class Deployment {
                         }
                         case TypePropType.number: {
                             let v = objContent[item.name] as number;
-                            if (v == undefined || v === null) v = item.default;
+                            if (v === undefined || v === null) v = item.default;
                             content[item.name] = v;
                             break;
                         }
                         case TypePropType.password: {
                             let v = objContent[item.name] as string;
-                            if (v == undefined || v === null) v = "";
+                            if (v === undefined || v === null) v = "";
                             content[item.name] = v;
                             break;
                         }
                         case TypePropType.text: {
                             let v = objContent[item.name] as string;
-                            if (v == undefined || v === null) v = item.default;
-                            if (v == undefined || v === null) v = "";
+                            if (v === undefined || v === null) v = item.default;
+                            if (v === undefined || v === null) v = "";
                             if (item.template) v = template(item.name, v, variables);
                             if (item.variable) {
                                 hasVars = true;
@@ -206,8 +204,7 @@ export class Deployment {
                 if (type.content.nameVariable) variables[type.content.nameVariable] = obj.name;
 
                 if (type.content.hasSudoOn)
-                    content["sudoOn"] =
-                        "sudoOn" in obj.content && obj.content.sudoOn.includes(hostId);
+                    content.sudoOn = "sudoOn" in obj.content && obj.content.sudoOn.includes(hostId);
 
                 const deploymentTitle = obj.name;
                 return visitContent(
@@ -233,7 +230,7 @@ export class Deployment {
                     time: r.time,
                     author: r.author,
                 };
-                if (r.type == hostId) hosts.push(r.id);
+                if (r.type === hostId) hosts.push(r.id);
             }
 
             // Compute root variables
@@ -278,7 +275,7 @@ export class Deployment {
                 const hostVariables = nullCheck(
                     visitObject(hostId, rootVariable, hostId),
                 ).variables;
-                hostVariables["nodename"] = hostObject.name;
+                hostVariables.nodename = hostObject.name;
                 const nodes = new Map<string, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const topVisiting = new Set<number>();
@@ -307,18 +304,13 @@ export class Deployment {
                     /*sentinal: DagNode,*/ variables: { [key: string]: string },
                 ) => {
                     if (id == null) return null;
-                    const name = prefix.join(".") + "." + id;
+                    const name = `${prefix.join(".")}.${id}`;
                     if (nodes.has(name)) return nodes.get(name);
 
                     const parent = objects[path[path.length - 1]];
-                    if (!(id in objects) || objects[id] == undefined) {
+                    if (!(id in objects) || objects[id] === undefined) {
                         errors.push(
-                            "Missing object " +
-                                id +
-                                " for host " +
-                                hostObject.name +
-                                " in " +
-                                parent.name,
+                            `Missing object ${id} for host ${hostObject.name} in ${parent.name}`,
                         );
                         return null;
                     }
@@ -326,31 +318,17 @@ export class Deployment {
                     const type = objects[obj.type] as IObject2<IType>;
                     if (path.indexOf(id) !== -1) {
                         errors.push(
-                            parent.name +
-                                " contains " +
-                                obj.name +
-                                " of which it is it self a member",
+                            `${parent.name} contains ${obj.name} of which it is it self a member`,
                         );
                         return null;
                     }
 
                     const v = visitObject(id, variables, hostId);
                     if (!v) {
-                        errors.push(
-                            "Error visiting " +
-                                name +
-                                " " +
-                                obj.name +
-                                " " +
-                                type +
-                                " " +
-                                id +
-                                " " +
-                                v,
-                        );
+                        errors.push(`Error visiting ${name} ${obj.name} ${type} ${id} ${v}`);
                         return null;
                     }
-                    v.content["name"] = obj.name;
+                    v.content.name = obj.name;
 
                     const sentinal: SentinalDagNode = {
                         type: NodeType.sentinal,
@@ -366,7 +344,7 @@ export class Deployment {
                         type: NodeType.normal,
                         next: [],
                         prev: [],
-                        name: prefix.join(".") + "." + id,
+                        name: `${prefix.join(".")}.${id}`,
                         id,
                         inCount: 0,
                         typeOrder: type.content.deployOrder || 0,
@@ -458,23 +436,23 @@ export class Deployment {
                 if ("contains" in hostObject.content)
                     for (const depId of (hostObject.content as IContains).contains) visitTop(depId);
 
-                if (errors.length != 0) continue;
+                if (errors.length !== 0) continue;
 
-                const hostFull = deployId == null || deployId == hostId;
+                const hostFull = deployId == null || deployId === hostId;
 
                 // Find all nodes reachable from deployId, and prep them for top sort
                 const seen = new Set<DagNode>();
                 const toVisit: DagNode[] = [];
                 nodes.forEach((c, key) => {
                     if (!c) return;
-                    if (hostFull || c.sentinal.id == deployId || c.node.typeId == deployId) {
+                    if (hostFull || c.sentinal.id === deployId || c.node.typeId === deployId) {
                         toVisit.push(c.sentinal);
                         seen.add(c.sentinal);
                     }
                 });
 
                 // There is nothing to deploy here
-                if (toVisit.length == 0 && !hostFull) continue;
+                if (toVisit.length === 0 && !hostFull) continue;
 
                 // Perform topsort and construct deployment objects
                 while (true) {
@@ -490,18 +468,18 @@ export class Deployment {
                 }
 
                 const pq = new PriorityQueue<DagNode>((lhs, rhs) => {
-                    if (rhs.typeOrder != lhs.typeOrder) return rhs.typeOrder - lhs.typeOrder;
+                    if (rhs.typeOrder !== lhs.typeOrder) return rhs.typeOrder - lhs.typeOrder;
                     return rhs.id - lhs.id;
                 });
 
-                seen.forEach((node) => {
+                for (const node of seen) {
                     const obj = objects[node.id];
                     //if (obj == undefined) return;
                     const type = obj && (objects[obj.type] as IObject2<IType>);
                     //if (type == undefined) return;
                     // node.typeOrder = type?type.content.deployOrder: 0;
-                    if (node.inCount == 0) pq.enq(node);
-                });
+                    if (node.inCount === 0) pq.enq(node);
+                }
 
                 const oldContent: {
                     [name: string]: {
@@ -528,16 +506,16 @@ export class Deployment {
                     for (const next of node.next) {
                         if (!next) continue;
                         next.inCount--;
-                        if (next.inCount == 0) pq.enq(next);
+                        if (next.inCount === 0) pq.enq(next);
                     }
-                    if (node.id == null || node.type == NodeType.sentinal) continue;
+                    if (node.id == null || node.type === NodeType.sentinal) continue;
                     const obj = objects[node.id];
                     if (!obj) continue;
                     const type = objects[obj.type] as IObject2<IType>;
                     if (
-                        type.content.kind == "collection" ||
-                        type.content.kind == "root" ||
-                        type.content.kind == "host"
+                        type.content.kind === "collection" ||
+                        type.content.kind === "root" ||
+                        type.content.kind === "host"
                     )
                         continue;
                     const name = nullCheck(node.name);
@@ -574,7 +552,7 @@ export class Deployment {
                     hostDeploymentObjects.push(o);
                 }
 
-                if (seen.size != 0) {
+                if (seen.size !== 0) {
                     let shortest_cycle: DagNode[] | null = null;
                     for (const seed of seen) {
                         const back = new Map<DagNode, DagNode>();
@@ -603,7 +581,7 @@ export class Deployment {
                             if (cycleFound) {
                                 const cycle = [];
                                 cycle.push(seed);
-                                while (n != seed) {
+                                while (n !== seed) {
                                     cycle.push(n);
                                     const m = back.get(n);
                                     if (m == null) {
@@ -621,29 +599,24 @@ export class Deployment {
                     }
 
                     errors.push(
-                        "There is a cycle on host " +
-                            hostObject.name +
-                            ": " +
-                            shortest_cycle!
-                                .map((v) =>
-                                    v.type == NodeType.sentinal
-                                        ? "Sent " + v.name
-                                        : v.deploymentTitle,
-                                )
-                                .join(" -> "),
+                        `There is a cycle on host ${hostObject.name}: ${shortest_cycle!
+                            .map((v) =>
+                                v.type === NodeType.sentinal ? `Sent ${v.name}` : v.deploymentTitle,
+                            )
+                            .join(" -> ")}`,
                     );
                 }
 
-                if ("debPackages" in hostObject.content && !hostObject.content["debPackages"])
+                if ("debPackages" in hostObject.content && !hostObject.content.debPackages)
                     hostDeploymentObjects = hostDeploymentObjects.filter(
-                        (o) => o.typeId != packageId,
+                        (o) => o.typeId !== packageId,
                     );
 
                 // Filter away stuff that has not changed
                 hostDeploymentObjects = hostDeploymentObjects.filter((o) => {
                     const a = JSON.stringify(o.nextContent);
                     const b = JSON.stringify(o.prevContent);
-                    return a !== b || o.script != o.prevScript;
+                    return a !== b || o.script !== o.prevScript;
                 });
 
                 // Find stuff to remove
@@ -659,7 +632,7 @@ export class Deployment {
                     values.sort((l, r) => {
                         const lo = l.content.deploymentOrder;
                         const ro = r.content.deploymentOrder;
-                        if (lo != ro) return ro - lo;
+                        if (lo !== ro) return ro - lo;
                         return l.name < r.name ? -1 : 1;
                     });
 
@@ -694,18 +667,18 @@ export class Deployment {
                 }
 
                 triggers.sort((l, r) => {
-                    if (l.typeId != r.typeId) return l.typeId - r.typeId;
-                    if (l.script != r.script) return l.script < r.script ? -1 : 1;
+                    if (l.typeId !== r.typeId) return l.typeId - r.typeId;
+                    if (l.script !== r.script) return l.script < r.script ? -1 : 1;
                     return JSON.stringify(l.content) < JSON.stringify(r.content) ? -1 : 1;
                 });
 
                 for (let i = 0; i < triggers.length; ++i) {
                     const t = triggers[i];
                     if (
-                        i != 0 &&
-                        t.typeId == triggers[i - 1].typeId &&
-                        t.script == triggers[i - 1].script &&
-                        JSON.stringify(t.content) == JSON.stringify(triggers[i - 1].content)
+                        i !== 0 &&
+                        t.typeId === triggers[i - 1].typeId &&
+                        t.script === triggers[i - 1].script &&
+                        JSON.stringify(t.content) === JSON.stringify(triggers[i - 1].content)
                     )
                         continue;
 
@@ -732,7 +705,7 @@ export class Deployment {
                 }
             }
 
-            if (errors.length != 0) {
+            if (errors.length !== 0) {
                 this.deploymentObjects = [];
                 this.setStatus(DEPLOYMENT_STATUS.InvilidTree);
                 this.setMessage(errors.join("\n"));
@@ -747,7 +720,7 @@ export class Deployment {
                 objects: this.getView(),
             };
             webClients.broadcast(a);
-            if (this.deploymentObjects.length == 0) {
+            if (this.deploymentObjects.length === 0) {
                 this.setStatus(DEPLOYMENT_STATUS.Done);
                 this.setMessage("Everything up to date, nothing to deploy!");
             } else {
@@ -786,7 +759,7 @@ export class Deployment {
         const types: { [id: number]: IObject2<IType> } = {};
 
         for (const r of await db.getAllObjectsFull())
-            if (r.type == typeId)
+            if (r.type === typeId)
                 types[r.id] = {
                     id: r.id,
                     name: r.name,
@@ -816,7 +789,7 @@ export class Deployment {
                 continue;
             }
 
-            if (o.host != curHost) {
+            if (o.host !== curHost) {
                 curHost = o.host;
                 this.addHeader(o.hostName, "=");
                 hostObjects = {};
@@ -830,7 +803,7 @@ export class Deployment {
 
             const hostClient = hostClients.hostClients[o.host];
             if (!hostClient || hostClient.closeHandled) {
-                this.addLog("Host " + o.hostName + " is down\r\n");
+                this.addLog(`Host ${o.hostName} is down\r\n`);
                 badHosts.add(o.host);
                 this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
                 continue;
@@ -840,7 +813,7 @@ export class Deployment {
 
             const type = types[typeId];
 
-            if (type && type.content.kind == "sum") {
+            if (type && type.content.kind === "sum") {
                 let j = i;
 
                 const curObjects = hostObjects[typeId] || {};
@@ -850,7 +823,7 @@ export class Deployment {
                     const o2 = this.deploymentObjects[j];
                     if (!o2.enabled) continue;
                     if (o2.typeId !== typeId) break;
-                    if (o2.host != o.host) break;
+                    if (o2.host !== o.host) break;
                     this.setObjectStatus(j, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
                     if (o2.prevContent) delete nextObjects[o2.name];
@@ -859,14 +832,14 @@ export class Deployment {
 
                 const ans = await this.deploySingle(hostClient, o.script, { objects: nextObjects });
 
-                const ok = ans.success && ans.code == 0;
+                const ok = ans.success && ans.code === 0;
                 if (!ok) {
                     for (let k = i; k < j; ++k) {
                         const o2 = this.deploymentObjects[k];
                         if (!o2.enabled) continue;
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Failure);
                     }
-                    if (ans.success) this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
+                    if (ans.success) this.addLog(`\r\nFailed with exit code ${ans.code}\r\n`);
                     else this.addLog("\r\nFailed\r\n");
                     badHosts.add(o.host);
                 } else {
@@ -898,17 +871,17 @@ export class Deployment {
                 continue;
             }
 
-            this.addHeader(o.title + " (" + o.typeName + ")", "-");
+            this.addHeader(`${o.title} (${o.typeName})`, "-");
 
             this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
             let ans = { success: false, code: 0 };
 
-            if (type && type.content.kind == "trigger") {
+            if (type && type.content.kind === "trigger") {
                 ans = await this.deploySingle(hostClient, o.script, o.nextContent);
-            } else if (!type || type.content.kind == "delta") {
+            } else if (!type || type.content.kind === "delta") {
                 if (
-                    (o.title == "headscale" || o.title == "setup_headscale") &&
+                    (o.title === "headscale" || o.title === "setup_headscale") &&
                     o.nextContent != null
                 ) {
                     const exec2 = promisify(exec);
@@ -916,7 +889,7 @@ export class Deployment {
                         "headscale -o json --force --user sadmin preauthkeys create --reusable --expiration 1h",
                     );
                     const output = JSON.parse(stdout);
-                    o.nextContent["scaleAuthKey"] = output["key"];
+                    o.nextContent.scaleAuthKey = output.key;
                 }
 
                 ans = await this.deploySingle(hostClient, o.script, {
@@ -925,12 +898,12 @@ export class Deployment {
                 });
             }
 
-            const ok = ans.success && ans.code == 0;
+            const ok = ans.success && ans.code === 0;
             if (!ok) {
-                if (ans.success) this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
+                if (ans.success) this.addLog(`\r\nFailed with exit code ${ans.code}\r\n`);
                 else this.addLog("\r\nFailed\r\n");
-                if (type && type.content.kind != "trigger") badHosts.add(o.host);
-            } else if (type && type.content.kind != "trigger") {
+                if (type && type.content.kind !== "trigger") badHosts.add(o.host);
+            } else if (type && type.content.kind !== "trigger") {
                 const c: IDeployContent = {
                     content: o.nextContent,
                     script: o.script,
@@ -961,18 +934,18 @@ export class Deployment {
     }
 
     async start() {
-        if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
+        if (this.status !== DEPLOYMENT_STATUS.ReviewChanges) return;
         await this.performDeploy();
     }
 
     stop() {
-        if (this.status != DEPLOYMENT_STATUS.Deploying) return;
+        if (this.status !== DEPLOYMENT_STATUS.Deploying) return;
         //TODO we should wait for the current action to finish
         this.setStatus(DEPLOYMENT_STATUS.Done);
     }
 
     cancel() {
-        if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
+        if (this.status !== DEPLOYMENT_STATUS.ReviewChanges) return;
         this.setStatus(DEPLOYMENT_STATUS.Done);
         this.deploymentObjects = [];
         const a: ISetDeploymentObjects = {
@@ -984,7 +957,7 @@ export class Deployment {
     }
 
     toggleObject(index: number | null, enabled: boolean) {
-        if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
+        if (this.status !== DEPLOYMENT_STATUS.ReviewChanges) return;
 
         if (index === null) {
             for (const o of this.deploymentObjects) o.enabled = enabled;
@@ -1013,9 +986,7 @@ export class Deployment {
         const t = 100 - 4 - name.length;
         const l = t / 2;
         const r = t - l;
-        this.addLog(
-            "\r\n\x1b[91m" + sep.repeat(l) + "> " + name + " <" + sep.repeat(r) + "\x1b[0m\r\n",
-        );
+        this.addLog(`\r\n\x1b[91m${sep.repeat(l)}> ${name} <${sep.repeat(r)}\x1b[0m\r\n`);
     }
 
     addLog(bytes: string) {

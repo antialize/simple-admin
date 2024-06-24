@@ -41,9 +41,7 @@ export class Msg {
         const time = dismissed ? +new Date() / 1000 : null;
 
         await db.run(
-            "UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN (" +
-                ids.join(",") +
-                ")",
+            `UPDATE \`messages\` SET \`dismissed\`=?, \`dismissedTime\`=? WHERE \`id\` IN (${ids.join(",")})`,
             dismissed,
             time,
         );
@@ -65,18 +63,18 @@ export class Msg {
             "SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages` WHERE `dismissed`=0 OR `dismissedTime`>?",
             time,
         )) {
-            const msg: string = row["message"] || "";
+            const msg: string = row.message || "";
             if (row.type === null) continue;
             res.push({
-                id: row["id"],
-                host: row["host"],
-                type: row["type"],
-                subtype: row["subtype"],
+                id: row.id,
+                host: row.host,
+                type: row.type,
+                subtype: row.subtype,
                 message: msg.substr(0, 1000),
                 fullMessage: msg.length < 1000,
-                url: row["url"],
-                time: row["time"],
-                dismissed: row["dismissed"] == 1,
+                url: row.url,
+                time: row.time,
+                dismissed: row.dismissed === 1,
             });
         }
         return res;
@@ -94,15 +92,15 @@ export class Msg {
             "SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time`, `dismissed`, `dismissedTime` FROM `messages`",
         )) {
             res.push({
-                id: row["id"],
-                host: row["host"],
-                type: row["type"],
-                subtype: row["subtype"],
-                message: (row["message"] as string).substr(0, 1000),
-                fullMessage: (row["message"] as string).length < 1000,
-                url: row["url"],
-                time: row["time"],
-                dismissed: row["dismissed"] == 1,
+                id: row.id,
+                host: row.host,
+                type: row.type,
+                subtype: row.subtype,
+                message: (row.message as string).substr(0, 1000),
+                fullMessage: (row.message as string).length < 1000,
+                url: row.url,
+                time: row.time,
+                dismissed: row.dismissed === 1,
             });
         }
         return res;
@@ -112,6 +110,6 @@ export class Msg {
         const row = await db.get(
             "SELECT count(*) as `count` FROM `messages` WHERE `dismissed` = 0 AND `message` IS NOT NULL",
         );
-        return row["count"];
+        return row.count;
     }
 }

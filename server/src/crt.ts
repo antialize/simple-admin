@@ -1,9 +1,9 @@
-import { spawn } from "child_process";
-import * as crypto from "crypto";
-import * as fs from "fs";
+import { spawn } from "node:child_process";
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
 
 function temp_name(): string {
-    return "/tmp/" + crypto.randomBytes(48).toString("hex");
+    return `/tmp/${crypto.randomBytes(48).toString("hex")}`;
 }
 
 export function strip(crt: string): string {
@@ -23,9 +23,11 @@ export function generate_key(): Promise<string> {
         );
         if (p.stdout === null) throw Error("should not be null");
         let key = "";
-        p.stdout.on("data", (data) => (key += data));
+        p.stdout.on("data", (data) => {
+            key += data;
+        });
         p.on("close", (code) => {
-            if (code == 0 && key) res(key);
+            if (code === 0 && key) res(key);
             else rej("Failed");
         });
     });
@@ -59,13 +61,15 @@ export function generate_ca_crt(key: string): Promise<string> {
             { stdio: ["pipe", "pipe", "inherit"] },
         );
         if (p.stdin === null) throw Error("should not be null");
-        p.stdin.write(key, () => p.stdin && p.stdin.end());
+        p.stdin.write(key, () => p.stdin?.end());
         if (p.stdout === null) throw Error("should not be null");
         let crt = "";
-        p.stdout.on("data", (data) => (crt += data));
+        p.stdout.on("data", (data) => {
+            crt += data;
+        });
         p.on("close", (code) => {
             fs.unlink(t1, () => {});
-            if (code == 0 && crt) res(crt);
+            if (code === 0 && crt) res(crt);
             else rej("Failed");
         });
     });
@@ -76,9 +80,7 @@ export function generate_srs(key: string, cn: string): Promise<string> {
         const t1 = temp_name();
         fs.writeFileSync(
             t1,
-            "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN=" +
-                cn +
-                "\n",
+            `[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN=${cn}\n`,
             { mode: 0o400 },
         );
         const t2 = temp_name();
@@ -88,10 +90,12 @@ export function generate_srs(key: string, cn: string): Promise<string> {
         });
         if (p.stdout === null) throw Error("should not be null");
         let srs = "";
-        p.stdout.on("data", (data) => (srs += data));
+        p.stdout.on("data", (data) => {
+            srs += data;
+        });
         p.on("close", (code) => {
             fs.unlink(t1, () => {});
-            if (code == 0 && srs) res(srs);
+            if (code === 0 && srs) res(srs);
             else rej("Failed");
         });
     });
@@ -116,7 +120,7 @@ export function generate_crt(
             "x509",
             "-req",
             "-days",
-            "" + timeoutDays,
+            `${timeoutDays}`,
             "-in",
             t1,
             "-CA",
@@ -132,12 +136,7 @@ export function generate_crt(
             t3 = temp_name();
             fs.writeFileSync(
                 t3,
-                "basicConstraints = critical, CA:TRUE\n" +
-                    "keyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, keyEncipherment, keyAgreement\n" +
-                    "subjectKeyIdentifier = hash\n" +
-                    "nameConstraints = critical, " +
-                    subcerts.map((v) => "permitted;DNS:" + v).join(", ") +
-                    "\n",
+                `basicConstraints = critical, CA:TRUE\nkeyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, keyEncipherment, keyAgreement\nsubjectKeyIdentifier = hash\nnameConstraints = critical, ${subcerts.map((v) => `permitted;DNS:${v}`).join(", ")}\n`,
                 { mode: 0o400 },
             );
             args.push("-extfile");
@@ -147,14 +146,16 @@ export function generate_crt(
 
         if (p.stdout === null) throw Error("should not be null");
         let crt = "";
-        p.stdout.on("data", (data) => (crt += data));
+        p.stdout.on("data", (data) => {
+            crt += data;
+        });
         p.on("close", (code) => {
             fs.unlink(t1, () => {});
             fs.unlink(t2, () => {});
             if (t3) {
                 fs.unlink(t3, () => {});
             }
-            if (code == 0 && crt) res(crt);
+            if (code === 0 && crt) res(crt);
             else rej("Failed");
         });
     });
@@ -170,8 +171,8 @@ export async function generate_ssh_crt(
 ): Promise<string> {
     const sshHostCaKeyFile = temp_name();
     const tmp = temp_name();
-    const clientPublicKeyFile = tmp + ".pub";
-    const outputCertificateFile = tmp + "-cert.pub";
+    const clientPublicKeyFile = `${tmp}.pub`;
+    const outputCertificateFile = `${tmp}-cert.pub`;
     try {
         fs.writeFileSync(
             sshHostCaKeyFile,

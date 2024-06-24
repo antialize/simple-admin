@@ -1,6 +1,6 @@
-import * as crypto from "crypto";
-import * as http from "http";
-import * as url from "url";
+import * as crypto from "node:crypto";
+import * as http from "node:http";
+import * as url from "node:url";
 import * as bodyParser from "body-parser";
 import * as express from "express";
 import helmet from "helmet";
@@ -89,19 +89,19 @@ export class WebClient extends JobOwner {
                 console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
                 this.sendAuthStatus(act.session || null);
                 break;
-            case ACTION.Login:
+            case ACTION.Login: {
                 let session = this.auth.session;
                 const auth = session ? await getAuth(this.host, session) : noAccess;
                 let found = false;
                 let newOtp = false;
-                let otp = auth && auth.otp;
-                let pwd = auth && auth.pwd;
+                let otp = auth?.otp;
+                let pwd = auth?.pwd;
 
                 if (config.users) {
                     for (const u of config.users) {
-                        if (u.name == act.user) {
+                        if (u.name === act.user) {
                             found = true;
-                            if (u.password == act.pwd) {
+                            if (u.password === act.pwd) {
                                 otp = true;
                                 pwd = true;
                                 newOtp = true;
@@ -189,6 +189,7 @@ export class WebClient extends JobOwner {
                     this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
                 }
                 break;
+            }
             case ACTION.RequestInitialState:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -223,7 +224,7 @@ export class WebClient extends JobOwner {
                 }
                 this.sendAuthStatus(this.auth.session);
                 break;
-            case ACTION.FetchObject:
+            case ACTION.FetchObject: {
                 if (!this.auth.admin) {
                     this.connection.close(403);
                     return;
@@ -245,7 +246,8 @@ export class WebClient extends JobOwner {
                 }
                 this.sendMessage(res);
                 break;
-            case ACTION.GetObjectId:
+            }
+            case ACTION.GetObjectId: {
                 if (!this.auth.admin) {
                     this.connection.close(403);
                     return;
@@ -253,7 +255,7 @@ export class WebClient extends JobOwner {
                 let id = null;
                 try {
                     const parts = act.path.split("/", 2);
-                    if (parts.length != 2) break;
+                    if (parts.length !== 2) break;
                     const typeRow = await db.get(
                         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
                         typeId,
@@ -262,7 +264,7 @@ export class WebClient extends JobOwner {
                     if (!typeRow || !typeRow.id) break;
                     const objectRow = await db.get(
                         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-                        typeRow["id"],
+                        typeRow.id,
                         parts[1],
                     );
                     if (objectRow) id = objectRow.id;
@@ -270,7 +272,8 @@ export class WebClient extends JobOwner {
                     this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
                 }
                 break;
-            case ACTION.GetObjectHistory:
+            }
+            case ACTION.GetObjectHistory: {
                 if (!this.auth.admin) {
                     this.connection.close(403);
                     return;
@@ -293,6 +296,7 @@ export class WebClient extends JobOwner {
                     id: act.id,
                 });
                 break;
+            }
             case ACTION.StartLog:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -348,17 +352,17 @@ export class WebClient extends JobOwner {
                     const typeRow = await db.getNewestObjectByID(act.obj.type);
                     const type = JSON.parse(typeRow.content) as IType;
                     for (const r of type.content || []) {
-                        if (r.type != TypePropType.password) continue;
+                        if (r.type !== TypePropType.password) continue;
                         if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
                         c[r.name] = await crypt.hash(c[r.name]);
                     }
 
-                    if (act.obj.type == userId && (!c["otp_base32"] || !c["otp_url"])) {
+                    if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {
                         const secret = speakeasy.generateSecret({
-                            name: "Simple Admin:" + act.obj.name,
+                            name: `Simple Admin:${act.obj.name}`,
                         });
-                        c["otp_base32"] = secret.base32;
-                        c["otp_url"] = secret.otpauth_url;
+                        c.otp_base32 = secret.base32;
+                        c.otp_url = secret.otpauth_url;
                     }
 
                     const { id, version } = await db.changeObject(
@@ -380,7 +384,7 @@ export class WebClient extends JobOwner {
                     this.sendMessage(res3);
                 }
                 break;
-            case ACTION.Search:
+            case ACTION.Search: {
                 if (!this.auth.admin) {
                     this.connection.close(403);
                     return;
@@ -415,6 +419,7 @@ export class WebClient extends JobOwner {
                 };
                 this.sendMessage(res4);
                 break;
+            }
             case ACTION.ResetServerState:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -433,15 +438,13 @@ export class WebClient extends JobOwner {
                     for (const object of objects) {
                         const content = JSON.parse(object.content);
                         if (!content) continue;
-                        if (object.type == act.id)
-                            conflicts.push("* " + object.name + " (" + object.type + ") type");
+                        if (object.type === act.id)
+                            conflicts.push(`* ${object.name} (${object.type}) type`);
                         for (const val of ["sudoOn", "depends", "contains"]) {
                             if (!(val in content)) continue;
                             for (const id of content[val] as number[]) {
-                                if (id != act.id) continue;
-                                conflicts.push(
-                                    "* " + object.name + " (" + object.type + ") " + val,
-                                );
+                                if (id !== act.id) continue;
+                                conflicts.push(`* ${object.name} (${object.type}) ${val}`);
                             }
                         }
                     }
@@ -449,9 +452,7 @@ export class WebClient extends JobOwner {
                         const res: IAlert = {
                             type: ACTION.Alert,
                             title: "Cannot delete object",
-                            message:
-                                "The object can not be delete as it is in use by:\n" +
-                                conflicts.join("\n"),
+                            message: `The object can not be delete as it is in use by:\n${conflicts.join("\n")}`,
                         };
                         this.sendMessage(res);
                     } else {
@@ -627,7 +628,7 @@ export class WebClient extends JobOwner {
                 }
                 await modifiedFiles.resolve(this, act);
                 break;
-            case ACTION.GenerateKey:
+            case ACTION.GenerateKey: {
                 if (!this.auth.sslname) {
                     this.connection.close(403);
                     return;
@@ -638,7 +639,7 @@ export class WebClient extends JobOwner {
 
                 await docker.ensure_ca();
                 const my_key = await crt.generate_key();
-                const my_srs = await crt.generate_srs(my_key, this.auth.sslname + ".user");
+                const my_srs = await crt.generate_srs(my_key, `${this.auth.sslname}.user`);
                 const my_crt = await crt.generate_crt(
                     docker.ca_key!,
                     docker.ca_crt!,
@@ -675,6 +676,7 @@ export class WebClient extends JobOwner {
                 }
                 this.sendMessage(res2);
                 break;
+            }
             default:
                 console.warn("Web client unknown message", { act });
         }
@@ -683,7 +685,7 @@ export class WebClient extends JobOwner {
     sendMessage(obj: IAction) {
         this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
-                if (Object.getOwnPropertyNames(err).length != 0)
+                if (Object.getOwnPropertyNames(err).length !== 0)
                     console.warn("Web client error sending message", { err, host: this.host });
                 this.connection.terminate();
                 this.onClose();
@@ -713,7 +715,7 @@ async function sendInitialState(c: WebClient) {
     };
     for (const row of await rows) {
         const content = JSON.parse(row.content);
-        if (row.type == typeId) {
+        if (row.type === typeId) {
             action.types[row.id] = {
                 id: row.id,
                 type: row.type,
@@ -755,9 +757,9 @@ export class WebClients {
     wss: WebSocket.Server;
 
     broadcast(act: IAction) {
-        this.webclients.forEach((client) => {
+        for (const client of this.webclients) {
             if (client.auth.admin) client.sendMessage(act);
-        });
+        }
     }
 
     async countMessages(req: express.Request, res: express.Response) {
@@ -766,8 +768,8 @@ export class WebClients {
             "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1",
             [hostId],
         )) {
-            if (hostClients.hostClients[row["id"]]?.auth || !row["content"]) continue;
-            const content: Host = JSON.parse(row["content"]);
+            if (hostClients.hostClients[row.id]?.auth || !row.content) continue;
+            const content: Host = JSON.parse(row.content);
             if (content.messageOnDown) downHosts += 1;
         }
 
@@ -800,16 +802,16 @@ export class WebClients {
             const rawAddresses = request.socket.address();
             const address =
                 (request.headers["x-forwarded-for"] as string) ||
-                (typeof rawAddresses == "string" ? rawAddresses : (rawAddresses as any).address);
+                (typeof rawAddresses === "string" ? rawAddresses : (rawAddresses as any).address);
             if (!request.url) {
                 ws.close();
                 return;
             }
             const u = url.parse(request.url, true);
-            if (u.pathname == "/sysadmin") {
+            if (u.pathname === "/sysadmin") {
                 const wc = new WebClient(ws, address);
                 this.webclients.add(wc);
-            } else if (u.pathname == "/terminal") {
+            } else if (u.pathname === "/terminal") {
                 const server = +u.query!.server!;
                 const cols = +u.query!.cols!;
                 const rows = +u.query!.rows!;

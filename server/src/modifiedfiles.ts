@@ -81,7 +81,7 @@ export class ModifiedFiles {
                     break;
                 case systemdServiceId:
                     data = content.content.unit;
-                    path = "/etc/systemd/system/" + content.content.name + ".service";
+                    path = `/etc/systemd/system/${content.content.name}.service`;
                     break;
                 case cronId:
                     data = content.content.script;
@@ -124,7 +124,7 @@ sys.stdout.write(json.dumps(ans))
 sys.stdout.flush()
 `;
                     const scan_timeout = setTimeout(() => {
-                        reject(new Error("Timeout runnig scan on " + host.hostname));
+                        reject(new Error(`Timeout runnig scan on ${host.hostname}`));
                     }, 60000);
 
                     class FileContentJob extends Job {
@@ -151,16 +151,16 @@ sys.stdout.flush()
                             super.handleMessage(obj);
                             switch (obj.type) {
                                 case "data":
-                                    if (obj.source == "stdout") this.out += obj.data;
+                                    if (obj.source === "stdout") this.out += obj.data;
                                     break;
                                 case "success":
                                     clearTimeout(scan_timeout);
-                                    if (obj.code == 0)
+                                    if (obj.code === 0)
                                         accept({
                                             host: hostId,
                                             content: JSON.parse(this.out).content,
                                         });
-                                    else reject(new Error("Script returned " + obj.code));
+                                    else reject(new Error(`Script returned ${obj.code}`));
                                     break;
                                 case "failure":
                                     clearTimeout(scan_timeout);
@@ -176,24 +176,24 @@ sys.stdout.flush()
 
         try {
             for (const { host, content } of await Promise.all(promises)) {
-                if (!content) throw new Error("Failed to run on host " + host);
+                if (!content) throw new Error(`Failed to run on host ${host}`);
                 const objs = objects.get(host);
-                if (!objs || objs.length != content.length) {
+                if (!objs || objs.length !== content.length) {
                     throw new Error("Not all files there");
                 }
                 const modified = new Map<string, Obj>();
                 for (let i = 0; i < objs.length; ++i) {
-                    if (objs[i].path != content[i].path) throw new Error("Path error");
+                    if (objs[i].path !== content[i].path) throw new Error("Path error");
 
                     objs[i].actual = content[i].data;
-                    if (objs[i].actual == objs[i].data) continue;
+                    if (objs[i].actual === objs[i].data) continue;
                     modified.set(objs[i].path, objs[i]);
                 }
                 for (const m of this.modifiedFiles) {
-                    if (m.host != host) continue;
+                    if (m.host !== host) continue;
                     const p = nullCheck(this.props.get(m.id));
                     const alter = <A>(o: A, n: A): A => {
-                        if (o != n) p.updated = true;
+                        if (o !== n) p.updated = true;
                         return n;
                     };
                     const o = modified.get(m.path);
@@ -229,7 +229,7 @@ sys.stdout.flush()
                     msg.emit(
                         o.host,
                         "Modified file",
-                        "The file " + o.path + " has been modified since it was deployed",
+                        `The file ${o.path} has been modified since it was deployed`,
                     );
                 }
             }
@@ -240,15 +240,13 @@ sys.stdout.flush()
             throw err;
         }
 
-        if (this.modifiedFiles.length != 0) {
+        if (this.modifiedFiles.length !== 0) {
             const oids = [];
             for (const f of this.modifiedFiles) oids.push(f.object);
 
             const m = new Map<number, string>();
             for (const row of await db.all(
-                "SELECT `id`, `content` FROM `objects` WHERE `newest`=1 AND `id` in (?" +
-                    ", ?".repeat(oids.length - 1) +
-                    ")",
+                `SELECT \`id\`, \`content\` FROM \`objects\` WHERE \`newest\`=1 AND \`id\` in (?${", ?".repeat(oids.length - 1)})`,
                 ...oids,
             ))
                 m.set(row.id, row.content);
@@ -279,14 +277,14 @@ sys.stdout.flush()
         try {
             await this.scan();
         } catch (err) {
-            console.error("Error scanning for modified files: " + err);
+            console.error(`Error scanning for modified files: ${err}`);
         }
     }
     async resolve(client: WebClient, act: IModifiedFilesResolve) {
         let f: ModifiedFile | null = null;
-        for (const o of this.modifiedFiles) if (o.id == act.id) f = o;
+        for (const o of this.modifiedFiles) if (o.id === act.id) f = o;
         if (f === null) throw new Error("Unable to find object with that id");
-        if (act.action == "redeploy") {
+        if (act.action === "redeploy") {
             const host = hostClients.hostClients[f.host];
             if (!host) throw new Error("Host is not up");
             const f2 = f;
@@ -319,8 +317,8 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                         super.handleMessage(obj);
                         switch (obj.type) {
                             case "success":
-                                if (obj.code == 0) accept();
-                                else reject(new Error("Script returned " + obj.code));
+                                if (obj.code === 0) accept();
+                                else reject(new Error(`Script returned ${obj.code}`));
                                 break;
                             case "failure":
                                 reject(new Error("Script failure"));
@@ -334,7 +332,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
             pp.dead = true;
             pp.updated = true;
             await this.broadcast_changes();
-        } else if (act.action == "updateCurrent") {
+        } else if (act.action === "updateCurrent") {
             const row = await db.getNewestObjectByID(f.object);
 
             const obj = {
@@ -351,13 +349,13 @@ with open(o['path'], 'w', encoding='utf-8') as f:
 
             switch (f.type) {
                 case fileId:
-                    obj.content["data"] = act.newCurrent;
+                    obj.content.data = act.newCurrent;
                     break;
                 case systemdServiceId:
-                    obj.content["unit"] = act.newCurrent;
+                    obj.content.unit = act.newCurrent;
                     break;
                 case cronId:
-                    obj.content["script"] = act.newCurrent;
+                    obj.content.script = act.newCurrent;
                     break;
             }
 

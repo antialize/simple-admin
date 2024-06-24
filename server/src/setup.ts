@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { config } from "./config";
 import * as crypt from "./crypt";
@@ -44,13 +44,8 @@ export default async (req: Request, res: Response) => {
     let script = "#!/bin/bash\n";
     script += "set -e\n";
     script += "apt install -y wget unzip\n";
-    script +=
-        'echo \'{"server_host": "' +
-        config.hostname +
-        '", "hostname": "' +
-        host +
-        "\"}' > /etc/sadmin.json\n";
-    script += 'echo \'{"password": "' + npw + "\"}' > /etc/sadmin_client_auth.json\n";
+    script += `echo \'{"server_host": "${config.hostname}", "hostname": "${host}\"}' > /etc/sadmin.json\n`;
+    script += `echo \'{"password": "${npw}\"}' > /etc/sadmin_client_auth.json\n`;
     script += "chmod 0600 /etc/sadmin_client_auth.json\n";
     script +=
         "wget https://github.com/antialize/simple-admin/releases/download/v0.0.15/sadmin-client.zip -O /tmp/sadmin-client.zip\n";

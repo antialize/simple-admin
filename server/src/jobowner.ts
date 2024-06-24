@@ -15,8 +15,8 @@ export abstract class JobOwner {
     kill() {
         for (const id in this.jobs) {
             const job = this.jobs[+id];
-            if ((job.client as JobOwner) == this) job.client = null;
-            if (job.owner == this) job.owner = null;
+            if ((job.client as JobOwner) === this) job.client = null;
+            if (job.owner === this) job.owner = null;
             job.kill(null);
         }
     }

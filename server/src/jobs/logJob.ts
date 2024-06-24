@@ -1,4 +1,4 @@
-import * as fs from "fs";
+import * as fs from "node:fs";
 
 import { ACTION, type IAddLogLines } from ".././shared/actions";
 import nullCheck from ".././shared/nullCheck";
@@ -38,10 +38,10 @@ export class LogJob extends Job {
     handleMessage(obj: message.Incomming) {
         switch (obj.type) {
             case "data":
-                if (obj.source == "stdout") {
+                if (obj.source === "stdout") {
                     const lines = (this.part + obj.data).split("\n");
                     this.part = nullCheck(lines.pop());
-                    if (lines.length != 0) {
+                    if (lines.length !== 0) {
                         const msg: IAddLogLines = {
                             type: ACTION.AddLogLines,
                             id: this.wcid,

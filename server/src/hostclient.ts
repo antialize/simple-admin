@@ -1,5 +1,5 @@
-import * as fs from "fs";
-import * as tls from "tls";
+import * as fs from "node:fs";
+import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
 import * as crt from "./crt";
 import * as crypt from "./crypt";
@@ -66,11 +66,12 @@ export class HostClient extends JobOwner {
                 handleMessage(obj: message.Incomming) {
                     super.handleMessage(obj);
                     switch (obj.type) {
-                        case "success":
+                        case "success": {
                             const instantSuccess = obj as any as { type: "success"; data: string };
                             accept(instantSuccess.data);
                             break;
-                        case "failure":
+                        }
+                        case "failure": {
                             const instantFailure = obj as any as {
                                 type: "failure";
                                 code: number;
@@ -83,6 +84,7 @@ export class HostClient extends JobOwner {
                                 ),
                             );
                             break;
+                        }
                     }
                 }
             }
@@ -115,7 +117,7 @@ export class HostClient extends JobOwner {
                         case "success":
                             accept();
                             break;
-                        case "failure":
+                        case "failure": {
                             const instantFailure = obj as any as {
                                 type: "failure";
                                 code: number;
@@ -128,6 +130,7 @@ export class HostClient extends JobOwner {
                                 ),
                             );
                             break;
+                        }
                     }
                 }
             }
@@ -191,10 +194,7 @@ export class HostClient extends JobOwner {
         const res = await db.getHostContentByName(obj.hostname);
         if (
             res &&
-            (await crypt.validate(
-                obj.password,
-                res && res.content && (res.content as any).password,
-            ))
+            (await crypt.validate(obj.password, res?.content && (res.content as any).password))
         )
             return res.id;
         return null;
@@ -204,7 +204,7 @@ export class HostClient extends JobOwner {
         if (this.auth === false) return;
         const obj: message.Incomming = JSON.parse(msg.toString("utf8"));
         if (this.auth === null) {
-            if (obj.type != "auth") {
+            if (obj.type !== "auth") {
                 console.warn("Client invalid auth", {
                     address: this.socket.remoteAddress,
                     port: this.socket.remotePort,
@@ -217,11 +217,11 @@ export class HostClient extends JobOwner {
             const [id, _] = await Promise.all([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
                 console.log("Client authorized", {
-                    hostname: obj["hostname"],
+                    hostname: obj.hostname,
                     address: this.socket.remoteAddress,
                     port: this.socket.remotePort,
                 });
-                this.hostname = obj["hostname"];
+                this.hostname = obj.hostname;
                 this.auth = true;
                 this.id = id;
                 hostClients.hostClients[id] = this;
@@ -245,9 +245,10 @@ export class HostClient extends JobOwner {
             case "pong":
                 this.onPingResponce(obj.id);
                 break;
-            default:
+            default: {
                 const id = obj.id;
                 if (id in this.jobs) this.jobs[id].handleMessage(obj);
+            }
         }
     }
 
@@ -289,11 +290,11 @@ export class HostClient extends JobOwner {
         let start = 0;
         while (true) {
             const idx = data.indexOf("\x1e", start);
-            if (idx == -1) break;
+            if (idx === -1) break;
             const part = data.slice(start, idx);
 
             let messageData: Buffer;
-            if (this.used == 0) messageData = part;
+            if (this.used === 0) messageData = part;
             else {
                 part.copy(this.buff, this.used);
                 messageData = this.buff.slice(0, this.used + part.length);
@@ -306,7 +307,7 @@ export class HostClient extends JobOwner {
     }
 
     sendMessage(obj: message.Outgoing) {
-        this.socket.write(JSON.stringify(obj) + "\x1e");
+        this.socket.write(`${JSON.stringify(obj)}\x1e`);
     }
 }
 

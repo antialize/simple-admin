@@ -1,6 +1,6 @@
-import * as crypto from "crypto";
-import * as fs from "fs";
-import { Stream } from "stream";
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import { Stream } from "node:stream";
 import type * as express from "express";
 import * as Mustache from "mustache";
 import * as shellQuote from "shell-quote";
@@ -142,10 +142,10 @@ class Docker {
 
     async ensure_ca() {
         const r1 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_key'");
-        if (r1) this.ca_key = r1["value"];
+        if (r1) this.ca_key = r1.value;
 
         const r2 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_crt'");
-        if (r2) this.ca_crt = r2["value"];
+        if (r2) this.ca_crt = r2.value;
         if (!this.ca_key) {
             console.log("Generating ca key");
             this.ca_key = await crt.generate_key();
@@ -168,16 +168,16 @@ class Docker {
         const i = this.hostContainers.get(host);
         if (!i) return undefined;
         for (const [id, v] of i) {
-            if (v.name != "/" + container) continue;
+            if (v.name !== `/${container}`) continue;
             return v.state;
         }
         return undefined;
     }
 
     async checkAuth(req: express.Request, res: express.Response, push: boolean) {
-        if (req.headers["authorization"]) {
+        if (req.headers.authorization) {
             const auth = Buffer.from(
-                (req.headers["authorization"] as string).substr(6),
+                (req.headers.authorization as string).substr(6),
                 "base64",
             ).toString("utf8");
 
@@ -185,7 +185,7 @@ class Docker {
             const parts = auth.split(":");
             if (parts.length > 1) {
                 const a = await getAuth(null, parts.slice(1).join(":"));
-                if (parts[0] == a.user && push ? a.dockerPush : a.dockerPull) return a.user;
+                if (parts[0] === a.user && push ? a.dockerPush : a.dockerPull) return a.user;
             }
 
             console.error("Auth failure", { address: req.connection.remoteAddress, parts });
@@ -218,7 +218,7 @@ class Docker {
 
             const p = req.url.split("?")[0].split("/");
             // GET /docker/images/image
-            if (p.length == 4 && p[0] == "" && p[1] == "docker" && p[2] == "images") {
+            if (p.length === 4 && p[0] === "" && p[1] === "docker" && p[2] === "images") {
                 const images: DockerImageTag[] = [];
                 const q =
                     "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`";
@@ -279,13 +279,19 @@ class Docker {
         const p = req.url.split("?")[0].split("/");
 
         // GET /v2/ Base Check that the endpoint implements Docker Registry API V2.
-        if (req.url == "/v2/") {
+        if (req.url === "/v2/") {
             res.status(200).end();
             return;
         }
 
         // GET /v2/<name>/blobs/uploads/<uuid> Blob Upload Retrieve status of upload identified by uuid. The primary purpose of this endpoint is to resolve the current status of a resumable upload.
-        if (p.length == 5 && p[0] == "" && p[1] == "v2" && p[3] == "blobs" && p[4] == "uploads") {
+        if (
+            p.length === 5 &&
+            p[0] === "" &&
+            p[1] === "v2" &&
+            p[3] === "blobs" &&
+            p[4] === "uploads"
+        ) {
             const un = p[5];
             const u = this.activeUploads.get(un);
             if (!u) {
@@ -295,7 +301,7 @@ class Docker {
             }
 
             res.setHeader("Location", req.url);
-            res.setHeader("Range", "0-" + (u.count.value - 1));
+            res.setHeader("Range", `0-${u.count.value - 1}`);
             res.setHeader("Docker-Upload-UUID", un);
             res.status(202);
             res.end();
@@ -303,7 +309,7 @@ class Docker {
         }
 
         // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
-        if (p.length == 5 && p[0] == "" && p[1] == "v2" && p[3] == "blobs") {
+        if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "blobs") {
             const digest = p[4];
             if (!HASH_PATTERN.test(digest)) {
                 console.error("Docker get blob: bad name", { digest });
@@ -327,7 +333,7 @@ class Docker {
         }
 
         // GET 	/v2/<name>/manifests/<reference> Manifest Fetch the manifest identified by name and reference where reference can be a tag or digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
-        if (p.length == 5 && p[0] == "" && p[1] == "v2" && p[3] == "manifests") {
+        if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "manifests") {
             const row = await db.get(
                 "SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
                 p[2],
@@ -344,7 +350,7 @@ class Docker {
             }
             // console.log("Docker get manifest", {row: row['hash']});
             res.header("Content-Type", "application/vnd.docker.distribution.manifest.v2+json");
-            res.send(row["manifest"]).end();
+            res.send(row.manifest).end();
             return;
         }
 
@@ -382,7 +388,7 @@ class Docker {
         const p = req.url.split("?")[0].split("/");
 
         // PUT /v2/<name>/blobs/uploads/<uuid> Blob Upload Complete the upload specified by uuid, optionally appending the body as the final chunk.
-        if (p.length == 6 && p[1] == "v2" && p[3] == "blobs" && p[4] == "uploads") {
+        if (p.length === 6 && p[1] === "v2" && p[3] === "blobs" && p[4] === "uploads") {
             const un = p[5];
             const u = this.activeUploads.get(un);
             if (!u) {
@@ -394,13 +400,13 @@ class Docker {
             const start_size = u.count.value;
             const cl = req.headers["content-length"];
             let expected_size: number | undefined = undefined;
-            if (cl != undefined) {
+            if (cl !== undefined) {
                 expected_size = +cl;
             }
             const cr = req.headers["content-range"];
-            if (cr != undefined) {
+            if (cr !== undefined) {
                 const [start, end] = cr.split("-").map((v) => +v);
-                if (start != start_size) {
+                if (start !== start_size) {
                     console.error("Uploaded chunk not at end of", {
                         uuid,
                         start,
@@ -409,8 +415,8 @@ class Docker {
                     });
                     res.status(500).end();
                 }
-                if (expected_size != undefined) {
-                    if (end - start != expected_size) {
+                if (expected_size !== undefined) {
+                    if (end - start !== expected_size) {
                         console.error("Inconsistent content-range and content-length", {
                             uuid,
                             start,
@@ -430,8 +436,8 @@ class Docker {
             await this.handleUpload(req, u, true);
             const digest = req.query.digest;
 
-            if (expected_size != undefined) {
-                if (u.count.value != start_size + expected_size) {
+            if (expected_size !== undefined) {
+                if (u.count.value !== start_size + expected_size) {
                     console.error("Uploaded bytes does not match expected size", {
                         uuid,
                         recieved: u.count.value - start_size,
@@ -443,9 +449,9 @@ class Docker {
                 }
             }
 
-            const actual_digest = "sha256:" + u.hash.digest("hex");
+            const actual_digest = `sha256:${u.hash.digest("hex")}`;
 
-            if (digest != actual_digest) {
+            if (digest !== actual_digest) {
                 console.error("Invalid digest of uploaded chunk", { uuid, digest, actual_digest });
                 res.status(400).end();
                 return;
@@ -453,7 +459,7 @@ class Docker {
             //console.log("Docker put blob", {uuid: un, total_size: u.count.value, expected_size, content_length: cl, contest_range: cr, digest});
 
             fs.renameSync(docker_upload_path + un, docker_blobs_path + digest);
-            res.setHeader("Location", "/v2/" + p[2] + "/blobs/" + digest);
+            res.setHeader("Location", `/v2/${p[2]}/blobs/${digest}`);
             //res.setHeader("Range", "0-"+u.count.value);
             res.setHeader("Content-Length", "0");
             res.setHeader("Docker-Content-Digest", digest as string);
@@ -464,10 +470,12 @@ class Docker {
         }
 
         // PUT /v2/<name>/manifests/<reference> Manifest Put the manifest identified by name and reference where reference can be a tag or digest.
-        if (p.length == 5 && p[0] == "" && p[1] == "v2" && p[3] == "manifests") {
+        if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "manifests") {
             req.setEncoding("utf-8");
             let content = "";
-            req.on("data", (chunk) => (content += chunk));
+            req.on("data", (chunk) => {
+                content += chunk;
+            });
 
             await new Promise((acc, rej) => {
                 req.on("end", acc);
@@ -487,7 +495,7 @@ class Docker {
                     res.status(400).end();
                     return;
                 }
-                if (mediaType != "application/vnd.docker.image.rootfs.diff.tar.gzip") {
+                if (mediaType !== "application/vnd.docker.image.rootfs.diff.tar.gzip") {
                     console.error("Docker put manifest: layer has invalid media type media type", {
                         digest,
                         mediaType,
@@ -505,7 +513,7 @@ class Docker {
                             resolve(stat);
                         });
                     });
-                    if (s.size != size) {
+                    if (s.size !== size) {
                         console.error("Docker put manifest: layer has wrong size", {
                             digest,
                             diskSize: s.size,
@@ -538,7 +546,7 @@ class Docker {
 
             const hash = crypto.createHash("sha256");
             hash.update(content, "utf8");
-            const h = "sha256:" + hash.digest("hex");
+            const h = `sha256:${hash.digest("hex")}`;
 
             await db.run(
                 "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
@@ -577,7 +585,7 @@ class Docker {
             });
 
             res.status(201)
-                .header("Location", "/v2/" + p[2] + "/manifests/" + h)
+                .header("Location", `/v2/${p[2]}/manifests/${h}`)
                 .header("Content-Length", "0")
                 .header("Docker-Content-Digest", h)
                 .end();
@@ -596,7 +604,7 @@ class Docker {
         const p = req.url.split("?")[0].split("/");
 
         // PATCH /v2/<name>/blobs/uploads/<uuid> Blob Upload Upload a chunk of data for the specified upload.
-        if (p.length == 6 && p[1] == "v2" && p[3] == "blobs" && p[4] == "uploads") {
+        if (p.length === 6 && p[1] === "v2" && p[3] === "blobs" && p[4] === "uploads") {
             const uuid = p[5];
             const u = this.activeUploads.get(uuid);
             if (!u) {
@@ -608,18 +616,18 @@ class Docker {
 
             const cl = req.headers["content-length"];
             let expected_size: number | undefined = undefined;
-            if (cl != undefined) {
+            if (cl !== undefined) {
                 expected_size = +cl;
             }
             const cr = req.headers["content-range"];
-            if (cr != undefined) {
+            if (cr !== undefined) {
                 const [start, end] = cr.split("-").map((v) => +v);
-                if (start != start_size) {
+                if (start !== start_size) {
                     console.error("Uploaded chunk not at end of", { uuid, start, start_size });
                     res.status(500).end();
                 }
-                if (expected_size != undefined) {
-                    if (end - start != expected_size) {
+                if (expected_size !== undefined) {
+                    if (end - start !== expected_size) {
                         console.error("Inconsistent content-range and content-length", {
                             uuid,
                             start,
@@ -634,8 +642,8 @@ class Docker {
             }
 
             await this.handleUpload(req, u, false);
-            if (expected_size != undefined) {
-                if (u.count.value != start_size + expected_size) {
+            if (expected_size !== undefined) {
+                if (u.count.value !== start_size + expected_size) {
                     console.error("Uploaded bytes does not match expected size", {
                         uuid,
                         recieved: u.count.value - start_size,
@@ -649,7 +657,7 @@ class Docker {
             //console.log("Docker patch", {uuid, uploaded: u.count.value, content_length: cl, content_range: cr });
 
             res.setHeader("Location", req.url);
-            res.setHeader("Range", "0-" + (u.count.value - 1));
+            res.setHeader("Range", `0-${u.count.value - 1}`);
             res.setHeader("Content-Length", "0");
             res.setHeader("Docker-Upload-UUID", uuid);
             res.status(202);
@@ -669,11 +677,11 @@ class Docker {
         const p = req.url.split("?")[0].split("/");
 
         // POST	/v2/<name>/blobs/uploads/ Initiate Blob Upload Initiate a resumable blob upload. If successful, an upload location will be provided to complete the upload. Optionally, if the digest parameter is present, the request body will be used to complete the upload in a single request.
-        if (p.length >= 5 && p[1] == "v2" && p[3] == "blobs" && p[4] == "uploads") {
+        if (p.length >= 5 && p[1] === "v2" && p[3] === "blobs" && p[4] === "uploads") {
             const u = uuid();
             this.activeUploads.set(u, new Upload(u));
             res.setHeader("Content-Length", "0");
-            res.setHeader("Location", "/v2/" + p[2] + "/blobs/uploads/" + u);
+            res.setHeader("Location", `/v2/${p[2]}/blobs/uploads/${u}`);
             res.setHeader("Range", "0-0");
             res.setHeader("Docker-Upload-UUID", u);
             res.statusCode = 202;
@@ -726,19 +734,19 @@ class Docker {
 
             const dockerConf: any = { auths: {} };
             dockerConf.auths[config.hostname] = {
-                auth: Buffer.from("docker_client:" + session).toString("base64"),
+                auth: Buffer.from(`docker_client:${session}`).toString("base64"),
             };
 
             const envs: string[] = [];
             client.sendMessage({
                 type: ACTION.DockerDeployLog,
                 ref,
-                message: "Deploying image " + hash,
+                message: `Deploying image ${hash}`,
             });
-            conf = '-e DOCKER_HASH="' + hash + '"\n' + conf;
-            const args = shellQuote.parse(conf.split("\n").join(" ")).map((i) => "" + i);
+            conf = `-e DOCKER_HASH="${hash}"\n${conf}`;
+            const args = shellQuote.parse(conf.split("\n").join(" ")).map((i) => `${i}`);
             if (!args.includes("IMAGE")) args.push("IMAGE");
-            const deployImage = config.hostname + "/" + image + "@" + hash;
+            const deployImage = `${config.hostname}/${image}@${hash}`;
 
             const theDocker = usePodman ? "podman" : "docker";
             const o: string[] = [];
@@ -749,18 +757,15 @@ class Docker {
             }
             o.push(pyStr("--name"), pyStr(container));
             for (let i = 0; i < args.length; ++i) {
-                if (args[i] == "IMAGE") {
+                if (args[i] === "IMAGE") {
                     o.push(pyStr(deployImage));
-                } else if (args[i] == "-e") {
+                } else if (args[i] === "-e") {
                     ++i;
                     o.push("'-e'");
                     const parts = args[i].toString().split("=");
                     if (parts.length >= 2)
                         envs.push(
-                            "    os.environ[" +
-                                pyStr(parts[0]) +
-                                "] = " +
-                                pyStr(parts.slice(1).join("=")),
+                            `    os.environ[${pyStr(parts[0])}] = ${pyStr(parts.slice(1).join("="))}`,
                         );
                     o.push(pyStr(parts[0]));
                 } else {
@@ -897,7 +902,7 @@ finally:
                     super.handleMessage(obj);
                     switch (obj.type) {
                         case "data":
-                            if (obj.source == "stdout" || obj.source == "stderr")
+                            if (obj.source === "stdout" || obj.source === "stderr")
                                 client.sendMessage({
                                     type: ACTION.DockerDeployLog,
                                     ref,
@@ -905,7 +910,7 @@ finally:
                                 });
                             break;
                         case "success":
-                            if (obj.code == 0) accept();
+                            if (obj.code === 0) accept();
                             else reject();
                             break;
                         case "failure":
@@ -953,7 +958,7 @@ finally:
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
-                if (cl.hostname == act.host || cl.id == act.host) host = cl;
+                if (cl.hostname === act.host || cl.id === act.host) host = cl;
             }
             const user = nullCheck(client.auth.user, "Missing user");
 
@@ -1017,7 +1022,7 @@ finally:
                         type: ACTION.DockerDeployDone,
                         ref: act.ref,
                         status: false,
-                        message: "Could not find specified config " + act.config,
+                        message: `Could not find specified config ${act.config}`,
                     });
                     return;
                 }
@@ -1035,11 +1040,11 @@ finally:
                 const variables: { [key: string]: string } = {};
                 for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                     variables[v.key] = v.value;
-                variables["nodename"] = hostRow.name;
+                variables.nodename = hostRow.name;
                 for (const v of hostInfo.variables) variables[v.key] = v.value;
 
                 for (let i = 0; i < 10; ++i)
-                    variables["token_" + i] = crypto.randomBytes(24).toString("base64url");
+                    variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");
 
                 const content = JSON.parse(configRow.content);
 
@@ -1067,7 +1072,7 @@ finally:
                         const my_key = await crt.generate_key();
                         const my_srs = await crt.generate_srs(
                             my_key,
-                            ssl_identity + "." + ssl_service,
+                            `${ssl_identity}.${ssl_service}`,
                         );
                         if (!this.ca_key || !this.ca_crt) throw Error("Logic error");
                         const my_crt = await crt.generate_crt(
@@ -1076,23 +1081,15 @@ finally:
                             my_srs,
                             ssl_subcerts,
                         );
-                        variables["ca_pem"] = crt.strip(this.ca_crt);
-                        variables["ssl_key"] = crt.strip(my_key);
-                        variables["ssl_pem"] = crt.strip(my_crt);
+                        variables.ca_pem = crt.strip(this.ca_crt);
+                        variables.ssl_key = crt.strip(my_key);
+                        variables.ssl_pem = crt.strip(my_crt);
                         if (!raw_conf.includes("{{{ca_pem}}}"))
-                            raw_conf = "-e CA_PEM={{{ca_pem}}}\n" + raw_conf;
+                            raw_conf = `-e CA_PEM={{{ca_pem}}}\n${raw_conf}`;
                         if (!raw_conf.includes("{{{ssl_key}}}"))
-                            raw_conf =
-                                "-e " +
-                                ssl_service.toUpperCase() +
-                                "_KEY={{{ssl_key}}}\n" +
-                                raw_conf;
+                            raw_conf = `-e ${ssl_service.toUpperCase()}_KEY={{{ssl_key}}}\n${raw_conf}`;
                         if (!raw_conf.includes("{{{ssl_pem}}}"))
-                            raw_conf =
-                                "-e " +
-                                ssl_service.toUpperCase() +
-                                "_PEM={{{ssl_pem}}}\n" +
-                                raw_conf;
+                            raw_conf = `-e ${ssl_service.toUpperCase()}_PEM={{{ssl_pem}}}\n${raw_conf}`;
                     }
                 }
                 conf = Mustache.render(raw_conf, variables);
@@ -1313,7 +1310,7 @@ finally:
                     super.handleMessage(obj);
                     switch (obj.type) {
                         case "data":
-                            if (obj.source == "stdout" || obj.source == "stderr")
+                            if (obj.source === "stdout" || obj.source === "stderr")
                                 client.sendMessage({
                                     type: ACTION.DockerDeployLog,
                                     ref,
@@ -1321,7 +1318,7 @@ finally:
                                 });
                             break;
                         case "success":
-                            if (obj.code == 0) accept();
+                            if (obj.code === 0) accept();
                             else reject();
                             break;
                         case "failure":
@@ -1350,7 +1347,7 @@ finally:
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
-                if (cl.hostname == hostIdentifier || cl.id == hostIdentifier) host = cl;
+                if (cl.hostname === hostIdentifier || cl.id === hostIdentifier) host = cl;
             }
             const user = nullCheck(client.auth.user, "Missing user");
 
@@ -1387,17 +1384,17 @@ finally:
             const variables: { [key: string]: string } = {};
             for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                 variables[v.key] = v.value;
-            variables["nodename"] = hostRow.name;
+            variables.nodename = hostRow.name;
             for (const v of hostInfo.variables) variables[v.key] = v.value;
             for (let i = 0; i < 10; ++i)
-                variables["token_" + i] = crypto.randomBytes(24).toString("base64url");
+                variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");
 
             const extraEnv: { [key: string]: string } = {};
 
             if (descriptionTemplate.includes("ssl_service")) {
-                variables["ca_pem"] = "TEMP";
-                variables["ssl_key"] = "TEMP";
-                variables["ssl_pem"] = "TEMP";
+                variables.ca_pem = "TEMP";
+                variables.ssl_key = "TEMP";
+                variables.ssl_pem = "TEMP";
                 const description_str = doTemplate
                     ? Mustache.render(descriptionTemplate, variables)
                     : descriptionTemplate;
@@ -1419,7 +1416,7 @@ finally:
                     const my_key = await crt.generate_key();
                     const my_srs = await crt.generate_srs(
                         my_key,
-                        description.ssl_identity + "." + description.ssl_service,
+                        `${description.ssl_identity}.${description.ssl_service}`,
                     );
                     if (!this.ca_key || !this.ca_crt) throw Error("Logic error");
 
@@ -1439,16 +1436,19 @@ finally:
                         my_srs,
                         ssl_subcerts,
                     );
-                    variables["ca_pem"] = crt.strip(this.ca_crt);
-                    variables["ssl_key"] = crt.strip(my_key);
-                    variables["ssl_pem"] = crt.strip(my_crt);
-                    extraEnv["CA_PEM"] = variables["ca_pem"];
-                    extraEnv[description.ssl_service.toUpperCase() + "_KEY"] = variables["ssl_key"];
-                    extraEnv[description.ssl_service.toUpperCase() + "_PEM"] = variables["ssl_pem"];
+                    variables.ca_pem = crt.strip(this.ca_crt);
+                    variables.ssl_key = crt.strip(my_key);
+                    variables.ssl_pem = crt.strip(my_crt);
+                    extraEnv.CA_PEM = variables.ca_pem;
+                    extraEnv[`${description.ssl_service.toUpperCase()}_KEY`] = variables.ssl_key;
+                    extraEnv[`${description.ssl_service.toUpperCase()}_PEM`] = variables.ssl_pem;
                 } else {
-                    delete variables["ca_pem"];
-                    delete variables["ssl_key"];
-                    delete variables["ssl_pem"];
+                    // biome-ignore lint/performance/noDelete: Does not type check
+                    delete variables.ca_pem;
+                    // biome-ignore lint/performance/noDelete: Does not type check
+                    delete variables.ssl_key;
+                    // biome-ignore lint/performance/noDelete: Does not type check
+                    delete variables.ssl_pem;
                 }
             }
 
@@ -1472,8 +1472,8 @@ finally:
                 }
                 project = p.image;
                 hash = p.hash;
-                image = project + "@" + hash;
-                if (description.project && description.project != project) {
+                image = `${project}@${hash}`;
+                if (description.project && description.project !== project) {
                     throw Error("Project and image does not match");
                 }
             } else {
@@ -1484,7 +1484,7 @@ finally:
             }
             if (project == null) throw Error("Logic error");
 
-            if (hash) extraEnv["DOCKER_HASH"] = hash;
+            if (hash) extraEnv.DOCKER_HASH = hash;
 
             const now = (Date.now() / 1000) | 0;
             const session = crypto.randomBytes(64).toString("hex");
@@ -1502,7 +1502,7 @@ finally:
                     client,
                     host,
                     description_str,
-                    Buffer.from("docker_client:" + session).toString("base64"),
+                    Buffer.from(`docker_client:${session}`).toString("base64"),
                     image,
                     extraEnv,
                     ref,
@@ -1616,7 +1616,7 @@ finally:
             deploymentRow.host,
             description,
             null,
-            deploymentRow.hash ? deploymentRow.project + "@" + deploymentRow.hash : null,
+            deploymentRow.hash ? `${deploymentRow.project}@${deploymentRow.hash}` : null,
             deploymentRow.hash,
             deploymentRow.project,
             false,
@@ -1642,9 +1642,7 @@ finally:
         for (const _ of hashes) placeholders.push("?");
         const tagByHash: { [hash: string]: DockerImageTag } = {};
         for (const row of await db.all(
-            "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `hash` IN (" +
-                placeholders.join(",") +
-                ")",
+            `SELECT \`id\`, \`hash\`, \`time\`, \`project\`, \`user\`, \`tag\`, \`pin\`, \`labels\`, \`removed\` FROM \`docker_images\` WHERE \`hash\` IN (${placeholders.join(",")})`,
             ...hashes,
         )) {
             tagByHash[row.hash] = {
@@ -1686,8 +1684,8 @@ finally:
             for (const row of await db.all(
                 "SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)",
             )) {
-                if (act.host && row.host != act.host) continue;
-                if (act.image && row.project != act.image) continue;
+                if (act.host && row.host !== act.host) continue;
+                if (act.image && row.project !== act.image) continue;
                 hashes.push(row.hash);
                 res.deployments.push({
                     id: row.id,
@@ -2044,9 +2042,9 @@ finally:
                 let keep = false;
                 for (const [id, info] of this.delayedDeploymentInformations) {
                     if (
-                        info.host != host.id ||
-                        info.container != container ||
-                        info.image != project
+                        info.host !== host.id ||
+                        info.container !== container ||
+                        info.image !== project
                     )
                         continue;
                     let match = false;
@@ -2204,8 +2202,8 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
             )) {
                 let keep =
                     row.pin ||
-                    (row.newest == row.id && row.tagPin) ||
-                    ((row.tag == "latest" || row.tag == "master") && row.newest == row.id) ||
+                    (row.newest === row.id && row.tagPin) ||
+                    ((row.tag === "latest" || row.tag === "master") && row.newest === row.id) ||
                     row.active > 0 ||
                     (row.start && row.end && 2 * (row.end - row.start) + grace > now - row.start) ||
                     (row.used && 2 * (row.used - row.time) + grace > now - row.used) ||
@@ -2240,7 +2238,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
 
             for (const file of rem) {
                 await new Promise<void>((acc, rej) =>
-                    fs.unlink(docker_blobs_path + "/" + file, (e) => {
+                    fs.unlink(`${docker_blobs_path}/${file}`, (e) => {
                         if (e) rej(e);
                         else acc();
                     }),

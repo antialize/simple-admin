@@ -10,7 +10,7 @@ export function hash(password: string) {
 export function validate(password: string, hash: string | undefined) {
     const ok = hash !== undefined;
 
-    if (hash && hash.includes("=$")) {
+    if (hash?.includes("=$")) {
         return verify(password, hash);
     }
 

@@ -33,7 +33,7 @@ export class DeployJob extends Job {
     handleMessage(obj: message.Incomming) {
         switch (obj.type) {
             case "data":
-                if (obj.source == "stdout" || obj.source == "stderr")
+                if (obj.source === "stdout" || obj.source === "stderr")
                     deployment.addLog(Buffer.from(obj.data, "base64").toString("binary"));
                 break;
             case "success":

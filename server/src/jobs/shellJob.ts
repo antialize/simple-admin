@@ -1,4 +1,4 @@
-import * as fs from "fs";
+import * as fs from "node:fs";
 import * as WebSocket from "ws";
 import type { HostClient } from "../hostclient";
 import { Job } from "../job";
@@ -16,7 +16,7 @@ export class ShellJob extends Job {
             name: "shell.py",
             interperter: "/usr/bin/python3",
             content: fs.readFileSync("scripts/shell.py", "utf-8"),
-            args: ["" + cols, "" + rows],
+            args: [`${cols}`, `${rows}`],
             stdin_type: "binary",
             stdout_type: "binary",
             stderr_type: "binary",
@@ -48,10 +48,11 @@ export class ShellJob extends Job {
     handleMessage(obj: message.Incomming) {
         switch (obj.type) {
             case "data":
-                if (obj.source == "stdout") {
+                if (obj.source === "stdout") {
                     if (!this.sock) throw Error("Socket is missing");
                     this.sock.send(Buffer.from(obj.data, "base64").toString("binary"));
                 }
+                break;
             default:
                 super.handleMessage(obj);
         }
