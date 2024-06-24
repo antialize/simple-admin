@@ -1,6 +1,6 @@
+import MenuIcon from "@mui/icons-material/Menu";
 import { Button, IconButton, Menu, MenuItem } from "@mui/material";
 import React, { useContext, useState } from "react";
-import MenuIcon from "@mui/icons-material/Menu";
 import { useHotkeys } from "react-hotkeys-hook";
 
 const DropDownOpen = React.createContext({

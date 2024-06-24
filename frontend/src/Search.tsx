@@ -1,12 +1,12 @@
-import state from "./state";
-import Error from "./Error";
-import { observer } from "mobx-react";
-import { type IPage } from "./shared/state";
-import * as State from "./shared/state";
 import { Button, CircularProgress, Link, TextField } from "@mui/material";
-import nullCheck from "./shared/nullCheck";
+import { observer } from "mobx-react";
 import Box from "./Box";
+import Error from "./Error";
 import InfoTable from "./InfoTable";
+import nullCheck from "./shared/nullCheck";
+import type { IPage } from "./shared/state";
+import * as State from "./shared/state";
+import state from "./state";
 
 const Search = observer(function Search() {
     const s = state.search;

@@ -1,8 +1,8 @@
-import { type IObject2 } from "./shared/state";
-import { type IType, hostId, typeId } from "./shared/type";
 import { computed } from "mobx";
-import { state } from "./state";
 import nullCheck from "./shared/nullCheck";
+import type { IObject2 } from "./shared/state";
+import { type IType, hostId, typeId } from "./shared/type";
+import { state } from "./state";
 
 class DerivedState {
     @computed

@@ -1,16 +1,16 @@
-import { observer } from "mobx-react";
-import Error from "./Error";
-import state from "./state";
-import { TypePropType, hostId, rootId, typeId } from "./shared/type";
-import { InformationList, InformationListRow } from "./InformationList";
 import { MenuItem, Select, Switch, TextField, Tooltip } from "@mui/material";
-import TypeContent from "./TypeContent";
-import Password from "./Password";
+import { observer } from "mobx-react";
 import Category from "./Category";
-import ObjectSelector from "./ObjectSelector";
-import Variables from "./Variables";
-import Triggers from "./Triggers";
 import Editor from "./Editor";
+import Error from "./Error";
+import { InformationList, InformationListRow } from "./InformationList";
+import ObjectSelector from "./ObjectSelector";
+import Password from "./Password";
+import Triggers from "./Triggers";
+import TypeContent from "./TypeContent";
+import Variables from "./Variables";
+import { TypePropType, hostId, rootId, typeId } from "./shared/type";
+import state from "./state";
 
 const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id: number }) {
     const obj = state.objects.get(id);

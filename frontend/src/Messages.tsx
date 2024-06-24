@@ -1,10 +1,10 @@
-import { observer } from "mobx-react";
-import state from "./state";
-import nullCheck from "./shared/nullCheck";
-import Message from "./Message";
-import Box from "./Box";
 import { Typography } from "@mui/material";
+import { observer } from "mobx-react";
+import Box from "./Box";
+import Message from "./Message";
 import MessageGroup from "./MessageGroup";
+import nullCheck from "./shared/nullCheck";
+import state from "./state";
 
 interface MGroup {
     ids: number[];

@@ -12,7 +12,7 @@ class DeploymentState {
     status: DEPLOYMENT_STATUS = DEPLOYMENT_STATUS.Done;
 
     @observable
-    message: string = "";
+    message = "";
 
     @observable
     objects: IDeploymentObject[] = [];

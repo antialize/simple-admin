@@ -1,14 +1,14 @@
 import Cookies from "js-cookie";
-import type * as State from "./shared/state";
-import state, { CONNECTION_STATUS } from "./state";
-import { type IAction, ACTION, type IRequestAuthStatus } from "./shared/actions";
-import { add, clear } from "./deployment/Log";
 import { runInAction } from "mobx";
-import nullCheck from "./shared/nullCheck";
-import getOrInsert from "./shared/getOrInsert";
-import { typeId } from "./shared/type";
 import ObjectState from "./ObjectState";
+import { add, clear } from "./deployment/Log";
+import { ACTION, type IAction, type IRequestAuthStatus } from "./shared/actions";
+import getOrInsert from "./shared/getOrInsert";
 import { getReferences } from "./shared/getReferences";
+import nullCheck from "./shared/nullCheck";
+import type * as State from "./shared/state";
+import { typeId } from "./shared/type";
+import state, { CONNECTION_STATUS } from "./state";
 
 export let socket: WebSocket | null = null;
 let reconnectTime = 1;

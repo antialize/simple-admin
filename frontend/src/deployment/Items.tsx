@@ -1,8 +1,8 @@
-import * as State from ".././shared/state";
-import state from "../state";
-import { observer } from "mobx-react";
-import Error from "../Error";
 import { Button, Checkbox, styled, useTheme } from "@mui/material";
+import { observer } from "mobx-react";
+import * as State from ".././shared/state";
+import Error from "../Error";
+import state from "../state";
 
 const Table = styled("table")({});
 interface IProps {

@@ -1,15 +1,15 @@
+import { Button, CircularProgress, Switch, Typography, styled } from "@mui/material";
+import * as Diff from "diff";
 import { observer } from "mobx-react";
+import { useState } from "react";
+import Box from "./Box";
+import Editor from "./Editor";
 import Error from "./Error";
-import state from "./state";
+import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
 import { type IModifiedFilePage, PAGE_TYPE } from "./shared/state";
 import { hostId } from "./shared/type";
-import { Button, CircularProgress, Switch, Typography, styled } from "@mui/material";
-import Box from "./Box";
-import UnixTime from "./UnixTime";
-import { useState } from "react";
-import * as Diff from "diff";
-import Editor from "./Editor";
+import state from "./state";
 
 const Table = styled("table")({});
 const Span = styled("span")({});

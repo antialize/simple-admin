@@ -1,6 +1,6 @@
 import { Autocomplete, TextField } from "@mui/material";
-import state from "./state";
 import { observer } from "mobx-react";
+import state from "./state";
 
 const Category = observer(function Category({
     category,

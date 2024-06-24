@@ -1,12 +1,12 @@
-import {
-    type IPage,
-    type IObjectDigest,
-    type IObject2,
-    type DEPLOYMENT_OBJECT_STATUS,
-    type DEPLOYMENT_STATUS,
-    type IDeploymentObject,
+import type {
+    DEPLOYMENT_OBJECT_STATUS,
+    DEPLOYMENT_STATUS,
+    IDeploymentObject,
+    IObject2,
+    IObjectDigest,
+    IPage,
 } from "./state";
-import { type IType } from "./type";
+import type { IType } from "./type";
 
 export enum ACTION {
     AddDeploymentLog = "AddDeploymentLog",

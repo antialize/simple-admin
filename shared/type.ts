@@ -1,12 +1,12 @@
 export enum TypePropType {
-    none,
-    bool,
-    text,
-    password,
-    document,
-    choice,
-    typeContent,
-    number,
+    none = 0,
+    bool = 1,
+    text = 2,
+    password = 3,
+    document = 4,
+    choice = 5,
+    typeContent = 6,
+    number = 7,
 }
 
 export interface IBoolTypeProp {

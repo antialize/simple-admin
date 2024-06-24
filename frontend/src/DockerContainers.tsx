@@ -1,16 +1,16 @@
-import { observer } from "mobx-react";
-import state from "./state";
-import extractRemote from "./extractRemote";
-import { hostId } from "./shared/type";
-import { type IPage } from "./shared/state";
-import * as State from "./shared/state";
-import UnixTime from "./UnixTime";
 import { Button, Typography } from "@mui/material";
-import { ACTION } from "./shared/actions";
-import Error from "./Error";
+import { observer } from "mobx-react";
 import Box from "./Box";
-import { InformationList, InformationListRow } from "./InformationList";
+import Error from "./Error";
 import InfoTable, { InfoTableHeader } from "./InfoTable";
+import { InformationList, InformationListRow } from "./InformationList";
+import UnixTime from "./UnixTime";
+import extractRemote from "./extractRemote";
+import { ACTION } from "./shared/actions";
+import type { IPage } from "./shared/state";
+import * as State from "./shared/state";
+import { hostId } from "./shared/type";
+import state from "./state";
 
 export const HostDockerContainers = observer(function DockerContainers(p: {
     host: number;

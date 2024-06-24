@@ -1,22 +1,22 @@
-import ObjectList from "./ObjectList";
-import Search from "./Search";
-import state from "./state";
-import { observer } from "mobx-react";
-import * as State from "./shared/state";
-import { DockerImages, DockerImageHistory } from "./DockerImages";
-import Error from "./Error";
 import { Typography } from "@mui/material";
-import Statuses from "./Statuses";
+import { observer } from "mobx-react";
+import Deployment from "./Deployment";
 import {
     DockerContainerDetails,
     DockerContainerHistory,
     DockerContainers,
 } from "./DockerContainers";
-import ObjectView from "./ObjectView";
+import { DockerImageHistory, DockerImages } from "./DockerImages";
+import Error from "./Error";
 import Messages from "./Messages";
-import Deployment from "./Deployment";
-import DeploymentDetails from "./deployment/Details";
 import { ModifiedFileRevolver, ModifiedFiles } from "./ModifiedFiles";
+import ObjectList from "./ObjectList";
+import ObjectView from "./ObjectView";
+import Search from "./Search";
+import Statuses from "./Statuses";
+import DeploymentDetails from "./deployment/Details";
+import * as State from "./shared/state";
+import state from "./state";
 
 function never(_: never, message: string) {
     console.error(message);

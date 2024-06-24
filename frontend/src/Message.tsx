@@ -1,9 +1,9 @@
-import { observer } from "mobx-react";
-import nullCheck from "./shared/nullCheck";
-import state from "./state";
-import { ACTION, type IMessageTextReqAction, type ISetMessagesDismissed } from "./shared/actions";
-import { hostId } from "./shared/type";
 import { Button } from "@mui/material";
+import { observer } from "mobx-react";
+import { ACTION, type IMessageTextReqAction, type ISetMessagesDismissed } from "./shared/actions";
+import nullCheck from "./shared/nullCheck";
+import { hostId } from "./shared/type";
+import state from "./state";
 
 const Message = observer(function Message({ id, inGroup }: { id: number; inGroup: boolean }) {
     const message = nullCheck(state.messages.get(id));

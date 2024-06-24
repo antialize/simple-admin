@@ -1,7 +1,7 @@
+import { observer } from "mobx-react";
 import * as QRCode from "qrcode";
 import Box from "./Box";
 import state from "./state";
-import { observer } from "mobx-react";
 
 const UserExtra = observer(function UserExtra({ id }: { id: number }) {
     const obj = state.objects.get(id);

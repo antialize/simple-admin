@@ -1,12 +1,12 @@
-import DeploymentState from "./deployment/DeploymentState";
-import LoginState from "./LoginState";
-import PageState from "./PageState";
-import state from "./state";
 import { ActionTargets } from "./ActionTargets";
-import DockerImagesState from "./DockerImagesState";
 import DockerContainersState from "./DockerContairsState";
-import SearchState from "./SearchState";
+import DockerImagesState from "./DockerImagesState";
+import LoginState from "./LoginState";
 import ModifiedFilesState from "./ModifiedFilesState";
+import PageState from "./PageState";
+import SearchState from "./SearchState";
+import DeploymentState from "./deployment/DeploymentState";
+import state from "./state";
 
 function setupState() {
     state.login = new LoginState();

@@ -1,6 +1,6 @@
 import { action, makeObservable, observable } from "mobx";
-import state from "./state";
 import { ACTION, type ISearchRes } from "./shared/actions";
+import state from "./state";
 
 export default class SearchState {
     constructor() {
@@ -8,10 +8,10 @@ export default class SearchState {
     }
 
     @observable
-    key: string = "";
+    key = "";
 
     @observable
-    searchKey: string = "";
+    searchKey = "";
 
     @observable.shallow
     objects: Array<{
@@ -24,7 +24,7 @@ export default class SearchState {
     }> = [];
 
     @observable
-    searching: boolean = false;
+    searching = false;
 
     @observable
     content: number | null = null;

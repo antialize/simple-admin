@@ -1,8 +1,4 @@
-import * as State from "./shared/state";
 import SearchIcon from "@mui/icons-material/Search";
-import Error from "./Error";
-import { observer } from "mobx-react";
-import state from "./state";
 import {
     AppBar,
     Badge,
@@ -19,13 +15,17 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
+import { observer } from "mobx-react";
 import { useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import Error from "./Error";
 import MenuDropdown, { DropDownItem } from "./MenuDropdown";
-import { rootId, rootInstanceId } from "./shared/type";
-import derivedState from "./derivedState";
 import SubMenu from "./SubMenu";
 import { ObjectMenuList } from "./TypeMenuItems";
-import { useHotkeys } from "react-hotkeys-hook";
+import derivedState from "./derivedState";
+import * as State from "./shared/state";
+import { rootId, rootInstanceId } from "./shared/type";
+import state from "./state";
 
 function matchText(text: string, key: string) {
     if (!key || key.length == 0) return false;

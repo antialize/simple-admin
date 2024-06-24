@@ -1,15 +1,15 @@
-import { diff } from "@codemirror/legacy-modes/mode/diff";
-import { yaml } from "@codemirror/legacy-modes/mode/yaml";
-import { shell } from "@codemirror/legacy-modes/mode/shell";
-import { nginx } from "@codemirror/legacy-modes/mode/nginx";
-import { toml } from "@codemirror/legacy-modes/mode/toml";
-import { StreamLanguage } from "@codemirror/language";
 import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { python } from "@codemirror/lang-python";
 import { xml } from "@codemirror/lang-xml";
-import CodeMirror from "@uiw/react-codemirror";
+import { StreamLanguage } from "@codemirror/language";
+import { diff } from "@codemirror/legacy-modes/mode/diff";
+import { nginx } from "@codemirror/legacy-modes/mode/nginx";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { toml } from "@codemirror/legacy-modes/mode/toml";
+import { yaml } from "@codemirror/legacy-modes/mode/yaml";
 import { MenuItem, Paper, Select, Toolbar, Typography } from "@mui/material";
+import CodeMirror from "@uiw/react-codemirror";
 
 const langs = [
     {

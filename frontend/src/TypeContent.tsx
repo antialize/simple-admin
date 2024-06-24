@@ -1,4 +1,4 @@
-import { TextField, Select, MenuItem, Switch, FormControlLabel, useTheme } from "@mui/material";
+import { FormControlLabel, MenuItem, Select, Switch, TextField, useTheme } from "@mui/material";
 import { type ITypeProp, TypePropType } from "./shared/type";
 
 function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => void }) {

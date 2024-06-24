@@ -1,9 +1,9 @@
 import "xterm/css/xterm.css";
-import Cookies from "js-cookie";
-import { FitAddon } from "xterm-addon-fit";
-import { Terminal } from "xterm";
 import { Button, Chip } from "@mui/material";
+import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
+import { Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
 
 class Connection {
     connected = false;
@@ -79,11 +79,11 @@ class Connection {
     term: Terminal;
     fit: FitAddon;
     socket?: WebSocket;
-    name: string = "";
+    name = "";
 }
 
 class HostInfo {
-    next: number = 1;
+    next = 1;
     cachedCurrent: number | null = null;
     connections = new Map<number, Connection>();
 }

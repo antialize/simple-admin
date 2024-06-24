@@ -1,16 +1,16 @@
-import Box from "./Box";
-import * as State from "./shared/state";
-import { ACTION } from "./shared/actions";
-import state from "./state";
-import nullCheck from "./shared/nullCheck";
-import Error from "./Error";
 import { Button, Switch } from "@mui/material";
-import { type IPage } from "./shared/state";
-import UnixTime from "./UnixTime";
-import React from "react";
 import { observer } from "mobx-react";
-import extractRemote from "./extractRemote";
+import React from "react";
+import Box from "./Box";
+import Error from "./Error";
 import InfoTable, { InfoTableHeader } from "./InfoTable";
+import UnixTime from "./UnixTime";
+import extractRemote from "./extractRemote";
+import { ACTION } from "./shared/actions";
+import nullCheck from "./shared/nullCheck";
+import * as State from "./shared/state";
+import type { IPage } from "./shared/state";
+import state from "./state";
 
 export const DockerImages = observer(function DockerImages() {
     const dockerImages = state.dockerImages;

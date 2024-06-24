@@ -1,12 +1,12 @@
-import type * as State from ".././shared/state";
-import state from "../state";
-import { type IType, TypePropType } from ".././shared/type";
-import { InformationList, InformationListRow } from "../InformationList";
+import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
 import nullCheck from ".././shared/nullCheck";
-import Error from "../Error";
-import { Typography } from "@mui/material";
+import type * as State from ".././shared/state";
+import { type IType, TypePropType } from ".././shared/type";
 import Editor from "../Editor";
+import Error from "../Error";
+import { InformationList, InformationListRow } from "../InformationList";
+import state from "../state";
 
 function CententInfo(p: { c: Record<string, any> | null; t: State.IObject2<IType> }) {
     if (!p.c) return <Error>Missing p.c</Error>;

@@ -1,17 +1,17 @@
+import { action, makeObservable, observable } from "mobx";
 import {
-    type IDeleteObject,
     ACTION,
+    type IDeleteObject,
     type IDeployObject,
-    type ISaveObject,
     type IFetchObject,
-    type IResetServerState,
     type IGetObjectHistory,
+    type IResetServerState,
+    type ISaveObject,
 } from "./shared/actions";
+import nullCheck from "./shared/nullCheck";
 import { type IObject2, PAGE_TYPE } from "./shared/state";
 import { type IType, TypePropType } from "./shared/type";
-import { observable, action, makeObservable } from "mobx";
 import { state } from "./state";
-import nullCheck from "./shared/nullCheck";
 
 class ObjectState {
     @observable

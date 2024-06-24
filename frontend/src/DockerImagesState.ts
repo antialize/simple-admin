@@ -7,9 +7,9 @@ import {
     type IDockerListImageTagHistoryRes,
     type IDockerListImageTagsRes,
 } from "./shared/actions";
-import state from "./state";
 import getOrInsert from "./shared/getOrInsert";
 import nullCheck from "./shared/nullCheck";
+import state from "./state";
 
 export default class DockerImagesState {
     constructor() {
@@ -17,7 +17,7 @@ export default class DockerImagesState {
     }
 
     @observable
-    show_all: boolean = false;
+    show_all = false;
 
     @observable
     projects: Remote<Map<string, DockerImageTag[]>> = { state: "initial" };

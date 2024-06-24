@@ -1,6 +1,6 @@
 import { Typography } from "@mui/material";
-import state from "./state";
 import { observer } from "mobx-react";
+import state from "./state";
 
 const Setup = observer(function Setup({ hostid }: { hostid: number }) {
     const h = state.objects.get(hostid);

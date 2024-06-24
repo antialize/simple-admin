@@ -1,5 +1,5 @@
 import { Accordion, AccordionDetails, AccordionSummary, Typography } from "@mui/material";
-import * as React from "react";
+import type * as React from "react";
 
 function Box({
     title,

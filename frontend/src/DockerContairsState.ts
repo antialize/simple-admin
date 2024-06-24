@@ -7,8 +7,8 @@ import {
     type IDockerListDeploymentHistoryRes,
     type IDockerListDeploymentsRes,
 } from "./shared/actions";
-import state from "./state";
 import getOrInsert from "./shared/getOrInsert";
+import state from "./state";
 
 export default class DockerContainersState {
     constructor() {

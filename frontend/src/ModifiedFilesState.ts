@@ -1,9 +1,9 @@
 import { action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
 import { ACTION, type IModifiedFilesChanged, type ModifiedFile } from "./shared/actions";
-import state from "./state";
 import nullCheck from "./shared/nullCheck";
 import { PAGE_TYPE } from "./shared/state";
+import state from "./state";
 
 export default class ModifiedFilesState {
     constructor() {
@@ -14,7 +14,7 @@ export default class ModifiedFilesState {
     modifiedFiles: Remote<Map<number, ModifiedFile>> = { state: "initial" };
 
     @observable
-    scanning: boolean = false;
+    scanning = false;
 
     @observable
     lastScanTime: number | null = null;

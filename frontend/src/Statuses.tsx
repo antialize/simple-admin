@@ -1,8 +1,8 @@
-import { observer } from "mobx-react";
-import state from "./state";
-import { hostId } from "./shared/type";
 import { Typography } from "@mui/material";
+import { observer } from "mobx-react";
 import HostChip from "./HostChip";
+import { hostId } from "./shared/type";
+import state from "./state";
 
 const Statuses = observer(function Statuses() {
     const catagories: Record<string, Array<{ id: number; name: string }>> = {};

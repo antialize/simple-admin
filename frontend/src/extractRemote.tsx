@@ -1,5 +1,5 @@
 import { CircularProgress } from "@mui/material";
-import { type Remote } from "./Remote";
+import type { Remote } from "./Remote";
 
 interface ExtractRemoteGood<T> {
     state: "good";

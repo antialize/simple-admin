@@ -1,6 +1,6 @@
+import { Autocomplete, TextField } from "@mui/material";
 import { observer } from "mobx-react";
 import state from "./state";
-import { Autocomplete, TextField } from "@mui/material";
 
 interface IProps {
     selected: number[];

@@ -1,12 +1,12 @@
 import * as $ from "jquery";
-import type * as React from "react";
-import * as State from "./shared/state";
 import { action, makeObservable, observable, runInAction } from "mobx";
-import nullCheck from "./shared/nullCheck";
-import state from "./state";
-import getOrInsert from "./shared/getOrInsert";
+import type * as React from "react";
 import ObjectState from "./ObjectState";
+import getOrInsert from "./shared/getOrInsert";
+import nullCheck from "./shared/nullCheck";
+import * as State from "./shared/state";
 import { hostId } from "./shared/type";
+import state from "./state";
 
 function never(_: never, message: string) {
     console.error(message);
@@ -18,7 +18,7 @@ class PageState {
     }
 
     @observable
-    nextNewObjectId: number = -2;
+    nextNewObjectId = -2;
 
     @observable
     private current_: State.IPage = { type: State.PAGE_TYPE.Dashbord };
