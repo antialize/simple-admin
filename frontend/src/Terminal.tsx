@@ -1,9 +1,9 @@
 import "xterm/css/xterm.css";
 import Cookies from "js-cookie";
-import {FitAddon} from "xterm-addon-fit";
-import {Terminal} from "xterm";
-import {Button, Chip} from "@mui/material";
-import {useEffect, useRef, useState} from "react";
+import { FitAddon } from "xterm-addon-fit";
+import { Terminal } from "xterm";
+import { Button, Chip } from "@mui/material";
+import { useEffect, useRef, useState } from "react";
 
 class Connection {
     connected = false;
@@ -13,7 +13,7 @@ class Connection {
         public connectionId: number,
         public nameChanged: (id: number, name: string) => void,
     ) {
-        this.term = new Terminal({cursorBlink: true, scrollback: 10000});
+        this.term = new Terminal({ cursorBlink: true, scrollback: 10000 });
         this.fit = new FitAddon();
         this.term.loadAddon(this.fit);
     }
@@ -33,7 +33,7 @@ class Connection {
         this.socket = socket;
         let buffer: string[] | null = [];
 
-        socket.onmessage = msg => {
+        socket.onmessage = (msg) => {
             term.write(msg.data);
         };
 
@@ -50,15 +50,15 @@ class Connection {
             else buffer.push(msg);
         };
 
-        term.onData(data => {
+        term.onData((data) => {
             send("d" + data + "\0");
         });
 
-        term.onTitleChange(title => {
+        term.onTitleChange((title) => {
             this.name = title;
             this.nameChanged(this.connectionId, title);
         });
-        term.onResize(size => {
+        term.onResize((size) => {
             if (this.oldsize[0] == size.rows && this.oldsize[1] == size.cols) return;
             this.oldsize = [size.rows, size.cols];
             send("r" + size.rows + "," + size.cols + "\0");
@@ -90,7 +90,7 @@ class HostInfo {
 
 const hostConnections = new Map<number, HostInfo>();
 
-export default function HostTerminals(props: {id: number}) {
+export default function HostTerminals(props: { id: number }) {
     if (!hostConnections.has(props.id)) hostConnections.set(props.id, new HostInfo());
     const info = hostConnections.get(props.id)!;
     const termContainerDiv = useRef<HTMLDivElement | null>(null);
@@ -189,10 +189,10 @@ export default function HostTerminals(props: {id: number}) {
         }
     };
 
-    const ids = Object.keys(names).map(v => +v);
+    const ids = Object.keys(names).map((v) => +v);
     ids.sort((a, b) => a - b);
-    const terms: JSX.Element[] = ids.map(id => {
-        const style: React.CSSProperties = {margin: 4};
+    const terms: JSX.Element[] = ids.map((id) => {
+        const style: React.CSSProperties = { margin: 4 };
         if (id == current) style.backgroundColor = "rgb(0, 188, 212)";
 
         return (
@@ -211,26 +211,28 @@ export default function HostTerminals(props: {id: number}) {
     });
 
     return (
-        <div style={{height: "700px"}}>
+        <div style={{ height: "700px" }}>
             <div
                 ref={outerDiv}
-                style={{display: "flex", flexDirection: "column", width: "100%", height: "100%"}}>
-                <div style={{display: "flex", flexWrap: "wrap"}}>
+                style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}
+            >
+                <div style={{ display: "flex", flexWrap: "wrap" }}>
                     {terms}
                     <Chip
                         onClick={() => {
                             newTerminal();
                         }}
-                        style={{margin: 4}}
+                        style={{ margin: 4 }}
                         label="+"
                     />
-                    <div style={{marginLeft: "auto"}} />
+                    <div style={{ marginLeft: "auto" }} />
                     <Button
                         variant="contained"
                         onClick={() => {
                             reset();
                         }}
-                        style={{margin: 4, alignSelf: "flex-end"}}>
+                        style={{ margin: 4, alignSelf: "flex-end" }}
+                    >
                         Reset
                     </Button>
                     <Button
@@ -238,11 +240,12 @@ export default function HostTerminals(props: {id: number}) {
                         onClick={() => {
                             toggleFullScreen();
                         }}
-                        style={{margin: 4, alignSelf: "flex-end"}}>
+                        style={{ margin: 4, alignSelf: "flex-end" }}
+                    >
                         Full screen
                     </Button>
                 </div>
-                <div ref={termContainerDiv} style={{flex: 1}} />
+                <div ref={termContainerDiv} style={{ flex: 1 }} />
             </div>
         </div>
     );

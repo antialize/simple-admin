@@ -1,14 +1,14 @@
 import type * as State from ".././shared/state";
 import state from "../state";
-import {type IType, TypePropType} from ".././shared/type";
-import {InformationList, InformationListRow} from "../InformationList";
-import {observer} from "mobx-react";
+import { type IType, TypePropType } from ".././shared/type";
+import { InformationList, InformationListRow } from "../InformationList";
+import { observer } from "mobx-react";
 import nullCheck from ".././shared/nullCheck";
 import Error from "../Error";
-import {Typography} from "@mui/material";
+import { Typography } from "@mui/material";
 import Editor from "../Editor";
 
-function CententInfo(p: {c: Record<string, any> | null; t: State.IObject2<IType>}) {
+function CententInfo(p: { c: Record<string, any> | null; t: State.IObject2<IType> }) {
     if (!p.c) return <Error>Missing p.c</Error>;
     const i = p.c[p.t.name];
     if (!i) return <Error>missing i</Error>;
@@ -18,7 +18,7 @@ function CententInfo(p: {c: Record<string, any> | null; t: State.IObject2<IType>
             <InformationListRow name="Name">
                 <Typography>{p.c.name}</Typography>
             </InformationListRow>
-            {nullCheck(p.t.content.content).map(v => {
+            {nullCheck(p.t.content.content).map((v) => {
                 switch (v.type) {
                     case TypePropType.bool:
                         return (
@@ -52,7 +52,7 @@ function CententInfo(p: {c: Record<string, any> | null; t: State.IObject2<IType>
     );
 }
 
-const Details = observer(function Details({index}: {index: number}) {
+const Details = observer(function Details({ index }: { index: number }) {
     const p = state.deployment;
     if (p === null) return <Error>Missing state.deployment</Error>;
     const o = p.objects[index];

@@ -1,12 +1,12 @@
 import state from "./state";
 import Error from "./Error";
-import {observer} from "mobx-react";
-import {Button, CircularProgress, Link, MenuItem, Select} from "@mui/material";
-import {DEPLOYMENT_STATUS, type IPage, PAGE_TYPE} from "./shared/state";
+import { observer } from "mobx-react";
+import { Button, CircularProgress, Link, MenuItem, Select } from "@mui/material";
+import { DEPLOYMENT_STATUS, type IPage, PAGE_TYPE } from "./shared/state";
 import UnixTime from "./UnixTime";
-import {hostId, userId} from "./shared/type";
+import { hostId, userId } from "./shared/type";
 import Box from "./Box";
-import {InformationList, InformationListRow} from "./InformationList";
+import { InformationList, InformationListRow } from "./InformationList";
 import Type from "./Type";
 import UserExtra from "./UserExtra";
 import HostExtra from "./HostExtra";
@@ -48,11 +48,11 @@ const ObjectView = observer(function ObjectView({
         o.loadHistory();
     }
     let isLatest = true;
-    const history: Array<{version: number; time: number; author: string | null}> = [];
+    const history: Array<{ version: number; time: number; author: string | null }> = [];
 
     for (const [k, v] of o.versions) {
         if (o.current.version && k > o.current.version) isLatest = false;
-        history.push({version: v.version ?? 0, time: v.time ?? 0, author: v.author});
+        history.push({ version: v.version ?? 0, time: v.time ?? 0, author: v.author });
     }
 
     if (o.history) {
@@ -92,15 +92,16 @@ const ObjectView = observer(function ObjectView({
                 const oo = d.get(o);
                 if (oo) {
                     found = true;
-                    const p: IPage = {type: PAGE_TYPE.Object, objectType: t, id: o};
+                    const p: IPage = { type: PAGE_TYPE.Object, objectType: t, id: o };
                     usedBy.push(
                         <Link
-                            style={{marginRight: 4}}
+                            style={{ marginRight: 4 }}
                             color={"textPrimary" as any}
-                            onClick={e => {
+                            onClick={(e) => {
                                 page.onClick(e, p);
                             }}
-                            href={page.link(p)}>
+                            href={page.link(p)}
+                        >
                             {oo.name}
                         </Link>,
                     );
@@ -123,7 +124,7 @@ const ObjectView = observer(function ObjectView({
                                 variant="standard"
                                 key="history"
                                 value={o.current.version ?? 0}
-                                onChange={e => {
+                                onChange={(e) => {
                                     if (
                                         touched &&
                                         !confirm(
@@ -134,7 +135,8 @@ const ObjectView = observer(function ObjectView({
                                     )
                                         return;
                                     o.setCurrentVersion(e.target.value as number);
-                                }}>
+                                }}
+                            >
                                 {historyItems}
                             </Select>
                         </InformationListRow>
@@ -150,7 +152,7 @@ const ObjectView = observer(function ObjectView({
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             if (
                                 !isLatest &&
@@ -161,58 +163,64 @@ const ObjectView = observer(function ObjectView({
                                 return;
                             o.save();
                         }}
-                        disabled={!touched && isLatest}>
+                        disabled={!touched && isLatest}
+                    >
                         {isLatest ? "Save" : "Overwrite newer"}
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             o.deploy(canCancel, false);
                         }}
-                        disabled={!canDeploy}>
+                        disabled={!canDeploy}
+                    >
                         {canCancel ? "Deploy (cancel current)" : "Deploy"}
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             o.deploy(canCancel, true);
                         }}
-                        disabled={!canDeploy}>
+                        disabled={!canDeploy}
+                    >
                         {canCancel ? "Redeploy (cancel current)" : "Redeploy"}
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             o.discard();
                         }}
-                        disabled={!touched}>
+                        disabled={!touched}
+                    >
                         Discard
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             if (confirm("Are you sure you want to delete the object?")) o.delete();
                         }}
-                        disabled={!canDeploy}>
+                        disabled={!canDeploy}
+                    >
                         Delete
                     </Button>
                     {type == hostId ? (
                         <Button
                             variant="contained"
                             color="primary"
-                            style={{margin: 10}}
+                            style={{ margin: 10 }}
                             onClick={() => {
                                 if (confirm("Have you just reinstalled this server?"))
                                     o.resetState();
-                            }}>
+                            }}
+                        >
                             Reset State
                         </Button>
                     ) : null}

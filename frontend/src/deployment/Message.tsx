@@ -1,5 +1,5 @@
 import state from "../state";
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import Error from "../Error";
 
 const Messages = observer(function Messages() {
@@ -9,7 +9,7 @@ const Messages = observer(function Messages() {
         <div className="deployment_message">
             {deployment.message ? (
                 <ul>
-                    {deployment.message.split("\n").map(v => (
+                    {deployment.message.split("\n").map((v) => (
                         <li key={v}>{v}</li>
                     ))}
                 </ul>

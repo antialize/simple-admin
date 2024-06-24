@@ -1,9 +1,9 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import Error from "./Error";
 import state from "./state";
-import {TypePropType, hostId, rootId, typeId} from "./shared/type";
-import {InformationList, InformationListRow} from "./InformationList";
-import {MenuItem, Select, Switch, TextField, Tooltip} from "@mui/material";
+import { TypePropType, hostId, rootId, typeId } from "./shared/type";
+import { InformationList, InformationListRow } from "./InformationList";
+import { MenuItem, Select, Switch, TextField, Tooltip } from "@mui/material";
 import TypeContent from "./TypeContent";
 import Password from "./Password";
 import Category from "./Category";
@@ -12,7 +12,7 @@ import Variables from "./Variables";
 import Triggers from "./Triggers";
 import Editor from "./Editor";
 
-const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: number}) {
+const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id: number }) {
     const obj = state.objects.get(id);
     if (!obj) return <Error>Missing object</Error>;
 
@@ -39,7 +39,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <InformationListRow key={ct.name} name={ct.title}>
                         <Password
                             value={v ?? ""}
-                            onChange={value => {
+                            onChange={(value) => {
                                 setProp(ct.name, value);
                             }}
                         />
@@ -52,7 +52,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                         <Switch
                             title={ct.description}
                             checked={v ?? ct.default}
-                            onChange={e => {
+                            onChange={(e) => {
                                 setProp(ct.name, e.target.checked);
                             }}
                         />
@@ -67,10 +67,10 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                                 variant="standard"
                                 value={v ?? ct.default}
                                 fullWidth={!!ct.lines && ct.lines > 0}
-                                style={{width: 400}}
+                                style={{ width: 400 }}
                                 multiline={!!ct.lines && ct.lines > 1}
                                 rows={ct.lines ?? 1}
-                                onChange={e => {
+                                onChange={(e) => {
                                     setProp(ct.name, e.target.value);
                                 }}
                             />
@@ -85,7 +85,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                             <TextField
                                 variant="standard"
                                 value={v == undefined ? "" + ct.default : "" + v}
-                                onChange={e => {
+                                onChange={(e) => {
                                     setProp(ct.name, +e.target.value);
                                 }}
                             />
@@ -100,10 +100,11 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                             <Select
                                 variant="standard"
                                 value={v ?? ct.default}
-                                onChange={e => {
+                                onChange={(e) => {
                                     setProp(ct.name, e.target.value);
-                                }}>
-                                {ct.choices.map(n => (
+                                }}
+                            >
+                                {ct.choices.map((n) => (
                                     <MenuItem key={n} value={n}>
                                         {n}
                                     </MenuItem>
@@ -135,7 +136,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <TypeContent
                         key={ct.name}
                         content={v ?? []}
-                        onChange={v => {
+                        onChange={(v) => {
                             setProp(ct.name, v);
                         }}
                     />,
@@ -152,7 +153,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                         key="name"
                         variant="standard"
                         value={current.name}
-                        onChange={e => {
+                        onChange={(e) => {
                             current.name = e.target.value;
                             obj.touched = true;
                         }}
@@ -165,7 +166,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                         fullWidth
                         multiline
                         value={current.comment}
-                        onChange={e => {
+                        onChange={(e) => {
                             current.comment = e.target.value;
                             obj.touched = true;
                         }}
@@ -188,7 +189,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <InformationListRow name="Triggers" long={true}>
                         <Triggers
                             triggers={c.triggers ?? []}
-                            setTriggers={triggers => {
+                            setTriggers={(triggers) => {
                                 setProp("triggers", triggers);
                             }}
                         />
@@ -198,7 +199,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <InformationListRow name="Variables" long={true}>
                         <Variables
                             variables={c.variables ?? []}
-                            setVariables={(vars: Array<{key: string; value: string}>) => {
+                            setVariables={(vars: Array<{ key: string; value: string }>) => {
                                 setProp("variables", vars);
                             }}
                         />

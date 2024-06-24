@@ -1,7 +1,7 @@
 import * as State from "./shared/state";
 import SearchIcon from "@mui/icons-material/Search";
 import Error from "./Error";
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import state from "./state";
 import {
     AppBar,
@@ -19,13 +19,13 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import {useState} from "react";
-import MenuDropdown, {DropDownItem} from "./MenuDropdown";
-import {rootId, rootInstanceId} from "./shared/type";
+import { useState } from "react";
+import MenuDropdown, { DropDownItem } from "./MenuDropdown";
+import { rootId, rootInstanceId } from "./shared/type";
 import derivedState from "./derivedState";
 import SubMenu from "./SubMenu";
-import {ObjectMenuList} from "./TypeMenuItems";
-import {useHotkeys} from "react-hotkeys-hook";
+import { ObjectMenuList } from "./TypeMenuItems";
+import { useHotkeys } from "react-hotkeys-hook";
 
 function matchText(text: string, key: string) {
     if (!key || key.length == 0) return false;
@@ -38,7 +38,11 @@ function matchText(text: string, key: string) {
     return false;
 }
 
-function MatchedText({search, text, primary}: {search: string; text: string; primary: boolean}) {
+function MatchedText({
+    search,
+    text,
+    primary,
+}: { search: string; text: string; primary: boolean }) {
     const ans = [];
     let ki = 0;
     let j = 0;
@@ -51,7 +55,7 @@ function MatchedText({search, text, primary}: {search: string; text: string; pri
                 ++i;
                 ++ki;
             }
-            ans.push(<span style={{color: primary ? "green" : "red"}}>{text.slice(j, i)}</span>);
+            ans.push(<span style={{ color: primary ? "green" : "red" }}>{text.slice(j, i)}</span>);
             j = i;
         } else {
             ++i;
@@ -84,7 +88,7 @@ const TypeObjects = observer(function TypeObjects({
             <ListItem>
                 <Link
                     color={"textPrimary" as any}
-                    href={page.link({type: State.PAGE_TYPE.Object, objectType: type, id})}
+                    href={page.link({ type: State.PAGE_TYPE.Object, objectType: type, id })}
                     onClick={(e: any) => {
                         clearSearch();
                         page.onClick(e, {
@@ -92,7 +96,8 @@ const TypeObjects = observer(function TypeObjects({
                             objectType: type,
                             id,
                         });
-                    }}>
+                    }}
+                >
                     <MatchedText search={search} text={p.name} primary={goto == id} />
                 </Link>
             </ListItem>,
@@ -119,7 +124,7 @@ function Search() {
             searchInput && searchInput.focus();
             setKey("");
         },
-        {preventDefault: true},
+        { preventDefault: true },
     );
     useHotkeys(
         ["esc"],
@@ -127,7 +132,7 @@ function Search() {
             setKey("");
             searchInput && searchInput.blur();
         },
-        {enabled: key != "", enableOnContentEditable: true, enableOnFormTags: true},
+        { enabled: key != "", enableOnContentEditable: true, enableOnFormTags: true },
     );
 
     const page = state.page;
@@ -140,12 +145,12 @@ function Search() {
         ["return"],
         () => {
             if (goto && searchInput) {
-                page.set({type: State.PAGE_TYPE.Object, objectType: goto[0], id: goto[1]});
+                page.set({ type: State.PAGE_TYPE.Object, objectType: goto[0], id: goto[1] });
                 setKey("");
                 searchInput.blur();
             }
         },
-        {enabled: key != "", enableOnContentEditable: true, enableOnFormTags: true},
+        { enabled: key != "", enableOnContentEditable: true, enableOnFormTags: true },
     );
 
     const keyLc = key.toLowerCase();
@@ -178,20 +183,21 @@ function Search() {
 
     return (
         <div
-            ref={e => {
+            ref={(e) => {
                 setAnchor(e);
             }}
             style={{
                 paddingLeft: 10,
                 backgroundColor: theme.palette.primary.light,
                 borderRadius: theme.shape.borderRadius,
-            }}>
+            }}
+        >
             <InputBase
                 color="error"
-                inputRef={e => (searchInput = e)}
+                inputRef={(e) => (searchInput = e)}
                 placeholder="Search"
                 value={key}
-                onChange={e => {
+                onChange={(e) => {
                     setKey(e.target.value);
                 }}
             />
@@ -200,20 +206,25 @@ function Search() {
                 onClick={() => {
                     searchInput && searchInput.focus();
                     searchInput && searchInput.select();
-                }}>
+                }}
+            >
                 <SearchIcon />
             </IconButton>
             <Popper
                 open={key != ""}
                 anchorEl={anchor}
                 placement="bottom-end"
-                style={{zIndex: 99999}}>
+                style={{ zIndex: 99999 }}
+            >
                 <ClickAwayListener
                     onClickAway={() => {
                         setKey("");
-                    }}>
-                    <Paper style={{padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto"}}>
-                        <Typography variant="h5" style={{marginBottom: 10}}>
+                    }}
+                >
+                    <Paper
+                        style={{ padding: 10, minWidth: 350, maxHeight: 1000, overflowY: "auto" }}
+                    >
+                        <Typography variant="h5" style={{ marginBottom: 10 }}>
                             Search results
                         </Typography>
                         {typeFind}
@@ -231,24 +242,24 @@ const Menu = observer(function Menu() {
     if (!login) return <Error>Missing state.login</Error>;
     const types = derivedState.menuTypes;
     useHotkeys("d", () => {
-        page.set({type: State.PAGE_TYPE.Dashbord});
+        page.set({ type: State.PAGE_TYPE.Dashbord });
     });
     useHotkeys("i", () => {
-        page.set({type: State.PAGE_TYPE.DockerImages});
+        page.set({ type: State.PAGE_TYPE.DockerImages });
     });
     useHotkeys("c", () => {
-        page.set({type: State.PAGE_TYPE.DockerContainers});
+        page.set({ type: State.PAGE_TYPE.DockerContainers });
     });
     return (
         <AppBar color="primary" enableColorOnDark>
             <Toolbar>
                 <>
                     <MenuDropdown hotkey="m">
-                        {types.map(t =>
+                        {types.map((t) =>
                             t.id == rootId ? (
                                 <DropDownItem
                                     key={rootInstanceId}
-                                    onClick={e => {
+                                    onClick={(e) => {
                                         page.onClick(e, {
                                             type: State.PAGE_TYPE.Object,
                                             objectType: rootId,
@@ -259,7 +270,8 @@ const Menu = observer(function Menu() {
                                         type: State.PAGE_TYPE.Object,
                                         objectType: rootId,
                                         id: rootInstanceId,
-                                    })}>
+                                    })}
+                                >
                                     Root
                                 </DropDownItem>
                             ) : (
@@ -273,69 +285,77 @@ const Menu = observer(function Menu() {
                     <Badge color="secondary" badgeContent={state.activeMessages}>
                         <Button
                             color="inherit"
-                            onClick={e => {
-                                page.onClick(e, {type: State.PAGE_TYPE.Dashbord});
+                            onClick={(e) => {
+                                page.onClick(e, { type: State.PAGE_TYPE.Dashbord });
                             }}
-                            href={page.link({type: State.PAGE_TYPE.Dashbord})}>
+                            href={page.link({ type: State.PAGE_TYPE.Dashbord })}
+                        >
                             Dashbord
                         </Button>
                     </Badge>
                     <Button
                         color="inherit"
-                        onClick={e => {
-                            page.onClick(e, {type: State.PAGE_TYPE.Deployment});
+                        onClick={(e) => {
+                            page.onClick(e, { type: State.PAGE_TYPE.Deployment });
                         }}
-                        href={page.link({type: State.PAGE_TYPE.Deployment})}>
+                        href={page.link({ type: State.PAGE_TYPE.Deployment })}
+                    >
                         Deployment
                     </Button>
-                    <div style={{width: "10px"}} />
+                    <div style={{ width: "10px" }} />
                     <Button
                         color="inherit"
-                        onClick={e => {
-                            page.onClick(e, {type: State.PAGE_TYPE.DockerImages});
+                        onClick={(e) => {
+                            page.onClick(e, { type: State.PAGE_TYPE.DockerImages });
                         }}
-                        href={page.link({type: State.PAGE_TYPE.DockerImages})}>
+                        href={page.link({ type: State.PAGE_TYPE.DockerImages })}
+                    >
                         Images
                     </Button>
                     <Button
                         color="inherit"
-                        onClick={e => {
-                            page.onClick(e, {type: State.PAGE_TYPE.DockerContainers});
+                        onClick={(e) => {
+                            page.onClick(e, { type: State.PAGE_TYPE.DockerContainers });
                         }}
-                        href={page.link({type: State.PAGE_TYPE.DockerContainers})}>
+                        href={page.link({ type: State.PAGE_TYPE.DockerContainers })}
+                    >
                         Containers
                     </Button>
                     <Button
                         color="inherit"
-                        onClick={e => {
-                            page.onClick(e, {type: State.PAGE_TYPE.ModifiedFiles});
+                        onClick={(e) => {
+                            page.onClick(e, { type: State.PAGE_TYPE.ModifiedFiles });
                         }}
-                        href={page.link({type: State.PAGE_TYPE.ModifiedFiles})}>
+                        href={page.link({ type: State.PAGE_TYPE.ModifiedFiles })}
+                    >
                         Modified Files
                     </Button>
                     <Button
                         color="inherit"
-                        onClick={e => {
-                            page.onClick(e, {type: State.PAGE_TYPE.Search});
+                        onClick={(e) => {
+                            page.onClick(e, { type: State.PAGE_TYPE.Search });
                         }}
-                        href={page.link({type: State.PAGE_TYPE.Search})}>
+                        href={page.link({ type: State.PAGE_TYPE.Search })}
+                    >
                         Search
                     </Button>
-                    <div style={{flexGrow: 1}} />
+                    <div style={{ flexGrow: 1 }} />
                     <Search />
-                    <div style={{width: "10px"}} />
+                    <div style={{ width: "10px" }} />
                     <Button
                         color="inherit"
                         onClick={() => {
                             login.logout(false);
-                        }}>
+                        }}
+                    >
                         Logout
                     </Button>
                     <Button
                         color="inherit"
                         onClick={() => {
                             login.logout(true);
-                        }}>
+                        }}
+                    >
                         Full logout
                     </Button>
                 </>

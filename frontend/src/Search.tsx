@@ -1,9 +1,9 @@
 import state from "./state";
 import Error from "./Error";
-import {observer} from "mobx-react";
-import {type IPage} from "./shared/state";
+import { observer } from "mobx-react";
+import { type IPage } from "./shared/state";
 import * as State from "./shared/state";
-import {Button, CircularProgress, Link, TextField} from "@mui/material";
+import { Button, CircularProgress, Link, TextField } from "@mui/material";
 import nullCheck from "./shared/nullCheck";
 import Box from "./Box";
 import InfoTable from "./InfoTable";
@@ -20,17 +20,18 @@ const Search = observer(function Search() {
     const rows = [];
     for (const o of s.objects) {
         const type = state.types.get(o.type);
-        const p: IPage = {type: State.PAGE_TYPE.Object, objectType: o.type, id: o.id};
+        const p: IPage = { type: State.PAGE_TYPE.Object, objectType: o.type, id: o.id };
         rows.push(
             <tr key={o.id}>
                 <td>{type ? type.name : o.type}</td>
                 <td>
                     <Link
                         color={"textPrimary" as any}
-                        onClick={e => {
+                        onClick={(e) => {
                             page.onClick(e, p);
                         }}
-                        href={page.link(p)}>
+                        href={page.link(p)}
+                    >
                         {o.name}
                     </Link>
                 </td>
@@ -38,10 +39,11 @@ const Search = observer(function Search() {
                 <td>
                     <Link
                         color={"textPrimary" as any}
-                        onClick={e => {
+                        onClick={(e) => {
                             page.onClick(e, p);
                         }}
-                        href={page.link(p)}>
+                        href={page.link(p)}
+                    >
                         {o.id}
                     </Link>
                 </td>
@@ -59,7 +61,7 @@ const Search = observer(function Search() {
             rows.push(
                 <tr>
                     <td colSpan={6}>
-                        <pre style={{overflowX: "scroll", maxWidth: "96vw"}}>
+                        <pre style={{ overflowX: "scroll", maxWidth: "96vw" }}>
                             {JSON.stringify(JSON.parse(o.content), null, 2).replace(/\\n/g, "\n")}
                         </pre>
                     </td>
@@ -71,18 +73,19 @@ const Search = observer(function Search() {
         <Box title="Search" expanded={true} collapsable={false}>
             <form
                 action="javascript:void(0);"
-                onSubmit={e => {
+                onSubmit={(e) => {
                     nullCheck(s).search();
                     e.preventDefault();
                     return false;
-                }}>
+                }}
+            >
                 <TextField
                     variant="standard"
                     fullWidth={true}
                     name="search"
                     helperText="Search"
                     value={s.key}
-                    onChange={e => (nullCheck(s).key = e.target.value)}
+                    onChange={(e) => (nullCheck(s).key = e.target.value)}
                 />
             </form>
             {s.searching ? <CircularProgress /> : null}

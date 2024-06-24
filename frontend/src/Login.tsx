@@ -8,8 +8,8 @@ import {
     DialogTitle,
     TextField,
 } from "@mui/material";
-import state, {CONNECTION_STATUS} from "./state";
-import {observer} from "mobx-react";
+import state, { CONNECTION_STATUS } from "./state";
+import { observer } from "mobx-react";
 import Error from "./Error";
 
 const Login = observer(function Login() {
@@ -47,10 +47,11 @@ const Login = observer(function Login() {
         <Dialog open fullWidth>
             <DialogTitle>Login</DialogTitle>
             <form
-                onSubmit={e => {
+                onSubmit={(e) => {
                     if (!dlog) l.login();
                     e.preventDefault();
-                }}>
+                }}
+            >
                 <DialogContent>
                     {progress}
                     <DialogContentText>{message}</DialogContentText>
@@ -61,7 +62,7 @@ const Login = observer(function Login() {
                         helperText="User"
                         disabled={dis}
                         value={l.user}
-                        onChange={e => (l.user = e.target.value)}
+                        onChange={(e) => (l.user = e.target.value)}
                         error={!(dis || l.user)}
                     />
                     <br />
@@ -73,7 +74,7 @@ const Login = observer(function Login() {
                         type="password"
                         disabled={dis}
                         value={l.pwd}
-                        onChange={e => (l.pwd = e.target.value)}
+                        onChange={(e) => (l.pwd = e.target.value)}
                         error={!(dis || l.pwd)}
                     />
                     <br />
@@ -84,7 +85,7 @@ const Login = observer(function Login() {
                         helperText="One Time Password"
                         disabled={dis || o}
                         value={l.otp}
-                        onChange={e => (l.otp = e.target.value)}
+                        onChange={(e) => (l.otp = e.target.value)}
                         error={!(dis || l.otp || o)}
                     />
                 </DialogContent>

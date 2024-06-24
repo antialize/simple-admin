@@ -1,12 +1,12 @@
 import * as React from "react";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-class UnixTime extends React.Component<{time: number}, {delta: number}> {
+class UnixTime extends React.Component<{ time: number }, { delta: number }> {
     timer: any | null = null;
 
-    constructor(props: {time: number}) {
+    constructor(props: { time: number }) {
         super(props);
-        this.state = {delta: +new Date() / 1000 - this.props.time};
+        this.state = { delta: +new Date() / 1000 - this.props.time };
     }
 
     scheduleTimer() {
@@ -22,7 +22,7 @@ class UnixTime extends React.Component<{time: number}, {delta: number}> {
         }
         if (wait)
             this.timer = setTimeout(() => {
-                this.setState({delta: +new Date() / 1000 - this.props.time});
+                this.setState({ delta: +new Date() / 1000 - this.props.time });
                 this.scheduleTimer();
             }, wait);
     }

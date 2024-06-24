@@ -1,11 +1,11 @@
 import * as State from "./shared/state";
 import state from "./state";
-import {observer} from "mobx-react";
-import {rootInstanceId, rootId} from "./shared/type";
-import MenuDropdown, {DropDownItem} from "./MenuDropdown";
-import {Button} from "@mui/material";
+import { observer } from "mobx-react";
+import { rootInstanceId, rootId } from "./shared/type";
+import MenuDropdown, { DropDownItem } from "./MenuDropdown";
+import { Button } from "@mui/material";
 
-export const ObjectMenuList = observer(function ObjectMenuList({type}: {type: number}) {
+export const ObjectMenuList = observer(function ObjectMenuList({ type }: { type: number }) {
     const page = state.page;
     if (!page) return <span>Missing state.page</span>;
     const lst = [];
@@ -22,28 +22,35 @@ export const ObjectMenuList = observer(function ObjectMenuList({type}: {type: nu
         <>
             <DropDownItem
                 key="new"
-                onClick={e => {
-                    page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type});
+                onClick={(e) => {
+                    page.onClick(e, { type: State.PAGE_TYPE.Object, objectType: type });
                 }}
-                href={page.link({type: State.PAGE_TYPE.Object, objectType: type})}>
+                href={page.link({ type: State.PAGE_TYPE.Object, objectType: type })}
+            >
                 new
             </DropDownItem>
             <DropDownItem
                 key="list"
-                onClick={e => {
-                    page.onClick(e, {type: State.PAGE_TYPE.ObjectList, objectType: type});
+                onClick={(e) => {
+                    page.onClick(e, { type: State.PAGE_TYPE.ObjectList, objectType: type });
                 }}
-                href={page.link({type: State.PAGE_TYPE.ObjectList, objectType: type})}>
+                href={page.link({ type: State.PAGE_TYPE.ObjectList, objectType: type })}
+            >
                 list
             </DropDownItem>
             <DropDownItem />
-            {lst.map(v => (
+            {lst.map((v) => (
                 <DropDownItem
                     key={v.id}
-                    onClick={e => {
-                        page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type, id: v.id});
+                    onClick={(e) => {
+                        page.onClick(e, {
+                            type: State.PAGE_TYPE.Object,
+                            objectType: type,
+                            id: v.id,
+                        });
                     }}
-                    href={page.link({type: State.PAGE_TYPE.Object, objectType: type, id: v.id})}>
+                    href={page.link({ type: State.PAGE_TYPE.Object, objectType: type, id: v.id })}
+                >
                     {v.name}
                 </DropDownItem>
             ))}
@@ -51,7 +58,7 @@ export const ObjectMenuList = observer(function ObjectMenuList({type}: {type: nu
     );
 });
 
-const TypeMenuItem = observer(function TypeMenuItem({id}: {id: number}) {
+const TypeMenuItem = observer(function TypeMenuItem({ id }: { id: number }) {
     const page = state.page;
     if (!page) return <span>Missing state.page</span>;
     const type = state.types.get(id);
@@ -61,7 +68,7 @@ const TypeMenuItem = observer(function TypeMenuItem({id}: {id: number}) {
         return (
             <Button
                 key={rootInstanceId}
-                onClick={e => {
+                onClick={(e) => {
                     page.onClick(e, {
                         type: State.PAGE_TYPE.Object,
                         objectType: rootId,
@@ -72,7 +79,8 @@ const TypeMenuItem = observer(function TypeMenuItem({id}: {id: number}) {
                     type: State.PAGE_TYPE.Object,
                     objectType: rootId,
                     id: rootInstanceId,
-                })}>
+                })}
+            >
                 {name}
             </Button>
         );

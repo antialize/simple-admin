@@ -1,9 +1,9 @@
 import Message from "./Message";
 import state from "./state";
-import {type ISetMessagesDismissed, ACTION} from "./shared/actions";
-import {hostId} from "./shared/type";
-import {observer} from "mobx-react";
-import {Button} from "@mui/material";
+import { type ISetMessagesDismissed, ACTION } from "./shared/actions";
+import { hostId } from "./shared/type";
+import { observer } from "mobx-react";
+import { Button } from "@mui/material";
 
 const MessageGroup = observer(function MessageGroup({
     ids,
@@ -44,7 +44,8 @@ const MessageGroup = observer(function MessageGroup({
                 key="undismiss"
                 onClick={() => {
                     toggle(false);
-                }}>
+                }}
+            >
                 Undismiss all
             </Button>,
         );
@@ -58,7 +59,8 @@ const MessageGroup = observer(function MessageGroup({
                 key="dismiss"
                 onClick={() => {
                     toggle(true);
-                }}>
+                }}
+            >
                 Dismiss all
             </Button>,
         );
@@ -70,7 +72,8 @@ const MessageGroup = observer(function MessageGroup({
                 color="primary"
                 variant="contained"
                 key="contract"
-                onClick={() => state.messageGroupExpanded.set(id, false)}>
+                onClick={() => state.messageGroupExpanded.set(id, false)}
+            >
                 Contract
             </Button>,
         );
@@ -80,7 +83,8 @@ const MessageGroup = observer(function MessageGroup({
                 color="primary"
                 variant="contained"
                 key="expand"
-                onClick={() => state.messageGroupExpanded.set(id, true)}>
+                onClick={() => state.messageGroupExpanded.set(id, true)}
+            >
                 Expand
             </Button>,
         );

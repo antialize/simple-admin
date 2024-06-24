@@ -1,8 +1,8 @@
 import state from "./state";
-import {type IAction, ACTION, type IStartLog, type IEndLog} from "./shared/actions";
+import { type IAction, ACTION, type IStartLog, type IEndLog } from "./shared/actions";
 import nullCheck from "./shared/nullCheck";
-import {type MutableRefObject, useEffect, useRef} from "react";
-import {Typography} from "@mui/material";
+import { type MutableRefObject, useEffect, useRef } from "react";
+import { Typography } from "@mui/material";
 
 let idc = 0;
 

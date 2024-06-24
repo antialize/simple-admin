@@ -1,20 +1,20 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import Error from "./Error";
 import state from "./state";
 import extractRemote from "./extractRemote";
-import {type IModifiedFilePage, PAGE_TYPE} from "./shared/state";
-import {hostId} from "./shared/type";
-import {Button, CircularProgress, Switch, Typography, styled} from "@mui/material";
+import { type IModifiedFilePage, PAGE_TYPE } from "./shared/state";
+import { hostId } from "./shared/type";
+import { Button, CircularProgress, Switch, Typography, styled } from "@mui/material";
 import Box from "./Box";
 import UnixTime from "./UnixTime";
-import {useState} from "react";
+import { useState } from "react";
 import * as Diff from "diff";
 import Editor from "./Editor";
 
 const Table = styled("table")({});
 const Span = styled("span")({});
 
-export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props: {id: number}) {
+export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props: { id: number }) {
     const [content, setContent] = useState<string | null>(null);
     const [patch2, setPatch2] = useState(true);
     const [lang, setLang] = useState("");
@@ -32,13 +32,13 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
     const patched = Diff.applyPatch(contentV, patch) || null;
     return (
         <div className="modified_container">
-            <div style={{gridArea: "head"}}>
-                <Typography component="span" style={{display: "inline"}}>
+            <div style={{ gridArea: "head" }}>
+                <Typography component="span" style={{ display: "inline" }}>
                     Show diff:{" "}
                 </Typography>
                 <Switch
                     checked={patch2}
-                    onChange={e => {
+                    onChange={(e) => {
                         setPatch2(e.target.checked);
                     }}
                 />
@@ -48,7 +48,8 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                     disabled={current == contentV}
                     onClick={() => {
                         setContent(current);
-                    }}>
+                    }}
+                >
                     Reset
                 </Button>
                 &nbsp;&nbsp;
@@ -57,7 +58,8 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                     variant="contained"
                     onClick={() => {
                         setContent(patched ?? "");
-                    }}>
+                    }}
+                >
                     Apply patch
                 </Button>
                 &nbsp;&nbsp;
@@ -66,7 +68,8 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                     color="secondary"
                     onClick={() => {
                         s.revert(props.id);
-                    }}>
+                    }}
+                >
                     Revert changes on host
                 </Button>
                 &nbsp;&nbsp;
@@ -76,12 +79,13 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                     disabled={current == content}
                     onClick={() => {
                         s.save(props.id, contentV);
-                    }}>
+                    }}
+                >
                     {s.saveTime ? "Wait " + s.saveTime : "Save changes"}
                 </Button>
             </div>
             {patch2 ? (
-                <div style={{gridArea: "lt / lb"}}>
+                <div style={{ gridArea: "lt / lb" }}>
                     {" "}
                     <Editor
                         lang={"diff"}
@@ -93,10 +97,10 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                 </div>
             ) : (
                 <>
-                    <div className="modified_half" style={{gridArea: "lt"}}>
+                    <div className="modified_half" style={{ gridArea: "lt" }}>
                         <Editor
                             lang={lang}
-                            setLang={lang => {
+                            setLang={(lang) => {
                                 setLang(lang);
                             }}
                             fixedLang={false}
@@ -105,10 +109,10 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                             readOnly={true}
                         />
                     </div>
-                    <div className="modified_half" style={{gridArea: "lb"}}>
+                    <div className="modified_half" style={{ gridArea: "lb" }}>
                         <Editor
                             lang={lang}
-                            setLang={lang => {
+                            setLang={(lang) => {
                                 setLang(lang);
                             }}
                             fixedLang={false}
@@ -119,16 +123,16 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                     </div>
                 </>
             )}
-            <div style={{gridArea: "right"}}>
+            <div style={{ gridArea: "right" }}>
                 <Editor
                     lang={lang}
-                    setLang={lang => {
+                    setLang={(lang) => {
                         setLang(lang);
                     }}
                     fixedLang={false}
                     title="Deployed"
                     data={contentV}
-                    setData={d => {
+                    setData={(d) => {
                         setContent(d);
                     }}
                 />
@@ -147,7 +151,7 @@ export const ModifiedFiles = observer(function ModifiedFiles() {
     const rows = [];
     for (const [id, f] of r.data) {
         const digests = state.objectDigests.get(f.type);
-        const a: IModifiedFilePage = {type: PAGE_TYPE.ModifiedFile, id};
+        const a: IModifiedFilePage = { type: PAGE_TYPE.ModifiedFile, id };
         const hosts = state.objectDigests.get(hostId);
         const host = hosts?.get(f.host);
         const type = state.types.get(f.type);
@@ -160,10 +164,11 @@ export const ModifiedFiles = observer(function ModifiedFiles() {
                 <td>{digest ? digest.name : f.object}</td>
                 <td>
                     <Button
-                        onClick={e => {
+                        onClick={(e) => {
                             page.onClick(e, a);
                         }}
-                        href={page.link(a)}>
+                        href={page.link(a)}
+                    >
                         Details
                     </Button>
                 </td>
@@ -212,7 +217,8 @@ export const ModifiedFiles = observer(function ModifiedFiles() {
                             marginLeft: "20px",
                             color: "text.primary",
                             fontSize: "120%",
-                        }}>
+                        }}
+                    >
                         Scanning
                     </Span>
                 </div>
@@ -222,7 +228,8 @@ export const ModifiedFiles = observer(function ModifiedFiles() {
                         variant="contained"
                         onClick={() => {
                             s.scan();
-                        }}>
+                        }}
+                    >
                         scan
                     </Button>
                     <span className={"classes.scan"}>

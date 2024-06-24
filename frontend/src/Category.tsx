@@ -1,6 +1,6 @@
-import {Autocomplete, TextField} from "@mui/material";
+import { Autocomplete, TextField } from "@mui/material";
 import state from "./state";
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 
 const Category = observer(function Category({
     category,
@@ -22,7 +22,7 @@ const Category = observer(function Category({
         <Autocomplete
             options={cat2}
             freeSolo
-            renderInput={params => {
+            renderInput={(params) => {
                 return <TextField {...params} placeholder="Category" variant="standard" />;
             }}
             value={category}

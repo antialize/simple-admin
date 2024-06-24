@@ -104,7 +104,7 @@ export interface IType {
 }
 
 export interface IVariables {
-    variables: Array<{key: string; value: string}>;
+    variables: Array<{ key: string; value: string }>;
 }
 
 export interface IContains {

@@ -1,8 +1,8 @@
 import * as State from ".././shared/state";
 import state from "../state";
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import Error from "../Error";
-import {Button} from "@mui/material";
+import { Button } from "@mui/material";
 
 const Buttons = observer(function Buttons() {
     const p = state.deployment;
@@ -47,57 +47,64 @@ const Buttons = observer(function Buttons() {
             <Button
                 variant="contained"
                 disabled={!start}
-                onClick={_ => {
+                onClick={(_) => {
                     p.start();
-                }}>
+                }}
+            >
                 Start
             </Button>
             <Button
                 variant="contained"
                 disabled={!stop}
-                onClick={_ => {
+                onClick={(_) => {
                     p.stop();
-                }}>
+                }}
+            >
                 Stop
             </Button>
             <Button
                 variant="contained"
                 disabled={!cancel}
-                onClick={_ => {
+                onClick={(_) => {
                     p.cancel();
-                }}>
+                }}
+            >
                 Cancel
             </Button>
             <Button
                 variant="contained"
                 disabled={!deployAll}
-                onClick={_ => {
+                onClick={(_) => {
                     p.deployAll(false);
-                }}>
+                }}
+            >
                 Deploy All
             </Button>
             <Button
                 variant="contained"
                 disabled={!deployAll}
-                onClick={_ => {
+                onClick={(_) => {
                     p.deployAll(true);
-                }}>
+                }}
+            >
                 Redeploy All
             </Button>
             <Button
                 variant="contained"
                 disabled={!canSelect || !hasDisabled}
-                onClick={_ => {
+                onClick={(_) => {
                     p.toggle(null, true);
-                }}>
+                }}
+            >
                 Enable all
             </Button>
             <Button
                 variant="contained"
                 disabled={!canSelect || !hasEnabled}
-                onClick={_ => {
+                onClick={(_) => {
                     p.toggle(null, false);
-                }}>
+                }}
+            >
                 Disable all
             </Button>
         </div>

@@ -1,16 +1,16 @@
 import Box from "./Box";
 import * as State from "./shared/state";
-import {ACTION} from "./shared/actions";
+import { ACTION } from "./shared/actions";
 import state from "./state";
 import nullCheck from "./shared/nullCheck";
 import Error from "./Error";
-import {Button, Switch} from "@mui/material";
-import {type IPage} from "./shared/state";
+import { Button, Switch } from "@mui/material";
+import { type IPage } from "./shared/state";
 import UnixTime from "./UnixTime";
 import React from "react";
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import extractRemote from "./extractRemote";
-import InfoTable, {InfoTableHeader} from "./InfoTable";
+import InfoTable, { InfoTableHeader } from "./InfoTable";
 
 export const DockerImages = observer(function DockerImages() {
     const dockerImages = state.dockerImages;
@@ -60,7 +60,7 @@ export const DockerImages = observer(function DockerImages() {
                             <Switch
                                 title="Pin image with given hash"
                                 checked={!!tag.pin}
-                                onChange={e => {
+                                onChange={(e) => {
                                     state.sendMessage({
                                         type: ACTION.DockerImageSetPin,
                                         id: tag.id,
@@ -72,7 +72,7 @@ export const DockerImages = observer(function DockerImages() {
                         <Switch
                             title="Pin the latest image with given tag"
                             checked={!!pin}
-                            onChange={e => {
+                            onChange={(e) => {
                                 state.sendMessage({
                                     type: ACTION.DockerImageTagSetPin,
                                     image: project,
@@ -84,10 +84,11 @@ export const DockerImages = observer(function DockerImages() {
                     </td>
                     <td>
                         <Button
-                            onClick={e => {
+                            onClick={(e) => {
                                 page.onClick(e, historyPage);
                             }}
-                            href={page.link(historyPage)}>
+                            href={page.link(historyPage)}
+                        >
                             History
                         </Button>
                     </td>
@@ -118,12 +119,12 @@ export const DockerImages = observer(function DockerImages() {
     const title = (
         <React.Fragment>
             Docker images
-            <span style={{width: "100px", display: "inline-block"}} />
+            <span style={{ width: "100px", display: "inline-block" }} />
             Show all:{" "}
             <Switch
                 title="All"
                 checked={dockerImages.show_all}
-                onChange={e => (dockerImages.show_all = e.target.checked)}
+                onChange={(e) => (dockerImages.show_all = e.target.checked)}
             />
         </React.Fragment>
     );
@@ -173,7 +174,7 @@ export const DockerImageHistory = observer(function DockerImageHistory() {
                     ) : (
                         <Switch
                             checked={!!image.pin}
-                            onChange={e => {
+                            onChange={(e) => {
                                 state.sendMessage({
                                     type: ACTION.DockerImageSetPin,
                                     id: image.id,

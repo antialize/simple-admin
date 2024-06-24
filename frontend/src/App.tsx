@@ -1,8 +1,8 @@
-import {observer} from "mobx-react";
-import state, {CONNECTION_STATUS} from "./state";
+import { observer } from "mobx-react";
+import state, { CONNECTION_STATUS } from "./state";
 import Login from "./Login";
 import Menu from "./Menu";
-import {MainPage} from "./MainPage";
+import { MainPage } from "./MainPage";
 
 const App = observer(function Content() {
     let dialog: JSX.Element | null = <>No dialog</>;

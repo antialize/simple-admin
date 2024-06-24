@@ -1,7 +1,7 @@
-import {TypePropType, type ITrigger} from "./shared/type";
-import {observer} from "mobx-react";
+import { TypePropType, type ITrigger } from "./shared/type";
+import { observer } from "mobx-react";
 import derivedState from "./derivedState";
-import {MenuItem, Select, TextField} from "@mui/material";
+import { MenuItem, Select, TextField } from "@mui/material";
 
 interface TriggersProps {
     triggers: ITrigger[];
@@ -12,13 +12,13 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
     const triggers = p.triggers.slice(0);
     const rows: JSX.Element[] = [];
     const setTriggers = () => {
-        p.setTriggers(triggers.filter(t => t.id != 0));
+        p.setTriggers(triggers.filter((t) => t.id != 0));
     };
 
     for (let i = 0; i <= triggers.length; ++i) {
         const v = i < triggers.length && triggers[i];
 
-        const t = v ? derivedState.triggers.find(t => t.id == v.id) : null;
+        const t = v ? derivedState.triggers.find((t) => t.id == v.id) : null;
         const fields: JSX.Element[] = [];
         if (v && t?.content?.content) {
             for (const item of t.content.content) {
@@ -30,7 +30,7 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
                                 key={item.name}
                                 value={v?.values?.[item.name] ?? item.default}
                                 disabled={!v}
-                                onChange={e => {
+                                onChange={(e) => {
                                     triggers[i].values = Object.assign({}, triggers[i].values);
                                     triggers[i].values[itt.name] = e.target.value;
                                     setTriggers();
@@ -48,13 +48,14 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
                     <Select
                         variant="standard"
                         value={(v && v.id) || 0}
-                        onChange={e => {
-                            if (v) triggers[i] = {id: +(e.target.value as any), values: []};
-                            else triggers.push({id: +(e.target.value as any), values: []});
+                        onChange={(e) => {
+                            if (v) triggers[i] = { id: +(e.target.value as any), values: [] };
+                            else triggers.push({ id: +(e.target.value as any), values: [] });
                             setTriggers();
-                        }}>
+                        }}
+                    >
                         <MenuItem value={0}>None</MenuItem>
-                        {derivedState.triggers.map(t => (
+                        {derivedState.triggers.map((t) => (
                             <MenuItem key={t.name} value={t.id}>
                                 {t.name}
                             </MenuItem>

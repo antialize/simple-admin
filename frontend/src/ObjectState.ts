@@ -7,10 +7,10 @@ import {
     type IResetServerState,
     type IGetObjectHistory,
 } from "./shared/actions";
-import {type IObject2, PAGE_TYPE} from "./shared/state";
-import {type IType, TypePropType} from "./shared/type";
-import {observable, action, makeObservable} from "mobx";
-import {state} from "./state";
+import { type IObject2, PAGE_TYPE } from "./shared/state";
+import { type IType, TypePropType } from "./shared/type";
+import { observable, action, makeObservable } from "mobx";
+import { state } from "./state";
 import nullCheck from "./shared/nullCheck";
 
 class ObjectState {
@@ -21,7 +21,7 @@ class ObjectState {
     versions: Map<number, IObject2<any>>;
 
     @observable
-    history: Array<{version: number; time: number; author: string | null}> | null;
+    history: Array<{ version: number; time: number; author: string | null }> | null;
 
     @observable
     touched: boolean;
@@ -58,7 +58,7 @@ class ObjectState {
 
     @action.bound
     deploy(cancel: boolean, redeploy: boolean) {
-        nullCheck(state.page).set({type: PAGE_TYPE.Deployment});
+        nullCheck(state.page).set({ type: PAGE_TYPE.Deployment });
         if (cancel) nullCheck(state.deployment).cancel();
         const a: IDeployObject = {
             type: ACTION.DeployObject,
@@ -177,7 +177,7 @@ class ObjectState {
         const cp = nullCheck(state.page).current;
         if (cp.type != PAGE_TYPE.Object) return;
 
-        state.page?.set({type: PAGE_TYPE.Object, objectType: cp.objectType, id: cp.id, version});
+        state.page?.set({ type: PAGE_TYPE.Object, objectType: cp.objectType, id: cp.id, version });
         this.current = null;
         this.touched = false;
         this.loadCurrent();

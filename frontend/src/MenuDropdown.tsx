@@ -1,7 +1,7 @@
-import {Button, IconButton, Menu, MenuItem} from "@mui/material";
-import React, {useContext, useState} from "react";
+import { Button, IconButton, Menu, MenuItem } from "@mui/material";
+import React, { useContext, useState } from "react";
 import MenuIcon from "@mui/icons-material/Menu";
-import {useHotkeys} from "react-hotkeys-hook";
+import { useHotkeys } from "react-hotkeys-hook";
 
 const DropDownOpen = React.createContext({
     open: false,
@@ -16,10 +16,11 @@ export function DropDownItem(p: {
     const context = useContext(DropDownOpen);
     return (
         <MenuItem
-            onClick={e => {
+            onClick={(e) => {
                 context.setOpen(false);
                 p.onClick && p.onClick(e);
-            }}>
+            }}
+        >
             {p.children}
         </MenuItem>
     );
@@ -41,25 +42,27 @@ function MenuDropdown({
             setOpen(true);
         });
     return (
-        <DropDownOpen.Provider value={{open, setOpen}}>
+        <DropDownOpen.Provider value={{ open, setOpen }}>
             {title ? (
                 <Button
                     aria-owns={open ? "render-props-menu" : undefined}
                     aria-haspopup="true"
-                    onClick={event => {
+                    onClick={(event) => {
                         setAnchor(event.currentTarget);
                         setOpen(true);
-                    }}>
+                    }}
+                >
                     {title}
                 </Button>
             ) : (
                 <IconButton
                     aria-owns={open ? "render-props-menu" : undefined}
                     aria-haspopup="true"
-                    onClick={event => {
+                    onClick={(event) => {
                         setAnchor(event.currentTarget);
                         setOpen(true);
-                    }}>
+                    }}
+                >
                     <MenuIcon />
                 </IconButton>
             )}
@@ -70,8 +73,9 @@ function MenuDropdown({
                 onClose={() => {
                     setOpen(false);
                 }}
-                anchorOrigin={{vertical: "bottom", horizontal: "left"}}
-                transformOrigin={{vertical: "top", horizontal: "left"}}>
+                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                transformOrigin={{ vertical: "top", horizontal: "left" }}
+            >
                 {children}
             </Menu>
         </DropDownOpen.Provider>

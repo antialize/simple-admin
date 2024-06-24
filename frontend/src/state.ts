@@ -1,4 +1,4 @@
-import type {ActionTargets} from "./ActionTargets";
+import type { ActionTargets } from "./ActionTargets";
 import type DeploymentState from "./deployment/DeploymentState";
 import type DockerContainersState from "./DockerContairsState";
 import type DockerImagesState from "./DockerImagesState";
@@ -7,10 +7,10 @@ import type ModifiedFilesState from "./ModifiedFilesState";
 import type ObjectState from "./ObjectState";
 import type PageState from "./PageState";
 import type SearchState from "./SearchState";
-import type {IAction, IMessage} from "./shared/actions";
-import type {IObject2, IObjectDigest} from "./shared/state";
-import type {IType} from "./shared/type";
-import {computed, observable, makeObservable} from "mobx";
+import type { IAction, IMessage } from "./shared/actions";
+import type { IObject2, IObjectDigest } from "./shared/state";
+import type { IType } from "./shared/type";
+import { computed, observable, makeObservable } from "mobx";
 
 export enum CONNECTION_STATUS {
     CONNECTING,

@@ -1,9 +1,9 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import state from "./state";
 import nullCheck from "./shared/nullCheck";
 import Message from "./Message";
 import Box from "./Box";
-import {Typography} from "@mui/material";
+import { Typography } from "@mui/material";
 import MessageGroup from "./MessageGroup";
 
 interface MGroup {
@@ -13,13 +13,13 @@ interface MGroup {
     dismissed: number;
 }
 
-const Messages = observer(function Messages({host}: {host?: number}) {
-    const messages: Array<{id: number; time: number}> = [];
+const Messages = observer(function Messages({ host }: { host?: number }) {
+    const messages: Array<{ id: number; time: number }> = [];
     let count = 0;
     for (const [_, message] of state.messages) {
         if (host != null && message.host != host) continue;
         if (!message.dismissed) count++;
-        messages.push({id: message.id, time: message.time});
+        messages.push({ id: message.id, time: message.time });
     }
     messages.sort((l, r) => {
         return r.time - l.time;
@@ -54,8 +54,8 @@ const Messages = observer(function Messages({host}: {host?: number}) {
     }
 
     let title;
-    if (count == 0) title = <span style={{color: "#070"}}>Messages</span>;
-    else title = <span style={{color: "#700"}}>Messages ({count})</span>;
+    if (count == 0) title = <span style={{ color: "#070" }}>Messages</span>;
+    else title = <span style={{ color: "#700" }}>Messages ({count})</span>;
     const messageItems = [];
     for (const group of messageGroups) {
         const id = group.ids[0];

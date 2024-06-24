@@ -1,16 +1,16 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import state from "./state";
 import extractRemote from "./extractRemote";
-import {hostId} from "./shared/type";
-import {type IPage} from "./shared/state";
+import { hostId } from "./shared/type";
+import { type IPage } from "./shared/state";
 import * as State from "./shared/state";
 import UnixTime from "./UnixTime";
-import {Button, Typography} from "@mui/material";
-import {ACTION} from "./shared/actions";
+import { Button, Typography } from "@mui/material";
+import { ACTION } from "./shared/actions";
 import Error from "./Error";
 import Box from "./Box";
-import {InformationList, InformationListRow} from "./InformationList";
-import InfoTable, {InfoTableHeader} from "./InfoTable";
+import { InformationList, InformationListRow } from "./InformationList";
+import InfoTable, { InfoTableHeader } from "./InfoTable";
 
 export const HostDockerContainers = observer(function DockerContainers(p: {
     host: number;
@@ -74,7 +74,8 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                                     host: p.host,
                                     container: container.name,
                                 });
-                            }}>
+                            }}
+                        >
                             Stop
                         </Button>
                     ) : null}
@@ -86,7 +87,8 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                                     host: p.host,
                                     container: container.name,
                                 });
-                            }}>
+                            }}
+                        >
                             Start
                         </Button>
                     ) : null}
@@ -98,7 +100,8 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                                     host: p.host,
                                     container: container.name,
                                 });
-                        }}>
+                        }}
+                    >
                         Remove
                     </Button>
                     <Button
@@ -109,21 +112,24 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                                     host: p.host,
                                     container: container.name,
                                 });
-                        }}>
+                        }}
+                    >
                         Forget
                     </Button>
                     <Button
-                        onClick={e => {
+                        onClick={(e) => {
                             page.onClick(e, detailsPage);
                         }}
-                        href={page.link(detailsPage)}>
+                        href={page.link(detailsPage)}
+                    >
                         Details
                     </Button>
                     <Button
-                        onClick={e => {
+                        onClick={(e) => {
                             page.onClick(e, historyPage);
                         }}
-                        href={page.link(historyPage)}>
+                        href={page.link(historyPage)}
+                    >
                         History
                     </Button>
                 </td>
@@ -168,7 +174,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
     );
 });
 
-export const DockerContainers = observer(function DockerContainers(_: {host?: string}) {
+export const DockerContainers = observer(function DockerContainers(_: { host?: string }) {
     const dockerContainers = state.dockerContainers;
     if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
     const r = extractRemote(dockerContainers.hosts);
@@ -311,10 +317,11 @@ export const DockerContainerHistory = observer(function DockerContainerHistory()
                 <td>{container.end ? <UnixTime time={container.end} /> : null}</td>
                 <td>
                     <Button
-                        onClick={e => {
+                        onClick={(e) => {
                             spage.onClick(e, detailsPage);
                         }}
-                        href={spage.link(detailsPage)}>
+                        href={spage.link(detailsPage)}
+                    >
                         Details
                     </Button>
                 </td>

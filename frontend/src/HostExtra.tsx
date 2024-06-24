@@ -1,12 +1,12 @@
 import Box from "./Box";
 import Messages from "./Messages";
 import Setup from "./Setup";
-import {observer} from "mobx-react";
-import {HostDockerContainers} from "./DockerContainers";
-import {state} from "./state";
+import { observer } from "mobx-react";
+import { HostDockerContainers } from "./DockerContainers";
+import { state } from "./state";
 import HostTerminals from "./Terminal";
 
-const HostExtra = observer(function HostExtra({id}: {id: number}) {
+const HostExtra = observer(function HostExtra({ id }: { id: number }) {
     const up = state.hostsUp.has(id);
     let c: JSX.Element | null = null;
     if (up) {

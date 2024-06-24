@@ -1,6 +1,6 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import state from "./state";
-import {Autocomplete, TextField} from "@mui/material";
+import { Autocomplete, TextField } from "@mui/material";
 
 interface IProps {
     selected: number[];
@@ -21,7 +21,7 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
         for (const [id, ct] of ps) {
             if (!p.filter(ct.type, id)) continue;
             const t = state.types?.get(ct.type);
-            const item: Item = {label: ct.name + " (" + (t ? t.name : +type) + ")", value: id};
+            const item: Item = { label: ct.name + " (" + (t ? t.name : +type) + ")", value: id };
             all.push(item);
             if (id in sel) selected.push(item);
         }
@@ -33,12 +33,12 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
             disableClearable
             multiple
             fullWidth
-            renderInput={params => (
+            renderInput={(params) => (
                 <TextField {...params} variant="standard" placeholder="Select objects" />
             )}
             value={selected}
             onChange={(_, values) => {
-                p.setSelected(values.map(i => i.value));
+                p.setSelected(values.map((i) => i.value));
             }}
         />
     );

@@ -1,7 +1,7 @@
 import Cookies from "js-cookie";
-import state, {CONNECTION_STATUS} from "./state";
-import {type ILogin, ACTION, type ILogout} from "./shared/actions";
-import {observable, action, makeObservable} from "mobx";
+import state, { CONNECTION_STATUS } from "./state";
+import { type ILogin, ACTION, type ILogout } from "./shared/actions";
+import { observable, action, makeObservable } from "mobx";
 
 class LoginState {
     constructor() {

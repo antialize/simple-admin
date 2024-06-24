@@ -1,12 +1,12 @@
 import * as $ from "jquery";
 import type * as React from "react";
 import * as State from "./shared/state";
-import {action, makeObservable, observable, runInAction} from "mobx";
+import { action, makeObservable, observable, runInAction } from "mobx";
 import nullCheck from "./shared/nullCheck";
 import state from "./state";
 import getOrInsert from "./shared/getOrInsert";
 import ObjectState from "./ObjectState";
-import {hostId} from "./shared/type";
+import { hostId } from "./shared/type";
 
 function never(_: never, message: string) {
     console.error(message);
@@ -21,7 +21,7 @@ class PageState {
     nextNewObjectId: number = -2;
 
     @observable
-    private current_: State.IPage = {type: State.PAGE_TYPE.Dashbord};
+    private current_: State.IPage = { type: State.PAGE_TYPE.Dashbord };
 
     @action
     loadContent() {
@@ -164,19 +164,19 @@ class PageState {
         const p = getUrlParameter("page");
         switch (p) {
             case "dockerImages":
-                this.current = {type: State.PAGE_TYPE.DockerImages};
+                this.current = { type: State.PAGE_TYPE.DockerImages };
                 break;
             case "dockerContainers":
-                this.current = {type: State.PAGE_TYPE.DockerContainers};
+                this.current = { type: State.PAGE_TYPE.DockerContainers };
                 break;
             case "modifiedFiles":
-                this.current = {type: State.PAGE_TYPE.ModifiedFiles};
+                this.current = { type: State.PAGE_TYPE.ModifiedFiles };
                 break;
             case "modifiedFile":
-                this.current = {type: State.PAGE_TYPE.ModifiedFile, id: +getUrlParameter("id")};
+                this.current = { type: State.PAGE_TYPE.ModifiedFile, id: +getUrlParameter("id") };
                 break;
             case "deployment":
-                this.current = {type: State.PAGE_TYPE.Deployment};
+                this.current = { type: State.PAGE_TYPE.Deployment };
                 break;
             case "objectlist":
                 this.current = {
@@ -224,10 +224,10 @@ class PageState {
                 };
                 break;
             case "search":
-                this.current = {type: State.PAGE_TYPE.Search};
+                this.current = { type: State.PAGE_TYPE.Search };
                 break;
             default:
-                this.current = {type: State.PAGE_TYPE.Dashbord};
+                this.current = { type: State.PAGE_TYPE.Dashbord };
                 break;
         }
     }

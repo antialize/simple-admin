@@ -1,8 +1,8 @@
 import * as State from ".././shared/state";
 import state from "../state";
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import Error from "../Error";
-import {Button, Checkbox, styled, useTheme} from "@mui/material";
+import { Button, Checkbox, styled, useTheme } from "@mui/material";
 
 const Table = styled("table")({});
 interface IProps {
@@ -21,16 +21,16 @@ const Item = observer(function Item(p: IProps) {
     let s = {};
     switch (o.status) {
         case State.DEPLOYMENT_OBJECT_STATUS.Deplying:
-            s = {backgroundColor: theme.palette.mode == "dark" ? "#990" : "yellow"};
+            s = { backgroundColor: theme.palette.mode == "dark" ? "#990" : "yellow" };
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Failure:
-            s = {backgroundColor: theme.palette.mode == "dark" ? "#600" : "#F77"};
+            s = { backgroundColor: theme.palette.mode == "dark" ? "#600" : "#F77" };
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Success:
-            s = {backgroundColor: theme.palette.mode == "dark" ? "#060" : "#7F7"};
+            s = { backgroundColor: theme.palette.mode == "dark" ? "#060" : "#7F7" };
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Normal:
-            s = o.enabled ? {} : {color: theme.palette.text.disabled};
+            s = o.enabled ? {} : { color: theme.palette.text.disabled };
             break;
     }
 
@@ -60,17 +60,21 @@ const Item = observer(function Item(p: IProps) {
                 <Checkbox
                     checked={o.enabled}
                     disabled={!canSelect}
-                    onChange={e => {
+                    onChange={(e) => {
                         deployment.toggle(o.index, e.target.checked);
                     }}
                 />
             </td>
             <td>
                 <Button
-                    onClick={e => {
-                        page.onClick(e, {type: State.PAGE_TYPE.DeploymentDetails, index: o.index});
+                    onClick={(e) => {
+                        page.onClick(e, {
+                            type: State.PAGE_TYPE.DeploymentDetails,
+                            index: o.index,
+                        });
                     }}
-                    href={page.link({type: State.PAGE_TYPE.DeploymentDetails, index: o.index})}>
+                    href={page.link({ type: State.PAGE_TYPE.DeploymentDetails, index: o.index })}
+                >
                     Details
                 </Button>
             </td>
@@ -128,7 +132,8 @@ const Items = observer(function ItemImpl() {
                     "& tr:nth-child(even)": {
                         backgroundColor: "background.paper",
                     },
-                }}>
+                }}
+            >
                 <thead>
                     <tr>
                         <th>Host</th>

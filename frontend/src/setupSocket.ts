@@ -1,14 +1,14 @@
 import Cookies from "js-cookie";
 import type * as State from "./shared/state";
-import state, {CONNECTION_STATUS} from "./state";
-import {type IAction, ACTION, type IRequestAuthStatus} from "./shared/actions";
-import {add, clear} from "./deployment/Log";
-import {runInAction} from "mobx";
+import state, { CONNECTION_STATUS } from "./state";
+import { type IAction, ACTION, type IRequestAuthStatus } from "./shared/actions";
+import { add, clear } from "./deployment/Log";
+import { runInAction } from "mobx";
 import nullCheck from "./shared/nullCheck";
 import getOrInsert from "./shared/getOrInsert";
-import {typeId} from "./shared/type";
+import { typeId } from "./shared/type";
 import ObjectState from "./ObjectState";
-import {getReferences} from "./shared/getReferences";
+import { getReferences } from "./shared/getReferences";
 
 export let socket: WebSocket | null = null;
 let reconnectTime = 1;
@@ -21,7 +21,7 @@ export const setupSocket = () => {
             window.location.host +
             "/sysadmin",
     );
-    socket.onmessage = data => {
+    socket.onmessage = (data) => {
         const loaded = state.loaded;
         const d = JSON.parse(data.data) as IAction;
         if (d.type in nullCheck(state.actionTargets)) {
@@ -59,10 +59,10 @@ export const setupSocket = () => {
                     state.authUser = d.user;
                 });
                 if (d.session !== null) {
-                    Cookies.set("simple-admin-session", d.session, {secure: true, expires: 365});
+                    Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });
                 }
                 if (d.otp && d.pwd) {
-                    state.sendMessage({type: ACTION.RequestInitialState});
+                    state.sendMessage({ type: ACTION.RequestInitialState });
                 }
                 break;
             case ACTION.SetInitialState:
@@ -72,11 +72,11 @@ export const setupSocket = () => {
                         if (aa) aa.add(b);
                         else state.objectUsedBy.set(a, new Set([b]));
                     }
-                    nullCheck(state.modifiedFiles).modifiedFiles = {state: "initial"};
+                    nullCheck(state.modifiedFiles).modifiedFiles = { state: "initial" };
                     nullCheck(state.dockerImages).imageHistory.clear();
-                    nullCheck(state.dockerImages).projects = {state: "initial"};
+                    nullCheck(state.dockerImages).projects = { state: "initial" };
                     nullCheck(state.dockerContainers).containerHistory.clear();
-                    nullCheck(state.dockerContainers).hosts = {state: "initial"};
+                    nullCheck(state.dockerContainers).hosts = { state: "initial" };
                     nullCheck(state.deployment).objects = d.deploymentObjects;
                     nullCheck(state.deployment).message = d.deploymentMessage;
                     nullCheck(state.deployment).status = d.deploymentStatus;

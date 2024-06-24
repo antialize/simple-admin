@@ -5,13 +5,13 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import setupState from "./setupState.ts";
-import {setupSocket, socket} from "./setupSocket.ts";
+import { setupSocket, socket } from "./setupSocket.ts";
 import state from "./state.ts";
 import type * as State from "./shared/state.ts";
-import {type IAction} from "./shared/actions.ts";
+import { type IAction } from "./shared/actions.ts";
 import nullCheck from "./shared/nullCheck.ts";
 import App from "./App.tsx";
-import {ThemeProvider, createTheme} from "@mui/material";
+import { ThemeProvider, createTheme } from "@mui/material";
 
 import "./style.css";
 import "xterm/css/xterm.css";

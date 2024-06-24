@@ -1,4 +1,4 @@
-import {TextField} from "@mui/material";
+import { TextField } from "@mui/material";
 
 interface IProps {
     value: string;
@@ -15,32 +15,32 @@ function Password(props: IProps) {
                     name="name"
                     value="cookie"
                     readOnly={true}
-                    style={{width: 1, border: 0, visibility: "hidden"}}
+                    style={{ width: 1, border: 0, visibility: "hidden" }}
                 />
                 <input
                     type="password"
                     name="password1"
                     readOnly={true}
-                    style={{width: 1, border: 0, visibility: "hidden"}}
+                    style={{ width: 1, border: 0, visibility: "hidden" }}
                 />
                 <input
                     type="password"
                     name="password2"
                     readOnly={true}
-                    style={{width: 1, border: 0, visibility: "hidden"}}
+                    style={{ width: 1, border: 0, visibility: "hidden" }}
                 />
                 <input
                     type="password"
                     name="password3"
                     readOnly={true}
-                    style={{width: 1, border: 0, visibility: "hidden"}}
+                    style={{ width: 1, border: 0, visibility: "hidden" }}
                 />
                 <TextField
                     variant="standard"
                     className="no_fill_password"
                     type="password"
                     value={props.value}
-                    onChange={e => {
+                    onChange={(e) => {
                         props.onChange(e.target.value);
                     }}
                 />

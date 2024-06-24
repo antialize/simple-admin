@@ -1,6 +1,6 @@
-import {action, makeObservable, observable} from "mobx";
+import { action, makeObservable, observable } from "mobx";
 import state from "./state";
-import {ACTION, type ISearchRes} from "./shared/actions";
+import { ACTION, type ISearchRes } from "./shared/actions";
 
 export default class SearchState {
     constructor() {

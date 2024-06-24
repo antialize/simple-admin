@@ -1,11 +1,11 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import nullCheck from "./shared/nullCheck";
 import state from "./state";
-import {ACTION, type IMessageTextReqAction, type ISetMessagesDismissed} from "./shared/actions";
-import {hostId} from "./shared/type";
-import {Button} from "@mui/material";
+import { ACTION, type IMessageTextReqAction, type ISetMessagesDismissed } from "./shared/actions";
+import { hostId } from "./shared/type";
+import { Button } from "@mui/material";
 
-const Message = observer(function Message({id, inGroup}: {id: number; inGroup: boolean}) {
+const Message = observer(function Message({ id, inGroup }: { id: number; inGroup: boolean }) {
     const message = nullCheck(state.messages.get(id));
     const hostObject = nullCheck(state.objectDigests.get(hostId)).get(nullCheck(message.host));
     const hostname = hostObject ? hostObject.name : "";
@@ -43,7 +43,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                 variant="contained"
                 onClick={() => {
                     setDismissed(false);
-                }}>
+                }}
+            >
                 Undismiss
             </Button>,
         );
@@ -56,7 +57,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                 variant="contained"
                 onClick={() => {
                     setDismissed(true);
-                }}>
+                }}
+            >
                 Dismiss
             </Button>,
         );
@@ -74,7 +76,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                     variant="contained"
                     onClick={() => {
                         setExpanded(true, !message.fullMessage);
-                    }}>
+                    }}
+                >
                     Full text
                 </Button>,
             );
@@ -86,7 +89,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                     variant="contained"
                     onClick={() => {
                         setExpanded(false, false);
-                    }}>
+                    }}
+                >
                     Partial text
                 </Button>,
             );

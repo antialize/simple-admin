@@ -1,4 +1,4 @@
-import {type IAction, type ACTION} from "./shared/actions";
+import { type IAction, type ACTION } from "./shared/actions";
 import getOrInsert from "./shared/getOrInsert";
 
 type ActionTarget = (action: IAction) => boolean;

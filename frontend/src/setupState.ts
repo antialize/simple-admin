@@ -2,7 +2,7 @@ import DeploymentState from "./deployment/DeploymentState";
 import LoginState from "./LoginState";
 import PageState from "./PageState";
 import state from "./state";
-import {ActionTargets} from "./ActionTargets";
+import { ActionTargets } from "./ActionTargets";
 import DockerImagesState from "./DockerImagesState";
 import DockerContainersState from "./DockerContairsState";
 import SearchState from "./SearchState";

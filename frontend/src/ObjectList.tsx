@@ -1,10 +1,10 @@
-import {observer} from "mobx-react";
+import { observer } from "mobx-react";
 import state from "./state";
-import {Button, Link, List, ListItem, TextField, Typography} from "@mui/material";
+import { Button, Link, List, ListItem, TextField, Typography } from "@mui/material";
 import nullCheck from "./shared/nullCheck";
 import * as State from "./shared/state";
 
-const ObjectList = observer(function ObjectList({type}: {type: number}) {
+const ObjectList = observer(function ObjectList({ type }: { type: number }) {
     const page = state.page;
     if (page === null) return <span>Missing state.page</span>;
     const filter = state.objectListFilter.get(type) ?? "";
@@ -25,32 +25,34 @@ const ObjectList = observer(function ObjectList({type}: {type: number}) {
             </Typography>
             <TextField
                 placeholder="Filter"
-                onChange={e => {
+                onChange={(e) => {
                     state.objectListFilter.set(type, e.target.value);
                 }}
                 value={filter}
             />
             <List>
-                {lst.map(v => (
+                {lst.map((v) => (
                     <ListItem
                         key={v.id}
-                        onClick={e => {
+                        onClick={(e) => {
                             page.onClick(e, {
                                 type: State.PAGE_TYPE.Object,
                                 objectType: type,
                                 id: v.id,
                             });
-                        }}>
+                        }}
+                    >
                         <Link color={"textPrimary" as any}>{v.name}</Link>
                     </ListItem>
                 ))}
             </List>
             <Button
                 variant="contained"
-                onClick={e => {
-                    page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: type});
+                onClick={(e) => {
+                    page.onClick(e, { type: State.PAGE_TYPE.Object, objectType: type });
                 }}
-                href={page.link({type: State.PAGE_TYPE.Object, objectType: type})}>
+                href={page.link({ type: State.PAGE_TYPE.Object, objectType: type })}
+            >
                 Add new
             </Button>
         </>

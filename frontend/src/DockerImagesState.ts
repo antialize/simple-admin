@@ -1,4 +1,4 @@
-import {action, makeObservable, observable} from "mobx";
+import { action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
 import {
     ACTION,
@@ -20,7 +20,7 @@ export default class DockerImagesState {
     show_all: boolean = false;
 
     @observable
-    projects: Remote<Map<string, DockerImageTag[]>> = {state: "initial"};
+    projects: Remote<Map<string, DockerImageTag[]>> = { state: "initial" };
 
     @observable
     imageHistory = new Map<string, Map<string, Remote<Map<number, DockerImageTag>>>>();
@@ -34,12 +34,12 @@ export default class DockerImagesState {
             type: ACTION.DockerListImageTags,
             ref: 0,
         });
-        this.projects = {state: "loading"};
+        this.projects = { state: "loading" };
     }
 
     @action
-    setPinnedImageTags(pit: Array<{image: string; tag: string}>) {
-        for (const {image, tag} of pit) this.imageTagPin.add(image + ":" + tag);
+    setPinnedImageTags(pit: Array<{ image: string; tag: string }>) {
+        for (const { image, tag } of pit) this.imageTagPin.add(image + ":" + tag);
     }
 
     @action
@@ -57,12 +57,12 @@ export default class DockerImagesState {
             image: project,
             tag,
         });
-        h1.set(tag, {state: "loading"});
+        h1.set(tag, { state: "loading" });
     }
 
     @action
     handleLoad(act: IDockerListImageTagsRes) {
-        if (this.projects.state != "data") this.projects = {state: "data", data: new Map()};
+        if (this.projects.state != "data") this.projects = { state: "data", data: new Map() };
         for (const tag of act.tags) {
             getOrInsert(this.projects.data, tag.image, () => []).push(tag);
         }
@@ -77,7 +77,7 @@ export default class DockerImagesState {
         if (!h1) return;
         const m = new Map<number, DockerImageTag>();
         for (const i of act.images) m.set(i.id, i);
-        h1.set(act.tag, {state: "data", data: m});
+        h1.set(act.tag, { state: "data", data: m });
     }
 
     @action
@@ -99,7 +99,7 @@ export default class DockerImagesState {
                 if (lst === undefined) continue;
                 projects.set(
                     tag.image,
-                    lst.filter(e => {
+                    lst.filter((e) => {
                         return e.hash != tag.hash;
                     }),
                 );
@@ -114,7 +114,7 @@ export default class DockerImagesState {
         }
         const c = act.imageTagPinChanged;
         if (c) {
-            for (const {image, tag, pin} of c) {
+            for (const { image, tag, pin } of c) {
                 if (pin) this.imageTagPin.add(image + ":" + tag);
                 else this.imageTagPin.delete(image + ":" + tag);
             }

@@ -1,4 +1,4 @@
-import {ObservableMap, action, makeObservable, observable} from "mobx";
+import { ObservableMap, action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
 import {
     ACTION,
@@ -16,7 +16,7 @@ export default class DockerContainersState {
     }
 
     @observable
-    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: "initial"};
+    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = { state: "initial" };
 
     @observable
     containerHistory = new ObservableMap<
@@ -31,7 +31,7 @@ export default class DockerContainersState {
             type: ACTION.DockerListDeployments,
             ref: 0,
         });
-        this.hosts = {state: "loading"};
+        this.hosts = { state: "loading" };
     }
 
     @action
@@ -49,12 +49,12 @@ export default class DockerContainersState {
             name: container,
             ref: 0,
         });
-        c1.set(container, {state: "loading"});
+        c1.set(container, { state: "loading" });
     }
 
     @action
     handleLoad(act: IDockerListDeploymentsRes) {
-        if (this.hosts.state != "data") this.hosts = {state: "data", data: new ObservableMap()};
+        if (this.hosts.state != "data") this.hosts = { state: "data", data: new ObservableMap() };
 
         for (const tag of act.deployments) {
             getOrInsert(this.hosts.data, tag.host, () => []).push(tag);
@@ -67,7 +67,7 @@ export default class DockerContainersState {
         if (!h) return;
         const m = new ObservableMap();
         for (const d of act.deployments) m.set(d.id, d);
-        h.set(act.name, {state: "data", data: m});
+        h.set(act.name, { state: "data", data: m });
     }
 
     @action
@@ -89,7 +89,7 @@ export default class DockerContainersState {
                 if (!lst) continue;
                 hosts.set(
                     tag.host,
-                    lst.filter(e => e.name != tag.name),
+                    lst.filter((e) => e.name != tag.name),
                 );
             }
         }
