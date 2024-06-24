@@ -33,7 +33,7 @@ const Message = observer(function Message({ id, inGroup }: { id: number; inGroup
     };
 
     const actions = [];
-    let c;
+    let c: string;
 
     if (message.dismissed) {
         actions.push(
@@ -68,7 +68,7 @@ const Message = observer(function Message({ id, inGroup }: { id: number; inGroup
     let msg = message.message;
     if (msg && msg.length > 999) {
         if (!state.messageExpanded.get(id)) {
-            msg = msg.substr(0, 999) + "...";
+            msg = `${msg.substr(0, 999)}...`;
             actions.push(
                 <Button
                     key="expand"

@@ -17,7 +17,7 @@ const Messages = observer(function Messages({ host }: { host?: number }) {
     const messages: Array<{ id: number; time: number }> = [];
     let count = 0;
     for (const [_, message] of state.messages) {
-        if (host != null && message.host != host) continue;
+        if (host != null && message.host !== host) continue;
         if (!message.dismissed) count++;
         messages.push({ id: message.id, time: message.time });
     }
@@ -28,7 +28,7 @@ const Messages = observer(function Messages({ host }: { host?: number }) {
     const messageGroups: MGroup[] = [];
     for (const m of messages) {
         const t = nullCheck(state.messages.get(m.id));
-        if (messageGroups.length == 0) {
+        if (messageGroups.length === 0) {
             messageGroups.push({
                 ids: [m.id],
                 start: m.time,
@@ -39,7 +39,7 @@ const Messages = observer(function Messages({ host }: { host?: number }) {
         }
         const g = messageGroups[messageGroups.length - 1];
         const o = nullCheck(state.messages.get(g.ids[0]));
-        if (o.host != t.host || o.type != t.type || o.subtype != t.subtype) {
+        if (o.host !== t.host || o.type !== t.type || o.subtype !== t.subtype) {
             messageGroups.push({
                 ids: [m.id],
                 start: m.time,
@@ -53,13 +53,13 @@ const Messages = observer(function Messages({ host }: { host?: number }) {
         }
     }
 
-    let title;
-    if (count == 0) title = <span style={{ color: "#070" }}>Messages</span>;
+    let title: JSX.Element;
+    if (count === 0) title = <span style={{ color: "#070" }}>Messages</span>;
     else title = <span style={{ color: "#700" }}>Messages ({count})</span>;
     const messageItems = [];
     for (const group of messageGroups) {
         const id = group.ids[0];
-        if (group.ids.length == 1) {
+        if (group.ids.length === 1) {
             messageItems.push(<Message id={id} key={id} inGroup={false} />);
         } else {
             messageItems.push(
@@ -74,7 +74,7 @@ const Messages = observer(function Messages({ host }: { host?: number }) {
         }
     }
     return (
-        <Box title={title} expanded={count != 0} collapsable={true}>
+        <Box title={title} expanded={count !== 0} collapsable={true}>
             <table className="message_table">
                 <thead>
                     <tr>

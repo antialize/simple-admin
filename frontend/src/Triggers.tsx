@@ -12,13 +12,13 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
     const triggers = p.triggers.slice(0);
     const rows: JSX.Element[] = [];
     const setTriggers = () => {
-        p.setTriggers(triggers.filter((t) => t.id != 0));
+        p.setTriggers(triggers.filter((t) => t.id !== 0));
     };
 
     for (let i = 0; i <= triggers.length; ++i) {
         const v = i < triggers.length && triggers[i];
 
-        const t = v ? derivedState.triggers.find((t) => t.id == v.id) : null;
+        const t = v ? derivedState.triggers.find((t) => t.id === v.id) : null;
         const fields: JSX.Element[] = [];
         if (v && t?.content?.content) {
             for (const item of t.content.content) {
@@ -47,6 +47,7 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
                 <td>
                     <Select
                         variant="standard"
+                        // biome-ignore lint: v can be 0
                         value={(v && v.id) || 0}
                         onChange={(e) => {
                             if (v) triggers[i] = { id: +(e.target.value as any), values: [] };
@@ -73,7 +74,7 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
                 <tr>
                     <th>Type</th>
                     <th>Content</th>
-                    <th></th>
+                    <th />
                 </tr>
             </thead>
             <tbody>{rows}</tbody>

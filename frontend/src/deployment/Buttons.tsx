@@ -1,12 +1,12 @@
 import { Button } from "@mui/material";
 import { observer } from "mobx-react";
 import * as State from ".././shared/state";
-import Error from "../Error";
+import DisplayError from "../Error";
 import state from "../state";
 
 const Buttons = observer(function Buttons() {
     const p = state.deployment;
-    if (p === null) return <Error>Missing state.deployment</Error>;
+    if (p === null) return <DisplayError>Missing state.deployment</DisplayError>;
     let hasDisabled = false;
     let hasEnabled = false;
     for (const o of p.objects) {

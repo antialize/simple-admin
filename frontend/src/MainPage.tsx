@@ -7,7 +7,7 @@ import {
     DockerContainers,
 } from "./DockerContainers";
 import { DockerImageHistory, DockerImages } from "./DockerImages";
-import Error from "./Error";
+import DisplayError from "./Error";
 import Messages from "./Messages";
 import { ModifiedFileRevolver, ModifiedFiles } from "./ModifiedFiles";
 import ObjectList from "./ObjectList";
@@ -24,7 +24,7 @@ function never(_: never, message: string) {
 
 export const MainPage = observer(function MainPage() {
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
 
     const p = page.current;
     switch (p.type) {
@@ -69,5 +69,5 @@ export const MainPage = observer(function MainPage() {
         default:
             never(p, "Unhandled page type");
     }
-    return <Error>I should not get here</Error>;
+    return <DisplayError>I should not get here</DisplayError>;
 });

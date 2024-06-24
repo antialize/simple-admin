@@ -1,7 +1,7 @@
 import { Button, CircularProgress, Link, MenuItem, Select } from "@mui/material";
 import { observer } from "mobx-react";
 import Box from "./Box";
-import Error from "./Error";
+import DisplayError from "./Error";
 import HostExtra from "./HostExtra";
 import { InformationList, InformationListRow } from "./InformationList";
 import Type from "./Type";
@@ -20,28 +20,28 @@ const ObjectView = observer(function ObjectView({
     version?: number;
 }) {
     const deployment = state.deployment;
-    if (!deployment) return <Error>Missing state.deployment</Error>;
+    if (!deployment) return <DisplayError>Missing state.deployment</DisplayError>;
     const o = id && state.objects.get(id);
     if (!id || !o || !o.current) return <CircularProgress />;
     const stype = state.types.get(type);
-    if (!stype) return <Error>Missing type</Error>;
+    if (!stype) return <DisplayError>Missing type</DisplayError>;
 
     const page = state.page;
-    if (page === null) return <Error>Missing state.page</Error>;
+    if (page === null) return <DisplayError>Missing state.page</DisplayError>;
 
     const typeName = stype.name;
     let extra = null;
 
     const canDeploy =
-        deployment.status == DEPLOYMENT_STATUS.Done ||
-        deployment.status == DEPLOYMENT_STATUS.InvilidTree ||
-        deployment.status == DEPLOYMENT_STATUS.BuildingTree ||
-        deployment.status == DEPLOYMENT_STATUS.ComputingChanges ||
-        deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
+        deployment.status === DEPLOYMENT_STATUS.Done ||
+        deployment.status === DEPLOYMENT_STATUS.InvilidTree ||
+        deployment.status === DEPLOYMENT_STATUS.BuildingTree ||
+        deployment.status === DEPLOYMENT_STATUS.ComputingChanges ||
+        deployment.status === DEPLOYMENT_STATUS.ReviewChanges;
     const canCancel =
-        deployment.status == DEPLOYMENT_STATUS.BuildingTree ||
-        deployment.status == DEPLOYMENT_STATUS.ComputingChanges ||
-        deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
+        deployment.status === DEPLOYMENT_STATUS.BuildingTree ||
+        deployment.status === DEPLOYMENT_STATUS.ComputingChanges ||
+        deployment.status === DEPLOYMENT_STATUS.ReviewChanges;
     const touched = o.touched;
 
     if (!o.history) {
@@ -66,7 +66,7 @@ const ObjectView = observer(function ObjectView({
     let lastVersion = null;
     const historyItems = [];
     for (const item of history) {
-        if (item.version == lastVersion) continue;
+        if (item.version === lastVersion) continue;
         lastVersion = item.version;
         historyItems.push(
             <MenuItem key={item.version} value={item.version}>
@@ -76,10 +76,10 @@ const ObjectView = observer(function ObjectView({
         );
     }
 
-    if (type == hostId) {
+    if (type === hostId) {
         extra = <HostExtra id={id} />;
     }
-    if (type == userId) {
+    if (type === userId) {
         extra = <UserExtra id={id} />;
     }
 
@@ -118,7 +118,7 @@ const ObjectView = observer(function ObjectView({
         <div>
             <Box title={typeName} expanded={true} collapsable={true}>
                 <div>
-                    <InformationList key={id + "_history"}>
+                    <InformationList key={`${id}_history`}>
                         <InformationListRow name="Version">
                             <Select
                                 variant="standard"
@@ -128,9 +128,7 @@ const ObjectView = observer(function ObjectView({
                                     if (
                                         touched &&
                                         !confirm(
-                                            "Discard current changes and load version " +
-                                                (e.target.value as any) +
-                                                "?",
+                                            `Discard current changes and load version ${e.target.value as any}?`,
                                         )
                                     )
                                         return;
@@ -141,7 +139,7 @@ const ObjectView = observer(function ObjectView({
                             </Select>
                         </InformationListRow>
                         <InformationListRow name="Used by">
-                            {usedBy.length == 0 ? "Nothing" : <ul>{usedBy}</ul>}
+                            {usedBy.length === 0 ? "Nothing" : <ul>{usedBy}</ul>}
                         </InformationListRow>
                     </InformationList>
                 </div>
@@ -211,7 +209,7 @@ const ObjectView = observer(function ObjectView({
                     >
                         Delete
                     </Button>
-                    {type == hostId ? (
+                    {type === hostId ? (
                         <Button
                             variant="contained"
                             color="primary"

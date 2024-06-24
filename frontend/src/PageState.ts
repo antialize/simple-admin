@@ -37,7 +37,7 @@ class PageState {
                 {
                     const id = p.id;
                     if (id) getOrInsert(state.objects, id, () => new ObjectState(id)).loadCurrent();
-                    if (p.objectType == hostId) nullCheck(state.dockerContainers).load();
+                    if (p.objectType === hostId) nullCheck(state.dockerContainers).load();
                 }
                 break;
             case State.PAGE_TYPE.DockerImages:
@@ -82,7 +82,7 @@ class PageState {
     @action
     set(page: State.IPage) {
         const pg = Object.assign({}, page);
-        if (pg.type == State.PAGE_TYPE.Object && !pg.id) {
+        if (pg.type === State.PAGE_TYPE.Object && !pg.id) {
             pg.id = this.nextNewObjectId;
             --this.nextNewObjectId;
         }
@@ -101,18 +101,18 @@ class PageState {
                 break;
             case State.PAGE_TYPE.ObjectList:
                 o.page = "objectlist";
-                o.type = "" + page.objectType;
+                o.type = `${page.objectType}`;
                 break;
             case State.PAGE_TYPE.Object:
                 o.page = "object";
-                o.type = "" + page.objectType;
-                if (page.id != null) o.id = "" + page.id;
+                o.type = `${page.objectType}`;
+                if (page.id != null) o.id = `${page.id}`;
                 else o.id = "-1";
-                if (page.version != null) o.version = "" + page.version;
+                if (page.version != null) o.version = `${page.version}`;
                 break;
             case State.PAGE_TYPE.DeploymentDetails:
                 o.page = "deploymentDetails";
-                o.index = "" + page.index;
+                o.index = `${page.index}`;
                 break;
             case State.PAGE_TYPE.DockerImages:
                 o.page = "dockerImages";
@@ -125,22 +125,22 @@ class PageState {
                 break;
             case State.PAGE_TYPE.ModifiedFile:
                 o.page = "modifiedFile";
-                o.id = "" + page.id;
+                o.id = `${page.id}`;
                 break;
             case State.PAGE_TYPE.DockerContainerDetails:
                 o.page = "dockerContainerDetails";
-                o.host = "" + page.host;
+                o.host = `${page.host}`;
                 o.container = page.container;
-                o.id = "" + page.id;
+                o.id = `${page.id}`;
                 break;
             case State.PAGE_TYPE.DockerContainerHistory:
                 o.page = "dockerContainerHistory";
-                o.host = "" + page.host;
+                o.host = `${page.host}`;
                 o.container = page.container;
                 break;
             case State.PAGE_TYPE.DockerImageHistory:
                 o.page = "dockerImageHistory";
-                o.project = "" + page.project;
+                o.project = `${page.project}`;
                 o.tag = page.tag;
                 break;
             case State.PAGE_TYPE.Search:
@@ -149,14 +149,14 @@ class PageState {
             default:
                 never(page, "Unhandled page");
         }
-        return "?" + $.param(o);
+        return `?${$.param(o)}`;
     }
 
     @action
     setFromUrl() {
         const getUrlParameter = (name: string) => {
-            name = name.replace(/[[]/, "\\[").replace(/[\]]/, "\\]");
-            const regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
+            const name2 = name.replace(/[[]/, "\\[").replace(/[\]]/, "\\]");
+            const regex = new RegExp(`[\\?&]${name2}=([^&#]*)`);
             const results = regex.exec(location.search);
             return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
         };

@@ -18,9 +18,8 @@ const App = observer(function Content() {
                 </main>
             </>
         );
-    } else {
-        return dialog;
     }
+    return dialog;
 });
 
 export default App;

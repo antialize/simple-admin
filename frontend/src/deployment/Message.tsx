@@ -1,10 +1,10 @@
 import { observer } from "mobx-react";
-import Error from "../Error";
+import DisplayError from "../Error";
 import state from "../state";
 
 const Messages = observer(function Messages() {
     const deployment = state.deployment;
-    if (deployment === null) return <Error>Missing state.deployments</Error>;
+    if (deployment === null) return <DisplayError>Missing state.deployments</DisplayError>;
     return (
         <div className="deployment_message">
             {deployment.message ? (

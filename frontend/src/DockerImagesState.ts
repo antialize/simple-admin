@@ -29,7 +29,7 @@ export default class DockerImagesState {
     imageTagPin = new Set<string>(); // Key is image + ":" + tag
 
     load() {
-        if (this.projects.state != "initial") return;
+        if (this.projects.state !== "initial") return;
         state.sendMessage({
             type: ACTION.DockerListImageTags,
             ref: 0,
@@ -39,7 +39,7 @@ export default class DockerImagesState {
 
     @action
     setPinnedImageTags(pit: Array<{ image: string; tag: string }>) {
-        for (const { image, tag } of pit) this.imageTagPin.add(image + ":" + tag);
+        for (const { image, tag } of pit) this.imageTagPin.add(`${image}:${tag}`);
     }
 
     @action
@@ -50,7 +50,7 @@ export default class DockerImagesState {
             this.imageHistory.set(project, h1);
         }
         const h2 = h1.get(tag);
-        if (h2 && h2.state != "initial") return;
+        if (h2 && h2.state !== "initial") return;
         state.sendMessage({
             type: ACTION.DockerListImageTagHistory,
             ref: 0,
@@ -62,7 +62,7 @@ export default class DockerImagesState {
 
     @action
     handleLoad(act: IDockerListImageTagsRes) {
-        if (this.projects.state != "data") this.projects = { state: "data", data: new Map() };
+        if (this.projects.state !== "data") this.projects = { state: "data", data: new Map() };
         for (const tag of act.tags) {
             getOrInsert(this.projects.data, tag.image, () => []).push(tag);
         }
@@ -82,13 +82,13 @@ export default class DockerImagesState {
 
     @action
     handleChange(act: IDockerImageTagsCharged) {
-        if (this.projects.state == "data") {
+        if (this.projects.state === "data") {
             const projects = this.projects.data;
             for (const tag of act.changed) {
                 const lst = getOrInsert(projects, tag.image, () => []);
                 let found = false;
                 for (let i = 0; i < lst.length; ++i) {
-                    if (lst[i].tag != tag.tag) continue;
+                    if (lst[i].tag !== tag.tag) continue;
                     lst[i] = tag;
                     found = true;
                 }
@@ -100,7 +100,7 @@ export default class DockerImagesState {
                 projects.set(
                     tag.image,
                     lst.filter((e) => {
-                        return e.hash != tag.hash;
+                        return e.hash !== tag.hash;
                     }),
                 );
             }
@@ -109,14 +109,14 @@ export default class DockerImagesState {
             const h1 = this.imageHistory.get(tag.image);
             if (!h1) continue;
             const h2 = h1.get(tag.tag);
-            if (!h2 || h2.state != "data") continue;
+            if (!h2 || h2.state !== "data") continue;
             h2.data.set(tag.id, tag);
         }
         const c = act.imageTagPinChanged;
         if (c) {
             for (const { image, tag, pin } of c) {
-                if (pin) this.imageTagPin.add(image + ":" + tag);
-                else this.imageTagPin.delete(image + ":" + tag);
+                if (pin) this.imageTagPin.add(`${image}:${tag}`);
+                else this.imageTagPin.delete(`${image}:${tag}`);
             }
         }
     }

@@ -17,9 +17,9 @@ export const setupSocket = () => {
     if (reconnectTime < 1000 * 10) reconnectTime = reconnectTime * 2;
     state.connectionStatus = CONNECTION_STATUS.CONNECTING;
     socket = new WebSocket(
-        (window.location.protocol === "http:" ? "ws://" : "wss://") +
-            window.location.host +
-            "/sysadmin",
+        `${
+            (window.location.protocol === "http:" ? "ws://" : "wss://") + window.location.host
+        }/sysadmin`,
     );
     socket.onmessage = (data) => {
         const loaded = state.loaded;

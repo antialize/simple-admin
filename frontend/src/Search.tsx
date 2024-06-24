@@ -1,7 +1,7 @@
 import { Button, CircularProgress, Link, TextField } from "@mui/material";
 import { observer } from "mobx-react";
 import Box from "./Box";
-import Error from "./Error";
+import DisplayError from "./Error";
 import InfoTable from "./InfoTable";
 import nullCheck from "./shared/nullCheck";
 import type { IPage } from "./shared/state";
@@ -11,7 +11,7 @@ import state from "./state";
 const Search = observer(function Search() {
     const s = state.search;
     if (s == null) {
-        return <Error>Missing state.searchState</Error>;
+        return <DisplayError>Missing state.searchState</DisplayError>;
     }
 
     const page = state.page;
@@ -50,9 +50,21 @@ const Search = observer(function Search() {
                 <td>{o.version}</td>
                 <td>
                     {o.id !== s.content ? (
-                        <Button onClick={() => (nullCheck(s).content = o.id)}>Show content</Button>
+                        <Button
+                            onClick={() => {
+                                nullCheck(s).content = o.id;
+                            }}
+                        >
+                            Show content
+                        </Button>
                     ) : (
-                        <Button onClick={() => (nullCheck(s).content = null)}>Hide content</Button>
+                        <Button
+                            onClick={() => {
+                                nullCheck(s).content = null;
+                            }}
+                        >
+                            Hide content
+                        </Button>
                     )}
                 </td>
             </tr>,
@@ -85,11 +97,13 @@ const Search = observer(function Search() {
                     name="search"
                     helperText="Search"
                     value={s.key}
-                    onChange={(e) => (nullCheck(s).key = e.target.value)}
+                    onChange={(e) => {
+                        nullCheck(s).key = e.target.value;
+                    }}
                 />
             </form>
             {s.searching ? <CircularProgress /> : null}
-            {rows.length != 0 ? (
+            {rows.length !== 0 ? (
                 <InfoTable>
                     <thead>
                         <tr>

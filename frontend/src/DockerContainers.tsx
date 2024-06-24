@@ -1,7 +1,7 @@
 import { Button, Typography } from "@mui/material";
 import { observer } from "mobx-react";
 import Box from "./Box";
-import Error from "./Error";
+import DisplayError from "./Error";
 import InfoTable, { InfoTableHeader } from "./InfoTable";
 import { InformationList, InformationListRow } from "./InformationList";
 import UnixTime from "./UnixTime";
@@ -18,18 +18,18 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
     standalone: boolean;
 }) {
     const dockerContainers = state.dockerContainers;
-    if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
+    if (!dockerContainers) return <DisplayError>Missing state.dockerContainers</DisplayError>;
     const r = extractRemote(dockerContainers.hosts);
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
     const hosts = r.data;
     const hostDigests = state.objectDigests.get(hostId);
     const hostDigest = hostDigests?.get(p.host);
     const hostName = hostDigest?.name;
-    if (!hostName) return <Error>Missing hostName</Error>;
+    if (!hostName) return <DisplayError>Missing hostName</DisplayError>;
     const originalContainers = hosts.get(p.host);
-    if (!originalContainers) return <Error>Missing originalContainers</Error>;
+    if (!originalContainers) return <DisplayError>Missing originalContainers</DisplayError>;
     const containers = originalContainers.slice();
     containers.sort((a, b) => {
         return a.name < b.name ? -1 : 1;
@@ -39,10 +39,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
     for (const container of containers) {
         let commit = "";
         if (container.imageInfo?.labels) {
-            commit =
-                (container.imageInfo.labels.GIT_BRANCH || "") +
-                " " +
-                (container.imageInfo.labels.GIT_COMMIT || "");
+            commit = `${container.imageInfo.labels.GIT_BRANCH || ""} ${container.imageInfo.labels.GIT_COMMIT || ""}`;
         }
         const historyPage: IPage = {
             type: State.PAGE_TYPE.DockerContainerHistory,
@@ -66,7 +63,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                 <td>{container.start ? <UnixTime time={container.start} /> : null}</td>
                 <td>{container.end ? <UnixTime time={container.end} /> : null}</td>
                 <td>
-                    {container.state == "running" ? (
+                    {container.state === "running" ? (
                         <Button
                             onClick={() => {
                                 state.sendMessage({
@@ -79,7 +76,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                             Stop
                         </Button>
                     ) : null}
-                    {container.state != "running" ? (
+                    {container.state !== "running" ? (
                         <Button
                             onClick={() => {
                                 state.sendMessage({
@@ -176,9 +173,9 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
 
 export const DockerContainers = observer(function DockerContainers(_: { host?: string }) {
     const dockerContainers = state.dockerContainers;
-    if (!dockerContainers) return <Error>Missing state.dockerContainers</Error>;
+    if (!dockerContainers) return <DisplayError>Missing state.dockerContainers</DisplayError>;
     const r = extractRemote(dockerContainers.hosts);
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const hosts = r.data;
 
     const lst = [];
@@ -198,24 +195,25 @@ export const DockerContainers = observer(function DockerContainers(_: { host?: s
 
 export const DockerContainerDetails = observer(function DockerContainerDetails() {
     const spage = state.page;
-    if (!spage) return <Error>Missing state.page</Error>;
+    if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
-    if (page.type != State.PAGE_TYPE.DockerContainerDetails) return <Error>Wrong page type</Error>;
+    if (page.type !== State.PAGE_TYPE.DockerContainerDetails)
+        return <DisplayError>Wrong page type</DisplayError>;
     const hosts = state.objectDigests.get(hostId);
     const host = hosts?.get(page.host);
     const hostName = host?.name;
-    if (!hostName) return <Error>Missing host name</Error>;
+    if (!hostName) return <DisplayError>Missing host name</DisplayError>;
     const dockerContainers = state.dockerContainers;
-    if (!dockerContainers) return <Error>Missing dockerContainers</Error>;
+    if (!dockerContainers) return <DisplayError>Missing dockerContainers</DisplayError>;
     const ch = dockerContainers.containerHistory.get(page.host);
     const r = extractRemote(ch?.get(page.container));
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const container = r.data.get(page.id);
-    if (!container) return <Error>Missing container</Error>;
+    if (!container) return <DisplayError>Missing container</DisplayError>;
 
     let commit = "";
     const img = container.imageInfo;
-    if (img?.labels) commit = (img.labels.GIT_BRANCH || "") + " " + (img.labels.GIT_COMMIT || "");
+    if (img?.labels) commit = `${img.labels.GIT_BRANCH || ""} ${img.labels.GIT_COMMIT || ""}`;
 
     return (
         <Box title={`Docker containers details: ${page.container}@${hostName}`}>
@@ -272,18 +270,19 @@ export const DockerContainerDetails = observer(function DockerContainerDetails()
 
 export const DockerContainerHistory = observer(function DockerContainerHistory() {
     const s = state.dockerContainers;
-    if (!s) return <Error>Missing state.dockerContainers</Error>;
+    if (!s) return <DisplayError>Missing state.dockerContainers</DisplayError>;
     const spage = state.page;
-    if (!spage) return <Error>Missing state.page</Error>;
+    if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
-    if (page.type != State.PAGE_TYPE.DockerContainerHistory) return <Error>Wrong page type</Error>;
+    if (page.type !== State.PAGE_TYPE.DockerContainerHistory)
+        return <DisplayError>Wrong page type</DisplayError>;
     const hosts = state.objectDigests.get(hostId);
     const host = hosts?.get(page.host);
     const hostName = host?.name;
-    if (!hostName) return <Error>Missing host name</Error>;
+    if (!hostName) return <DisplayError>Missing host name</DisplayError>;
     const ch = s.containerHistory.get(page.host);
     const r = extractRemote(ch?.get(page.container));
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const history = r.data;
 
     const containers = [];
@@ -297,10 +296,7 @@ export const DockerContainerHistory = observer(function DockerContainerHistory()
     for (const container of containers) {
         let commit = "";
         if (container.imageInfo?.labels) {
-            commit =
-                (container.imageInfo.labels.GIT_BRANCH || "") +
-                " " +
-                (container.imageInfo.labels.GIT_COMMIT || "");
+            commit = `${container.imageInfo.labels.GIT_BRANCH || ""} ${container.imageInfo.labels.GIT_COMMIT || ""}`;
         }
         const detailsPage: IPage = {
             type: State.PAGE_TYPE.DockerContainerDetails,

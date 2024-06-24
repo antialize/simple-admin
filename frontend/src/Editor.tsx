@@ -107,7 +107,7 @@ function Editor(props: IProps) {
     ));
     const exts = [];
 
-    for (const lang of langs) if (lang.name == props.lang && lang.mode) exts.push(lang.mode);
+    for (const lang of langs) if (lang.name === props.lang && lang.mode) exts.push(lang.mode);
     return (
         <Paper>
             <Toolbar>
@@ -123,7 +123,7 @@ function Editor(props: IProps) {
                         variant="standard"
                         value={props.lang}
                         onChange={(e) => {
-                            props.setLang && props.setLang(e.target.value);
+                            props.setLang?.(e.target.value);
                         }}
                     >
                         {langItems}
@@ -134,7 +134,7 @@ function Editor(props: IProps) {
                 value={props.data}
                 theme={"dark"}
                 onChange={(val, _) => {
-                    props.setData && props.setData(val);
+                    props.setData?.(val);
                 }}
                 extensions={exts}
                 readOnly={props.readOnly}

@@ -22,7 +22,7 @@ const HostChip = observer(function HostChip({ id }: { id: number }) {
             onClick={(e) => {
                 page.onClick(e, { type: State.PAGE_TYPE.Object, objectType: hostId, id });
             }}
-        ></Chip>
+        />
     );
 });
 

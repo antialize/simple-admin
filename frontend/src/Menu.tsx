@@ -18,7 +18,7 @@ import {
 import { observer } from "mobx-react";
 import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import Error from "./Error";
+import DisplayError from "./Error";
 import MenuDropdown, { DropDownItem } from "./MenuDropdown";
 import SubMenu from "./SubMenu";
 import { ObjectMenuList } from "./TypeMenuItems";
@@ -28,12 +28,12 @@ import { rootId, rootInstanceId } from "./shared/type";
 import state from "./state";
 
 function matchText(text: string, key: string) {
-    if (!key || key.length == 0) return false;
+    if (!key || key.length === 0) return false;
     let ki = 0;
     for (let i = 0; i < text.length; ++i) {
-        if (text[i] != key[ki]) continue;
+        if (text[i] !== key[ki]) continue;
         ++ki;
-        if (ki == key.length) return true;
+        if (ki === key.length) return true;
     }
     return false;
 }
@@ -48,10 +48,10 @@ function MatchedText({
     let j = 0;
     const textLc = text.toLowerCase();
     for (let i = 0; i < text.length; ) {
-        if (textLc[i] == search[ki]) {
-            if (j != i) ans.push(text.slice(j, i));
+        if (textLc[i] === search[ki]) {
+            if (j !== i) ans.push(text.slice(j, i));
             j = i;
-            while (i < text.length && ki < search.length && textLc[i] == search[ki]) {
+            while (i < text.length && ki < search.length && textLc[i] === search[ki]) {
                 ++i;
                 ++ki;
             }
@@ -61,7 +61,7 @@ function MatchedText({
             ++i;
         }
     }
-    if (j != text.length) ans.push(text.slice(j));
+    if (j !== text.length) ans.push(text.slice(j));
 
     return <>{ans}</>;
 }
@@ -79,9 +79,9 @@ const TypeObjects = observer(function TypeObjects({
 }) {
     const ans = [];
     const digests = state.objectDigests.get(type);
-    if (!digests) return <Error>Missing digests</Error>;
+    if (!digests) return <DisplayError>Missing digests</DisplayError>;
     const page = state.page;
-    if (page === null) return <Error>Missing state.page</Error>;
+    if (page === null) return <DisplayError>Missing state.page</DisplayError>;
     for (const [id, p] of digests) {
         if (p.name === null || !matchText(p.name, search)) continue;
         ans.push(
@@ -98,7 +98,7 @@ const TypeObjects = observer(function TypeObjects({
                         });
                     }}
                 >
-                    <MatchedText search={search} text={p.name} primary={goto == id} />
+                    <MatchedText search={search} text={p.name} primary={goto === id} />
                 </Link>
             </ListItem>,
         );
@@ -121,7 +121,7 @@ function Search() {
     useHotkeys(
         ["/", "s"],
         () => {
-            searchInput && searchInput.focus();
+            searchInput?.focus();
             setKey("");
         },
         { preventDefault: true },
@@ -130,13 +130,13 @@ function Search() {
         ["esc"],
         () => {
             setKey("");
-            searchInput && searchInput.blur();
+            searchInput?.blur();
         },
-        { enabled: key != "", enableOnContentEditable: true, enableOnFormTags: true },
+        { enabled: key !== "", enableOnContentEditable: true, enableOnFormTags: true },
     );
 
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
 
     const typeFind = [];
     let goto: [number, number] | null = null;
@@ -150,11 +150,11 @@ function Search() {
                 searchInput.blur();
             }
         },
-        { enabled: key != "", enableOnContentEditable: true, enableOnFormTags: true },
+        { enabled: key !== "", enableOnContentEditable: true, enableOnFormTags: true },
     );
 
     const keyLc = key.toLowerCase();
-    if (keyLc != "") {
+    if (keyLc !== "") {
         for (const [type, members] of state.objectDigests) {
             for (const [id, p] of members) {
                 if (p.name == null) continue;
@@ -175,7 +175,7 @@ function Search() {
                     clearSearch={() => {
                         setKey("");
                     }}
-                    goto={goto != null && goto[0] == type ? goto[1] : null}
+                    goto={goto != null && goto[0] === type ? goto[1] : null}
                 />,
             );
         }
@@ -194,7 +194,9 @@ function Search() {
         >
             <InputBase
                 color="error"
-                inputRef={(e) => (searchInput = e)}
+                inputRef={(e) => {
+                    searchInput = e;
+                }}
                 placeholder="Search"
                 value={key}
                 onChange={(e) => {
@@ -204,14 +206,14 @@ function Search() {
             <IconButton
                 aria-label="Search"
                 onClick={() => {
-                    searchInput && searchInput.focus();
-                    searchInput && searchInput.select();
+                    searchInput?.focus();
+                    searchInput?.select();
                 }}
             >
                 <SearchIcon />
             </IconButton>
             <Popper
-                open={key != ""}
+                open={key !== ""}
                 anchorEl={anchor}
                 placement="bottom-end"
                 style={{ zIndex: 99999 }}
@@ -237,9 +239,9 @@ function Search() {
 
 const Menu = observer(function Menu() {
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
     const login = state.login;
-    if (!login) return <Error>Missing state.login</Error>;
+    if (!login) return <DisplayError>Missing state.login</DisplayError>;
     const types = derivedState.menuTypes;
     useHotkeys("d", () => {
         page.set({ type: State.PAGE_TYPE.Dashbord });
@@ -256,7 +258,7 @@ const Menu = observer(function Menu() {
                 <>
                     <MenuDropdown hotkey="m">
                         {types.map((t) =>
-                            t.id == rootId ? (
+                            t.id === rootId ? (
                                 <DropDownItem
                                     key={rootInstanceId}
                                     onClick={(e) => {

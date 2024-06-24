@@ -37,7 +37,7 @@ export default function Log(): JSX.Element {
         return () => {
             window.clearTimeout(t);
             window.clearInterval(interval);
-            if (term.element && term.element.parentNode == div.current) {
+            if (term.element && term.element.parentNode === div.current) {
                 console.log("Unmount", term.element, term.element.parentNode);
                 div.current?.removeChild(term.element);
             }

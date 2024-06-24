@@ -23,12 +23,9 @@ class Connection {
         const term = this.term;
         this.connected = true;
         const socket = new WebSocket(
-            (window.location.protocol == "http:" ? "ws://" : "wss://") +
-                window.location.host +
-                "/terminal?server=" +
-                this.hostId +
-                "&cols=80&rows=150&session=" +
-                Cookies.get("simple-admin-session"),
+            `${
+                (window.location.protocol === "http:" ? "ws://" : "wss://") + window.location.host
+            }/terminal?server=${this.hostId}&cols=80&rows=150&session=${Cookies.get("simple-admin-session")}`,
         );
         this.socket = socket;
         let buffer: string[] | null = [];
@@ -51,7 +48,7 @@ class Connection {
         };
 
         term.onData((data) => {
-            send("d" + data + "\0");
+            send(`d${data}\0`);
         });
 
         term.onTitleChange((title) => {
@@ -59,15 +56,15 @@ class Connection {
             this.nameChanged(this.connectionId, title);
         });
         term.onResize((size) => {
-            if (this.oldsize[0] == size.rows && this.oldsize[1] == size.cols) return;
+            if (this.oldsize[0] === size.rows && this.oldsize[1] === size.cols) return;
             this.oldsize = [size.rows, size.cols];
-            send("r" + size.rows + "," + size.cols + "\0");
+            send(`r${size.rows},${size.cols}\0`);
         });
     }
 
     disconnect() {
         if (this.socket) this.socket.close();
-        delete this.socket;
+        this.socket = undefined;
         this.term.dispose();
     }
 
@@ -102,6 +99,7 @@ export default function HostTerminals(props: { id: number }) {
     });
     const [current, setCurrent] = useState(info.cachedCurrent);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Bad
     useEffect(() => {
         info.cachedCurrent = current;
         if (current == null) return;
@@ -146,7 +144,7 @@ export default function HostTerminals(props: { id: number }) {
         const id = info.next;
         info.next++;
 
-        const name = "Terminal " + id;
+        const name = `Terminal ${id}`;
         const names2 = new Map(names);
         names2.set(id, name);
 
@@ -157,13 +155,14 @@ export default function HostTerminals(props: { id: number }) {
                 setNames(names2);
             });
             conn.connect();
-            conn.name = "Terminal " + id;
+            conn.name = `Terminal ${id}`;
             info.connections.set(id, conn);
         }
         setNames(names2);
         setCurrent(id);
     };
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Should only run once
     useEffect(() => {
         if (Object.keys(info.connections).length === 0) newTerminal();
     }, []);
@@ -193,7 +192,7 @@ export default function HostTerminals(props: { id: number }) {
     ids.sort((a, b) => a - b);
     const terms: JSX.Element[] = ids.map((id) => {
         const style: React.CSSProperties = { margin: 4 };
-        if (id == current) style.backgroundColor = "rgb(0, 188, 212)";
+        if (id === current) style.backgroundColor = "rgb(0, 188, 212)";
 
         return (
             <Chip

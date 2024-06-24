@@ -25,7 +25,7 @@ export default class ModifiedFilesState {
     private saveInterval: any = null;
 
     load() {
-        if (this.modifiedFiles.state != "initial") return;
+        if (this.modifiedFiles.state !== "initial") return;
         state.sendMessage({
             type: ACTION.ModifiedFilesList,
         });
@@ -35,7 +35,7 @@ export default class ModifiedFilesState {
     @action
     handleChange(act: IModifiedFilesChanged) {
         if (act.full) this.modifiedFiles = { state: "data", data: new Map() };
-        if (this.modifiedFiles.state != "data") return;
+        if (this.modifiedFiles.state !== "data") return;
         this.scanning = act.scanning;
         this.lastScanTime = act.lastScanTime;
         for (const id of act.removed) this.modifiedFiles.data.delete(id);
@@ -61,7 +61,7 @@ export default class ModifiedFilesState {
 
     save(id: number, newCurrent: string) {
         if (!newCurrent) return;
-        if (this.modifiedFiles.state != "data") return;
+        if (this.modifiedFiles.state !== "data") return;
         const f = this.modifiedFiles.data.get(id);
         if (!f) return;
         if (!confirm("Are you sure you want save the current object?")) return;

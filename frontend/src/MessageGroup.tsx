@@ -30,13 +30,14 @@ const MessageGroup = observer(function MessageGroup({
     if (!message) return null;
     const hosts = state.objectDigests.get(hostId);
     const host = message.host && hosts?.get(message.host);
+    // biome-ignore lint: host can be 0
     const hostname = (host && host.name) ?? "";
     const expanded = state.messageGroupExpanded.get(id) ?? false;
 
     const newDate = new Date(end * 1000);
     const actions = [];
-    let c;
-    if (dismissed != 0) {
+    let c: string | undefined = undefined;
+    if (dismissed !== 0) {
         actions.push(
             <Button
                 color="primary"
@@ -51,7 +52,7 @@ const MessageGroup = observer(function MessageGroup({
         );
         c = "message_good";
     }
-    if (dismissed != ids.length) {
+    if (dismissed !== ids.length) {
         actions.push(
             <Button
                 color="primary"
@@ -90,12 +91,12 @@ const MessageGroup = observer(function MessageGroup({
         );
 
     const rows = [
-        <tr className={c} key={ids[0] + "_root"}>
+        <tr className={c} key={`${ids[0]}_root`}>
             <td>
                 {message.type} ({ids.length})
             </td>
             <td>{hostname}</td>
-            <td></td>
+            <td />
             <td>{newDate.toUTCString()}</td>
             <td>{actions}</td>
         </tr>,

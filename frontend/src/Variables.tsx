@@ -9,7 +9,7 @@ function Variables(props: IProps) {
     const vars = props.variables.slice(0);
     const rows = [];
     const setVars = () => {
-        props.setVariables(vars.filter((v) => v.key != "" || v.value != ""));
+        props.setVariables(vars.filter((v) => v.key !== "" || v.value !== ""));
     };
 
     for (let i = 0; i < vars.length; ++i) {
@@ -75,7 +75,7 @@ function Variables(props: IProps) {
                     <th>
                         <Typography>Value</Typography>
                     </th>
-                    <th></th>
+                    <th />
                 </tr>
             </thead>
             <tbody>{rows}</tbody>

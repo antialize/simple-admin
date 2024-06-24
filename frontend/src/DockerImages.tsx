@@ -2,7 +2,7 @@ import { Button, Switch } from "@mui/material";
 import { observer } from "mobx-react";
 import React from "react";
 import Box from "./Box";
-import Error from "./Error";
+import DisplayError from "./Error";
 import InfoTable, { InfoTableHeader } from "./InfoTable";
 import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
@@ -14,11 +14,11 @@ import state from "./state";
 
 export const DockerImages = observer(function DockerImages() {
     const dockerImages = state.dockerImages;
-    if (!dockerImages) return <Error>Missing state.dockerImages</Error>;
+    if (!dockerImages) return <DisplayError>Missing state.dockerImages</DisplayError>;
     const r = extractRemote(dockerImages.projects);
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
 
     const projects = r.data;
     const lst = [];
@@ -36,14 +36,14 @@ export const DockerImages = observer(function DockerImages() {
             if (tag.removed && !dockerImages.show_all) continue;
             let commit = "";
             if (tag.labels) {
-                commit = (tag.labels.GIT_BRANCH || "") + " " + (tag.labels.GIT_COMMIT || "");
+                commit = `${tag.labels.GIT_BRANCH || ""} ${tag.labels.GIT_COMMIT || ""}`;
             }
             const historyPage: IPage = {
                 type: State.PAGE_TYPE.DockerImageHistory,
                 project: tag.image,
                 tag: tag.tag,
             };
-            const pin = dockerImages.imageTagPin.has(project + ":" + tag.tag);
+            const pin = dockerImages.imageTagPin.has(`${project}:${tag.tag}`);
             rows.push(
                 <tr className={tag.removed ? "disabled" : undefined} key={tag.id}>
                     <td>{tag.tag}</td>
@@ -124,7 +124,9 @@ export const DockerImages = observer(function DockerImages() {
             <Switch
                 title="All"
                 checked={dockerImages.show_all}
-                onChange={(e) => (dockerImages.show_all = e.target.checked)}
+                onChange={(e) => {
+                    dockerImages.show_all = e.target.checked;
+                }}
             />
         </React.Fragment>
     );
@@ -137,15 +139,16 @@ export const DockerImages = observer(function DockerImages() {
 
 export const DockerImageHistory = observer(function DockerImageHistory() {
     const s = state.dockerImages;
-    if (!s) return <Error>Missing state.dockerImages</Error>;
+    if (!s) return <DisplayError>Missing state.dockerImages</DisplayError>;
     const spage = state.page;
-    if (!spage) return <Error>Missing state.page</Error>;
+    if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
-    if (page.type != State.PAGE_TYPE.DockerImageHistory) return <Error>Wrong page</Error>;
+    if (page.type !== State.PAGE_TYPE.DockerImageHistory)
+        return <DisplayError>Wrong page</DisplayError>;
 
     const h1 = s.imageHistory.get(page.project);
     const r = extractRemote(h1?.get(page.tag));
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const history = r.data;
     const images = [];
     for (const [_, c] of history) images.push(c);
@@ -158,7 +161,7 @@ export const DockerImageHistory = observer(function DockerImageHistory() {
     for (const image of images) {
         let commit = "";
         if (image.labels) {
-            commit = (image.labels.GIT_BRANCH || "") + " " + (image.labels.GIT_COMMIT || "");
+            commit = `${image.labels.GIT_BRANCH || ""} ${image.labels.GIT_COMMIT || ""}`;
         }
         rows.push(
             <tr className={image.removed ? "disabled" : undefined} key={image.id}>

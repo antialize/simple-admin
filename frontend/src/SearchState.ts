@@ -38,7 +38,7 @@ export default class SearchState {
             state.sendMessage({
                 type: ACTION.Search,
                 ref: 0,
-                pattern: "%" + this.key.replace(" ", "%") + "%",
+                pattern: `%${this.key.replace(" ", "%")}%`,
             });
         }
     }

@@ -4,7 +4,7 @@ import { observer } from "mobx-react";
 import { useState } from "react";
 import Box from "./Box";
 import Editor from "./Editor";
-import Error from "./Error";
+import DisplayError from "./Error";
 import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
 import { type IModifiedFilePage, PAGE_TYPE } from "./shared/state";
@@ -20,11 +20,11 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
     const [lang, setLang] = useState("");
 
     const s = state.modifiedFiles;
-    if (s === null) return <Error>Missing state.modifiedFiles</Error>;
+    if (s === null) return <DisplayError>Missing state.modifiedFiles</DisplayError>;
     const r = extractRemote(s.modifiedFiles);
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const o = r.data.get(props.id);
-    if (!o) return <Error>Not found</Error>;
+    if (!o) return <DisplayError>Not found</DisplayError>;
     const current = o.current ?? "";
 
     const contentV = content ?? current;
@@ -45,7 +45,7 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                 &nbsp;&nbsp;
                 <Button
                     variant="contained"
-                    disabled={current == contentV}
+                    disabled={current === contentV}
                     onClick={() => {
                         setContent(current);
                     }}
@@ -76,12 +76,12 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
                 <Button
                     variant="contained"
                     color="primary"
-                    disabled={current == content}
+                    disabled={current === content}
                     onClick={() => {
                         s.save(props.id, contentV);
                     }}
                 >
-                    {s.saveTime ? "Wait " + s.saveTime : "Save changes"}
+                    {s.saveTime ? `Wait ${s.saveTime}` : "Save changes"}
                 </Button>
             </div>
             {patch2 ? (
@@ -143,11 +143,11 @@ export const ModifiedFileRevolver = observer(function ModifiedFileRevolver(props
 
 export const ModifiedFiles = observer(function ModifiedFiles() {
     const s = state.modifiedFiles;
-    if (!s) return <Error>Missing state.modifiedFiles</Error>;
+    if (!s) return <DisplayError>Missing state.modifiedFiles</DisplayError>;
     const r = extractRemote(s.modifiedFiles);
-    if (r.state != "good") return r.error;
+    if (r.state !== "good") return r.error;
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
     const rows = [];
     for (const [id, f] of r.data) {
         const digests = state.objectDigests.get(f.type);

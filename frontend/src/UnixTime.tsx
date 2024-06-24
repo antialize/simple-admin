@@ -51,25 +51,25 @@ class UnixTime extends React.Component<{ time: number }, { delta: number }> {
             de -= h * 60 * 60;
             const m = Math.trunc(de / 60);
             const s = (de - m * 60).toFixed(0);
-            if (y != 0)
+            if (y !== 0)
                 return (
                     <span title={title}>
                         {y}y {d}d ago
                     </span>
                 );
-            if (d != 0)
+            if (d !== 0)
                 return (
                     <span title={title}>
                         {d}d {h}h ago
                     </span>
                 );
-            if (h != 0)
+            if (h !== 0)
                 return (
                     <span title={title}>
                         {h}h {m}m ago
                     </span>
                 );
-            if (m != 0)
+            if (m !== 0)
                 return (
                     <span title={title}>
                         {m}m {s}s ago
@@ -79,7 +79,7 @@ class UnixTime extends React.Component<{ time: number }, { delta: number }> {
         }
 
         const now = new Date();
-        if (now.getFullYear() != d.getFullYear()) {
+        if (now.getFullYear() !== d.getFullYear()) {
             return (
                 <span title={title}>
                     {months[d.getMonth()]} {d.getFullYear()}

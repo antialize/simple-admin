@@ -12,6 +12,7 @@ const UserExtra = observer(function UserExtra({ id }: { id: number }) {
     return (
         <Box title="One time password">
             <img
+                alt="user qr code"
                 ref={(v) => {
                     QRCode.toDataURL(ctx.otp_url).then(
                         (s) => {

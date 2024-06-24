@@ -19,14 +19,15 @@ export default function Log(props: {
 }) {
     const ul: MutableRefObject<HTMLUListElement | null> = useRef(null);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Should only run once
     useEffect(() => {
         if (ul.current == null) return;
         const ulv = ul.current;
 
         const id = idc++;
         const handle = (action: IAction) => {
-            if (action.type != ACTION.AddLogLines) return false;
-            if (action.id != id) return false;
+            if (action.type !== ACTION.AddLogLines) return false;
+            if (action.id !== id) return false;
 
             for (const line of action.lines) {
                 const li = document.createElement("li");

@@ -1,5 +1,5 @@
-export function Error({ children }: { children: string }) {
+export function DisplayError({ children }: { children: string }) {
     return <span style={{ background: "red" }}>{children}</span>;
 }
 
-export default Error;
+export default DisplayError;

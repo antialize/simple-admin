@@ -18,7 +18,7 @@ export function DropDownItem(p: {
         <MenuItem
             onClick={(e) => {
                 context.setOpen(false);
-                p.onClick && p.onClick(e);
+                p.onClick?.(e);
             }}
         >
             {p.children}

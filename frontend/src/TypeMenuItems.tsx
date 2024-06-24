@@ -64,7 +64,7 @@ const TypeMenuItem = observer(function TypeMenuItem({ id }: { id: number }) {
     const type = state.types.get(id);
     if (!type) return <span>Missing type</span>;
     const name = type.name;
-    if (id == rootId) {
+    if (id === rootId) {
         return (
             <Button
                 key={rootInstanceId}

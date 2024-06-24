@@ -121,7 +121,7 @@ class ObjectState {
                     if (!(item.name in content))
                         content[item.name] = Array.from(
                             (window as any).crypto.getRandomValues(new Uint8Array(18)),
-                            (byte: number) => ("0" + (byte & 0xff).toString(16)).slice(-2),
+                            (byte: number) => `0${(byte & 0xff).toString(16)}`.slice(-2),
                         ).join("");
                     break;
                 case TypePropType.none:
@@ -135,10 +135,10 @@ class ObjectState {
     @action.bound
     loadCurrent() {
         const cp = nullCheck(state.page).current;
-        if (cp.type != PAGE_TYPE.Object) return;
-        if (this.loadStatus == "loading") return;
+        if (cp.type !== PAGE_TYPE.Object) return;
+        if (this.loadStatus === "loading") return;
         if (this.id >= 0) {
-            if (this.loadStatus == "not_loaded") {
+            if (this.loadStatus === "not_loaded") {
                 const a: IFetchObject = {
                     type: ACTION.FetchObject,
                     id: this.id,
@@ -152,7 +152,7 @@ class ObjectState {
                 cp.version = 1;
                 for (const [v, _] of this.versions) cp.version = Math.max(cp.version, v);
             }
-            if (this.current != null && this.current.version == cp.version) return; // We are allready modifying the right object
+            if (this.current != null && this.current.version === cp.version) return; // We are allready modifying the right object
             this.current = JSON.parse(JSON.stringify(this.versions.get(cp.version)));
         } else {
             // We are modifying a new object
@@ -175,7 +175,7 @@ class ObjectState {
     @action.bound
     setCurrentVersion(version: number) {
         const cp = nullCheck(state.page).current;
-        if (cp.type != PAGE_TYPE.Object) return;
+        if (cp.type !== PAGE_TYPE.Object) return;
 
         state.page?.set({ type: PAGE_TYPE.Object, objectType: cp.objectType, id: cp.id, version });
         this.current = null;

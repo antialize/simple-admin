@@ -12,27 +12,27 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
 
     for (let i = 0; i < c.length; ++i) {
         const r = c[i];
-        if (r.type == TypePropType.none && i + 1 != c.length) continue;
+        if (r.type === TypePropType.none && i + 1 !== c.length) continue;
 
         const changeType = (type: TypePropType) => {
-            if (r && type == r.type) return;
+            if (r && type === r.type) return;
             c[i] = { type } as ITypeProp;
             p.onChange(c);
         };
 
         const change = (o: Record<string, any>) => {
             c[i] = Object.assign({}, r || {}, o) as ITypeProp;
-            p.onChange(c.filter((c) => c.type != TypePropType.none));
+            p.onChange(c.filter((c) => c.type !== TypePropType.none));
         };
-        let def;
+        let def: JSX.Element;
         if (
-            r.type == TypePropType.none ||
-            r.type == TypePropType.typeContent ||
-            r.type == TypePropType.document ||
-            r.type == TypePropType.password
+            r.type === TypePropType.none ||
+            r.type === TypePropType.typeContent ||
+            r.type === TypePropType.document ||
+            r.type === TypePropType.password
         )
             def = <TextField variant="standard" value="" disabled={true} />;
-        else if (r.type == TypePropType.bool) {
+        else if (r.type === TypePropType.bool) {
             def = (
                 <Select
                     variant="standard"
@@ -45,7 +45,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                     <MenuItem value={0}>Off</MenuItem>
                 </Select>
             );
-        } else if (r.type == TypePropType.choice) {
+        } else if (r.type === TypePropType.choice) {
             def = (
                 <Select
                     variant="standard"
@@ -53,7 +53,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                     onChange={(e) => {
                         change({ default: e.target.value });
                     }}
-                    disabled={!r.choices || r.choices.length == 0}
+                    disabled={!r.choices || r.choices.length === 0}
                 >
                     {(r.choices || [""]).map((v) => (
                         <MenuItem value={v} key={v}>
@@ -72,8 +72,8 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                 />
             );
         }
-        let temp;
-        if (r.type == TypePropType.text || r.type == TypePropType.document)
+        let temp: JSX.Element;
+        if (r.type === TypePropType.text || r.type === TypePropType.document)
             temp = (
                 <Switch
                     key="template"
@@ -84,12 +84,12 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                 />
             );
         else temp = <Switch key="template" checked={false} disabled={true} />;
-        let var_;
+        let var_: JSX.Element;
         if (
-            r.type == TypePropType.text ||
-            r.type == TypePropType.choice ||
-            r.type == TypePropType.bool ||
-            r.type == TypePropType.document
+            r.type === TypePropType.text ||
+            r.type === TypePropType.choice ||
+            r.type === TypePropType.bool ||
+            r.type === TypePropType.document
         )
             var_ = (
                 <TextField
@@ -103,7 +103,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
             );
         else var_ = <TextField variant="standard" key="var" value="" disabled={true} />;
         let extra = null;
-        if (r.type == TypePropType.choice)
+        if (r.type === TypePropType.choice)
             extra = (
                 <TextField
                     variant="standard"
@@ -113,7 +113,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                     }}
                 />
             );
-        else if (r.type == TypePropType.document)
+        else if (r.type === TypePropType.document)
             extra = (
                 <span>
                     <TextField
@@ -134,7 +134,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                     />
                 </span>
             );
-        else if (r.type == TypePropType.text)
+        else if (r.type === TypePropType.text)
             extra = (
                 <span style={{ verticalAlign: "middle" }}>
                     <Select
@@ -206,8 +206,8 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                 <td>
                     <TextField
                         variant="standard"
-                        value={(r.type != TypePropType.none && r.name) || ""}
-                        disabled={r.type == TypePropType.none}
+                        value={(r.type !== TypePropType.none && r.name) || ""}
+                        disabled={r.type === TypePropType.none}
                         onChange={(e) => {
                             change({ name: e.target.value });
                         }}
@@ -217,12 +217,14 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                     <TextField
                         variant="standard"
                         value={
-                            (r.type != TypePropType.none &&
-                                r.type != TypePropType.typeContent &&
+                            (r.type !== TypePropType.none &&
+                                r.type !== TypePropType.typeContent &&
                                 r.title) ||
                             ""
                         }
-                        disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent}
+                        disabled={
+                            r.type === TypePropType.none || r.type === TypePropType.typeContent
+                        }
                         onChange={(e) => {
                             change({ title: e.target.value });
                         }}
@@ -235,12 +237,14 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                     <TextField
                         variant="standard"
                         value={
-                            (r.type != TypePropType.none &&
-                                r.type != TypePropType.typeContent &&
+                            (r.type !== TypePropType.none &&
+                                r.type !== TypePropType.typeContent &&
                                 r.description) ||
                             ""
                         }
-                        disabled={r.type == TypePropType.none || r.type == TypePropType.typeContent}
+                        disabled={
+                            r.type === TypePropType.none || r.type === TypePropType.typeContent
+                        }
                         onChange={(e) => {
                             change({ description: e.target.value });
                         }}

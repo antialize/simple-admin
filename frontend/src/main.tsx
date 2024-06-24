@@ -22,7 +22,7 @@ state.doSendMessage = (action: IAction) => {
     nullCheck(socket).send(JSON.stringify(action));
 };
 
-window.onpopstate = (e: any) => {
+window.onpopstate = (e: PopStateEvent) => {
     nullCheck(state.page).set(e.state as State.IPage);
 };
 
