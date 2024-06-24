@@ -1,7 +1,7 @@
-import {Typography} from "@mui/material";
-import * as React from "react";
+import { Typography } from "@mui/material";
+import type * as React from "react";
 
-export function InformationList(props: {children?: React.ReactNode}) {
+export function InformationList(props: { children?: React.ReactNode }) {
     return (
         <table>
             <tbody>{props.children}</tbody>
@@ -17,7 +17,7 @@ export function InformationListRow(props: {
 }) {
     return (
         <tr title={props.title}>
-            <td style={props.long ? {verticalAlign: "top", paddingTop: "4px"} : {}}>
+            <td style={props.long ? { verticalAlign: "top", paddingTop: "4px" } : {}}>
                 <Typography>{props.name}</Typography>
             </td>
             <td>{props.children}</td>

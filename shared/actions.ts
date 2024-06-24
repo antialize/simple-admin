@@ -1,12 +1,12 @@
-import {
-    type IPage,
-    type IObjectDigest,
-    type IObject2,
-    type DEPLOYMENT_OBJECT_STATUS,
-    type DEPLOYMENT_STATUS,
-    type IDeploymentObject,
+import type {
+    DEPLOYMENT_OBJECT_STATUS,
+    DEPLOYMENT_STATUS,
+    IDeploymentObject,
+    IObject2,
+    IObjectDigest,
+    IPage,
 } from "./state";
-import {type IType} from "./type";
+import type { IType } from "./type";
 
 export enum ACTION {
     AddDeploymentLog = "AddDeploymentLog",
@@ -431,14 +431,14 @@ export interface IDockerListImageTagsRes {
     type: ACTION.DockerListImageTagsRes;
     ref: Ref;
     tags: DockerImageTag[];
-    pinnedImageTags?: Array<{image: string; tag: string}>;
+    pinnedImageTags?: Array<{ image: string; tag: string }>;
 }
 
 export interface IDockerImageTagsCharged {
     type: ACTION.DockerListImageTagsChanged;
     changed: DockerImageTag[];
-    removed: Array<{image: string; hash: string}>;
-    imageTagPinChanged?: Array<{image: string; tag: string; pin: boolean}>;
+    removed: Array<{ image: string; hash: string }>;
+    imageTagPinChanged?: Array<{ image: string; tag: string; pin: boolean }>;
 }
 
 export interface IDockerListDeployments {
@@ -474,7 +474,7 @@ export interface IDockerListDeploymentsRes {
 export interface IDockerDeploymentsChanged {
     type: ACTION.DockerDeploymentsChanged;
     changed: DockerDeployment[];
-    removed: Array<{host: number; name: string}>;
+    removed: Array<{ host: number; name: string }>;
 }
 
 export interface IDockerContainerStart {

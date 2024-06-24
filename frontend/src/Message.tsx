@@ -1,11 +1,11 @@
-import {observer} from "mobx-react";
+import { Button } from "@mui/material";
+import { observer } from "mobx-react";
+import { ACTION, type IMessageTextReqAction, type ISetMessagesDismissed } from "./shared/actions";
 import nullCheck from "./shared/nullCheck";
+import { hostId } from "./shared/type";
 import state from "./state";
-import {ACTION, type IMessageTextReqAction, type ISetMessagesDismissed} from "./shared/actions";
-import {hostId} from "./shared/type";
-import {Button} from "@mui/material";
 
-const Message = observer(function Message({id, inGroup}: {id: number; inGroup: boolean}) {
+const Message = observer(function Message({ id, inGroup }: { id: number; inGroup: boolean }) {
     const message = nullCheck(state.messages.get(id));
     const hostObject = nullCheck(state.objectDigests.get(hostId)).get(nullCheck(message.host));
     const hostname = hostObject ? hostObject.name : "";
@@ -33,7 +33,7 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
     };
 
     const actions = [];
-    let c;
+    let c: string;
 
     if (message.dismissed) {
         actions.push(
@@ -43,7 +43,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                 variant="contained"
                 onClick={() => {
                     setDismissed(false);
-                }}>
+                }}
+            >
                 Undismiss
             </Button>,
         );
@@ -56,7 +57,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                 variant="contained"
                 onClick={() => {
                     setDismissed(true);
-                }}>
+                }}
+            >
                 Dismiss
             </Button>,
         );
@@ -66,7 +68,7 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
     let msg = message.message;
     if (msg && msg.length > 999) {
         if (!state.messageExpanded.get(id)) {
-            msg = msg.substr(0, 999) + "...";
+            msg = `${msg.substr(0, 999)}...`;
             actions.push(
                 <Button
                     key="expand"
@@ -74,7 +76,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                     variant="contained"
                     onClick={() => {
                         setExpanded(true, !message.fullMessage);
-                    }}>
+                    }}
+                >
                     Full text
                 </Button>,
             );
@@ -86,7 +89,8 @@ const Message = observer(function Message({id, inGroup}: {id: number; inGroup: b
                     variant="contained"
                     onClick={() => {
                         setExpanded(false, false);
-                    }}>
+                    }}
+                >
                     Partial text
                 </Button>,
             );

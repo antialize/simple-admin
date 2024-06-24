@@ -1,4 +1,4 @@
-import {ObservableMap, action, makeObservable, observable} from "mobx";
+import { ObservableMap, action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
 import {
     ACTION,
@@ -7,8 +7,8 @@ import {
     type IDockerListDeploymentHistoryRes,
     type IDockerListDeploymentsRes,
 } from "./shared/actions";
-import state from "./state";
 import getOrInsert from "./shared/getOrInsert";
+import state from "./state";
 
 export default class DockerContainersState {
     constructor() {
@@ -16,7 +16,7 @@ export default class DockerContainersState {
     }
 
     @observable
-    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = {state: "initial"};
+    hosts: Remote<ObservableMap<number, DockerDeployment[]>> = { state: "initial" };
 
     @observable
     containerHistory = new ObservableMap<
@@ -26,12 +26,12 @@ export default class DockerContainersState {
 
     @action
     load() {
-        if (this.hosts.state != "initial") return;
+        if (this.hosts.state !== "initial") return;
         state.sendMessage({
             type: ACTION.DockerListDeployments,
             ref: 0,
         });
-        this.hosts = {state: "loading"};
+        this.hosts = { state: "loading" };
     }
 
     @action
@@ -42,19 +42,19 @@ export default class DockerContainersState {
             this.containerHistory.set(host, c1);
         }
         const c2 = c1.get(container);
-        if (c2 && c2.state != "initial") return;
+        if (c2 && c2.state !== "initial") return;
         state.sendMessage({
             type: ACTION.DockerListDeploymentHistory,
             host,
             name: container,
             ref: 0,
         });
-        c1.set(container, {state: "loading"});
+        c1.set(container, { state: "loading" });
     }
 
     @action
     handleLoad(act: IDockerListDeploymentsRes) {
-        if (this.hosts.state != "data") this.hosts = {state: "data", data: new ObservableMap()};
+        if (this.hosts.state !== "data") this.hosts = { state: "data", data: new ObservableMap() };
 
         for (const tag of act.deployments) {
             getOrInsert(this.hosts.data, tag.host, () => []).push(tag);
@@ -67,18 +67,18 @@ export default class DockerContainersState {
         if (!h) return;
         const m = new ObservableMap();
         for (const d of act.deployments) m.set(d.id, d);
-        h.set(act.name, {state: "data", data: m});
+        h.set(act.name, { state: "data", data: m });
     }
 
     @action
     handleChange(act: IDockerDeploymentsChanged) {
-        if (this.hosts.state == "data") {
+        if (this.hosts.state === "data") {
             const hosts = this.hosts.data;
             for (const tag of act.changed) {
                 let found = false;
                 const lst = getOrInsert(hosts, tag.host, () => []);
                 for (let i = 0; i < lst.length; ++i) {
-                    if (lst[i].name != tag.name) continue;
+                    if (lst[i].name !== tag.name) continue;
                     found = true;
                     if (lst[i].id <= tag.id) lst[i] = tag;
                 }
@@ -89,7 +89,7 @@ export default class DockerContainersState {
                 if (!lst) continue;
                 hosts.set(
                     tag.host,
-                    lst.filter(e => e.name != tag.name),
+                    lst.filter((e) => e.name !== tag.name),
                 );
             }
         }

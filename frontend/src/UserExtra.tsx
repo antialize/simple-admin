@@ -1,9 +1,9 @@
+import { observer } from "mobx-react";
 import * as QRCode from "qrcode";
 import Box from "./Box";
 import state from "./state";
-import {observer} from "mobx-react";
 
-const UserExtra = observer(function UserExtra({id}: {id: number}) {
+const UserExtra = observer(function UserExtra({ id }: { id: number }) {
     const obj = state.objects.get(id);
     if (!obj?.current?.content) return null;
 
@@ -12,9 +12,10 @@ const UserExtra = observer(function UserExtra({id}: {id: number}) {
     return (
         <Box title="One time password">
             <img
-                ref={v => {
+                alt="user qr code"
+                ref={(v) => {
                     QRCode.toDataURL(ctx.otp_url).then(
-                        s => {
+                        (s) => {
                             if (v) v.src = s;
                         },
                         () => {},

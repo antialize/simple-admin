@@ -1,8 +1,8 @@
-import {observer} from "mobx-react";
-import state, {CONNECTION_STATUS} from "./state";
+import { observer } from "mobx-react";
 import Login from "./Login";
+import { MainPage } from "./MainPage";
 import Menu from "./Menu";
-import {MainPage} from "./MainPage";
+import state, { CONNECTION_STATUS } from "./state";
 
 const App = observer(function Content() {
     let dialog: JSX.Element | null = <>No dialog</>;
@@ -18,9 +18,8 @@ const App = observer(function Content() {
                 </main>
             </>
         );
-    } else {
-        return dialog;
     }
+    return dialog;
 });
 
 export default App;

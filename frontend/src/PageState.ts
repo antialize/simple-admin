@@ -1,12 +1,12 @@
 import * as $ from "jquery";
+import { action, makeObservable, observable, runInAction } from "mobx";
 import type * as React from "react";
-import * as State from "./shared/state";
-import {action, makeObservable, observable, runInAction} from "mobx";
-import nullCheck from "./shared/nullCheck";
-import state from "./state";
-import getOrInsert from "./shared/getOrInsert";
 import ObjectState from "./ObjectState";
-import {hostId} from "./shared/type";
+import getOrInsert from "./shared/getOrInsert";
+import nullCheck from "./shared/nullCheck";
+import * as State from "./shared/state";
+import { hostId } from "./shared/type";
+import state from "./state";
 
 function never(_: never, message: string) {
     console.error(message);
@@ -18,10 +18,10 @@ class PageState {
     }
 
     @observable
-    nextNewObjectId: number = -2;
+    nextNewObjectId = -2;
 
     @observable
-    private current_: State.IPage = {type: State.PAGE_TYPE.Dashbord};
+    private current_: State.IPage = { type: State.PAGE_TYPE.Dashbord };
 
     @action
     loadContent() {
@@ -37,7 +37,7 @@ class PageState {
                 {
                     const id = p.id;
                     if (id) getOrInsert(state.objects, id, () => new ObjectState(id)).loadCurrent();
-                    if (p.objectType == hostId) nullCheck(state.dockerContainers).load();
+                    if (p.objectType === hostId) nullCheck(state.dockerContainers).load();
                 }
                 break;
             case State.PAGE_TYPE.DockerImages:
@@ -82,7 +82,7 @@ class PageState {
     @action
     set(page: State.IPage) {
         const pg = Object.assign({}, page);
-        if (pg.type == State.PAGE_TYPE.Object && !pg.id) {
+        if (pg.type === State.PAGE_TYPE.Object && !pg.id) {
             pg.id = this.nextNewObjectId;
             --this.nextNewObjectId;
         }
@@ -101,18 +101,18 @@ class PageState {
                 break;
             case State.PAGE_TYPE.ObjectList:
                 o.page = "objectlist";
-                o.type = "" + page.objectType;
+                o.type = `${page.objectType}`;
                 break;
             case State.PAGE_TYPE.Object:
                 o.page = "object";
-                o.type = "" + page.objectType;
-                if (page.id != null) o.id = "" + page.id;
+                o.type = `${page.objectType}`;
+                if (page.id != null) o.id = `${page.id}`;
                 else o.id = "-1";
-                if (page.version != null) o.version = "" + page.version;
+                if (page.version != null) o.version = `${page.version}`;
                 break;
             case State.PAGE_TYPE.DeploymentDetails:
                 o.page = "deploymentDetails";
-                o.index = "" + page.index;
+                o.index = `${page.index}`;
                 break;
             case State.PAGE_TYPE.DockerImages:
                 o.page = "dockerImages";
@@ -125,22 +125,22 @@ class PageState {
                 break;
             case State.PAGE_TYPE.ModifiedFile:
                 o.page = "modifiedFile";
-                o.id = "" + page.id;
+                o.id = `${page.id}`;
                 break;
             case State.PAGE_TYPE.DockerContainerDetails:
                 o.page = "dockerContainerDetails";
-                o.host = "" + page.host;
+                o.host = `${page.host}`;
                 o.container = page.container;
-                o.id = "" + page.id;
+                o.id = `${page.id}`;
                 break;
             case State.PAGE_TYPE.DockerContainerHistory:
                 o.page = "dockerContainerHistory";
-                o.host = "" + page.host;
+                o.host = `${page.host}`;
                 o.container = page.container;
                 break;
             case State.PAGE_TYPE.DockerImageHistory:
                 o.page = "dockerImageHistory";
-                o.project = "" + page.project;
+                o.project = `${page.project}`;
                 o.tag = page.tag;
                 break;
             case State.PAGE_TYPE.Search:
@@ -149,14 +149,14 @@ class PageState {
             default:
                 never(page, "Unhandled page");
         }
-        return "?" + $.param(o);
+        return `?${$.param(o)}`;
     }
 
     @action
     setFromUrl() {
         const getUrlParameter = (name: string) => {
-            name = name.replace(/[[]/, "\\[").replace(/[\]]/, "\\]");
-            const regex = new RegExp("[\\?&]" + name + "=([^&#]*)");
+            const name2 = name.replace(/[[]/, "\\[").replace(/[\]]/, "\\]");
+            const regex = new RegExp(`[\\?&]${name2}=([^&#]*)`);
             const results = regex.exec(location.search);
             return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
         };
@@ -164,19 +164,19 @@ class PageState {
         const p = getUrlParameter("page");
         switch (p) {
             case "dockerImages":
-                this.current = {type: State.PAGE_TYPE.DockerImages};
+                this.current = { type: State.PAGE_TYPE.DockerImages };
                 break;
             case "dockerContainers":
-                this.current = {type: State.PAGE_TYPE.DockerContainers};
+                this.current = { type: State.PAGE_TYPE.DockerContainers };
                 break;
             case "modifiedFiles":
-                this.current = {type: State.PAGE_TYPE.ModifiedFiles};
+                this.current = { type: State.PAGE_TYPE.ModifiedFiles };
                 break;
             case "modifiedFile":
-                this.current = {type: State.PAGE_TYPE.ModifiedFile, id: +getUrlParameter("id")};
+                this.current = { type: State.PAGE_TYPE.ModifiedFile, id: +getUrlParameter("id") };
                 break;
             case "deployment":
-                this.current = {type: State.PAGE_TYPE.Deployment};
+                this.current = { type: State.PAGE_TYPE.Deployment };
                 break;
             case "objectlist":
                 this.current = {
@@ -224,10 +224,10 @@ class PageState {
                 };
                 break;
             case "search":
-                this.current = {type: State.PAGE_TYPE.Search};
+                this.current = { type: State.PAGE_TYPE.Search };
                 break;
             default:
-                this.current = {type: State.PAGE_TYPE.Dashbord};
+                this.current = { type: State.PAGE_TYPE.Dashbord };
                 break;
         }
     }

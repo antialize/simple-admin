@@ -1,7 +1,7 @@
-import {styled} from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
 
 export const InfoTable = styled("table")(
-    ({theme}) => `
+    ({ theme }) => `
     border-collapse: collapse;
     border-width: 1px;
     border-color: ${theme.palette.background.default};
@@ -36,7 +36,7 @@ export const InfoTable = styled("table")(
 );
 
 export const InfoTableHeader = styled("th")(
-    ({theme}) => `
+    ({ theme }) => `
     background-color: ${theme.palette.primary.main} !important;
     border-style: solid;
     font-size: 21pt;

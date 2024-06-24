@@ -1,8 +1,8 @@
-import state from "./state";
-import {type IAction, ACTION, type IStartLog, type IEndLog} from "./shared/actions";
+import { Typography } from "@mui/material";
+import { type MutableRefObject, useEffect, useRef } from "react";
+import { ACTION, type IAction, type IEndLog, type IStartLog } from "./shared/actions";
 import nullCheck from "./shared/nullCheck";
-import {type MutableRefObject, useEffect, useRef} from "react";
-import {Typography} from "@mui/material";
+import state from "./state";
 
 let idc = 0;
 
@@ -19,14 +19,15 @@ export default function Log(props: {
 }) {
     const ul: MutableRefObject<HTMLUListElement | null> = useRef(null);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Should only run once
     useEffect(() => {
         if (ul.current == null) return;
         const ulv = ul.current;
 
         const id = idc++;
         const handle = (action: IAction) => {
-            if (action.type != ACTION.AddLogLines) return false;
-            if (action.id != id) return false;
+            if (action.type !== ACTION.AddLogLines) return false;
+            if (action.id !== id) return false;
 
             for (const line of action.lines) {
                 const li = document.createElement("li");

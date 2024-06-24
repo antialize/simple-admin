@@ -1,11 +1,11 @@
-import { webClients } from './instances';
-import { WebClient } from './webclient';
-import { IAlert, ACTION } from './shared/actions';
+import { webClients } from "./instances";
+import { ACTION, type IAlert } from "./shared/actions";
+import type { WebClient } from "./webclient";
 
 export enum ErrorType {
-    Database,
-    Unknown,
-    SyntaxError,
+    Database = 0,
+    Unknown = 1,
+    SyntaxError = 2,
 }
 
 export class SAError {
@@ -24,7 +24,7 @@ export interface ErrorDescription {
 export function descript(err: any) {
     let type: ErrorType;
     let description: string;
-    let typeName: string = 'Unknown';
+    let typeName = "Unknown";
 
     if (err instanceof SyntaxError) {
         type = ErrorType.SyntaxError;
@@ -34,21 +34,21 @@ export function descript(err: any) {
         description = err.message;
     } else if (err instanceof SAError) {
         type = err.type;
-        description = '' + err.content;
+        description = `${err.content}`;
     } else {
         type = ErrorType.Unknown;
-        description = '' + err;
+        description = `${err}`;
     }
 
     switch (type) {
         case ErrorType.Database:
-            typeName = 'Database';
+            typeName = "Database";
             break;
         case ErrorType.SyntaxError:
-            typeName = 'Syntax';
+            typeName = "Syntax";
             break;
         case ErrorType.Unknown:
-            typeName = 'Unknown';
+            typeName = "Unknown";
             break;
     }
 
@@ -57,17 +57,17 @@ export function descript(err: any) {
 
 export function errorHandler(place: string, webclient?: WebClient | false) {
     return (err: any) => {
-        let d = descript(err);
+        const d = descript(err);
         console.log(err);
-        console.error('An error occured in ' + place, {
+        console.error(`An error occured in ${place}`, {
             typename: d.typeName,
             description: d.description,
             err,
         });
-        let res: IAlert = {
+        const res: IAlert = {
             type: ACTION.Alert,
-            title: 'Error: ' + d.typeName,
-            message: 'A ' + d.type + ' error occurned ' + place + ': \n' + d.description,
+            title: `Error: ${d.typeName}`,
+            message: `A ${d.type} error occurned ${place}: \n${d.description}`,
         };
         if (webclient === false) {
         } else if (webclient) webclient.sendMessage(res);

@@ -1,4 +1,4 @@
-import {action, makeObservable, observable} from "mobx";
+import { action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
 import {
     ACTION,
@@ -7,9 +7,9 @@ import {
     type IDockerListImageTagHistoryRes,
     type IDockerListImageTagsRes,
 } from "./shared/actions";
-import state from "./state";
 import getOrInsert from "./shared/getOrInsert";
 import nullCheck from "./shared/nullCheck";
+import state from "./state";
 
 export default class DockerImagesState {
     constructor() {
@@ -17,10 +17,10 @@ export default class DockerImagesState {
     }
 
     @observable
-    show_all: boolean = false;
+    show_all = false;
 
     @observable
-    projects: Remote<Map<string, DockerImageTag[]>> = {state: "initial"};
+    projects: Remote<Map<string, DockerImageTag[]>> = { state: "initial" };
 
     @observable
     imageHistory = new Map<string, Map<string, Remote<Map<number, DockerImageTag>>>>();
@@ -29,17 +29,17 @@ export default class DockerImagesState {
     imageTagPin = new Set<string>(); // Key is image + ":" + tag
 
     load() {
-        if (this.projects.state != "initial") return;
+        if (this.projects.state !== "initial") return;
         state.sendMessage({
             type: ACTION.DockerListImageTags,
             ref: 0,
         });
-        this.projects = {state: "loading"};
+        this.projects = { state: "loading" };
     }
 
     @action
-    setPinnedImageTags(pit: Array<{image: string; tag: string}>) {
-        for (const {image, tag} of pit) this.imageTagPin.add(image + ":" + tag);
+    setPinnedImageTags(pit: Array<{ image: string; tag: string }>) {
+        for (const { image, tag } of pit) this.imageTagPin.add(`${image}:${tag}`);
     }
 
     @action
@@ -50,19 +50,19 @@ export default class DockerImagesState {
             this.imageHistory.set(project, h1);
         }
         const h2 = h1.get(tag);
-        if (h2 && h2.state != "initial") return;
+        if (h2 && h2.state !== "initial") return;
         state.sendMessage({
             type: ACTION.DockerListImageTagHistory,
             ref: 0,
             image: project,
             tag,
         });
-        h1.set(tag, {state: "loading"});
+        h1.set(tag, { state: "loading" });
     }
 
     @action
     handleLoad(act: IDockerListImageTagsRes) {
-        if (this.projects.state != "data") this.projects = {state: "data", data: new Map()};
+        if (this.projects.state !== "data") this.projects = { state: "data", data: new Map() };
         for (const tag of act.tags) {
             getOrInsert(this.projects.data, tag.image, () => []).push(tag);
         }
@@ -77,18 +77,18 @@ export default class DockerImagesState {
         if (!h1) return;
         const m = new Map<number, DockerImageTag>();
         for (const i of act.images) m.set(i.id, i);
-        h1.set(act.tag, {state: "data", data: m});
+        h1.set(act.tag, { state: "data", data: m });
     }
 
     @action
     handleChange(act: IDockerImageTagsCharged) {
-        if (this.projects.state == "data") {
+        if (this.projects.state === "data") {
             const projects = this.projects.data;
             for (const tag of act.changed) {
                 const lst = getOrInsert(projects, tag.image, () => []);
                 let found = false;
                 for (let i = 0; i < lst.length; ++i) {
-                    if (lst[i].tag != tag.tag) continue;
+                    if (lst[i].tag !== tag.tag) continue;
                     lst[i] = tag;
                     found = true;
                 }
@@ -99,8 +99,8 @@ export default class DockerImagesState {
                 if (lst === undefined) continue;
                 projects.set(
                     tag.image,
-                    lst.filter(e => {
-                        return e.hash != tag.hash;
+                    lst.filter((e) => {
+                        return e.hash !== tag.hash;
                     }),
                 );
             }
@@ -109,14 +109,14 @@ export default class DockerImagesState {
             const h1 = this.imageHistory.get(tag.image);
             if (!h1) continue;
             const h2 = h1.get(tag.tag);
-            if (!h2 || h2.state != "data") continue;
+            if (!h2 || h2.state !== "data") continue;
             h2.data.set(tag.id, tag);
         }
         const c = act.imageTagPinChanged;
         if (c) {
-            for (const {image, tag, pin} of c) {
-                if (pin) this.imageTagPin.add(image + ":" + tag);
-                else this.imageTagPin.delete(image + ":" + tag);
+            for (const { image, tag, pin } of c) {
+                if (pin) this.imageTagPin.add(`${image}:${tag}`);
+                else this.imageTagPin.delete(`${image}:${tag}`);
             }
         }
     }

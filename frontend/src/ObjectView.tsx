@@ -1,15 +1,15 @@
-import state from "./state";
-import Error from "./Error";
-import {observer} from "mobx-react";
-import {Button, CircularProgress, Link, MenuItem, Select} from "@mui/material";
-import {DEPLOYMENT_STATUS, type IPage, PAGE_TYPE} from "./shared/state";
-import UnixTime from "./UnixTime";
-import {hostId, userId} from "./shared/type";
+import { Button, CircularProgress, Link, MenuItem, Select } from "@mui/material";
+import { observer } from "mobx-react";
 import Box from "./Box";
-import {InformationList, InformationListRow} from "./InformationList";
-import Type from "./Type";
-import UserExtra from "./UserExtra";
+import DisplayError from "./Error";
 import HostExtra from "./HostExtra";
+import { InformationList, InformationListRow } from "./InformationList";
+import Type from "./Type";
+import UnixTime from "./UnixTime";
+import UserExtra from "./UserExtra";
+import { DEPLOYMENT_STATUS, type IPage, PAGE_TYPE } from "./shared/state";
+import { hostId, userId } from "./shared/type";
+import state from "./state";
 
 const ObjectView = observer(function ObjectView({
     type,
@@ -20,39 +20,39 @@ const ObjectView = observer(function ObjectView({
     version?: number;
 }) {
     const deployment = state.deployment;
-    if (!deployment) return <Error>Missing state.deployment</Error>;
+    if (!deployment) return <DisplayError>Missing state.deployment</DisplayError>;
     const o = id && state.objects.get(id);
     if (!id || !o || !o.current) return <CircularProgress />;
     const stype = state.types.get(type);
-    if (!stype) return <Error>Missing type</Error>;
+    if (!stype) return <DisplayError>Missing type</DisplayError>;
 
     const page = state.page;
-    if (page === null) return <Error>Missing state.page</Error>;
+    if (page === null) return <DisplayError>Missing state.page</DisplayError>;
 
     const typeName = stype.name;
     let extra = null;
 
     const canDeploy =
-        deployment.status == DEPLOYMENT_STATUS.Done ||
-        deployment.status == DEPLOYMENT_STATUS.InvilidTree ||
-        deployment.status == DEPLOYMENT_STATUS.BuildingTree ||
-        deployment.status == DEPLOYMENT_STATUS.ComputingChanges ||
-        deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
+        deployment.status === DEPLOYMENT_STATUS.Done ||
+        deployment.status === DEPLOYMENT_STATUS.InvilidTree ||
+        deployment.status === DEPLOYMENT_STATUS.BuildingTree ||
+        deployment.status === DEPLOYMENT_STATUS.ComputingChanges ||
+        deployment.status === DEPLOYMENT_STATUS.ReviewChanges;
     const canCancel =
-        deployment.status == DEPLOYMENT_STATUS.BuildingTree ||
-        deployment.status == DEPLOYMENT_STATUS.ComputingChanges ||
-        deployment.status == DEPLOYMENT_STATUS.ReviewChanges;
+        deployment.status === DEPLOYMENT_STATUS.BuildingTree ||
+        deployment.status === DEPLOYMENT_STATUS.ComputingChanges ||
+        deployment.status === DEPLOYMENT_STATUS.ReviewChanges;
     const touched = o.touched;
 
     if (!o.history) {
         o.loadHistory();
     }
     let isLatest = true;
-    const history: Array<{version: number; time: number; author: string | null}> = [];
+    const history: Array<{ version: number; time: number; author: string | null }> = [];
 
     for (const [k, v] of o.versions) {
         if (o.current.version && k > o.current.version) isLatest = false;
-        history.push({version: v.version ?? 0, time: v.time ?? 0, author: v.author});
+        history.push({ version: v.version ?? 0, time: v.time ?? 0, author: v.author });
     }
 
     if (o.history) {
@@ -66,7 +66,7 @@ const ObjectView = observer(function ObjectView({
     let lastVersion = null;
     const historyItems = [];
     for (const item of history) {
-        if (item.version == lastVersion) continue;
+        if (item.version === lastVersion) continue;
         lastVersion = item.version;
         historyItems.push(
             <MenuItem key={item.version} value={item.version}>
@@ -76,10 +76,10 @@ const ObjectView = observer(function ObjectView({
         );
     }
 
-    if (type == hostId) {
+    if (type === hostId) {
         extra = <HostExtra id={id} />;
     }
-    if (type == userId) {
+    if (type === userId) {
         extra = <UserExtra id={id} />;
     }
 
@@ -92,15 +92,16 @@ const ObjectView = observer(function ObjectView({
                 const oo = d.get(o);
                 if (oo) {
                     found = true;
-                    const p: IPage = {type: PAGE_TYPE.Object, objectType: t, id: o};
+                    const p: IPage = { type: PAGE_TYPE.Object, objectType: t, id: o };
                     usedBy.push(
                         <Link
-                            style={{marginRight: 4}}
+                            style={{ marginRight: 4 }}
                             color={"textPrimary" as any}
-                            onClick={e => {
+                            onClick={(e) => {
                                 page.onClick(e, p);
                             }}
-                            href={page.link(p)}>
+                            href={page.link(p)}
+                        >
                             {oo.name}
                         </Link>,
                     );
@@ -117,29 +118,28 @@ const ObjectView = observer(function ObjectView({
         <div>
             <Box title={typeName} expanded={true} collapsable={true}>
                 <div>
-                    <InformationList key={id + "_history"}>
+                    <InformationList key={`${id}_history`}>
                         <InformationListRow name="Version">
                             <Select
                                 variant="standard"
                                 key="history"
                                 value={o.current.version ?? 0}
-                                onChange={e => {
+                                onChange={(e) => {
                                     if (
                                         touched &&
                                         !confirm(
-                                            "Discard current changes and load version " +
-                                                (e.target.value as any) +
-                                                "?",
+                                            `Discard current changes and load version ${e.target.value as any}?`,
                                         )
                                     )
                                         return;
                                     o.setCurrentVersion(e.target.value as number);
-                                }}>
+                                }}
+                            >
                                 {historyItems}
                             </Select>
                         </InformationListRow>
                         <InformationListRow name="Used by">
-                            {usedBy.length == 0 ? "Nothing" : <ul>{usedBy}</ul>}
+                            {usedBy.length === 0 ? "Nothing" : <ul>{usedBy}</ul>}
                         </InformationListRow>
                     </InformationList>
                 </div>
@@ -150,7 +150,7 @@ const ObjectView = observer(function ObjectView({
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             if (
                                 !isLatest &&
@@ -161,58 +161,64 @@ const ObjectView = observer(function ObjectView({
                                 return;
                             o.save();
                         }}
-                        disabled={!touched && isLatest}>
+                        disabled={!touched && isLatest}
+                    >
                         {isLatest ? "Save" : "Overwrite newer"}
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             o.deploy(canCancel, false);
                         }}
-                        disabled={!canDeploy}>
+                        disabled={!canDeploy}
+                    >
                         {canCancel ? "Deploy (cancel current)" : "Deploy"}
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             o.deploy(canCancel, true);
                         }}
-                        disabled={!canDeploy}>
+                        disabled={!canDeploy}
+                    >
                         {canCancel ? "Redeploy (cancel current)" : "Redeploy"}
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             o.discard();
                         }}
-                        disabled={!touched}>
+                        disabled={!touched}
+                    >
                         Discard
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
-                        style={{margin: 10}}
+                        style={{ margin: 10 }}
                         onClick={() => {
                             if (confirm("Are you sure you want to delete the object?")) o.delete();
                         }}
-                        disabled={!canDeploy}>
+                        disabled={!canDeploy}
+                    >
                         Delete
                     </Button>
-                    {type == hostId ? (
+                    {type === hostId ? (
                         <Button
                             variant="contained"
                             color="primary"
-                            style={{margin: 10}}
+                            style={{ margin: 10 }}
                             onClick={() => {
                                 if (confirm("Have you just reinstalled this server?"))
                                     o.resetState();
-                            }}>
+                            }}
+                        >
                             Reset State
                         </Button>
                     ) : null}

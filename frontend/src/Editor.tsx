@@ -1,18 +1,23 @@
-import {diff} from "@codemirror/legacy-modes/mode/diff";
-import {yaml} from "@codemirror/legacy-modes/mode/yaml";
-import {shell} from "@codemirror/legacy-modes/mode/shell";
-import {nginx} from "@codemirror/legacy-modes/mode/nginx";
-import {toml} from "@codemirror/legacy-modes/mode/toml";
-import {StreamLanguage} from "@codemirror/language";
-import {javascript} from "@codemirror/lang-javascript";
-import {json} from "@codemirror/lang-json";
-import {python} from "@codemirror/lang-python";
-import {xml} from "@codemirror/lang-xml";
+import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
+import { python } from "@codemirror/lang-python";
+import { xml } from "@codemirror/lang-xml";
+import { StreamLanguage } from "@codemirror/language";
+import { diff } from "@codemirror/legacy-modes/mode/diff";
+import { nginx } from "@codemirror/legacy-modes/mode/nginx";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { toml } from "@codemirror/legacy-modes/mode/toml";
+import { yaml } from "@codemirror/legacy-modes/mode/yaml";
+import { MenuItem, Paper, Select, Toolbar, Typography } from "@mui/material";
 import CodeMirror from "@uiw/react-codemirror";
-import {MenuItem, Paper, Select, Toolbar, Typography} from "@mui/material";
 
 const langs = [
-    {name: "Diff", mime: "text/x-diff", mode: StreamLanguage.define(diff), ext: ["diff", "patch"]},
+    {
+        name: "Diff",
+        mime: "text/x-diff",
+        mode: StreamLanguage.define(diff),
+        ext: ["diff", "patch"],
+    },
     {
         name: "JavaScript",
         mimes: [
@@ -60,11 +65,11 @@ const langs = [
         alias: ["bash", "sh", "zsh"],
         file: /^PKGBUILD$/,
     },
-    {name: "TOML", mime: "text/x-toml", mode: StreamLanguage.define(toml), ext: ["toml"]},
+    { name: "TOML", mime: "text/x-toml", mode: StreamLanguage.define(toml), ext: ["toml"] },
     {
         name: "TypeScript",
         mime: "application/typescript",
-        mode: javascript({typescript: true}),
+        mode: javascript({ typescript: true }),
         ext: ["ts"],
         alias: ["ts"],
     },
@@ -95,14 +100,14 @@ interface IProps {
 }
 
 function Editor(props: IProps) {
-    const langItems = langs.map(i => (
+    const langItems = langs.map((i) => (
         <MenuItem key={i.name} value={i.name}>
             {i.name}
         </MenuItem>
     ));
     const exts = [];
 
-    for (const lang of langs) if (lang.name == props.lang && lang.mode) exts.push(lang.mode);
+    for (const lang of langs) if (lang.name === props.lang && lang.mode) exts.push(lang.mode);
     return (
         <Paper>
             <Toolbar>
@@ -111,15 +116,16 @@ function Editor(props: IProps) {
                 </Typography>
                 {props.fixedLang ? (
                     <Typography>
-                        <span style={{marginLeft: 10, marginRight: 30}}>{props.lang}</span>
+                        <span style={{ marginLeft: 10, marginRight: 30 }}>{props.lang}</span>
                     </Typography>
                 ) : (
                     <Select
                         variant="standard"
                         value={props.lang}
-                        onChange={e => {
-                            props.setLang && props.setLang(e.target.value);
-                        }}>
+                        onChange={(e) => {
+                            props.setLang?.(e.target.value);
+                        }}
+                    >
                         {langItems}
                     </Select>
                 )}
@@ -128,7 +134,7 @@ function Editor(props: IProps) {
                 value={props.data}
                 theme={"dark"}
                 onChange={(val, _) => {
-                    props.setData && props.setData(val);
+                    props.setData?.(val);
                 }}
                 extensions={exts}
                 readOnly={props.readOnly}

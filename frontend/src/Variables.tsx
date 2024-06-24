@@ -1,15 +1,15 @@
-import {TextField, Typography} from "@mui/material";
+import { TextField, Typography } from "@mui/material";
 
 interface IProps {
-    variables: Array<{key: string; value: string}>;
-    setVariables: (vars: Array<{key: string; value: string}>) => void;
+    variables: Array<{ key: string; value: string }>;
+    setVariables: (vars: Array<{ key: string; value: string }>) => void;
 }
 
 function Variables(props: IProps) {
     const vars = props.variables.slice(0);
     const rows = [];
     const setVars = () => {
-        props.setVariables(vars.filter(v => v.key != "" || v.value != ""));
+        props.setVariables(vars.filter((v) => v.key !== "" || v.value !== ""));
     };
 
     for (let i = 0; i < vars.length; ++i) {
@@ -19,7 +19,7 @@ function Variables(props: IProps) {
                 <td>
                     <TextField
                         value={v.key}
-                        onChange={e => {
+                        onChange={(e) => {
                             vars[i].key = e.target.value;
                             setVars();
                         }}
@@ -29,7 +29,7 @@ function Variables(props: IProps) {
                 <td>
                     <TextField
                         value={v.value}
-                        onChange={e => {
+                        onChange={(e) => {
                             vars[i].value = e.target.value;
                             setVars();
                         }}
@@ -45,8 +45,8 @@ function Variables(props: IProps) {
             <td>
                 <TextField
                     value=""
-                    onChange={e => {
-                        vars.push({key: e.target.value, value: ""});
+                    onChange={(e) => {
+                        vars.push({ key: e.target.value, value: "" });
                         setVars();
                     }}
                     variant="standard"
@@ -55,8 +55,8 @@ function Variables(props: IProps) {
             <td>
                 <TextField
                     value=""
-                    onChange={e => {
-                        vars.push({key: "", value: e.target.value});
+                    onChange={(e) => {
+                        vars.push({ key: "", value: e.target.value });
                         setVars();
                     }}
                     variant="standard"
@@ -75,7 +75,7 @@ function Variables(props: IProps) {
                     <th>
                         <Typography>Value</Typography>
                     </th>
-                    <th></th>
+                    <th />
                 </tr>
             </thead>
             <tbody>{rows}</tbody>

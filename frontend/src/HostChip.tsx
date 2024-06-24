@@ -1,10 +1,10 @@
-import {observer} from "mobx-react";
-import state from "./state";
-import {hostId} from "./shared/type";
-import {Chip} from "@mui/material";
+import { Chip } from "@mui/material";
+import { observer } from "mobx-react";
 import * as State from "./shared/state";
+import { hostId } from "./shared/type";
+import state from "./state";
 
-const HostChip = observer(function HostChip({id}: {id: number}) {
+const HostChip = observer(function HostChip({ id }: { id: number }) {
     const page = state.page;
     if (page === null) return <span>Missing state.page</span>;
 
@@ -15,13 +15,14 @@ const HostChip = observer(function HostChip({id}: {id: number}) {
 
     return (
         <Chip
-            style={{margin: "4px"}}
+            style={{ margin: "4px" }}
             key={id}
             label={name}
             color={up ? "primary" : "secondary"}
-            onClick={e => {
-                page.onClick(e, {type: State.PAGE_TYPE.Object, objectType: hostId, id});
-            }}></Chip>
+            onClick={(e) => {
+                page.onClick(e, { type: State.PAGE_TYPE.Object, objectType: hostId, id });
+            }}
+        />
     );
 });
 

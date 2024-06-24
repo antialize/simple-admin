@@ -1,26 +1,26 @@
-import {observer} from "mobx-react";
-import Error from "./Error";
-import state from "./state";
-import {TypePropType, hostId, rootId, typeId} from "./shared/type";
-import {InformationList, InformationListRow} from "./InformationList";
-import {MenuItem, Select, Switch, TextField, Tooltip} from "@mui/material";
-import TypeContent from "./TypeContent";
-import Password from "./Password";
+import { MenuItem, Select, Switch, TextField, Tooltip } from "@mui/material";
+import { observer } from "mobx-react";
 import Category from "./Category";
-import ObjectSelector from "./ObjectSelector";
-import Variables from "./Variables";
-import Triggers from "./Triggers";
 import Editor from "./Editor";
+import DisplayError from "./Error";
+import { InformationList, InformationListRow } from "./InformationList";
+import ObjectSelector from "./ObjectSelector";
+import Password from "./Password";
+import Triggers from "./Triggers";
+import TypeContent from "./TypeContent";
+import Variables from "./Variables";
+import { TypePropType, hostId, rootId, typeId } from "./shared/type";
+import state from "./state";
 
-const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: number}) {
+const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id: number }) {
     const obj = state.objects.get(id);
-    if (!obj) return <Error>Missing object</Error>;
+    if (!obj) return <DisplayError>Missing object</DisplayError>;
 
     const current = obj.current;
     const typeOuter = state.types.get(myType);
     const type = typeOuter?.content;
-    if (!type) return <Error>Missing type</Error>;
-    if (!current?.content) return <Error>Missing content</Error>;
+    if (!type) return <DisplayError>Missing type</DisplayError>;
+    if (!current?.content) return <DisplayError>Missing content</DisplayError>;
 
     const c = current.content as Record<string, any>;
     const rows = [];
@@ -30,7 +30,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
         obj.touched = true;
     };
     for (const ct of type?.content ?? []) {
-        if (ct.type == TypePropType.none) continue;
+        if (ct.type === TypePropType.none) continue;
         const v = c[ct.name];
 
         switch (ct.type) {
@@ -39,7 +39,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <InformationListRow key={ct.name} name={ct.title}>
                         <Password
                             value={v ?? ""}
-                            onChange={value => {
+                            onChange={(value) => {
                                 setProp(ct.name, value);
                             }}
                         />
@@ -52,7 +52,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                         <Switch
                             title={ct.description}
                             checked={v ?? ct.default}
-                            onChange={e => {
+                            onChange={(e) => {
                                 setProp(ct.name, e.target.checked);
                             }}
                         />
@@ -67,10 +67,10 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                                 variant="standard"
                                 value={v ?? ct.default}
                                 fullWidth={!!ct.lines && ct.lines > 0}
-                                style={{width: 400}}
+                                style={{ width: 400 }}
                                 multiline={!!ct.lines && ct.lines > 1}
                                 rows={ct.lines ?? 1}
-                                onChange={e => {
+                                onChange={(e) => {
                                     setProp(ct.name, e.target.value);
                                 }}
                             />
@@ -84,8 +84,8 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                         <Tooltip title={ct.description}>
                             <TextField
                                 variant="standard"
-                                value={v == undefined ? "" + ct.default : "" + v}
-                                onChange={e => {
+                                value={v === undefined ? `${ct.default}` : `${v}`}
+                                onChange={(e) => {
                                     setProp(ct.name, +e.target.value);
                                 }}
                             />
@@ -100,10 +100,11 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                             <Select
                                 variant="standard"
                                 value={v ?? ct.default}
-                                onChange={e => {
+                                onChange={(e) => {
                                     setProp(ct.name, e.target.value);
-                                }}>
-                                {ct.choices.map(n => (
+                                }}
+                            >
+                                {ct.choices.map((n) => (
                                     <MenuItem key={n} value={n}>
                                         {n}
                                     </MenuItem>
@@ -123,7 +124,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                             setProp(ct.name, v);
                         }}
                         lang={ct.lang ?? c[ct.langName]}
-                        fixedLang={ct.lang != null && ct.lang != ""}
+                        fixedLang={ct.lang != null && ct.lang !== ""}
                         setLang={(v: string) => {
                             setProp(ct.langName, v);
                         }}
@@ -135,7 +136,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <TypeContent
                         key={ct.name}
                         content={v ?? []}
-                        onChange={v => {
+                        onChange={(v) => {
                             setProp(ct.name, v);
                         }}
                     />,
@@ -146,13 +147,13 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
 
     return (
         <div>
-            <InformationList key={id + "_" + (current.version ?? 0)}>
+            <InformationList key={`${id}_${current.version ?? 0}`}>
                 <InformationListRow name="Name">
                     <TextField
                         key="name"
                         variant="standard"
                         value={current.name}
-                        onChange={e => {
+                        onChange={(e) => {
                             current.name = e.target.value;
                             obj.touched = true;
                         }}
@@ -165,7 +166,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                         fullWidth
                         multiline
                         value={current.comment}
-                        onChange={e => {
+                        onChange={(e) => {
                             current.comment = e.target.value;
                             obj.touched = true;
                         }}
@@ -188,7 +189,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <InformationListRow name="Triggers" long={true}>
                         <Triggers
                             triggers={c.triggers ?? []}
-                            setTriggers={triggers => {
+                            setTriggers={(triggers) => {
                                 setProp("triggers", triggers);
                             }}
                         />
@@ -198,7 +199,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                     <InformationListRow name="Variables" long={true}>
                         <Variables
                             variables={c.variables ?? []}
-                            setVariables={(vars: Array<{key: string; value: string}>) => {
+                            setVariables={(vars: Array<{ key: string; value: string }>) => {
                                 setProp("variables", vars);
                             }}
                         />
@@ -207,7 +208,9 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                 {type.hasContains ? (
                     <InformationListRow name={type.containsName ?? "Contains"} long={true}>
                         <ObjectSelector
-                            filter={(type, _) => type != hostId && type != typeId && type != rootId}
+                            filter={(type, _) =>
+                                type !== hostId && type !== typeId && type !== rootId
+                            }
                             selected={c.contains ? c.contains : []}
                             setSelected={(sel: number[]) => {
                                 setProp("contains", sel);
@@ -218,7 +221,9 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                 {type.hasDepends ? (
                     <InformationListRow name="Depends on" long={true}>
                         <ObjectSelector
-                            filter={(type, _) => type != hostId && type != typeId && type != rootId}
+                            filter={(type, _) =>
+                                type !== hostId && type !== typeId && type !== rootId
+                            }
                             selected={c.depends ? c.depends : []}
                             setSelected={(sel: number[]) => {
                                 setProp("depends", sel);
@@ -229,7 +234,7 @@ const Type = observer(function Type({typeId: myType, id}: {typeId: number; id: n
                 {type.hasSudoOn ? (
                     <InformationListRow name="Sudo on" long={true}>
                         <ObjectSelector
-                            filter={(type, _) => type == hostId}
+                            filter={(type, _) => type === hostId}
                             selected={c.sudoOn ? c.sudoOn : []}
                             setSelected={(sel: number[]) => {
                                 setProp("sudoOn", sel);

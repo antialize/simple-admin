@@ -1,8 +1,8 @@
+import { Button, Checkbox, styled, useTheme } from "@mui/material";
+import { observer } from "mobx-react";
 import * as State from ".././shared/state";
+import DisplayError from "../Error";
 import state from "../state";
-import {observer} from "mobx-react";
-import Error from "../Error";
-import {Button, Checkbox, styled, useTheme} from "@mui/material";
 
 const Table = styled("table")({});
 interface IProps {
@@ -13,24 +13,24 @@ const Item = observer(function Item(p: IProps) {
     const theme = useTheme();
 
     const deployment = state.deployment;
-    if (deployment === null) return <Error>Missing state.deployment</Error>;
+    if (deployment === null) return <DisplayError>Missing state.deployment</DisplayError>;
     const page = state.page;
-    if (page === null) return <Error>Missing state.page</Error>;
+    if (page === null) return <DisplayError>Missing state.page</DisplayError>;
     const o = deployment.objects[p.index];
 
     let s = {};
     switch (o.status) {
         case State.DEPLOYMENT_OBJECT_STATUS.Deplying:
-            s = {backgroundColor: theme.palette.mode == "dark" ? "#990" : "yellow"};
+            s = { backgroundColor: theme.palette.mode === "dark" ? "#990" : "yellow" };
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Failure:
-            s = {backgroundColor: theme.palette.mode == "dark" ? "#600" : "#F77"};
+            s = { backgroundColor: theme.palette.mode === "dark" ? "#600" : "#F77" };
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Success:
-            s = {backgroundColor: theme.palette.mode == "dark" ? "#060" : "#7F7"};
+            s = { backgroundColor: theme.palette.mode === "dark" ? "#060" : "#7F7" };
             break;
         case State.DEPLOYMENT_OBJECT_STATUS.Normal:
-            s = o.enabled ? {} : {color: theme.palette.text.disabled};
+            s = o.enabled ? {} : { color: theme.palette.text.disabled };
             break;
     }
 
@@ -49,7 +49,7 @@ const Item = observer(function Item(p: IProps) {
             act = "Trigger";
             break;
     }
-    const canSelect = deployment.status == State.DEPLOYMENT_STATUS.ReviewChanges;
+    const canSelect = deployment.status === State.DEPLOYMENT_STATUS.ReviewChanges;
     return (
         <tr style={s} key={o.index}>
             <td>{o.hostName}</td>
@@ -60,17 +60,21 @@ const Item = observer(function Item(p: IProps) {
                 <Checkbox
                     checked={o.enabled}
                     disabled={!canSelect}
-                    onChange={e => {
+                    onChange={(e) => {
                         deployment.toggle(o.index, e.target.checked);
                     }}
                 />
             </td>
             <td>
                 <Button
-                    onClick={e => {
-                        page.onClick(e, {type: State.PAGE_TYPE.DeploymentDetails, index: o.index});
+                    onClick={(e) => {
+                        page.onClick(e, {
+                            type: State.PAGE_TYPE.DeploymentDetails,
+                            index: o.index,
+                        });
                     }}
-                    href={page.link({type: State.PAGE_TYPE.DeploymentDetails, index: o.index})}>
+                    href={page.link({ type: State.PAGE_TYPE.DeploymentDetails, index: o.index })}
+                >
                     Details
                 </Button>
             </td>
@@ -80,7 +84,7 @@ const Item = observer(function Item(p: IProps) {
 
 const Items = observer(function ItemImpl() {
     const deployment = state.deployment;
-    if (deployment === null) return <Error>Missing state.deployment</Error>;
+    if (deployment === null) return <DisplayError>Missing state.deployment</DisplayError>;
 
     switch (deployment.status) {
         case State.DEPLOYMENT_STATUS.BuildingTree:
@@ -128,7 +132,8 @@ const Items = observer(function ItemImpl() {
                     "& tr:nth-child(even)": {
                         backgroundColor: "background.paper",
                     },
-                }}>
+                }}
+            >
                 <thead>
                     <tr>
                         <th>Host</th>

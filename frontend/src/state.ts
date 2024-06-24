@@ -1,5 +1,5 @@
-import type {ActionTargets} from "./ActionTargets";
-import type DeploymentState from "./deployment/DeploymentState";
+import { computed, makeObservable, observable } from "mobx";
+import type { ActionTargets } from "./ActionTargets";
 import type DockerContainersState from "./DockerContairsState";
 import type DockerImagesState from "./DockerImagesState";
 import type LoginState from "./LoginState";
@@ -7,19 +7,19 @@ import type ModifiedFilesState from "./ModifiedFilesState";
 import type ObjectState from "./ObjectState";
 import type PageState from "./PageState";
 import type SearchState from "./SearchState";
-import type {IAction, IMessage} from "./shared/actions";
-import type {IObject2, IObjectDigest} from "./shared/state";
-import type {IType} from "./shared/type";
-import {computed, observable, makeObservable} from "mobx";
+import type DeploymentState from "./deployment/DeploymentState";
+import type { IAction, IMessage } from "./shared/actions";
+import type { IObject2, IObjectDigest } from "./shared/state";
+import type { IType } from "./shared/type";
 
 export enum CONNECTION_STATUS {
-    CONNECTING,
-    CONNECTED,
-    AUTHENTICATING,
-    LOGIN,
-    INITING,
-    INITED,
-    WAITING,
+    CONNECTING = 0,
+    CONNECTED = 1,
+    AUTHENTICATING = 2,
+    LOGIN = 3,
+    INITING = 4,
+    INITED = 5,
+    WAITING = 6,
 }
 
 class State {
@@ -31,7 +31,7 @@ class State {
     connectionStatus: CONNECTION_STATUS = CONNECTION_STATUS.CONNECTED;
 
     @observable
-    loaded: boolean = false;
+    loaded = false;
 
     login: LoginState | null = null;
     deployment: DeploymentState | null = null;
@@ -41,7 +41,7 @@ class State {
     authUser: string | null = null;
 
     @observable
-    authOtp: boolean = false;
+    authOtp = false;
 
     @observable
     authMessage: string | null = null;

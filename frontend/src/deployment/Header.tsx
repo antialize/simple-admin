@@ -1,12 +1,12 @@
+import { CircularProgress, Typography } from "@mui/material";
+import { observer } from "mobx-react";
 import * as State from ".././shared/state";
+import DisplayError from "../Error";
 import state from "../state";
-import {observer} from "mobx-react";
-import Error from "../Error";
-import {CircularProgress, Typography} from "@mui/material";
 
 const Header = observer(function Header() {
     const deployment = state.deployment;
-    if (deployment === null) return <Error>Missing state.deployment</Error>;
+    if (deployment === null) return <DisplayError>Missing state.deployment</DisplayError>;
     let spin = false;
     let status = "";
 

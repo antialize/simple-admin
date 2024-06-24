@@ -1,50 +1,50 @@
-import * as express from 'express';
-import * as fs from 'fs';
-import { v4 as uuid } from 'uuid';
-import * as crypto from 'crypto';
-import { Stream } from 'stream';
-import { db, hostClients, webClients } from './instances';
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import { Stream } from "node:stream";
+import type * as express from "express";
+import * as Mustache from "mustache";
+import * as shellQuote from "shell-quote";
+import { v4 as uuid } from "uuid";
+import { parse } from "yaml";
 import {
-    IDockerDeployStart,
     ACTION,
-    IDockerListDeployments,
-    IDockerListImageTags,
-    IDockerListDeploymentsRes,
-    IDockerListImageTagsRes,
-    Ref,
-    IDockerImageSetPin,
-    IDockerImageTagSetPin,
-    IDockerImageTagsCharged,
-    DockerImageTag,
-    IAction,
-    IDockerListDeploymentHistory,
-    IDockerListDeploymentHistoryRes,
-    IDockerListImageTagHistory,
-    IDockerListImageTagHistoryRes,
+    type DockerImageTag,
+    type IAction,
+    IDockerContainerRemove,
     IDockerContainerStart,
     IDockerContainerStop,
-    IDockerContainerRemove,
-    IDockerListImageByHash,
-    IDockerListImageByHashRes,
-    IServiceDeployStart,
-    IServiceRedeployStart,
-} from '../../shared/actions';
-import { WebClient } from './webclient';
-import { rootId, hostId, rootInstanceId, IVariables, Host } from '../../shared/type';
-import * as Mustache from 'mustache';
-import { Job } from './job';
-import { HostClient } from './hostclient';
-import * as message from './messages';
-import * as shellQuote from 'shell-quote';
-import { config } from './config';
-import nullCheck from '../../shared/nullCheck';
-import getOrInsert from '../../shared/getOrInsert';
-import { getAuth } from './getAuth';
-import * as crt from './crt';
-import { parse } from 'yaml';
+    type IDockerDeployStart,
+    type IDockerImageSetPin,
+    type IDockerImageTagSetPin,
+    type IDockerImageTagsCharged,
+    type IDockerListDeploymentHistory,
+    type IDockerListDeploymentHistoryRes,
+    type IDockerListDeployments,
+    type IDockerListDeploymentsRes,
+    type IDockerListImageByHash,
+    type IDockerListImageByHashRes,
+    type IDockerListImageTagHistory,
+    type IDockerListImageTagHistoryRes,
+    type IDockerListImageTags,
+    type IDockerListImageTagsRes,
+    type IServiceDeployStart,
+    type IServiceRedeployStart,
+    type Ref,
+} from "../../shared/actions";
+import getOrInsert from "../../shared/getOrInsert";
+import nullCheck from "../../shared/nullCheck";
+import { type Host, type IVariables, hostId, rootId, rootInstanceId } from "../../shared/type";
+import { config } from "./config";
+import * as crt from "./crt";
+import { getAuth } from "./getAuth";
+import type { HostClient } from "./hostclient";
+import { db, hostClients, webClients } from "./instances";
+import { Job } from "./job";
+import type * as message from "./messages";
+import type { WebClient } from "./webclient";
 
-const docker_upload_path = '/var/tmp/simpleadmin_docker_uploads/';
-const docker_blobs_path = '/var/simpleadmin_docker_blobs/';
+const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
+const docker_blobs_path = "/var/simpleadmin_docker_blobs/";
 if (!fs.existsSync(docker_upload_path)) fs.mkdirSync(docker_upload_path, 0o700);
 if (!fs.existsSync(docker_blobs_path)) fs.mkdirSync(docker_blobs_path, 0o700);
 
@@ -61,7 +61,7 @@ class Upload {
     hash: crypto.Hash;
     writer: fs.WriteStream;
     constructor(public un: string) {
-        this.hash = crypto.createHash('sha256');
+        this.hash = crypto.createHash("sha256");
         this.count = new Count();
         this.writer = fs.createWriteStream(docker_upload_path + un);
     }
@@ -78,13 +78,13 @@ interface IHostContainer {
 }
 
 interface IHostContainerState {
-    type: 'docker_container_state';
+    type: "docker_container_state";
     id: string;
     state: string;
 }
 
 interface IHostContainers {
-    type: 'docker_containers';
+    type: "docker_containers";
     full: boolean;
     update: IHostContainer[];
     delete: string[];
@@ -98,7 +98,7 @@ interface IHostImage {
 }
 
 interface IHostImages {
-    type: 'docker_images';
+    type: "docker_images";
     full: boolean;
     update: IHostImage[];
     delete: string[];
@@ -142,20 +142,20 @@ class Docker {
 
     async ensure_ca() {
         const r1 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_key'");
-        if (r1) this.ca_key = r1['value'];
+        if (r1) this.ca_key = r1.value;
 
         const r2 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_crt'");
-        if (r2) this.ca_crt = r2['value'];
+        if (r2) this.ca_crt = r2.value;
         if (!this.ca_key) {
-            console.log('Generating ca key');
+            console.log("Generating ca key");
             this.ca_key = await crt.generate_key();
-            await db.insert('REPLACE INTO kvp (key,value) VALUES (?, ?)', 'ca_key', this.ca_key);
+            await db.insert("REPLACE INTO kvp (key,value) VALUES (?, ?)", "ca_key", this.ca_key);
         }
 
         if (!this.ca_crt) {
-            console.log('Generating ca crt');
+            console.log("Generating ca crt");
             this.ca_crt = await crt.generate_ca_crt(this.ca_key);
-            await db.insert('REPLACE INTO kvp (key, value) VALUES (?,?)', 'ca_crt', this.ca_crt);
+            await db.insert("REPLACE INTO kvp (key, value) VALUES (?,?)", "ca_crt", this.ca_crt);
         }
     }
 
@@ -168,43 +168,43 @@ class Docker {
         const i = this.hostContainers.get(host);
         if (!i) return undefined;
         for (const [id, v] of i) {
-            if (v.name != '/' + container) continue;
+            if (v.name !== `/${container}`) continue;
             return v.state;
         }
         return undefined;
     }
 
     async checkAuth(req: express.Request, res: express.Response, push: boolean) {
-        if (req.headers['authorization']) {
+        if (req.headers.authorization) {
             const auth = Buffer.from(
-                (req.headers['authorization'] as string).substr(6),
-                'base64',
-            ).toString('utf8');
+                (req.headers.authorization as string).substr(6),
+                "base64",
+            ).toString("utf8");
 
             // req.connection.remoteAddress
-            const parts = auth.split(':');
+            const parts = auth.split(":");
             if (parts.length > 1) {
-                const a = await getAuth(null, parts.slice(1).join(':'));
-                if (parts[0] == a.user && push ? a.dockerPush : a.dockerPull) return a.user;
+                const a = await getAuth(null, parts.slice(1).join(":"));
+                if (parts[0] === a.user && push ? a.dockerPush : a.dockerPull) return a.user;
             }
 
-            console.error('Auth failure', { address: req.connection.remoteAddress, parts });
+            console.error("Auth failure", { address: req.connection.remoteAddress, parts });
             res.status(403)
-                .header('WWW-Authenticate', 'Basic realm="User Visible Realm", charset="UTF-8')
-                .header('Content-Type', 'application/json; charset=utf-8')
+                .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
+                .header("Content-Type", "application/json; charset=utf-8")
 
-                .json({ errors: [{ code: 'DENIED', message: 'token expired', detail: 'null' }] })
+                .json({ errors: [{ code: "DENIED", message: "token expired", detail: "null" }] })
                 .end();
             return null;
         }
 
         res.status(401)
-            .header('WWW-Authenticate', 'Basic realm="User Visible Realm", charset="UTF-8')
-            .header('Content-Type', 'application/json; charset=utf-8')
+            .header("WWW-Authenticate", 'Basic realm="User Visible Realm", charset="UTF-8')
+            .header("Content-Type", "application/json; charset=utf-8")
 
             .json({
                 errors: [
-                    { code: 'UNAUTHORIZED', message: 'authentication required', detail: 'null' },
+                    { code: "UNAUTHORIZED", message: "authentication required", detail: "null" },
                 ],
             })
             .end();
@@ -216,12 +216,12 @@ class Docker {
             const user = await this.checkAuth(req, res, false);
             if (user === null) return;
 
-            const p = req.url.split('?')[0].split('/');
+            const p = req.url.split("?")[0].split("/");
             // GET /docker/images/image
-            if (p.length == 4 && p[0] == '' && p[1] == 'docker' && p[2] == 'images') {
+            if (p.length === 4 && p[0] === "" && p[1] === "docker" && p[2] === "images") {
                 const images: DockerImageTag[] = [];
                 const q =
-                    'SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`';
+                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`";
                 for (const row of await db.all(q, p[3])) {
                     images.push({
                         id: row.id,
@@ -231,18 +231,18 @@ class Docker {
                         user: row.user,
                         time: row.time,
                         pin: row.pin,
-                        labels: JSON.parse(row.labels || '{}'),
+                        labels: JSON.parse(row.labels || "{}"),
                         removed: row.removed,
                     });
                 }
-                res.header('Content-Type', 'application/json; charset=utf-8')
+                res.header("Content-Type", "application/json; charset=utf-8")
                     .json({ images: images })
                     .end();
             } else {
                 res.status(404).end();
             }
         } catch (e) {
-            console.error('EXCEPTION', { e });
+            console.error("EXCEPTION", { e });
             res.status(500).end();
         }
     }
@@ -251,41 +251,47 @@ class Docker {
         try {
             const token = req.query.token;
             if (!token || token !== config.usedImagesToken) {
-                console.error('access error');
+                console.error("access error");
                 res.status(403).end();
                 return;
             }
-            const re = new RegExp('^([^/]*)/([^/@:]*)@(sha256:[a-fA-F0-9]*)$');
+            const re = /^([^\/]*)\/([^\/@:]*)@(sha256:[a-fA-F0-9]*)$/;
             const time = +new Date() / 1000;
             for (const image of req.body.images) {
                 const match = re.exec(image);
                 if (!match) continue;
 
-                await db.run('UPDATE `docker_images` SET `used`=? WHERE `hash`=?', time, match[3]);
+                await db.run("UPDATE `docker_images` SET `used`=? WHERE `hash`=?", time, match[3]);
             }
             res.status(200).end();
         } catch (e) {
             console.error(e, (e as any).stack);
-            console.error('EXCEPTION', { e });
+            console.error("EXCEPTION", { e });
             res.status(500).end();
         }
     }
 
     async get(req: express.Request, res: express.Response) {
-        res.header('Docker-Distribution-Api-Version', 'registry/2.0');
+        res.header("Docker-Distribution-Api-Version", "registry/2.0");
         const user = await this.checkAuth(req, res, false);
         if (user === null) return;
 
-        const p = req.url.split('?')[0].split('/');
+        const p = req.url.split("?")[0].split("/");
 
         // GET /v2/ Base Check that the endpoint implements Docker Registry API V2.
-        if (req.url == '/v2/') {
+        if (req.url === "/v2/") {
             res.status(200).end();
             return;
         }
 
         // GET /v2/<name>/blobs/uploads/<uuid> Blob Upload Retrieve status of upload identified by uuid. The primary purpose of this endpoint is to resolve the current status of a resumable upload.
-        if (p.length == 5 && p[0] == '' && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
+        if (
+            p.length === 5 &&
+            p[0] === "" &&
+            p[1] === "v2" &&
+            p[3] === "blobs" &&
+            p[4] === "uploads"
+        ) {
             const un = p[5];
             const u = this.activeUploads.get(un);
             if (!u) {
@@ -294,19 +300,19 @@ class Docker {
                 return;
             }
 
-            res.setHeader('Location', req.url);
-            res.setHeader('Range', '0-' + (u.count.value - 1));
-            res.setHeader('Docker-Upload-UUID', un);
+            res.setHeader("Location", req.url);
+            res.setHeader("Range", `0-${u.count.value - 1}`);
+            res.setHeader("Docker-Upload-UUID", un);
             res.status(202);
             res.end();
             return;
         }
 
         // GET /v2/<name>/blobs/<digest> Blob Retrieve the blob from the registry identified by digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
-        if (p.length == 5 && p[0] == '' && p[1] == 'v2' && p[3] == 'blobs') {
+        if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "blobs") {
             const digest = p[4];
             if (!HASH_PATTERN.test(digest)) {
-                console.error('Docker get blob: bad name', { digest });
+                console.error("Docker get blob: bad name", { digest });
                 res.status(400).end();
                 return;
             }
@@ -319,23 +325,23 @@ class Docker {
 
             res.sendFile(path, {
                 headers: {
-                    'Docker-Content-Digest': digest,
-                    'Content-Type': 'application/octet-stream',
+                    "Docker-Content-Digest": digest,
+                    "Content-Type": "application/octet-stream",
                 },
             });
             return;
         }
 
         // GET 	/v2/<name>/manifests/<reference> Manifest Fetch the manifest identified by name and reference where reference can be a tag or digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
-        if (p.length == 5 && p[0] == '' && p[1] == 'v2' && p[3] == 'manifests') {
+        if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "manifests") {
             const row = await db.get(
-                'SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1',
+                "SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
                 p[2],
                 p[4],
                 p[4],
             );
             if (!row) {
-                console.error('Docker get manifest: not found', {
+                console.error("Docker get manifest: not found", {
                     project: p[2],
                     identifier: p[4],
                 });
@@ -343,15 +349,15 @@ class Docker {
                 return;
             }
             // console.log("Docker get manifest", {row: row['hash']});
-            res.header('Content-Type', 'application/vnd.docker.distribution.manifest.v2+json');
-            res.send(row['manifest']).end();
+            res.header("Content-Type", "application/vnd.docker.distribution.manifest.v2+json");
+            res.send(row.manifest).end();
             return;
         }
 
         //TODO
         // GET /v2/<name>/tags/list Tags Fetch the tags under the repository identified by name.
         // GET /v2/_catalog	Catalog	Retrieve a sorted, json list of repositories available in the registry.
-        console.log('Docker unhandled get', { url: req.url, params: req.params });
+        console.log("Docker unhandled get", { url: req.url, params: req.params });
         res.status(404).end();
     }
 
@@ -360,8 +366,8 @@ class Docker {
             req.pipe(upload.count, { end: final });
             req.pipe(upload.hash, { end: final });
             req.pipe(upload.writer, { end: final });
-            req.on('end', resolve);
-            req.on('error', reject);
+            req.on("end", resolve);
+            req.on("error", reject);
         });
     }
 
@@ -369,39 +375,39 @@ class Docker {
         try {
             return await this.putInner(req, res);
         } catch (e) {
-            console.error('Uncaught exception in docker.put', e);
+            console.error("Uncaught exception in docker.put", e);
             res.status(500).end();
         }
     }
 
     async putInner(req: express.Request, res: express.Response) {
-        res.header('Docker-Distribution-Api-Version', 'registry/2.0');
+        res.header("Docker-Distribution-Api-Version", "registry/2.0");
         const user = await this.checkAuth(req, res, true);
-        if (user === null || user === 'docker_client') return;
+        if (user === null || user === "docker_client") return;
 
-        const p = req.url.split('?')[0].split('/');
+        const p = req.url.split("?")[0].split("/");
 
         // PUT /v2/<name>/blobs/uploads/<uuid> Blob Upload Complete the upload specified by uuid, optionally appending the body as the final chunk.
-        if (p.length == 6 && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
+        if (p.length === 6 && p[1] === "v2" && p[3] === "blobs" && p[4] === "uploads") {
             const un = p[5];
             const u = this.activeUploads.get(un);
             if (!u) {
-                console.error('Docker put blob: missing', { uuid: un });
+                console.error("Docker put blob: missing", { uuid: un });
                 res.status(404).end();
                 return;
             }
 
             const start_size = u.count.value;
-            const cl = req.headers['content-length'];
+            const cl = req.headers["content-length"];
             let expected_size: number | undefined = undefined;
-            if (cl != undefined) {
+            if (cl !== undefined) {
                 expected_size = +cl;
             }
-            const cr = req.headers['content-range'];
-            if (cr != undefined) {
-                const [start, end] = cr.split('-').map((v) => +v);
-                if (start != start_size) {
-                    console.error('Uploaded chunk not at end of', {
+            const cr = req.headers["content-range"];
+            if (cr !== undefined) {
+                const [start, end] = cr.split("-").map((v) => +v);
+                if (start !== start_size) {
+                    console.error("Uploaded chunk not at end of", {
                         uuid,
                         start,
                         start_size,
@@ -409,9 +415,9 @@ class Docker {
                     });
                     res.status(500).end();
                 }
-                if (expected_size != undefined) {
-                    if (end - start != expected_size) {
-                        console.error('Inconsistent content-range and content-length', {
+                if (expected_size !== undefined) {
+                    if (end - start !== expected_size) {
+                        console.error("Inconsistent content-range and content-length", {
                             uuid,
                             start,
                             end,
@@ -430,9 +436,9 @@ class Docker {
             await this.handleUpload(req, u, true);
             const digest = req.query.digest;
 
-            if (expected_size != undefined) {
-                if (u.count.value != start_size + expected_size) {
-                    console.error('Uploaded bytes does not match expected size', {
+            if (expected_size !== undefined) {
+                if (u.count.value !== start_size + expected_size) {
+                    console.error("Uploaded bytes does not match expected size", {
                         uuid,
                         recieved: u.count.value - start_size,
                         expected_size,
@@ -443,35 +449,37 @@ class Docker {
                 }
             }
 
-            const actual_digest = 'sha256:' + u.hash.digest('hex');
+            const actual_digest = `sha256:${u.hash.digest("hex")}`;
 
-            if (digest != actual_digest) {
-                console.error('Invalid digest of uploaded chunk', { uuid, digest, actual_digest });
+            if (digest !== actual_digest) {
+                console.error("Invalid digest of uploaded chunk", { uuid, digest, actual_digest });
                 res.status(400).end();
                 return;
             }
             //console.log("Docker put blob", {uuid: un, total_size: u.count.value, expected_size, content_length: cl, contest_range: cr, digest});
 
             fs.renameSync(docker_upload_path + un, docker_blobs_path + digest);
-            res.setHeader('Location', '/v2/' + p[2] + '/blobs/' + digest);
+            res.setHeader("Location", `/v2/${p[2]}/blobs/${digest}`);
             //res.setHeader("Range", "0-"+u.count.value);
-            res.setHeader('Content-Length', '0');
-            res.setHeader('Docker-Content-Digest', digest as string);
+            res.setHeader("Content-Length", "0");
+            res.setHeader("Docker-Content-Digest", digest as string);
             res.statusCode = 201;
-            res.statusMessage = 'Created';
+            res.statusMessage = "Created";
             res.end();
             return;
         }
 
         // PUT /v2/<name>/manifests/<reference> Manifest Put the manifest identified by name and reference where reference can be a tag or digest.
-        if (p.length == 5 && p[0] == '' && p[1] == 'v2' && p[3] == 'manifests') {
-            req.setEncoding('utf-8');
-            let content = '';
-            req.on('data', (chunk) => (content += chunk));
+        if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "manifests") {
+            req.setEncoding("utf-8");
+            let content = "";
+            req.on("data", (chunk) => {
+                content += chunk;
+            });
 
             await new Promise((acc, rej) => {
-                req.on('end', acc);
-                req.on('error', rej);
+                req.on("end", acc);
+                req.on("error", rej);
             });
 
             // console.log("Docker put manifest", {name: p[2], reference: p[4]});
@@ -483,12 +491,12 @@ class Docker {
             for (const layer of manifest.layers) {
                 const { digest, size, mediaType } = layer;
                 if (!HASH_PATTERN.test(digest)) {
-                    console.error('Docker put manifest: bad layer digest', { digest });
+                    console.error("Docker put manifest: bad layer digest", { digest });
                     res.status(400).end();
                     return;
                 }
-                if (mediaType != 'application/vnd.docker.image.rootfs.diff.tar.gzip') {
-                    console.error('Docker put manifest: layer has invalid media type media type', {
+                if (mediaType !== "application/vnd.docker.image.rootfs.diff.tar.gzip") {
+                    console.error("Docker put manifest: layer has invalid media type media type", {
                         digest,
                         mediaType,
                     });
@@ -505,8 +513,8 @@ class Docker {
                             resolve(stat);
                         });
                     });
-                    if (s.size != size) {
-                        console.error('Docker put manifest: layer has wrong size', {
+                    if (s.size !== size) {
+                        console.error("Docker put manifest: layer has wrong size", {
                             digest,
                             diskSize: s.size,
                             manifestSize: size,
@@ -515,7 +523,7 @@ class Docker {
                         return;
                     }
                 } catch (e) {
-                    console.error('Docker put manifest: layer digest does not exist', { digest });
+                    console.error("Docker put manifest: layer digest does not exist", { digest });
                     res.status(400).end();
                     return;
                 }
@@ -525,30 +533,30 @@ class Docker {
             // Read config
             const configDigest = manifest.config.digest;
             if (!HASH_PATTERN.test(configDigest)) {
-                console.error('Docker put manifest: bad config digest', configDigest);
+                console.error("Docker put manifest: bad config digest", configDigest);
                 res.status(400).end();
                 return;
             }
             const configString = fs.readFileSync(docker_blobs_path + configDigest, {
-                encoding: 'utf-8',
+                encoding: "utf-8",
             });
             const config = JSON.parse(configString);
             const labels = config.config.Labels || {};
             const labelsString = JSON.stringify(labels);
 
-            const hash = crypto.createHash('sha256');
-            hash.update(content, 'utf8');
-            const h = 'sha256:' + hash.digest('hex');
+            const hash = crypto.createHash("sha256");
+            hash.update(content, "utf8");
+            const h = `sha256:${hash.digest("hex")}`;
 
             await db.run(
-                'DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?',
+                "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
                 p[2],
                 p[4],
                 h,
             );
             const time = +new Date() / 1000;
             const id = await db.insert(
-                'INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`, `pin`, `labels`) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
+                "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`, `pin`, `labels`) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
                 p[2],
                 p[4],
                 content,
@@ -577,50 +585,50 @@ class Docker {
             });
 
             res.status(201)
-                .header('Location', '/v2/' + p[2] + '/manifests/' + h)
-                .header('Content-Length', '0')
-                .header('Docker-Content-Digest', h)
+                .header("Location", `/v2/${p[2]}/manifests/${h}`)
+                .header("Content-Length", "0")
+                .header("Docker-Content-Digest", h)
                 .end();
             return;
         }
 
-        console.log('Docker unhandled put', { url: req.url });
+        console.log("Docker unhandled put", { url: req.url });
         res.status(404).end();
     }
 
     async patch(req: express.Request, res: express.Response) {
-        res.header('Docker-Distribution-Api-Version', 'registry/2.0');
+        res.header("Docker-Distribution-Api-Version", "registry/2.0");
         const user = await this.checkAuth(req, res, true);
-        if (user === null || user === 'docker_client') return;
+        if (user === null || user === "docker_client") return;
 
-        const p = req.url.split('?')[0].split('/');
+        const p = req.url.split("?")[0].split("/");
 
         // PATCH /v2/<name>/blobs/uploads/<uuid> Blob Upload Upload a chunk of data for the specified upload.
-        if (p.length == 6 && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
+        if (p.length === 6 && p[1] === "v2" && p[3] === "blobs" && p[4] === "uploads") {
             const uuid = p[5];
             const u = this.activeUploads.get(uuid);
             if (!u) {
-                console.error('Docker patch blob: missing', { uuid });
+                console.error("Docker patch blob: missing", { uuid });
                 res.status(404).end();
                 return;
             }
             const start_size = u.count.value;
 
-            const cl = req.headers['content-length'];
+            const cl = req.headers["content-length"];
             let expected_size: number | undefined = undefined;
-            if (cl != undefined) {
+            if (cl !== undefined) {
                 expected_size = +cl;
             }
-            const cr = req.headers['content-range'];
-            if (cr != undefined) {
-                const [start, end] = cr.split('-').map((v) => +v);
-                if (start != start_size) {
-                    console.error('Uploaded chunk not at end of', { uuid, start, start_size });
+            const cr = req.headers["content-range"];
+            if (cr !== undefined) {
+                const [start, end] = cr.split("-").map((v) => +v);
+                if (start !== start_size) {
+                    console.error("Uploaded chunk not at end of", { uuid, start, start_size });
                     res.status(500).end();
                 }
-                if (expected_size != undefined) {
-                    if (end - start != expected_size) {
-                        console.error('Inconsistent content-range and content-length', {
+                if (expected_size !== undefined) {
+                    if (end - start !== expected_size) {
+                        console.error("Inconsistent content-range and content-length", {
                             uuid,
                             start,
                             end,
@@ -634,9 +642,9 @@ class Docker {
             }
 
             await this.handleUpload(req, u, false);
-            if (expected_size != undefined) {
-                if (u.count.value != start_size + expected_size) {
-                    console.error('Uploaded bytes does not match expected size', {
+            if (expected_size !== undefined) {
+                if (u.count.value !== start_size + expected_size) {
+                    console.error("Uploaded bytes does not match expected size", {
                         uuid,
                         recieved: u.count.value - start_size,
                         expected_size,
@@ -648,53 +656,53 @@ class Docker {
 
             //console.log("Docker patch", {uuid, uploaded: u.count.value, content_length: cl, content_range: cr });
 
-            res.setHeader('Location', req.url);
-            res.setHeader('Range', '0-' + (u.count.value - 1));
-            res.setHeader('Content-Length', '0');
-            res.setHeader('Docker-Upload-UUID', uuid);
+            res.setHeader("Location", req.url);
+            res.setHeader("Range", `0-${u.count.value - 1}`);
+            res.setHeader("Content-Length", "0");
+            res.setHeader("Docker-Upload-UUID", uuid);
             res.status(202);
             res.end();
             return;
         }
 
-        console.log('Docker unhandled patch', { url: req.url });
+        console.log("Docker unhandled patch", { url: req.url });
         res.status(404).end();
     }
 
     async post(req: express.Request, res: express.Response) {
-        res.header('Docker-Distribution-Api-Version', 'registry/2.0');
+        res.header("Docker-Distribution-Api-Version", "registry/2.0");
         const user = await this.checkAuth(req, res, true);
-        if (user === null || user === 'docker_client') return;
+        if (user === null || user === "docker_client") return;
 
-        const p = req.url.split('?')[0].split('/');
+        const p = req.url.split("?")[0].split("/");
 
         // POST	/v2/<name>/blobs/uploads/ Initiate Blob Upload Initiate a resumable blob upload. If successful, an upload location will be provided to complete the upload. Optionally, if the digest parameter is present, the request body will be used to complete the upload in a single request.
-        if (p.length >= 5 && p[1] == 'v2' && p[3] == 'blobs' && p[4] == 'uploads') {
+        if (p.length >= 5 && p[1] === "v2" && p[3] === "blobs" && p[4] === "uploads") {
             const u = uuid();
             this.activeUploads.set(u, new Upload(u));
-            res.setHeader('Content-Length', '0');
-            res.setHeader('Location', '/v2/' + p[2] + '/blobs/uploads/' + u);
-            res.setHeader('Range', '0-0');
-            res.setHeader('Docker-Upload-UUID', u);
+            res.setHeader("Content-Length", "0");
+            res.setHeader("Location", `/v2/${p[2]}/blobs/uploads/${u}`);
+            res.setHeader("Range", "0-0");
+            res.setHeader("Docker-Upload-UUID", u);
             res.statusCode = 202;
-            res.statusMessage = 'Accepted';
+            res.statusMessage = "Accepted";
             res.end();
             //console.log("Docker post", {uuid: u});
             return;
         }
 
-        console.log('Docker unhandled post', { url: req.url });
+        console.log("Docker unhandled post", { url: req.url });
         res.status(404).end();
     }
 
     async delete(req: express.Request, res: express.Response) {
-        res.header('Docker-Distribution-Api-Version', 'registry/2.0');
+        res.header("Docker-Distribution-Api-Version", "registry/2.0");
         const user = await this.checkAuth(req, res, true);
-        if (user === null || user === 'docker_client') return;
+        if (user === null || user === "docker_client") return;
         // DELETE /v2/<name>/manifests/<reference> Manifest	Delete the manifest identified by name and reference. Note that a manifest can only be deleted by digest.
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
-        console.log('Docker unhandled delete', { url: req.url });
+        console.log("Docker unhandled delete", { url: req.url });
         res.status(404).end();
     }
 
@@ -720,47 +728,44 @@ class Docker {
     ): Promise<void> {
         return new Promise((accept, reject) => {
             const pyStr = (v: string | null) => {
-                if (v === null) return 'None';
+                if (v === null) return "None";
                 return JSON.stringify(v);
             };
 
             const dockerConf: any = { auths: {} };
             dockerConf.auths[config.hostname] = {
-                auth: Buffer.from('docker_client:' + session).toString('base64'),
+                auth: Buffer.from(`docker_client:${session}`).toString("base64"),
             };
 
             const envs: string[] = [];
             client.sendMessage({
                 type: ACTION.DockerDeployLog,
                 ref,
-                message: 'Deploying image ' + hash,
+                message: `Deploying image ${hash}`,
             });
-            conf = '-e DOCKER_HASH="' + hash + '"\n' + conf;
-            const args = shellQuote.parse(conf.split('\n').join(' ')).map((i) => '' + i);
-            if (!args.includes('IMAGE')) args.push('IMAGE');
-            const deployImage = config.hostname + '/' + image + '@' + hash;
+            conf = `-e DOCKER_HASH="${hash}"\n${conf}`;
+            const args = shellQuote.parse(conf.split("\n").join(" ")).map((i) => `${i}`);
+            if (!args.includes("IMAGE")) args.push("IMAGE");
+            const deployImage = `${config.hostname}/${image}@${hash}`;
 
-            const theDocker = usePodman ? 'podman' : 'docker';
+            const theDocker = usePodman ? "podman" : "docker";
             const o: string[] = [];
             if (usePodman) {
-                o.push(pyStr('podman'), pyStr('create'), pyStr('--authfile'), 'cf');
+                o.push(pyStr("podman"), pyStr("create"), pyStr("--authfile"), "cf");
             } else {
-                o.push(pyStr('docker'), pyStr('--config'), 't', pyStr('run'), pyStr('-d'));
+                o.push(pyStr("docker"), pyStr("--config"), "t", pyStr("run"), pyStr("-d"));
             }
-            o.push(pyStr('--name'), pyStr(container));
+            o.push(pyStr("--name"), pyStr(container));
             for (let i = 0; i < args.length; ++i) {
-                if (args[i] == 'IMAGE') {
+                if (args[i] === "IMAGE") {
                     o.push(pyStr(deployImage));
-                } else if (args[i] == '-e') {
+                } else if (args[i] === "-e") {
                     ++i;
                     o.push("'-e'");
-                    const parts = args[i].toString().split('=');
+                    const parts = args[i].toString().split("=");
                     if (parts.length >= 2)
                         envs.push(
-                            '    os.environ[' +
-                                pyStr(parts[0]) +
-                                '] = ' +
-                                pyStr(parts.slice(1).join('=')),
+                            `    os.environ[${pyStr(parts[0])}] = ${pyStr(parts.slice(1).join("="))}`,
                         );
                     o.push(pyStr(parts[0]));
                 } else {
@@ -774,9 +779,9 @@ started_ok = False
 container = ${pyStr(container)}
 setup = ${pyStr(setup)}
 postSetup = ${pyStr(postSetup)}
-softTakeover = ${softTakeover ? 'True' : 'False'}
-usePodman = ${usePodman ? 'True' : 'False'}
-startMagic = ${startMagic ? pyStr(startMagic) : pyStr('started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N')}.encode("utf-8")
+softTakeover = ${softTakeover ? "True" : "False"}
+usePodman = ${usePodman ? "True" : "False"}
+startMagic = ${startMagic ? pyStr(startMagic) : pyStr("started HgWiE0XJQKoFzmEzLuR9Tv0bcyWK0AR7N")}.encode("utf-8")
 async def passthrough(i, o):
     global started_ok
     while not i.at_eof():
@@ -839,8 +844,8 @@ try:
         sys.stdout.flush()
         subprocess.call([${pyStr(theDocker)}, 'rm', container])
 
-${envs.join('\n')}
-    runArgs = [${o.join(', ')}]
+${envs.join("\n")}
+    runArgs = [${o.join(", ")}]
     runArgs2 = []
     it = iter(runArgs)
     for arg in it:
@@ -873,21 +878,21 @@ finally:
 `;
 
             class DockerJob extends Job {
-                stdoutPart: string = '';
-                stderrPart: string = '';
+                stdoutPart = "";
+                stderrPart = "";
 
                 constructor() {
                     super(host, null, host);
                     const msg: message.RunScript = {
-                        type: 'run_script',
+                        type: "run_script",
                         id: this.id,
-                        name: 'docker_deploy.py',
-                        interperter: '/usr/bin/python3',
+                        name: "docker_deploy.py",
+                        interperter: "/usr/bin/python3",
                         content: script,
                         args: [],
-                        stdin_type: 'none',
-                        stdout_type: 'binary',
-                        stderr_type: 'binary',
+                        stdin_type: "none",
+                        stdout_type: "binary",
+                        stderr_type: "binary",
                     };
                     host.sendMessage(msg);
                     this.running = true;
@@ -896,19 +901,19 @@ finally:
                 handleMessage(obj: message.Incomming) {
                     super.handleMessage(obj);
                     switch (obj.type) {
-                        case 'data':
-                            if (obj.source == 'stdout' || obj.source == 'stderr')
+                        case "data":
+                            if (obj.source === "stdout" || obj.source === "stderr")
                                 client.sendMessage({
                                     type: ACTION.DockerDeployLog,
                                     ref,
-                                    message: Buffer.from(obj.data, 'base64').toString('binary'),
+                                    message: Buffer.from(obj.data, "base64").toString("binary"),
                                 });
                             break;
-                        case 'success':
-                            if (obj.code == 0) accept();
+                        case "success":
+                            if (obj.code === 0) accept();
                             else reject();
                             break;
-                        case 'failure':
+                        case "failure":
                             reject();
                             break;
                     }
@@ -919,13 +924,13 @@ finally:
     }
 
     async findImage(id: string) {
-        if (id.includes('@')) {
-            const p = id.split('@');
+        if (id.includes("@")) {
+            const p = id.split("@");
             const image = p[0];
             const reference = p[1];
             let hash: string | null = null;
             for (const row of await db.all(
-                'SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `hash`=? ORDER BY `time` DESC LIMIT 1',
+                "SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `hash`=? ORDER BY `time` DESC LIMIT 1",
                 image,
                 reference,
             )) {
@@ -933,12 +938,12 @@ finally:
             }
             return { image, hash };
         }
-        const p = id.split(':');
+        const p = id.split(":");
         const image = p[0];
-        const reference = p[1] || 'latest';
+        const reference = p[1] || "latest";
         let hash: string | null = null;
         for (const row of await db.all(
-            'SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `tag`=? ORDER BY `time` DESC LIMIT 1',
+            "SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `tag`=? ORDER BY `time` DESC LIMIT 1",
             image,
             reference,
         )) {
@@ -949,20 +954,20 @@ finally:
 
     async deploy(client: WebClient, act: IDockerDeployStart) {
         try {
-            console.log('Docker deploy start', { ref: act.ref });
+            console.log("Docker deploy start", { ref: act.ref });
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
-                if (cl.hostname == act.host || cl.id == act.host) host = cl;
+                if (cl.hostname === act.host || cl.id === act.host) host = cl;
             }
-            const user = nullCheck(client.auth.user, 'Missing user');
+            const user = nullCheck(client.auth.user, "Missing user");
 
             if (!host || !host.id) {
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
                     ref: act.ref,
                     status: false,
-                    message: 'Invalid hostname or host is not up',
+                    message: "Invalid hostname or host is not up",
                 });
                 return;
             }
@@ -974,14 +979,14 @@ finally:
                     type: ACTION.DockerDeployDone,
                     ref: act.ref,
                     status: false,
-                    message: 'Could not find image to deploy',
+                    message: "Could not find image to deploy",
                 });
                 return;
             }
 
             const container = act.container || image;
             const oldDeploy = await db.get(
-                'SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `usePodman` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1',
+                "SELECT `id`, `config`, `hash`, `endTime`, `setup`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `usePodman` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
                 host.id,
                 image,
                 container,
@@ -999,16 +1004,16 @@ finally:
             let usePodman = false;
             if (act.config) {
                 const configRow = await db.get(
-                    'SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226',
+                    "SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226",
                     act.config,
                 );
                 const hostRow = await db.get(
-                    'SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?',
+                    "SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
                     host.id,
                     hostId,
                 );
                 const rootRow = await db.get(
-                    'SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?',
+                    "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
                     rootInstanceId,
                     rootId,
                 );
@@ -1017,7 +1022,7 @@ finally:
                         type: ACTION.DockerDeployDone,
                         ref: act.ref,
                         status: false,
-                        message: 'Could not find specified config ' + act.config,
+                        message: `Could not find specified config ${act.config}`,
                     });
                     return;
                 }
@@ -1026,7 +1031,7 @@ finally:
                         type: ACTION.DockerDeployDone,
                         ref: act.ref,
                         status: false,
-                        message: 'Could not find root or host',
+                        message: "Could not find root or host",
                     });
                     return;
                 }
@@ -1035,11 +1040,11 @@ finally:
                 const variables: { [key: string]: string } = {};
                 for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                     variables[v.key] = v.value;
-                variables['nodename'] = hostRow.name;
+                variables.nodename = hostRow.name;
                 for (const v of hostInfo.variables) variables[v.key] = v.value;
 
                 for (let i = 0; i < 10; ++i)
-                    variables['token_' + i] = crypto.randomBytes(24).toString('base64url');
+                    variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");
 
                 const content = JSON.parse(configRow.content);
 
@@ -1067,32 +1072,24 @@ finally:
                         const my_key = await crt.generate_key();
                         const my_srs = await crt.generate_srs(
                             my_key,
-                            ssl_identity + '.' + ssl_service,
+                            `${ssl_identity}.${ssl_service}`,
                         );
-                        if (!this.ca_key || !this.ca_crt) throw Error('Logic error');
+                        if (!this.ca_key || !this.ca_crt) throw Error("Logic error");
                         const my_crt = await crt.generate_crt(
                             this.ca_key,
                             this.ca_crt,
                             my_srs,
                             ssl_subcerts,
                         );
-                        variables['ca_pem'] = crt.strip(this.ca_crt);
-                        variables['ssl_key'] = crt.strip(my_key);
-                        variables['ssl_pem'] = crt.strip(my_crt);
-                        if (!raw_conf.includes('{{{ca_pem}}}'))
-                            raw_conf = '-e CA_PEM={{{ca_pem}}}\n' + raw_conf;
-                        if (!raw_conf.includes('{{{ssl_key}}}'))
-                            raw_conf =
-                                '-e ' +
-                                ssl_service.toUpperCase() +
-                                '_KEY={{{ssl_key}}}\n' +
-                                raw_conf;
-                        if (!raw_conf.includes('{{{ssl_pem}}}'))
-                            raw_conf =
-                                '-e ' +
-                                ssl_service.toUpperCase() +
-                                '_PEM={{{ssl_pem}}}\n' +
-                                raw_conf;
+                        variables.ca_pem = crt.strip(this.ca_crt);
+                        variables.ssl_key = crt.strip(my_key);
+                        variables.ssl_pem = crt.strip(my_crt);
+                        if (!raw_conf.includes("{{{ca_pem}}}"))
+                            raw_conf = `-e CA_PEM={{{ca_pem}}}\n${raw_conf}`;
+                        if (!raw_conf.includes("{{{ssl_key}}}"))
+                            raw_conf = `-e ${ssl_service.toUpperCase()}_KEY={{{ssl_key}}}\n${raw_conf}`;
+                        if (!raw_conf.includes("{{{ssl_pem}}}"))
+                            raw_conf = `-e ${ssl_service.toUpperCase()}_PEM={{{ssl_pem}}}\n${raw_conf}`;
                     }
                 }
                 conf = Mustache.render(raw_conf, variables);
@@ -1115,20 +1112,20 @@ finally:
                     ref: act.ref,
                     status: false,
                     message:
-                        'Config not supplied and no old deployment found to copy the config from',
+                        "Config not supplied and no old deployment found to copy the config from",
                 });
                 return;
             }
-            if (!conf) throw Error('Missing config');
+            if (!conf) throw Error("Missing config");
 
             const now = (Date.now() / 1000) | 0;
-            const session = crypto.randomBytes(64).toString('hex');
+            const session = crypto.randomBytes(64).toString("hex");
 
             try {
                 await db.run(
-                    'INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)',
-                    'docker_client',
-                    '',
+                    "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
+                    "docker_client",
+                    "",
                     now,
                     now,
                     session,
@@ -1185,7 +1182,7 @@ finally:
                         type: ACTION.DockerDeployDone,
                         ref: act.ref,
                         status: true,
-                        message: 'Success',
+                        message: "Success",
                     });
 
                     const ddi = this.delayedDeploymentInformations.get(id);
@@ -1196,15 +1193,15 @@ finally:
                         type: ACTION.DockerDeployDone,
                         ref: act.ref,
                         status: false,
-                        message: 'Deployment failed',
+                        message: "Deployment failed",
                     });
-                    console.error('Deployment failed', e);
+                    console.error("Deployment failed", e);
 
                     if (act.restoreOnFailure && oldDeploy) {
                         client.sendMessage({
                             type: ACTION.DockerDeployLog,
                             ref: act.ref,
-                            message: 'Deployment failed attempting to redeploy old',
+                            message: "Deployment failed attempting to redeploy old",
                         });
                         try {
                             const id = this.idc++;
@@ -1263,8 +1260,8 @@ finally:
                 }
             } finally {
                 await db.run(
-                    'DELETE FROM `sessions` WHERE `user`=? AND `sid`=?',
-                    'docker_client',
+                    "DELETE FROM `sessions` WHERE `user`=? AND `sid`=?",
+                    "docker_client",
                     session,
                 );
             }
@@ -1273,9 +1270,9 @@ finally:
                 type: ACTION.DockerDeployDone,
                 ref: act.ref,
                 status: false,
-                message: 'Deployment failed due to an exception',
+                message: "Deployment failed due to an exception",
             });
-            console.error('Deployment failed due to an exception', e);
+            console.error("Deployment failed due to an exception", e);
         }
     }
 
@@ -1291,13 +1288,13 @@ finally:
     ): Promise<void> {
         return new Promise((accept, reject) => {
             class ServiceDeployJob extends Job {
-                stdoutPart: string = '';
-                stderrPart: string = '';
+                stdoutPart = "";
+                stderrPart = "";
 
                 constructor() {
                     super(host, null, host);
                     const msg: message.DeployService = {
-                        type: 'deploy_service',
+                        type: "deploy_service",
                         id: this.id,
                         description,
                         extra_env,
@@ -1312,19 +1309,19 @@ finally:
                 handleMessage(obj: message.Incomming) {
                     super.handleMessage(obj);
                     switch (obj.type) {
-                        case 'data':
-                            if (obj.source == 'stdout' || obj.source == 'stderr')
+                        case "data":
+                            if (obj.source === "stdout" || obj.source === "stderr")
                                 client.sendMessage({
                                     type: ACTION.DockerDeployLog,
                                     ref,
-                                    message: Buffer.from(obj.data, 'base64').toString('binary'),
+                                    message: Buffer.from(obj.data, "base64").toString("binary"),
                                 });
                             break;
-                        case 'success':
-                            if (obj.code == 0) accept();
+                        case "success":
+                            if (obj.code === 0) accept();
                             else reject();
                             break;
-                        case 'failure':
+                        case "failure":
                             reject();
                             break;
                     }
@@ -1346,31 +1343,31 @@ finally:
         doTemplate: boolean,
     ) {
         try {
-            console.log('service deploy start', { ref: ref });
+            console.log("service deploy start", { ref: ref });
             let host: HostClient | null = null;
             for (const id in hostClients.hostClients) {
                 const cl = hostClients.hostClients[id];
-                if (cl.hostname == hostIdentifier || cl.id == hostIdentifier) host = cl;
+                if (cl.hostname === hostIdentifier || cl.id === hostIdentifier) host = cl;
             }
-            const user = nullCheck(client.auth.user, 'Missing user');
+            const user = nullCheck(client.auth.user, "Missing user");
 
             if (!host || !host.id) {
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
                     ref,
                     status: false,
-                    message: 'Invalid hostname or host is not up',
+                    message: "Invalid hostname or host is not up",
                 });
                 return;
             }
 
             const hostRow = await db.get(
-                'SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?',
+                "SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
                 host.id,
                 hostId,
             );
             const rootRow = await db.get(
-                'SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?',
+                "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
                 rootInstanceId,
                 rootId,
             );
@@ -1379,7 +1376,7 @@ finally:
                     type: ACTION.DockerDeployDone,
                     ref,
                     status: false,
-                    message: 'Could not find root or host',
+                    message: "Could not find root or host",
                 });
                 return;
             }
@@ -1387,17 +1384,17 @@ finally:
             const variables: { [key: string]: string } = {};
             for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
                 variables[v.key] = v.value;
-            variables['nodename'] = hostRow.name;
+            variables.nodename = hostRow.name;
             for (const v of hostInfo.variables) variables[v.key] = v.value;
             for (let i = 0; i < 10; ++i)
-                variables['token_' + i] = crypto.randomBytes(24).toString('base64url');
+                variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");
 
             const extraEnv: { [key: string]: string } = {};
 
-            if (descriptionTemplate.includes('ssl_service')) {
-                variables['ca_pem'] = 'TEMP';
-                variables['ssl_key'] = 'TEMP';
-                variables['ssl_pem'] = 'TEMP';
+            if (descriptionTemplate.includes("ssl_service")) {
+                variables.ca_pem = "TEMP";
+                variables.ssl_key = "TEMP";
+                variables.ssl_pem = "TEMP";
                 const description_str = doTemplate
                     ? Mustache.render(descriptionTemplate, variables)
                     : descriptionTemplate;
@@ -1419,9 +1416,9 @@ finally:
                     const my_key = await crt.generate_key();
                     const my_srs = await crt.generate_srs(
                         my_key,
-                        description.ssl_identity + '.' + description.ssl_service,
+                        `${description.ssl_identity}.${description.ssl_service}`,
                     );
-                    if (!this.ca_key || !this.ca_crt) throw Error('Logic error');
+                    if (!this.ca_key || !this.ca_crt) throw Error("Logic error");
 
                     let ssl_subcerts: string[];
                     if (description.ssl_subcert) {
@@ -1439,16 +1436,19 @@ finally:
                         my_srs,
                         ssl_subcerts,
                     );
-                    variables['ca_pem'] = crt.strip(this.ca_crt);
-                    variables['ssl_key'] = crt.strip(my_key);
-                    variables['ssl_pem'] = crt.strip(my_crt);
-                    extraEnv['CA_PEM'] = variables['ca_pem'];
-                    extraEnv[description.ssl_service.toUpperCase() + '_KEY'] = variables['ssl_key'];
-                    extraEnv[description.ssl_service.toUpperCase() + '_PEM'] = variables['ssl_pem'];
+                    variables.ca_pem = crt.strip(this.ca_crt);
+                    variables.ssl_key = crt.strip(my_key);
+                    variables.ssl_pem = crt.strip(my_crt);
+                    extraEnv.CA_PEM = variables.ca_pem;
+                    extraEnv[`${description.ssl_service.toUpperCase()}_KEY`] = variables.ssl_key;
+                    extraEnv[`${description.ssl_service.toUpperCase()}_PEM`] = variables.ssl_pem;
                 } else {
-                    delete variables['ca_pem'];
-                    delete variables['ssl_key'];
-                    delete variables['ssl_pem'];
+                    // biome-ignore lint/performance/noDelete: Does not type check
+                    delete variables.ca_pem;
+                    // biome-ignore lint/performance/noDelete: Does not type check
+                    delete variables.ssl_key;
+                    // biome-ignore lint/performance/noDelete: Does not type check
+                    delete variables.ssl_pem;
                 }
             }
 
@@ -1466,33 +1466,33 @@ finally:
                         type: ACTION.DockerDeployDone,
                         ref,
                         status: false,
-                        message: 'Could not find image to deploy',
+                        message: "Could not find image to deploy",
                     });
                     return;
                 }
                 project = p.image;
                 hash = p.hash;
-                image = project + '@' + hash;
-                if (description.project && description.project != project) {
-                    throw Error('Project and image does not match');
+                image = `${project}@${hash}`;
+                if (description.project && description.project !== project) {
+                    throw Error("Project and image does not match");
                 }
             } else {
-                if (!description.project) throw Error('Missing project in description');
+                if (!description.project) throw Error("Missing project in description");
                 project = description.project;
                 hash = null;
                 image = null;
             }
-            if (project == null) throw Error('Logic error');
+            if (project == null) throw Error("Logic error");
 
-            if (hash) extraEnv['DOCKER_HASH'] = hash;
+            if (hash) extraEnv.DOCKER_HASH = hash;
 
             const now = (Date.now() / 1000) | 0;
-            const session = crypto.randomBytes(64).toString('hex');
+            const session = crypto.randomBytes(64).toString("hex");
             try {
                 await db.run(
-                    'INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)',
-                    'docker_client',
-                    '',
+                    "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
+                    "docker_client",
+                    "",
                     now,
                     now,
                     session,
@@ -1502,7 +1502,7 @@ finally:
                     client,
                     host,
                     description_str,
-                    Buffer.from('docker_client:' + session).toString('base64'),
+                    Buffer.from(`docker_client:${session}`).toString("base64"),
                     image,
                     extraEnv,
                     ref,
@@ -1517,7 +1517,7 @@ finally:
                     container: name,
                     hash: hash,
                     user,
-                    config: '',
+                    config: "",
                     timeout: undefined,
                     start: now,
                     end: null,
@@ -1536,21 +1536,21 @@ finally:
                 };
 
                 const oldDeploy = await db.get(
-                    'SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1',
+                    "SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
                     host.id,
                     project,
                     name,
                 );
                 if (oldDeploy && !oldDeploy.endTime)
                     await db.run(
-                        'UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?',
+                        "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
                         o.start,
                         oldDeploy.id,
                     );
                 o.id = await db.insert(
-                    'INSERT INTO `docker_deployments` (' +
-                        '`project`, `container`, `host`, `startTime`, `hash`, `user`, `description`) ' +
-                        'VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    "INSERT INTO `docker_deployments` (" +
+                        "`project`, `container`, `host`, `startTime`, `hash`, `user`, `description`) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     o.image,
                     o.container,
                     o.host,
@@ -1563,14 +1563,14 @@ finally:
                     type: ACTION.DockerDeployDone,
                     ref,
                     status: true,
-                    message: 'Success',
+                    message: "Success",
                     id: o.id,
                 });
                 await this.broadcastDeploymentChange(o);
             } finally {
                 await db.run(
-                    'DELETE FROM `sessions` WHERE `user`=? AND `sid`=?',
-                    'docker_client',
+                    "DELETE FROM `sessions` WHERE `user`=? AND `sid`=?",
+                    "docker_client",
                     session,
                 );
             }
@@ -1579,15 +1579,15 @@ finally:
                 type: ACTION.DockerDeployDone,
                 ref,
                 status: false,
-                message: 'Deployment failed ',
+                message: "Deployment failed ",
             });
-            console.error('Service deployment failed', e);
+            console.error("Service deployment failed", e);
         }
     }
 
     async redeployService(client: WebClient, act: IServiceRedeployStart) {
         const deploymentRow = await db.get(
-            'SELECT * FROM `docker_deployments` WHERE `id`=?',
+            "SELECT * FROM `docker_deployments` WHERE `id`=?",
             act.deploymentId,
         );
         if (!deploymentRow) {
@@ -1595,7 +1595,7 @@ finally:
                 type: ACTION.DockerDeployDone,
                 ref: act.ref,
                 status: false,
-                message: 'Could not find deployment',
+                message: "Could not find deployment",
             });
             return;
         }
@@ -1605,7 +1605,7 @@ finally:
                 type: ACTION.DockerDeployDone,
                 ref: act.ref,
                 status: false,
-                message: 'Not an service deployment',
+                message: "Not an service deployment",
             });
             return;
         }
@@ -1616,7 +1616,7 @@ finally:
             deploymentRow.host,
             description,
             null,
-            deploymentRow.hash ? deploymentRow.project + '@' + deploymentRow.hash : null,
+            deploymentRow.hash ? `${deploymentRow.project}@${deploymentRow.hash}` : null,
             deploymentRow.hash,
             deploymentRow.project,
             false,
@@ -1639,12 +1639,10 @@ finally:
 
     async getTagsByHash(hashes: string[]) {
         const placeholders: string[] = [];
-        for (const _ of hashes) placeholders.push('?');
+        for (const _ of hashes) placeholders.push("?");
         const tagByHash: { [hash: string]: DockerImageTag } = {};
         for (const row of await db.all(
-            'SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `hash` IN (' +
-                placeholders.join(',') +
-                ')',
+            `SELECT \`id\`, \`hash\`, \`time\`, \`project\`, \`user\`, \`tag\`, \`pin\`, \`labels\`, \`removed\` FROM \`docker_images\` WHERE \`hash\` IN (${placeholders.join(",")})`,
             ...hashes,
         )) {
             tagByHash[row.hash] = {
@@ -1655,7 +1653,7 @@ finally:
                 user: row.user,
                 time: row.time,
                 pin: row.pin,
-                labels: JSON.parse(row.labels || '{}'),
+                labels: JSON.parse(row.labels || "{}"),
                 removed: row.removed,
             };
         }
@@ -1684,10 +1682,10 @@ finally:
         try {
             const hashes: string[] = [];
             for (const row of await db.all(
-                'SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)',
+                "SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)",
             )) {
-                if (act.host && row.host != act.host) continue;
-                if (act.image && row.project != act.image) continue;
+                if (act.host && row.host !== act.host) continue;
+                if (act.image && row.project !== act.image) continue;
                 hashes.push(row.hash);
                 res.deployments.push({
                     id: row.id,
@@ -1727,7 +1725,7 @@ finally:
         };
         try {
             for (const row of await db.all(
-                'SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)',
+                "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)",
                 +new Date() / 1000 - maxRemovedAge,
             ))
                 res.tags.push({
@@ -1738,10 +1736,10 @@ finally:
                     user: row.user,
                     time: row.time,
                     pin: row.pin,
-                    labels: JSON.parse(row.labels || '{}'),
+                    labels: JSON.parse(row.labels || "{}"),
                     removed: row.removed,
                 });
-            for (const row of await db.all('SELECT `project`, `tag` FROM `docker_image_tag_pins`'))
+            for (const row of await db.all("SELECT `project`, `tag` FROM `docker_image_tag_pins`"))
                 nullCheck(res.pinnedImageTags).push({
                     image: row.project,
                     tag: row.tag,
@@ -1762,7 +1760,7 @@ finally:
         try {
             const hashes: string[] = [];
             for (const row of await db.all(
-                'SELECT * FROM `docker_deployments` WHERE `host`=? AND `container` = ?',
+                "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container` = ?",
                 act.host,
                 act.name,
             )) {
@@ -1804,7 +1802,7 @@ finally:
         };
         try {
             for (const row of await db.all(
-                'SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?',
+                "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?",
                 act.tag,
                 act.image,
             ))
@@ -1816,7 +1814,7 @@ finally:
                     user: row.user,
                     time: row.time,
                     pin: row.pin,
-                    labels: JSON.parse(row.labels || '{}'),
+                    labels: JSON.parse(row.labels || "{}"),
                     removed: row.removed,
                 });
         } finally {
@@ -1825,7 +1823,7 @@ finally:
     }
 
     async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
-        await db.run('UPDATE `docker_images` SET pin=? WHERE `id`=?', act.pin ? 1 : 0, act.id);
+        await db.run("UPDATE `docker_images` SET pin=? WHERE `id`=?", act.pin ? 1 : 0, act.id);
         const res: IDockerImageTagsCharged = {
             type: ACTION.DockerListImageTagsChanged,
             changed: [],
@@ -1833,7 +1831,7 @@ finally:
         };
 
         for (const row of await db.all(
-            'SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?',
+            "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?",
             act.id,
         ))
             res.changed.push({
@@ -1844,7 +1842,7 @@ finally:
                 user: row.user,
                 time: row.time,
                 pin: row.pin,
-                labels: JSON.parse(row.labels || '{}'),
+                labels: JSON.parse(row.labels || "{}"),
                 removed: row.removed,
             });
         webClients.broadcast(res);
@@ -1853,13 +1851,13 @@ finally:
     async imageTagSetPin(client: WebClient, act: IDockerImageTagSetPin) {
         if (act.pin)
             await db.run(
-                'INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)',
+                "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
                 act.image,
                 act.tag,
             );
         else
             await db.run(
-                'DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?',
+                "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
                 act.image,
                 act.tag,
             );
@@ -1904,34 +1902,34 @@ finally:
     async handleDeployment(o: DeploymentInfo) {
         if (o.restore) {
             await db.run(
-                'DELETE FROM docker_deployments` WHERE `id` > ? AND `host`=? AND `project`=? AND `container`=?',
+                "DELETE FROM docker_deployments` WHERE `id` > ? AND `host`=? AND `project`=? AND `container`=?",
                 o.restore,
                 o.host,
                 o.image,
                 o.container,
             );
             await db.run(
-                'UPDATE `docker_deployments` SET `endTime` = null WHERE `id`=?',
+                "UPDATE `docker_deployments` SET `endTime` = null WHERE `id`=?",
                 o.restore,
             );
             o.id = o.restore;
         } else {
             const oldDeploy = await db.get(
-                'SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1',
+                "SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
                 o.host,
                 o.image,
                 o.container,
             );
             if (oldDeploy && !oldDeploy.endTime)
                 await db.run(
-                    'UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?',
+                    "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
                     o.start,
                     oldDeploy.id,
                 );
             o.id = await db.insert(
-                'INSERT INTO `docker_deployments` (' +
-                    '`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `stopTimeout`, `usePodman`, `userService`, `deployUser`, `serviceFile`) ' +
-                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                "INSERT INTO `docker_deployments` (" +
+                    "`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `stopTimeout`, `usePodman`, `userService`, `deployUser`, `serviceFile`) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 o.image,
                 o.container,
                 o.host,
@@ -1958,23 +1956,23 @@ finally:
         try {
             const o = this.delayedDeploymentInformations.get(id);
             if (!o) return;
-            console.log('We did an deployment but we did not hear anything from the client');
+            console.log("We did an deployment but we did not hear anything from the client");
             o.timeout = null;
             this.delayedDeploymentInformations.delete(id);
             await this.handleDeployment(o);
         } catch (e) {
-            console.log('Uncaught exception in handleDeploymentTimeout', e);
+            console.log("Uncaught exception in handleDeploymentTimeout", e);
         }
     }
 
     async handleHostDockerContainers(host: HostClient, obj: IHostContainers) {
         try {
-            if (!host.id) throw Error('Missing host id');
+            if (!host.id) throw Error("Missing host id");
             const containers = getOrInsert(this.hostContainers, host.id, () => new Map());
             if (obj.full) containers.clear();
             const images = this.hostImages.get(host.id);
             if (!images) {
-                console.error('No images for host', host.id);
+                console.error("No images for host", host.id);
                 return;
             }
 
@@ -1986,12 +1984,12 @@ finally:
                 containers.delete(id);
                 const container = c.name.substr(1); //For some reason there is a slash in the string??
                 const row = await db.get(
-                    'SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1',
+                    "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
                     container,
                 );
                 if (!row || !row.project) continue;
                 await db.run(
-                    'UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?',
+                    "UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?",
                     now,
                     row.id,
                 );
@@ -2030,7 +2028,7 @@ finally:
                 }
                 const container = u.name.substr(1); //For some reason there is a slash in the string??
                 const row = await db.get(
-                    'SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1',
+                    "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
                     host.id,
                     container,
                 );
@@ -2044,14 +2042,14 @@ finally:
                 let keep = false;
                 for (const [id, info] of this.delayedDeploymentInformations) {
                     if (
-                        info.host != host.id ||
-                        info.container != container ||
-                        info.image != project
+                        info.host !== host.id ||
+                        info.container !== container ||
+                        info.image !== project
                     )
                         continue;
                     let match = false;
                     for (const d of image.digests)
-                        if (info.hash === d || info.hash === d.split('@')[1]) match = true;
+                        if (info.hash === d || info.hash === d.split("@")[1]) match = true;
                     if (match) {
                         deploymentInfo = info;
                         this.delayedDeploymentInformations.delete(id);
@@ -2063,7 +2061,7 @@ finally:
                     if (deploymentInfo.timeout) clearTimeout(deploymentInfo.timeout);
                 } else {
                     for (const d of image.digests) {
-                        if (row.hash === d || row.hash === d.split('@')[1]) keep = true;
+                        if (row.hash === d || row.hash === d.split("@")[1]) keep = true;
                     }
                     if (row.endTime) keep = false;
 
@@ -2072,7 +2070,7 @@ finally:
                         restore: null,
                         image: project,
                         container,
-                        hash: keep ? row.hash : image.digests[0].split('@')[1],
+                        hash: keep ? row.hash : image.digests[0].split("@")[1],
                         user: keep ? row.user : null,
                         config: keep ? row.config : null,
                         setup: keep ? row.setup : null,
@@ -2097,7 +2095,7 @@ finally:
             }
         } catch (e) {
             console.log(e);
-            console.log('Uncaught exception in handleHostDockerContainers', e);
+            console.log("Uncaught exception in handleHostDockerContainers", e);
         }
     }
 
@@ -2113,14 +2111,14 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
             constructor() {
                 super(host, null, host);
                 const msg: message.RunInstant = {
-                    type: 'run_instant',
+                    type: "run_instant",
                     id: this.id,
-                    name: 'pokeContainer.py',
-                    interperter: '/usr/bin/python3',
+                    name: "pokeContainer.py",
+                    interperter: "/usr/bin/python3",
                     content: script,
                     args: [command, container],
-                    output_type: 'text',
-                    stdin_type: 'none',
+                    output_type: "text",
+                    stdin_type: "none",
                 };
                 host.sendMessage(msg);
                 this.running = true;
@@ -2133,7 +2131,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
         const host = hostClients.hostClients[hostId];
         if (!host) return;
         await db.run(
-            'DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?',
+            "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
             hostId,
             container,
         );
@@ -2146,7 +2144,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
     }
 
     handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
-        if (!host.id) throw Error('Missing host id');
+        if (!host.id) throw Error("Missing host id");
 
         const containers = this.hostContainers.get(host.id);
         if (!containers) return;
@@ -2156,7 +2154,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
     }
 
     handleHostDockerImages(host: HostClient, obj: IHostImages) {
-        if (!host.id) throw Error('Missing host id');
+        if (!host.id) throw Error("Missing host id");
 
         const images = getOrInsert(this.hostImages, host.id, () => new Map());
         if (obj.full) images.clear();
@@ -2170,7 +2168,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
         try {
             const files = new Set(
                 await new Promise<string[]>((accept, reject) => {
-                    fs.readdir(docker_blobs_path, { encoding: 'utf8' }, (err, files) => {
+                    fs.readdir(docker_blobs_path, { encoding: "utf8" }, (err, files) => {
                         if (err) reject(err);
                         else accept(files);
                     });
@@ -2182,7 +2180,7 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
             const grace = 60 * 60 * 24 * 14; // Number of seconds to keep something around
 
             for (const row of await db.all(
-                'SELECT \
+                "SELECT \
                   `docker_images`.`manifest`, \
                   `docker_images`.`id`, \
                   `docker_images`.`tag`, \
@@ -2200,12 +2198,12 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                 FROM `docker_images` \
                 LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash` \
                 WHERE `removed` IS NULL \
-                GROUP BY `docker_images`.`id`',
+                GROUP BY `docker_images`.`id`",
             )) {
                 let keep =
                     row.pin ||
-                    (row.newest == row.id && row.tagPin) ||
-                    ((row.tag == 'latest' || row.tag == 'master') && row.newest == row.id) ||
+                    (row.newest === row.id && row.tagPin) ||
+                    ((row.tag === "latest" || row.tag === "master") && row.newest === row.id) ||
                     row.active > 0 ||
                     (row.start && row.end && 2 * (row.end - row.start) + grace > now - row.start) ||
                     (row.used && 2 * (row.used - row.time) + grace > now - row.used) ||
@@ -2229,18 +2227,18 @@ os.execvp("docker", ["docker", "container", sys.argv[1], sys.argv[2]])
                     for (const layer of manifest.layers) used.add(layer.digest);
                 } else {
                     await db.run(
-                        'UPDATE `docker_images` SET `removed`=? WHERE `id`=?',
+                        "UPDATE `docker_images` SET `removed`=? WHERE `id`=?",
                         now,
                         row.id,
                     );
                 }
             }
             const rem = [...files].filter((x) => !used.has(x));
-            console.log('Used: ', used.size, ' total: ', files.size, ' remove: ', rem.length);
+            console.log("Used: ", used.size, " total: ", files.size, " remove: ", rem.length);
 
             for (const file of rem) {
                 await new Promise<void>((acc, rej) =>
-                    fs.unlink(docker_blobs_path + '/' + file, (e) => {
+                    fs.unlink(`${docker_blobs_path}/${file}`, (e) => {
                         if (e) rej(e);
                         else acc();
                     }),

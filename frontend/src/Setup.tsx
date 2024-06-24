@@ -1,8 +1,8 @@
-import {Typography} from "@mui/material";
+import { Typography } from "@mui/material";
+import { observer } from "mobx-react";
 import state from "./state";
-import {observer} from "mobx-react";
 
-const Setup = observer(function Setup({hostid}: {hostid: number}) {
+const Setup = observer(function Setup({ hostid }: { hostid: number }) {
     const h = state.objects.get(hostid);
     const c = h?.current;
     if (!c?.content) return <div>No content</div>;

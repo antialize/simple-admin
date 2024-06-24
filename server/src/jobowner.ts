@@ -1,5 +1,5 @@
-import { Job } from './job';
-import * as message from './messages';
+import type { Job } from "./job";
+import type * as message from "./messages";
 
 export abstract class JobOwner {
     jobs: { [id: number]: Job } = {};
@@ -15,8 +15,8 @@ export abstract class JobOwner {
     kill() {
         for (const id in this.jobs) {
             const job = this.jobs[+id];
-            if ((job.client as JobOwner) == this) job.client = null;
-            if (job.owner == this) job.owner = null;
+            if ((job.client as JobOwner) === this) job.client = null;
+            if (job.owner === this) job.owner = null;
             job.kill(null);
         }
     }

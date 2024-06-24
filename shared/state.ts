@@ -1,17 +1,17 @@
 export enum PAGE_TYPE {
-    Dashbord,
-    Deployment,
-    DeploymentDetails,
-    DockerContainerDetails,
-    DockerContainerHistory,
-    DockerContainers,
-    DockerImageHistory,
-    DockerImages,
-    ModifiedFile,
-    ModifiedFiles,
-    Object,
-    ObjectList,
-    Search,
+    Dashbord = 0,
+    Deployment = 1,
+    DeploymentDetails = 2,
+    DockerContainerDetails = 3,
+    DockerContainerHistory = 4,
+    DockerContainers = 5,
+    DockerImageHistory = 6,
+    DockerImages = 7,
+    ModifiedFile = 8,
+    ModifiedFiles = 9,
+    Object = 10,
+    ObjectList = 11,
+    Search = 12,
 }
 
 export interface IObjectDigest {
@@ -114,26 +114,26 @@ export interface IObject2<T> {
 }
 
 export enum DEPLOYMENT_STATUS {
-    Done,
-    BuildingTree,
-    InvilidTree,
-    ComputingChanges,
-    ReviewChanges,
-    Deploying,
+    Done = 0,
+    BuildingTree = 1,
+    InvilidTree = 2,
+    ComputingChanges = 3,
+    ReviewChanges = 4,
+    Deploying = 5,
 }
 
 export enum DEPLOYMENT_OBJECT_STATUS {
-    Normal,
-    Deplying,
-    Success,
-    Failure,
+    Normal = 0,
+    Deplying = 1,
+    Success = 2,
+    Failure = 3,
 }
 export enum DEPLOYMENT_OBJECT_ACTION {
-    Add,
-    Modify,
-    Remove,
-    Trigger,
-    Monitor,
+    Add = 0,
+    Modify = 1,
+    Remove = 2,
+    Trigger = 3,
+    Monitor = 4,
 }
 
 export interface IDeploymentTrigger {

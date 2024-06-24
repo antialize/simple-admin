@@ -1,18 +1,22 @@
-import ObjectList from "./ObjectList";
-import Search from "./Search";
-import state from "./state";
-import {observer} from "mobx-react";
-import * as State from "./shared/state";
-import {DockerImages, DockerImageHistory} from "./DockerImages";
-import Error from "./Error";
-import {Typography} from "@mui/material";
-import Statuses from "./Statuses";
-import {DockerContainerDetails, DockerContainerHistory, DockerContainers} from "./DockerContainers";
-import ObjectView from "./ObjectView";
-import Messages from "./Messages";
+import { Typography } from "@mui/material";
+import { observer } from "mobx-react";
 import Deployment from "./Deployment";
+import {
+    DockerContainerDetails,
+    DockerContainerHistory,
+    DockerContainers,
+} from "./DockerContainers";
+import { DockerImageHistory, DockerImages } from "./DockerImages";
+import DisplayError from "./Error";
+import Messages from "./Messages";
+import { ModifiedFileRevolver, ModifiedFiles } from "./ModifiedFiles";
+import ObjectList from "./ObjectList";
+import ObjectView from "./ObjectView";
+import Search from "./Search";
+import Statuses from "./Statuses";
 import DeploymentDetails from "./deployment/Details";
-import {ModifiedFileRevolver, ModifiedFiles} from "./ModifiedFiles";
+import * as State from "./shared/state";
+import state from "./state";
 
 function never(_: never, message: string) {
     console.error(message);
@@ -20,7 +24,7 @@ function never(_: never, message: string) {
 
 export const MainPage = observer(function MainPage() {
     const page = state.page;
-    if (!page) return <Error>Missing state.page</Error>;
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
 
     const p = page.current;
     switch (p.type) {
@@ -65,5 +69,5 @@ export const MainPage = observer(function MainPage() {
         default:
             never(p, "Unhandled page type");
     }
-    return <Error>I should not get here</Error>;
+    return <DisplayError>I should not get here</DisplayError>;
 });

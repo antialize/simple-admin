@@ -1,9 +1,9 @@
-import {action, makeObservable, observable} from "mobx";
+import { action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
-import {ACTION, type IModifiedFilesChanged, type ModifiedFile} from "./shared/actions";
-import state from "./state";
+import { ACTION, type IModifiedFilesChanged, type ModifiedFile } from "./shared/actions";
 import nullCheck from "./shared/nullCheck";
-import {PAGE_TYPE} from "./shared/state";
+import { PAGE_TYPE } from "./shared/state";
+import state from "./state";
 
 export default class ModifiedFilesState {
     constructor() {
@@ -11,10 +11,10 @@ export default class ModifiedFilesState {
     }
 
     @observable
-    modifiedFiles: Remote<Map<number, ModifiedFile>> = {state: "initial"};
+    modifiedFiles: Remote<Map<number, ModifiedFile>> = { state: "initial" };
 
     @observable
-    scanning: boolean = false;
+    scanning = false;
 
     @observable
     lastScanTime: number | null = null;
@@ -25,17 +25,17 @@ export default class ModifiedFilesState {
     private saveInterval: any = null;
 
     load() {
-        if (this.modifiedFiles.state != "initial") return;
+        if (this.modifiedFiles.state !== "initial") return;
         state.sendMessage({
             type: ACTION.ModifiedFilesList,
         });
-        this.modifiedFiles = {state: "loading"};
+        this.modifiedFiles = { state: "loading" };
     }
 
     @action
     handleChange(act: IModifiedFilesChanged) {
-        if (act.full) this.modifiedFiles = {state: "data", data: new Map()};
-        if (this.modifiedFiles.state != "data") return;
+        if (act.full) this.modifiedFiles = { state: "data", data: new Map() };
+        if (this.modifiedFiles.state !== "data") return;
         this.scanning = act.scanning;
         this.lastScanTime = act.lastScanTime;
         for (const id of act.removed) this.modifiedFiles.data.delete(id);
@@ -56,12 +56,12 @@ export default class ModifiedFilesState {
             action: "redeploy",
             newCurrent: null,
         });
-        nullCheck(state.page).set({type: PAGE_TYPE.ModifiedFiles});
+        nullCheck(state.page).set({ type: PAGE_TYPE.ModifiedFiles });
     }
 
     save(id: number, newCurrent: string) {
         if (!newCurrent) return;
-        if (this.modifiedFiles.state != "data") return;
+        if (this.modifiedFiles.state !== "data") return;
         const f = this.modifiedFiles.data.get(id);
         if (!f) return;
         if (!confirm("Are you sure you want save the current object?")) return;
@@ -79,7 +79,7 @@ export default class ModifiedFilesState {
             --this.saveTime;
             if (this.saveTime > 0) return;
             clearInterval(this.saveInterval);
-            nullCheck(state.page).set({type: PAGE_TYPE.Object, objectType: f.type, id: f.object});
+            nullCheck(state.page).set({ type: PAGE_TYPE.Object, objectType: f.type, id: f.object });
             this.saveTime = null;
             this.saveInterval = null;
         }, 500);

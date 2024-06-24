@@ -1,4 +1,4 @@
-import {type IContains, type IDepends, type ISudoOn} from "./type";
+import type { IContains, IDepends, ISudoOn } from "./type";
 
 export function getReferences(content: any): number[] {
     const res = [];

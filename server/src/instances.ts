@@ -1,9 +1,9 @@
-import { WebClients } from './webclient';
-import { HostClients } from './hostclient';
-import { Deployment } from './deployment';
-import { Msg } from './msg';
-import { DB } from './db';
-import { ModifiedFiles } from './modifiedfiles';
+import type { DB } from "./db";
+import type { Deployment } from "./deployment";
+import type { HostClients } from "./hostclient";
+import type { ModifiedFiles } from "./modifiedfiles";
+import type { Msg } from "./msg";
+import type { WebClients } from "./webclient";
 
 export let webClients: WebClients;
 export let hostClients: HostClients;

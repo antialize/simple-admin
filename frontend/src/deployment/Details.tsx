@@ -1,24 +1,24 @@
-import type * as State from ".././shared/state";
-import state from "../state";
-import {type IType, TypePropType} from ".././shared/type";
-import {InformationList, InformationListRow} from "../InformationList";
-import {observer} from "mobx-react";
+import { Typography } from "@mui/material";
+import { observer } from "mobx-react";
 import nullCheck from ".././shared/nullCheck";
-import Error from "../Error";
-import {Typography} from "@mui/material";
+import type * as State from ".././shared/state";
+import { type IType, TypePropType } from ".././shared/type";
 import Editor from "../Editor";
+import DisplayError from "../Error";
+import { InformationList, InformationListRow } from "../InformationList";
+import state from "../state";
 
-function CententInfo(p: {c: Record<string, any> | null; t: State.IObject2<IType>}) {
-    if (!p.c) return <Error>Missing p.c</Error>;
+function CententInfo(p: { c: Record<string, any> | null; t: State.IObject2<IType> }) {
+    if (!p.c) return <DisplayError>Missing p.c</DisplayError>;
     const i = p.c[p.t.name];
-    if (!i) return <Error>missing i</Error>;
+    if (!i) return <DisplayError>missing i</DisplayError>;
 
     return (
         <InformationList>
             <InformationListRow name="Name">
                 <Typography>{p.c.name}</Typography>
             </InformationListRow>
-            {nullCheck(p.t.content.content).map(v => {
+            {nullCheck(p.t.content.content).map((v) => {
                 switch (v.type) {
                     case TypePropType.bool:
                         return (
@@ -36,7 +36,7 @@ function CententInfo(p: {c: Record<string, any> | null; t: State.IObject2<IType>
                     case TypePropType.number:
                         return (
                             <InformationListRow name={v.title}>
-                                <Typography>{"" + (i ?? "")}</Typography>
+                                <Typography>{`${i ?? ""}`}</Typography>
                             </InformationListRow>
                         );
                     case TypePropType.document:
@@ -46,18 +46,19 @@ function CententInfo(p: {c: Record<string, any> | null; t: State.IObject2<IType>
                             </InformationListRow>
                         );
                 }
+                // biome-ignore lint/correctness/useJsxKeyInIterable: there is only one element
                 return <>Unhandled type</>;
             })}
         </InformationList>
     );
 }
 
-const Details = observer(function Details({index}: {index: number}) {
+const Details = observer(function Details({ index }: { index: number }) {
     const p = state.deployment;
-    if (p === null) return <Error>Missing state.deployment</Error>;
+    if (p === null) return <DisplayError>Missing state.deployment</DisplayError>;
     const o = p.objects[index];
     const t = o?.typeId !== null && state.types.get(o.typeId);
-    if (!t) return <Error>Missing type</Error>;
+    if (!t) return <DisplayError>Missing type</DisplayError>;
 
     return (
         <div>

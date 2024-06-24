@@ -1,9 +1,9 @@
 import "xterm/css/xterm.css";
+import { Button, Chip } from "@mui/material";
 import Cookies from "js-cookie";
-import {FitAddon} from "xterm-addon-fit";
-import {Terminal} from "xterm";
-import {Button, Chip} from "@mui/material";
-import {useEffect, useRef, useState} from "react";
+import { useEffect, useRef, useState } from "react";
+import { Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
 
 class Connection {
     connected = false;
@@ -13,7 +13,7 @@ class Connection {
         public connectionId: number,
         public nameChanged: (id: number, name: string) => void,
     ) {
-        this.term = new Terminal({cursorBlink: true, scrollback: 10000});
+        this.term = new Terminal({ cursorBlink: true, scrollback: 10000 });
         this.fit = new FitAddon();
         this.term.loadAddon(this.fit);
     }
@@ -23,17 +23,14 @@ class Connection {
         const term = this.term;
         this.connected = true;
         const socket = new WebSocket(
-            (window.location.protocol == "http:" ? "ws://" : "wss://") +
-                window.location.host +
-                "/terminal?server=" +
-                this.hostId +
-                "&cols=80&rows=150&session=" +
-                Cookies.get("simple-admin-session"),
+            `${
+                (window.location.protocol === "http:" ? "ws://" : "wss://") + window.location.host
+            }/terminal?server=${this.hostId}&cols=80&rows=150&session=${Cookies.get("simple-admin-session")}`,
         );
         this.socket = socket;
         let buffer: string[] | null = [];
 
-        socket.onmessage = msg => {
+        socket.onmessage = (msg) => {
             term.write(msg.data);
         };
 
@@ -50,24 +47,24 @@ class Connection {
             else buffer.push(msg);
         };
 
-        term.onData(data => {
-            send("d" + data + "\0");
+        term.onData((data) => {
+            send(`d${data}\0`);
         });
 
-        term.onTitleChange(title => {
+        term.onTitleChange((title) => {
             this.name = title;
             this.nameChanged(this.connectionId, title);
         });
-        term.onResize(size => {
-            if (this.oldsize[0] == size.rows && this.oldsize[1] == size.cols) return;
+        term.onResize((size) => {
+            if (this.oldsize[0] === size.rows && this.oldsize[1] === size.cols) return;
             this.oldsize = [size.rows, size.cols];
-            send("r" + size.rows + "," + size.cols + "\0");
+            send(`r${size.rows},${size.cols}\0`);
         });
     }
 
     disconnect() {
         if (this.socket) this.socket.close();
-        delete this.socket;
+        this.socket = undefined;
         this.term.dispose();
     }
 
@@ -79,18 +76,18 @@ class Connection {
     term: Terminal;
     fit: FitAddon;
     socket?: WebSocket;
-    name: string = "";
+    name = "";
 }
 
 class HostInfo {
-    next: number = 1;
+    next = 1;
     cachedCurrent: number | null = null;
     connections = new Map<number, Connection>();
 }
 
 const hostConnections = new Map<number, HostInfo>();
 
-export default function HostTerminals(props: {id: number}) {
+export default function HostTerminals(props: { id: number }) {
     if (!hostConnections.has(props.id)) hostConnections.set(props.id, new HostInfo());
     const info = hostConnections.get(props.id)!;
     const termContainerDiv = useRef<HTMLDivElement | null>(null);
@@ -102,6 +99,7 @@ export default function HostTerminals(props: {id: number}) {
     });
     const [current, setCurrent] = useState(info.cachedCurrent);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Bad
     useEffect(() => {
         info.cachedCurrent = current;
         if (current == null) return;
@@ -146,7 +144,7 @@ export default function HostTerminals(props: {id: number}) {
         const id = info.next;
         info.next++;
 
-        const name = "Terminal " + id;
+        const name = `Terminal ${id}`;
         const names2 = new Map(names);
         names2.set(id, name);
 
@@ -157,13 +155,14 @@ export default function HostTerminals(props: {id: number}) {
                 setNames(names2);
             });
             conn.connect();
-            conn.name = "Terminal " + id;
+            conn.name = `Terminal ${id}`;
             info.connections.set(id, conn);
         }
         setNames(names2);
         setCurrent(id);
     };
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Should only run once
     useEffect(() => {
         if (Object.keys(info.connections).length === 0) newTerminal();
     }, []);
@@ -189,11 +188,11 @@ export default function HostTerminals(props: {id: number}) {
         }
     };
 
-    const ids = Object.keys(names).map(v => +v);
+    const ids = Object.keys(names).map((v) => +v);
     ids.sort((a, b) => a - b);
-    const terms: JSX.Element[] = ids.map(id => {
-        const style: React.CSSProperties = {margin: 4};
-        if (id == current) style.backgroundColor = "rgb(0, 188, 212)";
+    const terms: JSX.Element[] = ids.map((id) => {
+        const style: React.CSSProperties = { margin: 4 };
+        if (id === current) style.backgroundColor = "rgb(0, 188, 212)";
 
         return (
             <Chip
@@ -211,26 +210,28 @@ export default function HostTerminals(props: {id: number}) {
     });
 
     return (
-        <div style={{height: "700px"}}>
+        <div style={{ height: "700px" }}>
             <div
                 ref={outerDiv}
-                style={{display: "flex", flexDirection: "column", width: "100%", height: "100%"}}>
-                <div style={{display: "flex", flexWrap: "wrap"}}>
+                style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}
+            >
+                <div style={{ display: "flex", flexWrap: "wrap" }}>
                     {terms}
                     <Chip
                         onClick={() => {
                             newTerminal();
                         }}
-                        style={{margin: 4}}
+                        style={{ margin: 4 }}
                         label="+"
                     />
-                    <div style={{marginLeft: "auto"}} />
+                    <div style={{ marginLeft: "auto" }} />
                     <Button
                         variant="contained"
                         onClick={() => {
                             reset();
                         }}
-                        style={{margin: 4, alignSelf: "flex-end"}}>
+                        style={{ margin: 4, alignSelf: "flex-end" }}
+                    >
                         Reset
                     </Button>
                     <Button
@@ -238,11 +239,12 @@ export default function HostTerminals(props: {id: number}) {
                         onClick={() => {
                             toggleFullScreen();
                         }}
-                        style={{margin: 4, alignSelf: "flex-end"}}>
+                        style={{ margin: 4, alignSelf: "flex-end" }}
+                    >
                         Full screen
                     </Button>
                 </div>
-                <div ref={termContainerDiv} style={{flex: 1}} />
+                <div ref={termContainerDiv} style={{ flex: 1 }} />
             </div>
         </div>
     );

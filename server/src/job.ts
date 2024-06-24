@@ -1,10 +1,10 @@
-import * as message from './messages';
-import { HostClient } from './hostclient';
-import { JobOwner } from './jobowner';
+import type { HostClient } from "./hostclient";
+import type { JobOwner } from "./jobowner";
+import type * as message from "./messages";
 
 export abstract class Job {
     id: number;
-    running: boolean = false;
+    running = false;
     client: HostClient | null;
     constructor(
         client: HostClient,
@@ -20,11 +20,11 @@ export abstract class Job {
 
     handleMessage(obj: message.Incomming) {
         switch (obj.type) {
-            case 'success':
+            case "success":
                 this.running = false;
                 this.kill(obj);
                 break;
-            case 'failure':
+            case "failure":
                 this.running = false;
                 this.kill(obj);
                 break;
@@ -34,7 +34,7 @@ export abstract class Job {
     kill(msg: message.Failure | message.Success | null = null) {
         if (this.client !== null) {
             if (this.running) {
-                let msg: message.Kill = { type: 'kill', id: this.id };
+                const msg: message.Kill = { type: "kill", id: this.id };
                 this.client.sendMessage(msg);
             }
             this.client.removeJob(this, msg);

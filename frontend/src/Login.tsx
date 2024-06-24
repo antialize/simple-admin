@@ -8,13 +8,13 @@ import {
     DialogTitle,
     TextField,
 } from "@mui/material";
-import state, {CONNECTION_STATUS} from "./state";
-import {observer} from "mobx-react";
-import Error from "./Error";
+import { observer } from "mobx-react";
+import DisplayError from "./Error";
+import state, { CONNECTION_STATUS } from "./state";
 
 const Login = observer(function Login() {
     const l = state.login;
-    if (!l) return <Error>Missing state.login</Error>;
+    if (!l) return <DisplayError>Missing state.login</DisplayError>;
     let message = "";
     switch (state.connectionStatus) {
         case CONNECTION_STATUS.AUTHENTICATING:
@@ -37,20 +37,21 @@ const Login = observer(function Login() {
             break;
     }
     let progress = null;
-    if (state.connectionStatus != CONNECTION_STATUS.LOGIN) progress = <CircularProgress />;
+    if (state.connectionStatus !== CONNECTION_STATUS.LOGIN) progress = <CircularProgress />;
 
-    const dis = state.connectionStatus != CONNECTION_STATUS.LOGIN;
-    const o = state.authUser == l.user && state.authOtp;
+    const dis = state.connectionStatus !== CONNECTION_STATUS.LOGIN;
+    const o = state.authUser === l.user && state.authOtp;
     const dlog = dis || !l.user || !l.pwd || (!l.otp && !o);
 
     return (
         <Dialog open fullWidth>
             <DialogTitle>Login</DialogTitle>
             <form
-                onSubmit={e => {
+                onSubmit={(e) => {
                     if (!dlog) l.login();
                     e.preventDefault();
-                }}>
+                }}
+            >
                 <DialogContent>
                     {progress}
                     <DialogContentText>{message}</DialogContentText>
@@ -61,7 +62,9 @@ const Login = observer(function Login() {
                         helperText="User"
                         disabled={dis}
                         value={l.user}
-                        onChange={e => (l.user = e.target.value)}
+                        onChange={(e) => {
+                            l.user = e.target.value;
+                        }}
                         error={!(dis || l.user)}
                     />
                     <br />
@@ -73,7 +76,9 @@ const Login = observer(function Login() {
                         type="password"
                         disabled={dis}
                         value={l.pwd}
-                        onChange={e => (l.pwd = e.target.value)}
+                        onChange={(e) => {
+                            l.pwd = e.target.value;
+                        }}
                         error={!(dis || l.pwd)}
                     />
                     <br />
@@ -84,7 +89,9 @@ const Login = observer(function Login() {
                         helperText="One Time Password"
                         disabled={dis || o}
                         value={l.otp}
-                        onChange={e => (l.otp = e.target.value)}
+                        onChange={(e) => {
+                            l.otp = e.target.value;
+                        }}
                         error={!(dis || l.otp || o)}
                     />
                 </DialogContent>

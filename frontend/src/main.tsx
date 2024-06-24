@@ -4,14 +4,14 @@ import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
-import setupState from "./setupState.ts";
-import {setupSocket, socket} from "./setupSocket.ts";
-import state from "./state.ts";
-import type * as State from "./shared/state.ts";
-import {type IAction} from "./shared/actions.ts";
-import nullCheck from "./shared/nullCheck.ts";
+import { ThemeProvider, createTheme } from "@mui/material";
 import App from "./App.tsx";
-import {ThemeProvider, createTheme} from "@mui/material";
+import { setupSocket, socket } from "./setupSocket.ts";
+import setupState from "./setupState.ts";
+import type { IAction } from "./shared/actions.ts";
+import nullCheck from "./shared/nullCheck.ts";
+import type * as State from "./shared/state.ts";
+import state from "./state.ts";
 
 import "./style.css";
 import "xterm/css/xterm.css";
@@ -22,7 +22,7 @@ state.doSendMessage = (action: IAction) => {
     nullCheck(socket).send(JSON.stringify(action));
 };
 
-window.onpopstate = (e: any) => {
+window.onpopstate = (e: PopStateEvent) => {
     nullCheck(state.page).set(e.state as State.IPage);
 };
 
