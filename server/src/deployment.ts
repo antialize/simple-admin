@@ -1,47 +1,47 @@
-import {
-    DEPLOYMENT_STATUS,
-    DEPLOYMENT_OBJECT_STATUS,
-    DEPLOYMENT_OBJECT_ACTION,
-    IDeploymentObject,
-    IObject2,
-    IDeploymentTrigger,
-} from "./shared/state";
-import { webClients, db, hostClients } from "./instances";
+import * as Mustache from "mustache";
+import * as PriorityQueue from "priorityqueuejs";
+import { descript, errorHandler } from "./error";
+import { db, hostClients, webClients } from "./instances";
+import { DeployJob } from "./jobs/deployJob";
 import {
     ACTION,
-    ISetDeploymentStatus,
-    ISetDeploymentMessage,
-    IToggleDeploymentObject,
-    ISetDeploymentObjects,
-    ISetDeploymentObjectStatus,
-    IAddDeploymentLog,
-    IClearDeploymentLog,
+    type IAddDeploymentLog,
+    type IClearDeploymentLog,
+    type ISetDeploymentMessage,
+    type ISetDeploymentObjectStatus,
+    type ISetDeploymentObjects,
+    type ISetDeploymentStatus,
+    type IToggleDeploymentObject,
 } from "./shared/actions";
 import {
-    typeId,
-    rootInstanceId,
-    hostId,
-    IVariables,
-    IType,
-    TypePropType,
-    IDepends,
-    ITriggers,
-    ITrigger,
+    DEPLOYMENT_OBJECT_ACTION,
+    DEPLOYMENT_OBJECT_STATUS,
+    DEPLOYMENT_STATUS,
+    type IDeploymentObject,
+    type IDeploymentTrigger,
+    type IObject2,
+} from "./shared/state";
+import {
+    type IContains,
+    type IDepends,
     ISudoOn,
-    IContains,
+    type ITrigger,
+    type ITriggers,
+    type IType,
+    type IVariables,
+    TypePropType,
+    hostId,
     packageId,
+    rootInstanceId,
+    typeId,
 } from "./shared/type";
-import * as PriorityQueue from "priorityqueuejs";
-import * as Mustache from "mustache";
-import { DeployJob } from "./jobs/deployJob";
-import { errorHandler, descript } from "./error";
 
 import { promisify } from "util";
 
-//Type only import
-import { HostClient } from "./hostclient";
-import nullCheck from "./shared/nullCheck";
 import { exec } from "child_process";
+//Type only import
+import type { HostClient } from "./hostclient";
+import nullCheck from "./shared/nullCheck";
 
 interface IDeployContent {
     script: string | null;
@@ -64,7 +64,7 @@ export class Deployment {
 
     setStatus(s: DEPLOYMENT_STATUS) {
         this.status = s;
-        let a: ISetDeploymentStatus = {
+        const a: ISetDeploymentStatus = {
             type: ACTION.SetDeploymentStatus,
             status: s,
         };
@@ -73,7 +73,7 @@ export class Deployment {
 
     setMessage(msg: string) {
         this.message = msg;
-        let a: ISetDeploymentMessage = {
+        const a: ISetDeploymentMessage = {
             type: ACTION.SetDeploymentMessage,
             message: msg,
         };
@@ -101,7 +101,7 @@ export class Deployment {
                     variables: { [key: string]: string },
                 ) => {
                     try {
-                        let vars: { [key: string]: any } = {};
+                        const vars: { [key: string]: any } = {};
                         for (const [key, val] of Object.entries(variables)) {
                             if (val.startsWith("json:")) vars[key] = JSON.parse(val.substr(5));
                             else vars[key] = val;
@@ -116,7 +116,7 @@ export class Deployment {
                     return "";
                 };
 
-                for (let item of type.content || []) {
+                for (const item of type.content || []) {
                     switch (item.type) {
                         case TypePropType.bool: {
                             let v = objContent[item.name] as boolean;
@@ -194,7 +194,7 @@ export class Deployment {
                 if (!obj) return null;
                 const type = objects[obj.type] as IObject2<IType>;
 
-                let content: { [key: string]: any } = {};
+                const content: { [key: string]: any } = {};
                 variables = Object.assign({}, variables);
                 let hasVars = false;
 
@@ -209,7 +209,7 @@ export class Deployment {
                     content["sudoOn"] =
                         "sudoOn" in obj.content && obj.content.sudoOn.includes(hostId);
 
-                let deploymentTitle = obj.name;
+                const deploymentTitle = obj.name;
                 return visitContent(
                     obj.name,
                     obj.content,
@@ -246,8 +246,8 @@ export class Deployment {
             // Find deployment objects on a host by host basis
             for (const hostId of hosts) {
                 enum NodeType {
-                    normal,
-                    sentinal,
+                    normal = 0,
+                    sentinal = 1,
                 }
 
                 interface BaseDagNode {
@@ -275,7 +275,9 @@ export class Deployment {
                 type DagNode = SentinalDagNode | NormalDagNode;
 
                 const hostObject = objects[hostId];
-                let hostVariables = nullCheck(visitObject(hostId, rootVariable, hostId)).variables;
+                const hostVariables = nullCheck(
+                    visitObject(hostId, rootVariable, hostId),
+                ).variables;
                 hostVariables["nodename"] = hostObject.name;
                 const nodes = new Map<string, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode; sentinal: SentinalDagNode }>();
@@ -283,7 +285,7 @@ export class Deployment {
                 let hostDeploymentObjects: IDeploymentObject[] = [];
 
                 // Visit an object contained directly in the host
-                let visitTop = (id: number) => {
+                const visitTop = (id: number) => {
                     if (id == null || !objects[id]) return;
                     if (tops.has(id)) return tops.get(id);
                     if (topVisiting.has(id)) {
@@ -298,7 +300,7 @@ export class Deployment {
                 };
 
                 // Visit any object
-                let visit = (
+                const visit = (
                     id: number,
                     path: number[],
                     prefix: number[],
@@ -381,7 +383,7 @@ export class Deployment {
                     const handleTriggers = (triggers: ITrigger[]) => {
                         for (const trigger of triggers) {
                             if (!objects[trigger.id]) continue;
-                            let x = visitContent(
+                            const x = visitContent(
                                 "trigger",
                                 trigger.values,
                                 Object.assign({}, v.variables),
@@ -390,7 +392,7 @@ export class Deployment {
                                 {},
                             );
                             if (!x) continue;
-                            let t: IDeploymentTrigger = {
+                            const t: IDeploymentTrigger = {
                                 typeId: trigger.id,
                                 script: nullCheck(x.script),
                                 content: x.content,
@@ -510,7 +512,7 @@ export class Deployment {
                     };
                 } = {};
                 for (const row of await db.getDeployments(hostId)) {
-                    let c = JSON.parse(row.content) as IDeployContent;
+                    const c = JSON.parse(row.content) as IDeployContent;
                     if (!c.content) continue;
                     oldContent[row.name] = {
                         content: c,
@@ -562,7 +564,7 @@ export class Deployment {
 
                     if (name in oldContent) {
                         if (!redeploy) {
-                            let content = nullCheck(oldContent[name].content);
+                            const content = nullCheck(oldContent[name].content);
                             o.prevContent = content.content;
                             o.prevScript = content.script;
                             o.action = DEPLOYMENT_OBJECT_ACTION.Modify;
@@ -574,11 +576,11 @@ export class Deployment {
 
                 if (seen.size != 0) {
                     let shortest_cycle: DagNode[] | null = null;
-                    for (let seed of seen) {
-                        let back = new Map<DagNode, DagNode>();
-                        let s1: DagNode[] = [];
-                        let s2: DagNode[] = [];
-                        for (let n of seed.next) {
+                    for (const seed of seen) {
+                        const back = new Map<DagNode, DagNode>();
+                        const s1: DagNode[] = [];
+                        const s2: DagNode[] = [];
+                        for (const n of seed.next) {
                             back.set(n, seed);
                             s2.push(n);
                         }
@@ -589,7 +591,7 @@ export class Deployment {
                             }
                             let n = s1.pop()!;
                             let cycleFound = false;
-                            for (let m of n.next) {
+                            for (const m of n.next) {
                                 if (m === seed) {
                                     cycleFound = true;
                                     break;
@@ -599,11 +601,11 @@ export class Deployment {
                                 s2.push(m);
                             }
                             if (cycleFound) {
-                                let cycle = [];
+                                const cycle = [];
                                 cycle.push(seed);
                                 while (n != seed) {
                                     cycle.push(n);
-                                    let m = back.get(n);
+                                    const m = back.get(n);
                                     if (m == null) {
                                         console.log("Internal errror");
                                         break;
@@ -639,8 +641,8 @@ export class Deployment {
 
                 // Filter away stuff that has not changed
                 hostDeploymentObjects = hostDeploymentObjects.filter((o) => {
-                    let a = JSON.stringify(o.nextContent);
-                    let b = JSON.stringify(o.prevContent);
+                    const a = JSON.stringify(o.nextContent);
+                    const b = JSON.stringify(o.prevContent);
                     return a !== b || o.script != o.prevScript;
                 });
 
@@ -662,7 +664,7 @@ export class Deployment {
                     });
 
                     for (const v of values) {
-                        let content = nullCheck(v.content);
+                        const content = nullCheck(v.content);
                         const o: IDeploymentObject = {
                             index: 0,
                             enabled: true,
@@ -685,10 +687,10 @@ export class Deployment {
                         hostDeploymentObjects.push(o);
                     }
                 }
-                let triggers: IDeploymentTrigger[] = [];
-                for (let o of hostDeploymentObjects) {
+                const triggers: IDeploymentTrigger[] = [];
+                for (const o of hostDeploymentObjects) {
                     this.deploymentObjects.push(o);
-                    for (let trigger of o.triggers) triggers.push(trigger);
+                    for (const trigger of o.triggers) triggers.push(trigger);
                 }
 
                 triggers.sort((l, r) => {
@@ -698,7 +700,7 @@ export class Deployment {
                 });
 
                 for (let i = 0; i < triggers.length; ++i) {
-                    let t = triggers[i];
+                    const t = triggers[i];
                     if (
                         i != 0 &&
                         t.typeId == triggers[i - 1].typeId &&
@@ -707,7 +709,7 @@ export class Deployment {
                     )
                         continue;
 
-                    let o: IDeploymentObject = {
+                    const o: IDeploymentObject = {
                         index: 0,
                         enabled: true,
                         status: DEPLOYMENT_OBJECT_STATUS.Normal,
@@ -740,7 +742,7 @@ export class Deployment {
             for (let i = 0; i < this.deploymentObjects.length; ++i)
                 this.deploymentObjects[i].index = i;
 
-            let a: ISetDeploymentObjects = {
+            const a: ISetDeploymentObjects = {
                 type: ACTION.SetDeploymentObjects,
                 objects: this.getView(),
             };
@@ -766,7 +768,7 @@ export class Deployment {
 
     setObjectStatus(index: number, status: DEPLOYMENT_OBJECT_STATUS) {
         this.deploymentObjects[index].status = status;
-        let a: ISetDeploymentObjectStatus = {
+        const a: ISetDeploymentObjectStatus = {
             type: ACTION.SetDeploymentObjectStatus,
             index: index,
             status: status,
@@ -800,13 +802,13 @@ export class Deployment {
         this.addLog("Deployment started\r\n");
 
         this.setStatus(DEPLOYMENT_STATUS.Deploying);
-        let badHosts = new Set<number>();
+        const badHosts = new Set<number>();
         let curHost = -1;
 
         let hostObjects: { [type: number]: { [name: string]: { [key: string]: any } } } = {};
 
         for (let i = 0; i < this.deploymentObjects.length; ++i) {
-            let o = this.deploymentObjects[i];
+            const o = this.deploymentObjects[i];
             if (!o.enabled) continue;
 
             if (badHosts.has(o.host)) {
@@ -819,14 +821,14 @@ export class Deployment {
                 this.addHeader(o.hostName, "=");
                 hostObjects = {};
                 for (const row of await db.getDeployments(curHost)) {
-                    let c = JSON.parse(row.content) as IDeployContent;
+                    const c = JSON.parse(row.content) as IDeployContent;
                     if (!c.content) continue;
                     if (!(row.type in hostObjects)) hostObjects[row.type] = {};
                     hostObjects[row.type][row.name] = c.content;
                 }
             }
 
-            let hostClient = hostClients.hostClients[o.host];
+            const hostClient = hostClients.hostClients[o.host];
             if (!hostClient || hostClient.closeHandled) {
                 this.addLog("Host " + o.hostName + " is down\r\n");
                 badHosts.add(o.host);
@@ -836,16 +838,16 @@ export class Deployment {
 
             const typeId = nullCheck(o.typeId);
 
-            let type = types[typeId];
+            const type = types[typeId];
 
             if (type && type.content.kind == "sum") {
                 let j = i;
 
-                let curObjects = hostObjects[typeId] || {};
-                let nextObjects = Object.assign({}, curObjects);
+                const curObjects = hostObjects[typeId] || {};
+                const nextObjects = Object.assign({}, curObjects);
 
                 for (; j < this.deploymentObjects.length; ++j) {
-                    let o2 = this.deploymentObjects[j];
+                    const o2 = this.deploymentObjects[j];
                     if (!o2.enabled) continue;
                     if (o2.typeId !== typeId) break;
                     if (o2.host != o.host) break;
@@ -855,12 +857,12 @@ export class Deployment {
                     if (o2.nextContent) nextObjects[o2.name] = o2.nextContent;
                 }
 
-                let ans = await this.deploySingle(hostClient, o.script, { objects: nextObjects });
+                const ans = await this.deploySingle(hostClient, o.script, { objects: nextObjects });
 
-                let ok = ans.success && ans.code == 0;
+                const ok = ans.success && ans.code == 0;
                 if (!ok) {
                     for (let k = i; k < j; ++k) {
-                        let o2 = this.deploymentObjects[k];
+                        const o2 = this.deploymentObjects[k];
                         if (!o2.enabled) continue;
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Failure);
                     }
@@ -871,10 +873,10 @@ export class Deployment {
                     hostObjects[typeId] = nextObjects;
 
                     for (let k = i; k < j; ++k) {
-                        let o2 = this.deploymentObjects[k];
+                        const o2 = this.deploymentObjects[k];
                         if (!o2.enabled) continue;
 
-                        let c: IDeployContent = {
+                        const c: IDeployContent = {
                             content: o2.nextContent,
                             script: o2.script,
                             triggers: o2.triggers,
@@ -923,13 +925,13 @@ export class Deployment {
                 });
             }
 
-            let ok = ans.success && ans.code == 0;
+            const ok = ans.success && ans.code == 0;
             if (!ok) {
                 if (ans.success) this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
                 else this.addLog("\r\nFailed\r\n");
                 if (type && type.content.kind != "trigger") badHosts.add(o.host);
             } else if (type && type.content.kind != "trigger") {
-                let c: IDeployContent = {
+                const c: IDeployContent = {
                     content: o.nextContent,
                     script: o.script,
                     triggers: o.triggers,
@@ -973,7 +975,7 @@ export class Deployment {
         if (this.status != DEPLOYMENT_STATUS.ReviewChanges) return;
         this.setStatus(DEPLOYMENT_STATUS.Done);
         this.deploymentObjects = [];
-        let a: ISetDeploymentObjects = {
+        const a: ISetDeploymentObjects = {
             type: ACTION.SetDeploymentObjects,
             objects: this.getView(),
         };
@@ -990,7 +992,7 @@ export class Deployment {
             this.deploymentObjects[index].enabled = enabled;
         }
 
-        let a: IToggleDeploymentObject = {
+        const a: IToggleDeploymentObject = {
             type: ACTION.ToggleDeploymentObject,
             index,
             enabled,
@@ -1001,16 +1003,16 @@ export class Deployment {
 
     clearLog() {
         this.log = [];
-        let a: IClearDeploymentLog = {
+        const a: IClearDeploymentLog = {
             type: ACTION.ClearDeploymentLog,
         };
         webClients.broadcast(a);
     }
 
-    addHeader(name: string, sep: string = "-") {
-        let t = 100 - 4 - name.length;
-        let l = t / 2;
-        let r = t - l;
+    addHeader(name: string, sep = "-") {
+        const t = 100 - 4 - name.length;
+        const l = t / 2;
+        const r = t - l;
         this.addLog(
             "\r\n\x1b[91m" + sep.repeat(l) + "> " + name + " <" + sep.repeat(r) + "\x1b[0m\r\n",
         );
@@ -1019,7 +1021,7 @@ export class Deployment {
     addLog(bytes: string) {
         this.log.push(bytes);
 
-        let a: IAddDeploymentLog = {
+        const a: IAddDeploymentLog = {
             type: ACTION.AddDeploymentLog,
             bytes: bytes,
         };

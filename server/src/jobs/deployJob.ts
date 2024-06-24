@@ -1,11 +1,11 @@
-import { Job } from "../job";
-import * as message from "../messages";
-import { deployment } from "../instances";
 import type { HostClient } from "../hostclient";
+import { deployment } from "../instances";
+import { Job } from "../job";
+import type * as message from "../messages";
 
 export class DeployJob extends Job {
-    stdoutPart: string = "";
-    stderrPart: string = "";
+    stdoutPart = "";
+    stderrPart = "";
 
     constructor(
         hostClient: HostClient,

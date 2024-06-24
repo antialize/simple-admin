@@ -1,13 +1,13 @@
 import * as fs from "fs";
-import { IHostDown, IHostUp, ACTION } from "../../shared/actions";
-import * as message from "./messages";
 import * as tls from "tls";
-import { JobOwner } from "./jobowner";
-import * as crypt from "./crypt";
-import { webClients, msg, hostClients, db } from "./instances";
-import { descript, errorHandler } from "./error";
-import { Job } from "./job";
+import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
 import * as crt from "./crt";
+import * as crypt from "./crypt";
+import { descript, errorHandler } from "./error";
+import { db, hostClients, msg, webClients } from "./instances";
+import { Job } from "./job";
+import { JobOwner } from "./jobowner";
+import type * as message from "./messages";
 
 function delay(time: number) {
     return new Promise<void>((resolve) => {
@@ -25,7 +25,7 @@ export class HostClient extends JobOwner {
     auth: boolean | null = null;
     hostname: string | null = null;
     id: number | null = null;
-    pingId: number = 10;
+    pingId = 10;
     pingTimer: ReturnType<typeof setTimeout> | null = null;
     pingStart: number | null = null;
     closeHandled = false;
@@ -49,7 +49,7 @@ export class HostClient extends JobOwner {
             class PJob extends Job {
                 constructor(host: HostClient) {
                     super(host, null, host);
-                    let msg: message.RunInstant = {
+                    const msg: message.RunInstant = {
                         type: "run_instant",
                         id: this.id,
                         name: "runShell.sh",
@@ -95,7 +95,7 @@ export class HostClient extends JobOwner {
             class PJob extends Job {
                 constructor(host: HostClient) {
                     super(host, null, host);
-                    let msg: message.RunInstant = {
+                    const msg: message.RunInstant = {
                         type: "run_instant",
                         id: this.id,
                         name: "writeSmallFile.sh",
@@ -177,7 +177,7 @@ export class HostClient extends JobOwner {
 
         if (this.id in hostClients.hostClients) delete hostClients.hostClients[this.id];
 
-        let act: IHostDown = { type: ACTION.HostDown, id: this.id };
+        const act: IHostDown = { type: ACTION.HostDown, id: this.id };
         webClients.broadcast(act);
         this.kill();
     }
@@ -188,7 +188,7 @@ export class HostClient extends JobOwner {
     }
 
     async validateAuth(obj: message.Auth) {
-        let res = await db.getHostContentByName(obj.hostname);
+        const res = await db.getHostContentByName(obj.hostname);
         if (
             res &&
             (await crypt.validate(
@@ -214,7 +214,7 @@ export class HostClient extends JobOwner {
                 return;
             }
 
-            let [id, _] = await Promise.all([this.validateAuth(obj), delay(1000)]);
+            const [id, _] = await Promise.all([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
                 console.log("Client authorized", {
                     hostname: obj["hostname"],
@@ -225,7 +225,7 @@ export class HostClient extends JobOwner {
                 this.auth = true;
                 this.id = id;
                 hostClients.hostClients[id] = this;
-                let act: IHostUp = { type: ACTION.HostUp, id: id };
+                const act: IHostUp = { type: ACTION.HostUp, id: id };
                 webClients.broadcast(act);
                 this.signHostCertificate();
             } else {
@@ -274,7 +274,7 @@ export class HostClient extends JobOwner {
                 await this.runShell("systemctl reload sshd");
             }
         } catch (e) {
-            let d = descript(e);
+            const d = descript(e);
             console.log(e);
             console.error("An error occured in host ssh certificate generation", {
                 typename: d.typeName,

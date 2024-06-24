@@ -1,10 +1,10 @@
 import * as sqlite from "sqlite3";
-import { IObject2 } from "./shared/state";
-import { Host, hostId, IVariables, rootId, rootInstanceId, userId } from "./shared/type";
+import type { IObject2 } from "./shared/state";
+import { type Host, type IVariables, hostId, rootId, rootInstanceId, userId } from "./shared/type";
 
 import { ErrorType, SAError } from "./error";
 type IV = { id: number; version: number };
-import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from "./default";
+import { collectionId, defaults, fileId, groupId, packageId, ufwAllowId } from "./default";
 
 import nullCheck from "./shared/nullCheck";
 
@@ -111,7 +111,7 @@ export class DB {
         await r("DELETE FROM `sessions` WHERE `user`=?", ["docker_client"]);
         await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
-        for (let pair of [
+        for (const pair of [
             ["host", hostId],
             ["user", userId],
             ["group", groupId],
@@ -123,12 +123,12 @@ export class DB {
             await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }
 
-        for (let d of defaults) {
+        for (const d of defaults) {
             await r(
                 "REPLACE INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, 1, ?, ?, ?, datetime('now'), 0, ?, ?)",
                 [d.id, d.type, d.name, JSON.stringify(d.content), d.category, d.comment],
             );
-            let mv = await q("SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?", [
+            const mv = await q("SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?", [
                 d.id,
             ]);
             await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [
@@ -145,7 +145,7 @@ export class DB {
     }
 
     all(sql: string, ...params: any[]) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<any[]>((cb, cbe) => {
             db.all(sql, params, (err, rows) => {
                 if (err) cbe(new SAError(ErrorType.Database, err));
@@ -155,7 +155,7 @@ export class DB {
     }
 
     get(sql: string, ...params: any[]) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<any>((cb, cbe) => {
             db.get(sql, params, (err, row) => {
                 if (err) cbe(new SAError(ErrorType.Database, err));
@@ -165,7 +165,7 @@ export class DB {
     }
 
     insert(sql: string, ...params: any[]) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<number>((cb, cbe) => {
             db.run(sql, params, function (err) {
                 if (err) cbe(new SAError(ErrorType.Database, err));
@@ -184,7 +184,7 @@ export class DB {
     }
 
     run(sql: string, ...params: any[]) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<number | undefined>((cb, cbe) => {
             db.run(sql, params, function (err) {
                 if (err) cbe(new SAError(ErrorType.Database, err));
@@ -195,7 +195,7 @@ export class DB {
 
     runPrepared(stmt: sqlite.Statement, ...params: any[]) {
         return new Promise<void>((cb, cbe) => {
-            stmt.run(params, function (err) {
+            stmt.run(params, (err) => {
                 if (err) cbe(new SAError(ErrorType.Database, err));
                 else cb();
             });
@@ -207,7 +207,7 @@ export class DB {
     }
 
     getDeployments(host: number) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<{ name: string; type: number; title: string; content: string }[]>(
             (cb, cbe) => {
                 db.all<{ name: string; type: number; title: string; content: string }>(
@@ -224,7 +224,7 @@ export class DB {
     }
 
     setDeployment(host: number, name: string, content: string, type: number, title: string) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         if (content) {
             return new Promise<void>((cb, cbe) => {
                 db.run(
@@ -251,7 +251,7 @@ export class DB {
     }
 
     resetServer(host: number) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<void>((cb, cbe) => {
             db.all("DELETE FROM `deployments` WHERE `host`=?", [host], (err) => {
                 if (err) cbe(new SAError(ErrorType.Database, err));
@@ -261,7 +261,7 @@ export class DB {
     }
 
     getUserContent(name: string) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<string | null>((cb, cbe) => {
             db.get<{ content: string }>(
                 "SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
@@ -276,7 +276,7 @@ export class DB {
     }
 
     getAllObjects() {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<{ id: number; type: number; name: string; category: string }[]>(
             (cb, cbe) => {
                 db.all<{ id: number; type: number; name: string; category: string }>(
@@ -292,7 +292,7 @@ export class DB {
     }
 
     getAllObjectsFull() {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<
             {
                 id: number;
@@ -328,7 +328,7 @@ export class DB {
     }
 
     getObjectByID(id: number) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<
             {
                 version: number;
@@ -363,7 +363,7 @@ export class DB {
     }
 
     getNewestObjectByID(id: number) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<{
             version: number;
             type: number;
@@ -395,8 +395,8 @@ export class DB {
     }
 
     changeObject(id: number, object: IObject2<any> | null, author: string) {
-        let db = nullCheck(this.db);
-        let ins =
+        const db = nullCheck(this.db);
+        const ins =
             ({ id, version }: IV) =>
             (cb: (res: IV) => void, cbe: (error: SAError) => void) => {
                 db.run(
@@ -429,7 +429,7 @@ export class DB {
                     else if (row == undefined)
                         cbe(new SAError(ErrorType.Database, "Unable to find row"));
                     else {
-                        let version = row["version"] + 1;
+                        const version = row["version"] + 1;
                         db.run("UPDATE `objects` SET `newest`=0 WHERE `id` = ?", [id], (err) => {
                             if (err) cbe(new SAError(ErrorType.Database, err));
                             else if (object) ins({ id, version })(cb, cbe);
@@ -442,7 +442,7 @@ export class DB {
     }
 
     getHostContentByName(hostname: string) {
-        let db = nullCheck(this.db);
+        const db = nullCheck(this.db);
         return new Promise<{
             id: number;
             content: Host;
@@ -491,7 +491,7 @@ export class DB {
             rootInstanceId,
             rootId,
         );
-        let variables: { [key: string]: string } = {};
+        const variables: { [key: string]: string } = {};
         for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
             variables[v.key] = v.value;
         return variables;

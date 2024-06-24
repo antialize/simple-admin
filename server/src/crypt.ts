@@ -1,5 +1,5 @@
 import * as crypt3 from "@idango/crypt3";
-import { verify, encrypt } from "unixcrypt";
+import { encrypt, verify } from "unixcrypt";
 
 export function hash(password: string) {
     return new Promise<string>((cb, rej) => {
@@ -8,7 +8,7 @@ export function hash(password: string) {
 }
 
 export function validate(password: string, hash: string | undefined) {
-    let ok = hash !== undefined;
+    const ok = hash !== undefined;
 
     if (hash && hash.includes("=$")) {
         return verify(password, hash);

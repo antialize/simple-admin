@@ -1,8 +1,8 @@
-import { Job } from "../job";
-import type { HostClient } from "../hostclient";
-import * as message from "../messages";
 import * as fs from "fs";
 import * as WebSocket from "ws";
+import type { HostClient } from "../hostclient";
+import { Job } from "../job";
+import type * as message from "../messages";
 
 export class ShellJob extends Job {
     public sock: WebSocket | null;

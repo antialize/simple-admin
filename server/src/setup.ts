@@ -1,29 +1,29 @@
-import { Request, Response } from "express";
-import { db } from "./instances";
 import { randomBytes } from "crypto";
+import type { Request, Response } from "express";
 import { config } from "./config";
 import * as crypt from "./crypt";
-import { IObject2 } from "./shared/state";
-import { ACTION, IObjectChanged } from "./shared/actions";
+import { db } from "./instances";
 import { webClients } from "./instances";
+import { ACTION, type IObjectChanged } from "./shared/actions";
+import type { IObject2 } from "./shared/state";
 
 export default async (req: Request, res: Response) => {
     res.type("text/x-shellscript");
-    let host = req.param("host");
-    let token = req.param("token");
+    const host = req.param("host");
+    const token = req.param("token");
     if (!host) {
         res.status(405).send('#!/bin/bash\necho "Missing hostname"\n');
         return;
     }
-    let ho = await db.getHostContentByName(host);
+    const ho = await db.getHostContentByName(host);
     if (!ho || !ho.content || (ho.content as any).password !== token) {
         res.status(406).send('#!/bin/bash\necho "Invalid"\n');
         return;
     }
 
-    let npw = randomBytes(18).toString("base64");
-    let cpw = await crypt.hash(npw);
-    let obj: IObject2<any> = {
+    const npw = randomBytes(18).toString("base64");
+    const cpw = await crypt.hash(npw);
+    const obj: IObject2<any> = {
         id: ho.id,
         type: ho.type,
         name: ho.name,
@@ -35,10 +35,10 @@ export default async (req: Request, res: Response) => {
         author: ho.author,
     };
 
-    let { id, version } = await db.changeObject(obj.id, obj, "setup");
+    const { id, version } = await db.changeObject(obj.id, obj, "setup");
     obj.version = version;
     obj.id = id;
-    let act: IObjectChanged = { type: ACTION.ObjectChanged, id: ho.id, object: [obj] };
+    const act: IObjectChanged = { type: ACTION.ObjectChanged, id: ho.id, object: [obj] };
     webClients.broadcast(act);
 
     let script = "#!/bin/bash\n";

@@ -1,11 +1,11 @@
-import { WebClients } from "./webclient";
-import { HostClients } from "./hostclient";
 import { DB } from "./db";
-import { Msg } from "./msg";
 import { Deployment } from "./deployment";
-import * as instances from "./instances";
 import { errorHandler } from "./error";
+import { HostClients } from "./hostclient";
+import * as instances from "./instances";
 import { ModifiedFiles } from "./modifiedfiles";
+import { Msg } from "./msg";
+import { WebClients } from "./webclient";
 
 const exitHook = require("async-exit-hook");
 

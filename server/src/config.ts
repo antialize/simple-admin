@@ -6,4 +6,4 @@ interface Config {
     usedImagesToken?: string;
 }
 
-export let config: Config = JSON.parse(fs.readFileSync("config.json", { encoding: "utf-8" }));
+export const config: Config = JSON.parse(fs.readFileSync("config.json", { encoding: "utf-8" }));

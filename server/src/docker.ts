@@ -1,47 +1,47 @@
-import * as express from "express";
-import * as fs from "fs";
-import { v4 as uuid } from "uuid";
 import * as crypto from "crypto";
+import * as fs from "fs";
 import { Stream } from "stream";
-import { db, hostClients, webClients } from "./instances";
+import type * as express from "express";
+import * as Mustache from "mustache";
+import * as shellQuote from "shell-quote";
+import { v4 as uuid } from "uuid";
+import { parse } from "yaml";
 import {
-    IDockerDeployStart,
     ACTION,
-    IDockerListDeployments,
-    IDockerListImageTags,
-    IDockerListDeploymentsRes,
-    IDockerListImageTagsRes,
-    Ref,
-    IDockerImageSetPin,
-    IDockerImageTagSetPin,
-    IDockerImageTagsCharged,
-    DockerImageTag,
-    IAction,
-    IDockerListDeploymentHistory,
-    IDockerListDeploymentHistoryRes,
-    IDockerListImageTagHistory,
-    IDockerListImageTagHistoryRes,
+    type DockerImageTag,
+    type IAction,
+    IDockerContainerRemove,
     IDockerContainerStart,
     IDockerContainerStop,
-    IDockerContainerRemove,
-    IDockerListImageByHash,
-    IDockerListImageByHashRes,
-    IServiceDeployStart,
-    IServiceRedeployStart,
+    type IDockerDeployStart,
+    type IDockerImageSetPin,
+    type IDockerImageTagSetPin,
+    type IDockerImageTagsCharged,
+    type IDockerListDeploymentHistory,
+    type IDockerListDeploymentHistoryRes,
+    type IDockerListDeployments,
+    type IDockerListDeploymentsRes,
+    type IDockerListImageByHash,
+    type IDockerListImageByHashRes,
+    type IDockerListImageTagHistory,
+    type IDockerListImageTagHistoryRes,
+    type IDockerListImageTags,
+    type IDockerListImageTagsRes,
+    type IServiceDeployStart,
+    type IServiceRedeployStart,
+    type Ref,
 } from "../../shared/actions";
-import { WebClient } from "./webclient";
-import { rootId, hostId, rootInstanceId, IVariables, Host } from "../../shared/type";
-import * as Mustache from "mustache";
-import { Job } from "./job";
-import { HostClient } from "./hostclient";
-import * as message from "./messages";
-import * as shellQuote from "shell-quote";
-import { config } from "./config";
-import nullCheck from "../../shared/nullCheck";
 import getOrInsert from "../../shared/getOrInsert";
-import { getAuth } from "./getAuth";
+import nullCheck from "../../shared/nullCheck";
+import { type Host, type IVariables, hostId, rootId, rootInstanceId } from "../../shared/type";
+import { config } from "./config";
 import * as crt from "./crt";
-import { parse } from "yaml";
+import { getAuth } from "./getAuth";
+import type { HostClient } from "./hostclient";
+import { db, hostClients, webClients } from "./instances";
+import { Job } from "./job";
+import type * as message from "./messages";
+import type { WebClient } from "./webclient";
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
 const docker_blobs_path = "/var/simpleadmin_docker_blobs/";
@@ -255,7 +255,7 @@ class Docker {
                 res.status(403).end();
                 return;
             }
-            const re = new RegExp("^([^/]*)/([^/@:]*)@(sha256:[a-fA-F0-9]*)$");
+            const re = /^([^\/]*)\/([^\/@:]*)@(sha256:[a-fA-F0-9]*)$/;
             const time = +new Date() / 1000;
             for (const image of req.body.images) {
                 const match = re.exec(image);
@@ -873,8 +873,8 @@ finally:
 `;
 
             class DockerJob extends Job {
-                stdoutPart: string = "";
-                stderrPart: string = "";
+                stdoutPart = "";
+                stderrPart = "";
 
                 constructor() {
                     super(host, null, host);
@@ -1291,8 +1291,8 @@ finally:
     ): Promise<void> {
         return new Promise((accept, reject) => {
             class ServiceDeployJob extends Job {
-                stdoutPart: string = "";
-                stderrPart: string = "";
+                stdoutPart = "";
+                stderrPart = "";
 
                 constructor() {
                     super(host, null, host);

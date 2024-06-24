@@ -1,6 +1,6 @@
-import * as fs from "fs";
 import { spawn } from "child_process";
 import * as crypto from "crypto";
+import * as fs from "fs";
 
 function temp_name(): string {
     return "/tmp/" + crypto.randomBytes(48).toString("hex");
@@ -102,7 +102,7 @@ export function generate_crt(
     ca_crt: string,
     srs: string,
     subcerts: string[] = [],
-    timeoutDays: number = 999,
+    timeoutDays = 999,
 ): Promise<string> {
     return new Promise<string>((res, rej) => {
         const t1 = temp_name();

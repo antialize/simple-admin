@@ -1,51 +1,51 @@
+import * as crypto from "crypto";
 import * as http from "http";
-import {
-    IAction,
-    ACTION,
-    ISetInitialState,
-    IObjectChanged,
-    IAddLogLines,
-    ISetPageAction,
-    IAlert,
-    IGenerateKeyRes,
-    ISearchRes,
-} from "./shared/actions";
-import * as express from "express";
-import { PAGE_TYPE } from "./shared/state";
-import * as WebSocket from "ws";
 import * as url from "url";
-import { JobOwner } from "./jobowner";
-import { Job } from "./job";
-import { ShellJob } from "./jobs/shellJob";
-import { LogJob } from "./jobs/logJob";
-import * as crypt from "./crypt";
+import * as bodyParser from "body-parser";
+import * as express from "express";
 import helmet from "helmet";
-import { webClients, msg, hostClients, db, deployment, modifiedFiles } from "./instances";
+import * as speakeasy from "speakeasy";
+import * as WebSocket from "ws";
+import { config } from "./config";
+import * as crt from "./crt";
+import * as crypt from "./crypt";
+import { docker } from "./docker";
 import { errorHandler } from "./error";
+import { type AuthInfo, getAuth, noAccess } from "./getAuth";
+import { db, deployment, hostClients, modifiedFiles, msg, webClients } from "./instances";
+import type { Job } from "./job";
+import { JobOwner } from "./jobowner";
+import { LogJob } from "./jobs/logJob";
+import { ShellJob } from "./jobs/shellJob";
+import setup from "./setup";
 import {
-    IType,
-    typeId,
-    userId,
-    TypePropType,
+    ACTION,
+    type IAction,
+    IAddLogLines,
+    type IAlert,
+    type IGenerateKeyRes,
+    type IObjectChanged,
+    type ISearchRes,
+    type ISetInitialState,
+    type ISetPageAction,
+} from "./shared/actions";
+import { getReferences } from "./shared/getReferences";
+import nullCheck from "./shared/nullCheck";
+import { PAGE_TYPE } from "./shared/state";
+import {
+    type Host,
     IContains,
     IDepends,
     ISudoOn,
+    type IType,
     IVariables,
-    rootInstanceId,
-    rootId,
+    TypePropType,
     hostId,
-    Host,
+    rootId,
+    rootInstanceId,
+    typeId,
+    userId,
 } from "./shared/type";
-import nullCheck from "./shared/nullCheck";
-import setup from "./setup";
-import * as crypto from "crypto";
-import { config } from "./config";
-import * as speakeasy from "speakeasy";
-import { docker } from "./docker";
-import { getAuth, AuthInfo, noAccess } from "./getAuth";
-import * as bodyParser from "body-parser";
-import * as crt from "./crt";
-import { getReferences } from "./shared/getReferences";
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -830,7 +830,7 @@ export class WebClients {
     }
 
     startServer() {
-        this.httpServer.listen(8182, "localhost", function () {
+        this.httpServer.listen(8182, "localhost", () => {
             console.log("Web server started on port 443");
         });
         this.httpServer.on("close", () => {

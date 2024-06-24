@@ -25,11 +25,11 @@ export interface RunInstant {
 export interface DeployService {
     type: "deploy_service";
     id: number;
-    description: String;
-    image?: String;
-    docker_auth?: String;
+    description: string;
+    image?: string;
+    docker_auth?: string;
     extra_env?: { [key: string]: string };
-    user?: String;
+    user?: string;
 }
 
 export interface Kill {

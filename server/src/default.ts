@@ -1,18 +1,18 @@
 import {
-    IType,
+    type IBoolTypeProp,
+    type IChoiceTypeProp,
+    type IDocumentTypeProp,
+    type INumberTypeProp,
+    type IPasswordTypeProp,
+    type ITextTypeProp,
+    type IType,
+    type ITypeContentTypeProp,
     TypePropType,
-    ITextTypeProp,
-    IChoiceTypeProp,
-    IBoolTypeProp,
-    ITypeContentTypeProp,
-    INumberTypeProp,
-    IDocumentTypeProp,
-    IPasswordTypeProp,
-    typeId,
     hostId,
     rootId,
-    userId,
     rootInstanceId,
+    typeId,
+    userId,
 } from "./shared/type";
 
 export const groupId = 5;
@@ -35,7 +35,7 @@ interface IDefault {
     comment: string;
 }
 
-export let defaults: IDefault[] = [
+export const defaults: IDefault[] = [
     ////////////////////////////////////////////////////// Type Type /////////////////////////////////////////////////////////
     {
         type: typeId,

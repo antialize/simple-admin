@@ -1,5 +1,5 @@
-import { db } from "./instances";
 import { config } from "./config";
+import { db } from "./instances";
 
 export interface AuthInfo {
     auth: boolean;

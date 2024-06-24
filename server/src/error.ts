@@ -1,11 +1,11 @@
 import { webClients } from "./instances";
-import { WebClient } from "./webclient";
-import { IAlert, ACTION } from "./shared/actions";
+import { ACTION, type IAlert } from "./shared/actions";
+import type { WebClient } from "./webclient";
 
 export enum ErrorType {
-    Database,
-    Unknown,
-    SyntaxError,
+    Database = 0,
+    Unknown = 1,
+    SyntaxError = 2,
 }
 
 export class SAError {
@@ -24,7 +24,7 @@ export interface ErrorDescription {
 export function descript(err: any) {
     let type: ErrorType;
     let description: string;
-    let typeName: string = "Unknown";
+    let typeName = "Unknown";
 
     if (err instanceof SyntaxError) {
         type = ErrorType.SyntaxError;
@@ -57,14 +57,14 @@ export function descript(err: any) {
 
 export function errorHandler(place: string, webclient?: WebClient | false) {
     return (err: any) => {
-        let d = descript(err);
+        const d = descript(err);
         console.log(err);
         console.error("An error occured in " + place, {
             typename: d.typeName,
             description: d.description,
             err,
         });
-        let res: IAlert = {
+        const res: IAlert = {
             type: ACTION.Alert,
             title: "Error: " + d.typeName,
             message: "A " + d.type + " error occurned " + place + ": \n" + d.description,

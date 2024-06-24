@@ -1,5 +1,5 @@
-import { Job } from "./job";
-import * as message from "./messages";
+import type { Job } from "./job";
+import type * as message from "./messages";
 
 export abstract class JobOwner {
     jobs: { [id: number]: Job } = {};
