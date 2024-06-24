@@ -1,15 +1,15 @@
-import { WebClients } from './webclient';
-import { HostClients } from './hostclient';
-import { DB } from './db';
-import { Msg } from './msg';
-import { Deployment } from './deployment';
-import * as instances from './instances';
-import { errorHandler } from './error';
-import { ModifiedFiles } from './modifiedfiles';
+import { WebClients } from "./webclient";
+import { HostClients } from "./hostclient";
+import { DB } from "./db";
+import { Msg } from "./msg";
+import { Deployment } from "./deployment";
+import * as instances from "./instances";
+import { errorHandler } from "./error";
+import { ModifiedFiles } from "./modifiedfiles";
 
-const exitHook = require('async-exit-hook');
+const exitHook = require("async-exit-hook");
 
-console.log('STARTING SERVER');
+console.log("STARTING SERVER");
 
 async function setup() {
     instances.setMsg(new Msg());
@@ -20,7 +20,7 @@ async function setup() {
     try {
         await instances.db.init();
     } catch (err) {
-        errorHandler('db')(err);
+        errorHandler("db")(err);
     }
     instances.setWebClients(new WebClients());
     instances.webClients.startServer();

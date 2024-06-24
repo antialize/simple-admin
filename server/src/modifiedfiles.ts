@@ -1,5 +1,5 @@
-import { fileId } from './default';
-import { db, webClients, hostClients, msg } from './instances';
+import { fileId } from "./default";
+import { db, webClients, hostClients, msg } from "./instances";
 import {
     IModifiedFilesResolve,
     IModifiedFilesList,
@@ -7,12 +7,12 @@ import {
     ModifiedFile,
     ACTION,
     IObjectChanged,
-} from './shared/actions';
-import { WebClient } from './webclient';
-import { Job } from './job';
-import * as message from './messages';
-import getOrInsert from './shared/getOrInsert';
-import nullCheck from './shared/nullCheck';
+} from "./shared/actions";
+import { WebClient } from "./webclient";
+import { Job } from "./job";
+import * as message from "./messages";
+import getOrInsert from "./shared/getOrInsert";
+import nullCheck from "./shared/nullCheck";
 
 const cronId = 10240;
 const systemdServiceId = 10206;
@@ -65,7 +65,7 @@ export class ModifiedFiles {
         };
         let objects = new Map<number, Obj[]>();
         for (const row of await db.all(
-            'SELECT `name`, `content`, `type`, `title`, `host` FROM `deployments` WHERE `type` in (?, ?, ?)',
+            "SELECT `name`, `content`, `type`, `title`, `host` FROM `deployments` WHERE `type` in (?, ?, ?)",
             fileId,
             cronId,
             systemdServiceId,
@@ -81,7 +81,7 @@ export class ModifiedFiles {
                     break;
                 case systemdServiceId:
                     data = content.content.unit;
-                    path = '/etc/systemd/system/' + content.content.name + '.service';
+                    path = "/etc/systemd/system/" + content.content.name + ".service";
                     break;
                 case cronId:
                     data = content.content.script;
@@ -124,24 +124,24 @@ sys.stdout.write(json.dumps(ans))
 sys.stdout.flush()
 `;
                     let scan_timeout = setTimeout(() => {
-                        reject(new Error('Timeout runnig scan on ' + host.hostname));
+                        reject(new Error("Timeout runnig scan on " + host.hostname));
                     }, 60000);
 
                     class FileContentJob extends Job {
-                        out: string = '';
+                        out: string = "";
 
                         constructor() {
                             super(host, null, host);
                             let msg: message.RunScript = {
-                                type: 'run_script',
+                                type: "run_script",
                                 id: this.id,
-                                name: 'read_files.py',
-                                interperter: '/usr/bin/python3',
+                                name: "read_files.py",
+                                interperter: "/usr/bin/python3",
                                 content: script,
                                 args: args,
-                                stdin_type: 'none',
-                                stdout_type: 'text',
-                                stderr_type: 'none',
+                                stdin_type: "none",
+                                stdout_type: "text",
+                                stderr_type: "none",
                             };
                             host.sendMessage(msg);
                             this.running = true;
@@ -150,21 +150,21 @@ sys.stdout.flush()
                         handleMessage(obj: message.Incomming) {
                             super.handleMessage(obj);
                             switch (obj.type) {
-                                case 'data':
-                                    if (obj.source == 'stdout') this.out += obj.data;
+                                case "data":
+                                    if (obj.source == "stdout") this.out += obj.data;
                                     break;
-                                case 'success':
+                                case "success":
                                     clearTimeout(scan_timeout);
                                     if (obj.code == 0)
                                         accept({
                                             host: hostId,
                                             content: JSON.parse(this.out).content,
                                         });
-                                    else reject(new Error('Script returned ' + obj.code));
+                                    else reject(new Error("Script returned " + obj.code));
                                     break;
-                                case 'failure':
+                                case "failure":
                                     clearTimeout(scan_timeout);
-                                    reject(new Error('Script failure'));
+                                    reject(new Error("Script failure"));
                                     break;
                             }
                         }
@@ -176,14 +176,14 @@ sys.stdout.flush()
 
         try {
             for (const { host, content } of await Promise.all(promises)) {
-                if (!content) throw new Error('Failed to run on host ' + host);
+                if (!content) throw new Error("Failed to run on host " + host);
                 let objs = objects.get(host);
                 if (!objs || objs.length != content.length) {
-                    throw new Error('Not all files there');
+                    throw new Error("Not all files there");
                 }
                 let modified = new Map<string, Obj>();
                 for (let i = 0; i < objs.length; ++i) {
-                    if (objs[i].path != content[i].path) throw new Error('Path error');
+                    if (objs[i].path != content[i].path) throw new Error("Path error");
 
                     objs[i].actual = content[i].data;
                     if (objs[i].actual == objs[i].data) continue;
@@ -212,7 +212,7 @@ sys.stdout.flush()
                 for (const [path, o] of modified) {
                     const id = this.idc++;
                     if (!o.actual) {
-                        console.log('Actual is missing!', o);
+                        console.log("Actual is missing!", o);
                         continue;
                     }
                     this.modifiedFiles.push({
@@ -228,8 +228,8 @@ sys.stdout.flush()
                     this.props.set(id, { dead: false, updated: true });
                     msg.emit(
                         o.host,
-                        'Modified file',
-                        'The file ' + o.path + ' has been modified since it was deployed',
+                        "Modified file",
+                        "The file " + o.path + " has been modified since it was deployed",
                     );
                 }
             }
@@ -246,9 +246,9 @@ sys.stdout.flush()
 
             let m = new Map<number, string>();
             for (const row of await db.all(
-                'SELECT `id`, `content` FROM `objects` WHERE `newest`=1 AND `id` in (?' +
-                    ', ?'.repeat(oids.length - 1) +
-                    ')',
+                "SELECT `id`, `content` FROM `objects` WHERE `newest`=1 AND `id` in (?" +
+                    ", ?".repeat(oids.length - 1) +
+                    ")",
                 ...oids,
             ))
                 m.set(row.id, row.content);
@@ -279,16 +279,16 @@ sys.stdout.flush()
         try {
             await this.scan();
         } catch (err) {
-            console.error('Error scanning for modified files: ' + err);
+            console.error("Error scanning for modified files: " + err);
         }
     }
     async resolve(client: WebClient, act: IModifiedFilesResolve) {
         let f: ModifiedFile | null = null;
         for (const o of this.modifiedFiles) if (o.id == act.id) f = o;
-        if (f === null) throw new Error('Unable to find object with that id');
-        if (act.action == 'redeploy') {
+        if (f === null) throw new Error("Unable to find object with that id");
+        if (act.action == "redeploy") {
             const host = hostClients.hostClients[f.host];
-            if (!host) throw new Error('Host is not up');
+            if (!host) throw new Error("Host is not up");
             const f2 = f;
             await new Promise<void>((accept, reject) => {
                 let script = `
@@ -301,15 +301,15 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                     constructor() {
                         super(host, null, host);
                         let msg1: message.RunScript = {
-                            type: 'run_script',
+                            type: "run_script",
                             id: this.id,
-                            name: 'revert.py',
-                            interperter: '/usr/bin/python3',
+                            name: "revert.py",
+                            interperter: "/usr/bin/python3",
                             content: script,
                             args: [],
-                            stdin_type: 'none',
-                            stdout_type: 'none',
-                            stderr_type: 'text',
+                            stdin_type: "none",
+                            stdout_type: "none",
+                            stderr_type: "text",
                         };
                         host.sendMessage(msg1);
                         this.running = true;
@@ -318,12 +318,12 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                     handleMessage(obj: message.Incomming) {
                         super.handleMessage(obj);
                         switch (obj.type) {
-                            case 'success':
+                            case "success":
                                 if (obj.code == 0) accept();
-                                else reject(new Error('Script returned ' + obj.code));
+                                else reject(new Error("Script returned " + obj.code));
                                 break;
-                            case 'failure':
-                                reject(new Error('Script failure'));
+                            case "failure":
+                                reject(new Error("Script failure"));
                                 break;
                         }
                     }
@@ -334,7 +334,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
             pp.dead = true;
             pp.updated = true;
             await this.broadcast_changes();
-        } else if (act.action == 'updateCurrent') {
+        } else if (act.action == "updateCurrent") {
             const row = await db.getNewestObjectByID(f.object);
 
             const obj = {
@@ -351,13 +351,13 @@ with open(o['path'], 'w', encoding='utf-8') as f:
 
             switch (f.type) {
                 case fileId:
-                    obj.content['data'] = act.newCurrent;
+                    obj.content["data"] = act.newCurrent;
                     break;
                 case systemdServiceId:
-                    obj.content['unit'] = act.newCurrent;
+                    obj.content["unit"] = act.newCurrent;
                     break;
                 case cronId:
-                    obj.content['script'] = act.newCurrent;
+                    obj.content["script"] = act.newCurrent;
                     break;
             }
 

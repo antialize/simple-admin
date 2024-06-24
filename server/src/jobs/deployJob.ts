@@ -1,11 +1,11 @@
-import { Job } from '../job';
-import * as message from '../messages';
-import { deployment } from '../instances';
-import type { HostClient } from '../hostclient';
+import { Job } from "../job";
+import * as message from "../messages";
+import { deployment } from "../instances";
+import type { HostClient } from "../hostclient";
 
 export class DeployJob extends Job {
-    stdoutPart: string = '';
-    stderrPart: string = '';
+    stdoutPart: string = "";
+    stderrPart: string = "";
 
     constructor(
         hostClient: HostClient,
@@ -15,16 +15,16 @@ export class DeployJob extends Job {
     ) {
         super(hostClient, null, hostClient);
         const msg: message.RunScript = {
-            type: 'run_script',
+            type: "run_script",
             id: this.id,
-            name: 'deploy.py',
-            interperter: '/usr/bin/python3',
+            name: "deploy.py",
+            interperter: "/usr/bin/python3",
             content: script,
             args: [],
-            stdin_type: 'given_json',
+            stdin_type: "given_json",
             input_json: content,
-            stdout_type: 'binary',
-            stderr_type: 'binary',
+            stdout_type: "binary",
+            stderr_type: "binary",
         };
         hostClient.sendMessage(msg);
         this.running = true;
@@ -32,14 +32,14 @@ export class DeployJob extends Job {
 
     handleMessage(obj: message.Incomming) {
         switch (obj.type) {
-            case 'data':
-                if (obj.source == 'stdout' || obj.source == 'stderr')
-                    deployment.addLog(Buffer.from(obj.data, 'base64').toString('binary'));
+            case "data":
+                if (obj.source == "stdout" || obj.source == "stderr")
+                    deployment.addLog(Buffer.from(obj.data, "base64").toString("binary"));
                 break;
-            case 'success':
+            case "success":
                 this.cb(true, obj.code);
                 break;
-            case 'failure':
+            case "failure":
                 this.cb(false, -1);
                 break;
         }

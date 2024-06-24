@@ -5,8 +5,8 @@ import {
     IDeploymentObject,
     IObject2,
     IDeploymentTrigger,
-} from './shared/state';
-import { webClients, db, hostClients } from './instances';
+} from "./shared/state";
+import { webClients, db, hostClients } from "./instances";
 import {
     ACTION,
     ISetDeploymentStatus,
@@ -16,7 +16,7 @@ import {
     ISetDeploymentObjectStatus,
     IAddDeploymentLog,
     IClearDeploymentLog,
-} from './shared/actions';
+} from "./shared/actions";
 import {
     typeId,
     rootInstanceId,
@@ -30,18 +30,18 @@ import {
     ISudoOn,
     IContains,
     packageId,
-} from './shared/type';
-import * as PriorityQueue from 'priorityqueuejs';
-import * as Mustache from 'mustache';
-import { DeployJob } from './jobs/deployJob';
-import { errorHandler, descript } from './error';
+} from "./shared/type";
+import * as PriorityQueue from "priorityqueuejs";
+import * as Mustache from "mustache";
+import { DeployJob } from "./jobs/deployJob";
+import { errorHandler, descript } from "./error";
 
-import { promisify } from 'util';
+import { promisify } from "util";
 
 //Type only import
-import { HostClient } from './hostclient';
-import nullCheck from './shared/nullCheck';
-import { exec } from 'child_process';
+import { HostClient } from "./hostclient";
+import nullCheck from "./shared/nullCheck";
+import { exec } from "child_process";
 
 interface IDeployContent {
     script: string | null;
@@ -103,17 +103,17 @@ export class Deployment {
                     try {
                         let vars: { [key: string]: any } = {};
                         for (const [key, val] of Object.entries(variables)) {
-                            if (val.startsWith('json:')) vars[key] = JSON.parse(val.substr(5));
+                            if (val.startsWith("json:")) vars[key] = JSON.parse(val.substr(5));
                             else vars[key] = val;
                         }
                         return Mustache.render(txt, vars);
                     } catch (err) {
                         errors.push(
-                            'Template error in ' + name + ' of ' + deploymentTitle + ': ' + err,
+                            "Template error in " + name + " of " + deploymentTitle + ": " + err,
                         );
                         console.log(err);
                     }
-                    return '';
+                    return "";
                 };
 
                 for (let item of type.content || []) {
@@ -123,7 +123,7 @@ export class Deployment {
                             if (v === undefined || v === null) v = item.default;
                             if (item.variable) {
                                 hasVars = true;
-                                variables[item.variable] = v ? 'true' : 'false';
+                                variables[item.variable] = v ? "true" : "false";
                             }
                             content[item.name] = v;
                             break;
@@ -140,7 +140,7 @@ export class Deployment {
                         }
                         case TypePropType.document: {
                             let v = objContent[item.name] as string;
-                            if (v == undefined || v === null) v = '';
+                            if (v == undefined || v === null) v = "";
                             if (item.template) v = template(item.name, v, variables);
                             if (item.variable) {
                                 hasVars = true;
@@ -157,14 +157,14 @@ export class Deployment {
                         }
                         case TypePropType.password: {
                             let v = objContent[item.name] as string;
-                            if (v == undefined || v === null) v = '';
+                            if (v == undefined || v === null) v = "";
                             content[item.name] = v;
                             break;
                         }
                         case TypePropType.text: {
                             let v = objContent[item.name] as string;
                             if (v == undefined || v === null) v = item.default;
-                            if (v == undefined || v === null) v = '';
+                            if (v == undefined || v === null) v = "";
                             if (item.template) v = template(item.name, v, variables);
                             if (item.variable) {
                                 hasVars = true;
@@ -178,10 +178,10 @@ export class Deployment {
                         case TypePropType.typeContent:
                             break;
                         default:
-                            never(item, 'We should not get here');
+                            never(item, "We should not get here");
                     }
                 }
-                const script = type.script && template('script', type.script, variables);
+                const script = type.script && template("script", type.script, variables);
                 return { deploymentTitle, variables, script, content, hasVars };
             };
 
@@ -198,7 +198,7 @@ export class Deployment {
                 variables = Object.assign({}, variables);
                 let hasVars = false;
 
-                if (type.content.hasVariables && 'variables' in obj.content) {
+                if (type.content.hasVariables && "variables" in obj.content) {
                     for (const v of (obj.content as IVariables).variables)
                         variables[v.key] = v.value;
                     hasVars = true;
@@ -206,8 +206,8 @@ export class Deployment {
                 if (type.content.nameVariable) variables[type.content.nameVariable] = obj.name;
 
                 if (type.content.hasSudoOn)
-                    content['sudoOn'] =
-                        'sudoOn' in obj.content && obj.content.sudoOn.includes(hostId);
+                    content["sudoOn"] =
+                        "sudoOn" in obj.content && obj.content.sudoOn.includes(hostId);
 
                 let deploymentTitle = obj.name;
                 return visitContent(
@@ -276,7 +276,7 @@ export class Deployment {
 
                 const hostObject = objects[hostId];
                 let hostVariables = nullCheck(visitObject(hostId, rootVariable, hostId)).variables;
-                hostVariables['nodename'] = hostObject.name;
+                hostVariables["nodename"] = hostObject.name;
                 const nodes = new Map<string, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const topVisiting = new Set<number>();
@@ -287,7 +287,7 @@ export class Deployment {
                     if (id == null || !objects[id]) return;
                     if (tops.has(id)) return tops.get(id);
                     if (topVisiting.has(id)) {
-                        errors.push('Cyclip dependency');
+                        errors.push("Cyclip dependency");
                         return null;
                     }
                     topVisiting.add(id);
@@ -305,17 +305,17 @@ export class Deployment {
                     /*sentinal: DagNode,*/ variables: { [key: string]: string },
                 ) => {
                     if (id == null) return null;
-                    const name = prefix.join('.') + '.' + id;
+                    const name = prefix.join(".") + "." + id;
                     if (nodes.has(name)) return nodes.get(name);
 
                     const parent = objects[path[path.length - 1]];
                     if (!(id in objects) || objects[id] == undefined) {
                         errors.push(
-                            'Missing object ' +
+                            "Missing object " +
                                 id +
-                                ' for host ' +
+                                " for host " +
                                 hostObject.name +
-                                ' in ' +
+                                " in " +
                                 parent.name,
                         );
                         return null;
@@ -325,9 +325,9 @@ export class Deployment {
                     if (path.indexOf(id) !== -1) {
                         errors.push(
                             parent.name +
-                                ' contains ' +
+                                " contains " +
                                 obj.name +
-                                ' of which it is it self a member',
+                                " of which it is it self a member",
                         );
                         return null;
                     }
@@ -335,20 +335,20 @@ export class Deployment {
                     const v = visitObject(id, variables, hostId);
                     if (!v) {
                         errors.push(
-                            'Error visiting ' +
+                            "Error visiting " +
                                 name +
-                                ' ' +
+                                " " +
                                 obj.name +
-                                ' ' +
+                                " " +
                                 type +
-                                ' ' +
+                                " " +
                                 id +
-                                ' ' +
+                                " " +
                                 v,
                         );
                         return null;
                     }
-                    v.content['name'] = obj.name;
+                    v.content["name"] = obj.name;
 
                     const sentinal: SentinalDagNode = {
                         type: NodeType.sentinal,
@@ -364,7 +364,7 @@ export class Deployment {
                         type: NodeType.normal,
                         next: [],
                         prev: [],
-                        name: prefix.join('.') + '.' + id,
+                        name: prefix.join(".") + "." + id,
                         id,
                         inCount: 0,
                         typeOrder: type.content.deployOrder || 0,
@@ -382,7 +382,7 @@ export class Deployment {
                         for (const trigger of triggers) {
                             if (!objects[trigger.id]) continue;
                             let x = visitContent(
-                                'trigger',
+                                "trigger",
                                 trigger.values,
                                 Object.assign({}, v.variables),
                                 (objects[trigger.id] as IObject2<IType>).content,
@@ -400,9 +400,9 @@ export class Deployment {
                         }
                     };
 
-                    if (type.content.hasTriggers && 'triggers' in obj.content)
+                    if (type.content.hasTriggers && "triggers" in obj.content)
                         handleTriggers((obj.content as ITriggers).triggers);
-                    if ('triggers' in type.content)
+                    if ("triggers" in type.content)
                         handleTriggers((type.content as ITriggers).triggers);
 
                     {
@@ -426,10 +426,10 @@ export class Deployment {
                             }
                         };
 
-                        if (type.content.hasContains && 'contains' in obj.content)
+                        if (type.content.hasContains && "contains" in obj.content)
                             handleContains((obj.content as IContains).contains);
 
-                        if ('contains' in type.content)
+                        if ("contains" in type.content)
                             handleContains((type.content as IContains).contains);
                     }
 
@@ -443,17 +443,17 @@ export class Deployment {
                         }
                     };
 
-                    if (type.content.hasDepends && 'depends' in obj.content)
+                    if (type.content.hasDepends && "depends" in obj.content)
                         handleDepends((obj.content as IDepends).depends);
 
-                    if ('depends' in type.content)
+                    if ("depends" in type.content)
                         handleDepends((type.content as IDepends).depends);
 
                     return { node, sentinal };
                 };
 
                 // Visit all the things
-                if ('contains' in hostObject.content)
+                if ("contains" in hostObject.content)
                     for (const depId of (hostObject.content as IContains).contains) visitTop(depId);
 
                 if (errors.length != 0) continue;
@@ -533,9 +533,9 @@ export class Deployment {
                     if (!obj) continue;
                     const type = objects[obj.type] as IObject2<IType>;
                     if (
-                        type.content.kind == 'collection' ||
-                        type.content.kind == 'root' ||
-                        type.content.kind == 'host'
+                        type.content.kind == "collection" ||
+                        type.content.kind == "root" ||
+                        type.content.kind == "host"
                     )
                         continue;
                     const name = nullCheck(node.name);
@@ -549,7 +549,7 @@ export class Deployment {
                         title: node.deploymentTitle,
                         name,
                         script: nullCheck(node.script),
-                        prevScript: '',
+                        prevScript: "",
                         nextContent: node.content,
                         prevContent: null,
                         host: hostId,
@@ -605,7 +605,7 @@ export class Deployment {
                                     cycle.push(n);
                                     let m = back.get(n);
                                     if (m == null) {
-                                        console.log('Internal errror');
+                                        console.log("Internal errror");
                                         break;
                                     }
                                     n = m;
@@ -619,20 +619,20 @@ export class Deployment {
                     }
 
                     errors.push(
-                        'There is a cycle on host ' +
+                        "There is a cycle on host " +
                             hostObject.name +
-                            ': ' +
+                            ": " +
                             shortest_cycle!
                                 .map((v) =>
                                     v.type == NodeType.sentinal
-                                        ? 'Sent ' + v.name
+                                        ? "Sent " + v.name
                                         : v.deploymentTitle,
                                 )
-                                .join(' -> '),
+                                .join(" -> "),
                     );
                 }
 
-                if ('debPackages' in hostObject.content && !hostObject.content['debPackages'])
+                if ("debPackages" in hostObject.content && !hostObject.content["debPackages"])
                     hostDeploymentObjects = hostDeploymentObjects.filter(
                         (o) => o.typeId != packageId,
                     );
@@ -672,7 +672,7 @@ export class Deployment {
                             title: v.title,
                             name: v.name,
                             script: nullCheck(content.script),
-                            prevScript: '',
+                            prevScript: "",
                             nextContent: null,
                             prevContent: content.content,
                             host: hostId,
@@ -714,9 +714,9 @@ export class Deployment {
                         action: DEPLOYMENT_OBJECT_ACTION.Trigger,
                         hostName: hostObject.name,
                         title: t.title,
-                        name: '',
+                        name: "",
                         script: t.script,
-                        prevScript: '',
+                        prevScript: "",
                         nextContent: t.content,
                         prevContent: null,
                         host: hostId,
@@ -733,7 +733,7 @@ export class Deployment {
             if (errors.length != 0) {
                 this.deploymentObjects = [];
                 this.setStatus(DEPLOYMENT_STATUS.InvilidTree);
-                this.setMessage(errors.join('\n'));
+                this.setMessage(errors.join("\n"));
                 return;
             }
 
@@ -747,14 +747,14 @@ export class Deployment {
             webClients.broadcast(a);
             if (this.deploymentObjects.length == 0) {
                 this.setStatus(DEPLOYMENT_STATUS.Done);
-                this.setMessage('Everything up to date, nothing to deploy!');
+                this.setMessage("Everything up to date, nothing to deploy!");
             } else {
                 this.setStatus(DEPLOYMENT_STATUS.ReviewChanges);
             }
         } catch (err) {
             this.setStatus(DEPLOYMENT_STATUS.InvilidTree);
             this.setMessage(descript(err).description);
-            errorHandler('setupDeployment', false)(err);
+            errorHandler("setupDeployment", false)(err);
         }
     }
 
@@ -797,7 +797,7 @@ export class Deployment {
                     author: r.author,
                 };
 
-        this.addLog('Deployment started\r\n');
+        this.addLog("Deployment started\r\n");
 
         this.setStatus(DEPLOYMENT_STATUS.Deploying);
         let badHosts = new Set<number>();
@@ -816,7 +816,7 @@ export class Deployment {
 
             if (o.host != curHost) {
                 curHost = o.host;
-                this.addHeader(o.hostName, '=');
+                this.addHeader(o.hostName, "=");
                 hostObjects = {};
                 for (const row of await db.getDeployments(curHost)) {
                     let c = JSON.parse(row.content) as IDeployContent;
@@ -828,7 +828,7 @@ export class Deployment {
 
             let hostClient = hostClients.hostClients[o.host];
             if (!hostClient || hostClient.closeHandled) {
-                this.addLog('Host ' + o.hostName + ' is down\r\n');
+                this.addLog("Host " + o.hostName + " is down\r\n");
                 badHosts.add(o.host);
                 this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Failure);
                 continue;
@@ -838,7 +838,7 @@ export class Deployment {
 
             let type = types[typeId];
 
-            if (type && type.content.kind == 'sum') {
+            if (type && type.content.kind == "sum") {
                 let j = i;
 
                 let curObjects = hostObjects[typeId] || {};
@@ -864,8 +864,8 @@ export class Deployment {
                         if (!o2.enabled) continue;
                         this.setObjectStatus(k, DEPLOYMENT_OBJECT_STATUS.Failure);
                     }
-                    if (ans.success) this.addLog('\r\nFailed with exit code ' + ans.code + '\r\n');
-                    else this.addLog('\r\nFailed\r\n');
+                    if (ans.success) this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
+                    else this.addLog("\r\nFailed\r\n");
                     badHosts.add(o.host);
                 } else {
                     hostObjects[typeId] = nextObjects;
@@ -896,25 +896,25 @@ export class Deployment {
                 continue;
             }
 
-            this.addHeader(o.title + ' (' + o.typeName + ')', '-');
+            this.addHeader(o.title + " (" + o.typeName + ")", "-");
 
             this.setObjectStatus(o.index, DEPLOYMENT_OBJECT_STATUS.Deplying);
 
             let ans = { success: false, code: 0 };
 
-            if (type && type.content.kind == 'trigger') {
+            if (type && type.content.kind == "trigger") {
                 ans = await this.deploySingle(hostClient, o.script, o.nextContent);
-            } else if (!type || type.content.kind == 'delta') {
+            } else if (!type || type.content.kind == "delta") {
                 if (
-                    (o.title == 'headscale' || o.title == 'setup_headscale') &&
+                    (o.title == "headscale" || o.title == "setup_headscale") &&
                     o.nextContent != null
                 ) {
                     const exec2 = promisify(exec);
                     const { stdout, stderr } = await exec2(
-                        'headscale -o json --force --user sadmin preauthkeys create --reusable --expiration 1h',
+                        "headscale -o json --force --user sadmin preauthkeys create --reusable --expiration 1h",
                     );
                     const output = JSON.parse(stdout);
-                    o.nextContent['scaleAuthKey'] = output['key'];
+                    o.nextContent["scaleAuthKey"] = output["key"];
                 }
 
                 ans = await this.deploySingle(hostClient, o.script, {
@@ -925,10 +925,10 @@ export class Deployment {
 
             let ok = ans.success && ans.code == 0;
             if (!ok) {
-                if (ans.success) this.addLog('\r\nFailed with exit code ' + ans.code + '\r\n');
-                else this.addLog('\r\nFailed\r\n');
-                if (type && type.content.kind != 'trigger') badHosts.add(o.host);
-            } else if (type && type.content.kind != 'trigger') {
+                if (ans.success) this.addLog("\r\nFailed with exit code " + ans.code + "\r\n");
+                else this.addLog("\r\nFailed\r\n");
+                if (type && type.content.kind != "trigger") badHosts.add(o.host);
+            } else if (type && type.content.kind != "trigger") {
                 let c: IDeployContent = {
                     content: o.nextContent,
                     script: o.script,
@@ -954,7 +954,7 @@ export class Deployment {
     async deployObject(id: number | null, redeploy: boolean) {
         this.setStatus(DEPLOYMENT_STATUS.BuildingTree);
         this.clearLog();
-        this.setMessage('');
+        this.setMessage("");
         await this.setupDeploy(id, redeploy);
     }
 
@@ -978,7 +978,7 @@ export class Deployment {
             objects: this.getView(),
         };
         webClients.broadcast(a);
-        this.setMessage('');
+        this.setMessage("");
     }
 
     toggleObject(index: number | null, enabled: boolean) {
@@ -994,7 +994,7 @@ export class Deployment {
             type: ACTION.ToggleDeploymentObject,
             index,
             enabled,
-            source: 'server',
+            source: "server",
         };
         webClients.broadcast(a);
     }
@@ -1007,12 +1007,12 @@ export class Deployment {
         webClients.broadcast(a);
     }
 
-    addHeader(name: string, sep: string = '-') {
+    addHeader(name: string, sep: string = "-") {
         let t = 100 - 4 - name.length;
         let l = t / 2;
         let r = t - l;
         this.addLog(
-            '\r\n\x1b[91m' + sep.repeat(l) + '> ' + name + ' <' + sep.repeat(r) + '\x1b[0m\r\n',
+            "\r\n\x1b[91m" + sep.repeat(l) + "> " + name + " <" + sep.repeat(r) + "\x1b[0m\r\n",
         );
     }
 

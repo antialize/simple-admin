@@ -1,19 +1,19 @@
-import * as sqlite from 'sqlite3';
-import { IObject2 } from './shared/state';
-import { Host, hostId, IVariables, rootId, rootInstanceId, userId } from './shared/type';
+import * as sqlite from "sqlite3";
+import { IObject2 } from "./shared/state";
+import { Host, hostId, IVariables, rootId, rootInstanceId, userId } from "./shared/type";
 
-import { ErrorType, SAError } from './error';
+import { ErrorType, SAError } from "./error";
 type IV = { id: number; version: number };
-import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from './default';
+import { defaults, groupId, fileId, collectionId, ufwAllowId, packageId } from "./default";
 
-import nullCheck from './shared/nullCheck';
+import nullCheck from "./shared/nullCheck";
 
 export class DB {
     db: sqlite.Database | null = null;
     nextObjectId = 10000;
 
     async init() {
-        const db = new sqlite.Database('sysadmin.db');
+        const db = new sqlite.Database("sysadmin.db");
         this.db = db;
 
         const i = (stmt: string, args: any[] = []) => {
@@ -46,81 +46,81 @@ export class DB {
             });
         };
 
-        await r('PRAGMA journal_mode=WAL');
+        await r("PRAGMA journal_mode=WAL");
         await r(
-            'CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)',
+            "CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)",
         );
-        await i('ALTER TABLE `objects` ADD COLUMN `category` TEXT');
-        await i('ALTER TABLE `objects` ADD COLUMN `author` TEXT');
-        await r('CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)');
+        await i("ALTER TABLE `objects` ADD COLUMN `category` TEXT");
+        await i("ALTER TABLE `objects` ADD COLUMN `author` TEXT");
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)");
         await r(
-            'CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)',
+            "CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)",
         );
         //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
-        await r('CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)');
+        await r("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
         await r(
-            'CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)',
+            "CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)",
         );
         await r(
-            'CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)',
+            "CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)",
         );
         await r(
-            'CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)',
+            "CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)",
         );
         await r(
-            'CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)',
+            "CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)",
         );
-        await r('DROP TABLE IF EXISTS `host_monitor`');
+        await r("DROP TABLE IF EXISTS `host_monitor`");
 
         //await r('DROP TABLE `docker_images`');
         await r(
-            'CREATE TABLE IF NOT EXISTS `docker_images` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT, `manifest` TEXT, `hash` TEXT, `user` INTEGER, `time` INTEGER)',
+            "CREATE TABLE IF NOT EXISTS `docker_images` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT, `manifest` TEXT, `hash` TEXT, `user` INTEGER, `time` INTEGER)",
         );
-        await i('ALTER TABLE `docker_images` ADD COLUMN `pin` INTEGER');
-        await i('ALTER TABLE `docker_images` ADD COLUMN `labels` TEXT');
-        await i('ALTER TABLE `docker_images` ADD COLUMN `removed` INTEGER');
-        await i('ALTER TABLE `docker_images` ADD COLUMN `used` INTEGER');
+        await i("ALTER TABLE `docker_images` ADD COLUMN `pin` INTEGER");
+        await i("ALTER TABLE `docker_images` ADD COLUMN `labels` TEXT");
+        await i("ALTER TABLE `docker_images` ADD COLUMN `removed` INTEGER");
+        await i("ALTER TABLE `docker_images` ADD COLUMN `used` INTEGER");
         await r(
-            'CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)',
+            "CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)",
         );
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `setup` TEXT');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `timeout` INTEGER DEFAULT 120');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `softTakeover` INTEGER DEFAULT 0');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `startMagic` TEXT');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `stopTimeout` INTEGER DEFAULT 10');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `usePodman` INTEGER DEFAULT 0');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `deployUser` TEXT');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `serviceFile` TEXT');
-        await i('ALTER TABLE `docker_deployments` ADD COLUMN `description` TEXT');
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `setup` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `timeout` INTEGER DEFAULT 120");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `softTakeover` INTEGER DEFAULT 0");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `startMagic` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `stopTimeout` INTEGER DEFAULT 10");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `usePodman` INTEGER DEFAULT 0");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `deployUser` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `serviceFile` TEXT");
+        await i("ALTER TABLE `docker_deployments` ADD COLUMN `description` TEXT");
 
         await r(
-            'CREATE TABLE IF NOT EXISTS `docker_image_tag_pins` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT)',
+            "CREATE TABLE IF NOT EXISTS `docker_image_tag_pins` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT)",
         );
         await r(
-            'CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)',
+            "CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)",
         );
 
-        await r('CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)');
+        await r("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)");
 
         await r(
-            'CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)',
+            "CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)",
         );
-        await r('DELETE FROM `sessions` WHERE `user`=?', ['docker_client']);
-        await r('CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)');
+        await r("DELETE FROM `sessions` WHERE `user`=?", ["docker_client"]);
+        await r("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)");
 
         for (let pair of [
-            ['host', hostId],
-            ['user', userId],
-            ['group', groupId],
-            ['file', fileId],
-            ['collection', collectionId],
-            ['ufwallow', ufwAllowId],
-            ['package', packageId],
+            ["host", hostId],
+            ["user", userId],
+            ["group", groupId],
+            ["file", fileId],
+            ["collection", collectionId],
+            ["ufwallow", ufwAllowId],
+            ["package", packageId],
         ]) {
-            await r('UPDATE `objects` SET `type`=?  WHERE `type`=?', [pair[1], pair[0]]);
+            await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
         }
 
         for (let d of defaults) {
@@ -128,20 +128,20 @@ export class DB {
                 "REPLACE INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, 1, ?, ?, ?, datetime('now'), 0, ?, ?)",
                 [d.id, d.type, d.name, JSON.stringify(d.content), d.category, d.comment],
             );
-            let mv = await q('SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?', [
+            let mv = await q("SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?", [
                 d.id,
             ]);
-            await r('UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?', [
-                mv['version'],
+            await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [
+                mv["version"],
                 d.id,
             ]);
         }
         this.nextObjectId = Math.max(
-            (await q('SELECT max(`id`) as `id` FROM `objects`'))['id'] + 1,
+            (await q("SELECT max(`id`) as `id` FROM `objects`"))["id"] + 1,
             this.nextObjectId,
         );
 
-        console.log('Db inited', { nextObjectId: this.nextObjectId });
+        console.log("Db inited", { nextObjectId: this.nextObjectId });
     }
 
     all(sql: string, ...params: any[]) {
@@ -211,7 +211,7 @@ export class DB {
         return new Promise<{ name: string; type: number; title: string; content: string }[]>(
             (cb, cbe) => {
                 db.all<{ name: string; type: number; title: string; content: string }>(
-                    'SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?',
+                    "SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?",
                     [host],
                     (err, rows) => {
                         if (err) cbe(new SAError(ErrorType.Database, err));
@@ -239,7 +239,7 @@ export class DB {
         } else {
             return new Promise<void>((cb, cbe) => {
                 db.all(
-                    'DELETE FROM `deployments` WHERE `host`=? AND `name`=?',
+                    "DELETE FROM `deployments` WHERE `host`=? AND `name`=?",
                     [host, name],
                     (err) => {
                         if (err) cbe(new SAError(ErrorType.Database, err));
@@ -253,7 +253,7 @@ export class DB {
     resetServer(host: number) {
         let db = nullCheck(this.db);
         return new Promise<void>((cb, cbe) => {
-            db.all('DELETE FROM `deployments` WHERE `host`=?', [host], (err) => {
+            db.all("DELETE FROM `deployments` WHERE `host`=?", [host], (err) => {
                 if (err) cbe(new SAError(ErrorType.Database, err));
                 else cb();
             });
@@ -264,7 +264,7 @@ export class DB {
         let db = nullCheck(this.db);
         return new Promise<string | null>((cb, cbe) => {
             db.get<{ content: string }>(
-                'SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1',
+                "SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
                 [userId, name],
                 (err, row) => {
                     if (err) cbe(new SAError(ErrorType.Database, err));
@@ -280,7 +280,7 @@ export class DB {
         return new Promise<{ id: number; type: number; name: string; category: string }[]>(
             (cb, cbe) => {
                 db.all<{ id: number; type: number; name: string; category: string }>(
-                    'SELECT `id`, `type`, `name`, `category` FROM `objects` WHERE `newest`=1 ORDER BY `id`',
+                    "SELECT `id`, `type`, `name`, `category` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
                     (err, rows) => {
                         if (err) cbe(new SAError(ErrorType.Database, err));
                         else if (rows === undefined) cb([]);
@@ -422,15 +422,15 @@ export class DB {
         }
         return new Promise<IV>((cb, cbe) => {
             db.get<{ version: number }>(
-                'SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?',
+                "SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?",
                 [id],
                 (err, row) => {
                     if (err) cbe(new SAError(ErrorType.Database, err));
                     else if (row == undefined)
-                        cbe(new SAError(ErrorType.Database, 'Unable to find row'));
+                        cbe(new SAError(ErrorType.Database, "Unable to find row"));
                     else {
-                        let version = row['version'] + 1;
-                        db.run('UPDATE `objects` SET `newest`=0 WHERE `id` = ?', [id], (err) => {
+                        let version = row["version"] + 1;
+                        db.run("UPDATE `objects` SET `newest`=0 WHERE `id` = ?", [id], (err) => {
                             if (err) cbe(new SAError(ErrorType.Database, err));
                             else if (object) ins({ id, version })(cb, cbe);
                             else cb({ id, version });
@@ -470,15 +470,15 @@ export class DB {
                     else if (row === undefined) cb(null);
                     else
                         cb({
-                            id: row['id'],
-                            content: JSON.parse(row['content']),
-                            version: row['version'],
+                            id: row["id"],
+                            content: JSON.parse(row["content"]),
+                            version: row["version"],
                             type: hostId,
                             name: hostname,
-                            category: row['category'],
-                            comment: row['comment'],
-                            time: +row['time'],
-                            author: row['author'],
+                            category: row["category"],
+                            comment: row["comment"],
+                            time: +row["time"],
+                            author: row["author"],
                         });
                 },
             );
@@ -487,7 +487,7 @@ export class DB {
 
     async getRootVariables() {
         const rootRow = await this.get(
-            'SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?',
+            "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
             rootInstanceId,
             rootId,
         );

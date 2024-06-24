@@ -1,4 +1,4 @@
-import * as http from 'http';
+import * as http from "http";
 import {
     IAction,
     ACTION,
@@ -9,19 +9,19 @@ import {
     IAlert,
     IGenerateKeyRes,
     ISearchRes,
-} from './shared/actions';
-import * as express from 'express';
-import { PAGE_TYPE } from './shared/state';
-import * as WebSocket from 'ws';
-import * as url from 'url';
-import { JobOwner } from './jobowner';
-import { Job } from './job';
-import { ShellJob } from './jobs/shellJob';
-import { LogJob } from './jobs/logJob';
-import * as crypt from './crypt';
-import helmet from 'helmet';
-import { webClients, msg, hostClients, db, deployment, modifiedFiles } from './instances';
-import { errorHandler } from './error';
+} from "./shared/actions";
+import * as express from "express";
+import { PAGE_TYPE } from "./shared/state";
+import * as WebSocket from "ws";
+import * as url from "url";
+import { JobOwner } from "./jobowner";
+import { Job } from "./job";
+import { ShellJob } from "./jobs/shellJob";
+import { LogJob } from "./jobs/logJob";
+import * as crypt from "./crypt";
+import helmet from "helmet";
+import { webClients, msg, hostClients, db, deployment, modifiedFiles } from "./instances";
+import { errorHandler } from "./error";
 import {
     IType,
     typeId,
@@ -35,17 +35,17 @@ import {
     rootId,
     hostId,
     Host,
-} from './shared/type';
-import nullCheck from './shared/nullCheck';
-import setup from './setup';
-import * as crypto from 'crypto';
-import { config } from './config';
-import * as speakeasy from 'speakeasy';
-import { docker } from './docker';
-import { getAuth, AuthInfo, noAccess } from './getAuth';
-import * as bodyParser from 'body-parser';
-import * as crt from './crt';
-import { getReferences } from './shared/getReferences';
+} from "./shared/type";
+import nullCheck from "./shared/nullCheck";
+import setup from "./setup";
+import * as crypto from "crypto";
+import { config } from "./config";
+import * as speakeasy from "speakeasy";
+import { docker } from "./docker";
+import { getAuth, AuthInfo, noAccess } from "./getAuth";
+import * as bodyParser from "body-parser";
+import * as crt from "./crt";
+import { getReferences } from "./shared/getReferences";
 
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -62,12 +62,12 @@ export class WebClient extends JobOwner {
         this.auth = noAccess;
         this.connection = socket;
         this.host = host;
-        this.connection.on('close', () => this.onClose());
-        this.connection.on('message', (msg: string) =>
-            this.onMessage(msg).catch(errorHandler('WebClient::message', this)),
+        this.connection.on("close", () => this.onClose());
+        this.connection.on("message", (msg: string) =>
+            this.onMessage(msg).catch(errorHandler("WebClient::message", this)),
         );
-        this.connection.on('error', (err) => {
-            console.warn('Web client error', { err });
+        this.connection.on("error", (err) => {
+            console.warn("Web client error", { err });
         });
     }
 
@@ -86,7 +86,7 @@ export class WebClient extends JobOwner {
 
         switch (act.type) {
             case ACTION.RequestAuthStatus:
-                console.log('AuthStatus', this.host, this.auth.session, this.auth.user);
+                console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
                 this.sendAuthStatus(act.session || null);
                 break;
             case ACTION.Login:
@@ -121,7 +121,7 @@ export class WebClient extends JobOwner {
                             if (act.otp) {
                                 otp = speakeasy.totp.verify({
                                     secret: content.otp_base32,
-                                    encoding: 'base32',
+                                    encoding: "base32",
                                     token: act.otp,
                                     window: 1,
                                 });
@@ -141,7 +141,7 @@ export class WebClient extends JobOwner {
                         admin: false,
                         dockerPull: false,
                         dockerPush: false,
-                        message: 'Invalid user name',
+                        message: "Invalid user name",
                     });
                     this.auth = noAccess;
                 } else if (!pwd || !otp) {
@@ -155,28 +155,28 @@ export class WebClient extends JobOwner {
                         admin: false,
                         dockerPull: false,
                         dockerPush: false,
-                        message: 'Invalid password or one time password',
+                        message: "Invalid password or one time password",
                     });
                     this.auth = noAccess;
                 } else {
                     const now = (Date.now() / 1000) | 0;
                     if (session && newOtp) {
                         await db.run(
-                            'UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?',
+                            "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
                             now,
                             now,
                             session,
                         );
                     } else if (session) {
                         const eff = await db.run(
-                            'UPDATE `sessions` SET `pwd`=? WHERE `sid`=?',
+                            "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
                             now,
                             session,
                         );
                     } else {
-                        session = crypto.randomBytes(64).toString('hex');
+                        session = crypto.randomBytes(64).toString("hex");
                         await db.run(
-                            'INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)',
+                            "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
                             act.user,
                             this.host,
                             now,
@@ -185,7 +185,7 @@ export class WebClient extends JobOwner {
                         );
                     }
                     this.auth = await getAuth(this.host, session);
-                    if (!this.auth.auth) throw Error('Internal auth error');
+                    if (!this.auth.auth) throw Error("Internal auth error");
                     this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
                 }
                 break;
@@ -202,7 +202,7 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 console.log(
-                    'logout',
+                    "logout",
                     this.host,
                     this.auth.user,
                     this.auth.session,
@@ -211,12 +211,12 @@ export class WebClient extends JobOwner {
                 );
                 if (act.forgetPwd)
                     await db.run(
-                        'UPDATE `sessions` SET `pwd`=null WHERE `sid`=?',
+                        "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
                         this.auth.session,
                     );
                 if (act.forgetOtp) {
                     await db.run(
-                        'UPDATE `sessions` SET `otp`=null WHERE `sid`=?',
+                        "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
                         this.auth.session,
                     );
                     this.auth = noAccess;
@@ -252,17 +252,17 @@ export class WebClient extends JobOwner {
                 }
                 let id = null;
                 try {
-                    const parts = act.path.split('/', 2);
+                    const parts = act.path.split("/", 2);
                     if (parts.length != 2) break;
                     const typeRow = await db.get(
-                        'SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1',
+                        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
                         typeId,
                         parts[0],
                     );
                     if (!typeRow || !typeRow.id) break;
                     const objectRow = await db.get(
-                        'SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1',
-                        typeRow['id'],
+                        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
+                        typeRow["id"],
                         parts[1],
                     );
                     if (objectRow) id = objectRow.id;
@@ -332,7 +332,7 @@ export class WebClient extends JobOwner {
                     this.sendMessage({
                         type: ACTION.MessageTextRep,
                         id: act.id,
-                        message: row ? row.message : 'missing',
+                        message: row ? row.message : "missing",
                     });
                 }
                 break;
@@ -343,22 +343,22 @@ export class WebClient extends JobOwner {
                 }
                 {
                     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
-                    if (!act.obj) throw Error('Missing object in action');
+                    if (!act.obj) throw Error("Missing object in action");
                     const c = act.obj.content;
                     const typeRow = await db.getNewestObjectByID(act.obj.type);
                     const type = JSON.parse(typeRow.content) as IType;
                     for (const r of type.content || []) {
                         if (r.type != TypePropType.password) continue;
-                        if (!(r.name in c) || c[r.name].startsWith('$6$')) continue;
+                        if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
                         c[r.name] = await crypt.hash(c[r.name]);
                     }
 
-                    if (act.obj.type == userId && (!c['otp_base32'] || !c['otp_url'])) {
+                    if (act.obj.type == userId && (!c["otp_base32"] || !c["otp_url"])) {
                         const secret = speakeasy.generateSecret({
-                            name: 'Simple Admin:' + act.obj.name,
+                            name: "Simple Admin:" + act.obj.name,
                         });
-                        c['otp_base32'] = secret.base32;
-                        c['otp_url'] = secret.otpauth_url;
+                        c["otp_base32"] = secret.base32;
+                        c["otp_url"] = secret.otpauth_url;
                     }
 
                     const { id, version } = await db.changeObject(
@@ -394,7 +394,7 @@ export class WebClient extends JobOwner {
                     content: string;
                 }[] = [];
                 for (const row of await db.all(
-                    'SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1',
+                    "SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1",
                     act.pattern,
                     act.pattern,
                     act.pattern,
@@ -434,13 +434,13 @@ export class WebClient extends JobOwner {
                         const content = JSON.parse(object.content);
                         if (!content) continue;
                         if (object.type == act.id)
-                            conflicts.push('* ' + object.name + ' (' + object.type + ') type');
-                        for (const val of ['sudoOn', 'depends', 'contains']) {
+                            conflicts.push("* " + object.name + " (" + object.type + ") type");
+                        for (const val of ["sudoOn", "depends", "contains"]) {
                             if (!(val in content)) continue;
                             for (const id of content[val] as number[]) {
                                 if (id != act.id) continue;
                                 conflicts.push(
-                                    '* ' + object.name + ' (' + object.type + ') ' + val,
+                                    "* " + object.name + " (" + object.type + ") " + val,
                                 );
                             }
                         }
@@ -448,14 +448,14 @@ export class WebClient extends JobOwner {
                     if (conflicts.length > 0) {
                         const res: IAlert = {
                             type: ACTION.Alert,
-                            title: 'Cannot delete object',
+                            title: "Cannot delete object",
                             message:
-                                'The object can not be delete as it is in use by:\n' +
-                                conflicts.join('\n'),
+                                "The object can not be delete as it is in use by:\n" +
+                                conflicts.join("\n"),
                         };
                         this.sendMessage(res);
                     } else {
-                        console.log('Web client delete object', { id: act.id });
+                        console.log("Web client delete object", { id: act.id });
                         await db.changeObject(act.id, null, nullCheck(this.auth.user));
                         const res2: IObjectChanged = {
                             type: ACTION.ObjectChanged,
@@ -478,7 +478,7 @@ export class WebClient extends JobOwner {
                 }
                 deployment
                     .deployObject(act.id, act.redeploy)
-                    .catch(errorHandler('Deployment::deployObject', this));
+                    .catch(errorHandler("Deployment::deployObject", this));
                 break;
             case ACTION.CancelDeployment:
                 if (!this.auth.admin) {
@@ -492,7 +492,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                await deployment.start().catch(errorHandler('Deployment::start', this));
+                await deployment.start().catch(errorHandler("Deployment::start", this));
                 break;
             case ACTION.StopDeployment:
                 if (!this.auth.admin) {
@@ -583,14 +583,14 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                await docker.containerCommand(this, act.host, act.container, 'start');
+                await docker.containerCommand(this, act.host, act.container, "start");
                 break;
             case ACTION.DockerContainerStop:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
                     return;
                 }
-                await docker.containerCommand(this, act.host, act.container, 'stop');
+                await docker.containerCommand(this, act.host, act.container, "stop");
                 break;
             case ACTION.DockerContainerForget:
                 if (!this.auth.dockerPush) {
@@ -604,7 +604,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                await docker.containerCommand(this, act.host, act.container, 'rm');
+                await docker.containerCommand(this, act.host, act.container, "rm");
                 break;
             case ACTION.ModifiedFilesScan:
                 if (!this.auth.admin) {
@@ -633,12 +633,12 @@ export class WebClient extends JobOwner {
                     return;
                 }
 
-                const [_uname, _uid, capsString] = this.auth.sslname.split('.');
-                const caps = (capsString || '').split('~');
+                const [_uname, _uid, capsString] = this.auth.sslname.split(".");
+                const caps = (capsString || "").split("~");
 
                 await docker.ensure_ca();
                 const my_key = await crt.generate_key();
-                const my_srs = await crt.generate_srs(my_key, this.auth.sslname + '.user');
+                const my_srs = await crt.generate_srs(my_key, this.auth.sslname + ".user");
                 const my_crt = await crt.generate_crt(
                     docker.ca_key!,
                     docker.ca_crt!,
@@ -653,7 +653,7 @@ export class WebClient extends JobOwner {
                     key: my_key,
                     crt: my_crt,
                 };
-                if (act.ssh_public_key != null && caps.includes('ssh')) {
+                if (act.ssh_public_key != null && caps.includes("ssh")) {
                     const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
@@ -664,19 +664,19 @@ export class WebClient extends JobOwner {
                                 sshHostCaKey,
                                 act.ssh_public_key,
                                 validityDays,
-                                'user',
+                                "user",
                             );
                             res2.ssh_host_ca = sshHostCaPub;
                             res2.ssh_crt = sshCrt;
                         } catch (e) {
-                            errorHandler('ACTION.GenerateKey', this)(e);
+                            errorHandler("ACTION.GenerateKey", this)(e);
                         }
                     }
                 }
                 this.sendMessage(res2);
                 break;
             default:
-                console.warn('Web client unknown message', { act });
+                console.warn("Web client unknown message", { act });
         }
     }
 
@@ -684,7 +684,7 @@ export class WebClient extends JobOwner {
         this.connection.send(JSON.stringify(obj), (err?: Error) => {
             if (err) {
                 if (Object.getOwnPropertyNames(err).length != 0)
-                    console.warn('Web client error sending message', { err, host: this.host });
+                    console.warn("Web client error sending message", { err, host: this.host });
                 this.connection.terminate();
                 this.onClose();
             }
@@ -705,7 +705,7 @@ async function sendInitialState(c: WebClient) {
         messages: await msgs,
         deploymentObjects: deployment.getView(),
         deploymentStatus: deployment.status,
-        deploymentMessage: deployment.message || '',
+        deploymentMessage: deployment.message || "",
         deploymentLog: deployment.log,
         hostsUp,
         types: {},
@@ -744,7 +744,7 @@ async function sendInitialState(c: WebClient) {
         const x = JSON.stringify((action as any)[id]);
         if (x) m[id] = x.length;
     }
-    console.log('Send initial state', m);
+    console.log("Send initial state", m);
     c.sendMessage(action);
 }
 
@@ -763,21 +763,21 @@ export class WebClients {
     async countMessages(req: express.Request, res: express.Response) {
         let downHosts = 0;
         for (const row of await db.all(
-            'SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1',
+            "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1",
             [hostId],
         )) {
-            if (hostClients.hostClients[row['id']]?.auth || !row['content']) continue;
-            const content: Host = JSON.parse(row['content']);
+            if (hostClients.hostClients[row["id"]]?.auth || !row["content"]) continue;
+            const content: Host = JSON.parse(row["content"]);
             if (content.messageOnDown) downHosts += 1;
         }
 
-        res.header('Content-Type', 'application/json; charset=utf-8')
+        res.header("Content-Type", "application/json; charset=utf-8")
             .json({ count: downHosts + (await msg.getCount()) })
             .end();
     }
 
     async metrics(req: express.Request, res: express.Response) {
-        res.header('Content-Type', 'text/plain; version=0.0.4')
+        res.header("Content-Type", "text/plain; version=0.0.4")
             .send(`simpleadmin_messages ${await msg.getCount()}\n`)
             .end();
     }
@@ -786,30 +786,30 @@ export class WebClients {
         this.httpApp.use(helmet());
         this.httpServer = http.createServer(this.httpApp);
         this.wss = new WebSocket.Server({ server: this.httpServer });
-        this.httpApp.get('/setup.sh', (req, res) => setup(req, res));
-        this.httpApp.get('/v2/*', docker.get.bind(docker));
-        this.httpApp.put('/v2/*', docker.put.bind(docker));
-        this.httpApp.post('/v2/*', docker.post.bind(docker));
-        this.httpApp.delete('/v2/*', docker.delete.bind(docker));
-        this.httpApp.patch('/v2/*', docker.patch.bind(docker));
-        this.httpApp.get('/docker/*', docker.images.bind(docker));
-        this.httpApp.post('/usedImages', bodyParser.json(), docker.usedImages.bind(docker));
-        this.httpApp.get('/messages', this.countMessages.bind(this));
-        this.httpApp.get('/metrics', this.metrics.bind(this));
-        this.wss.on('connection', (ws, request) => {
+        this.httpApp.get("/setup.sh", (req, res) => setup(req, res));
+        this.httpApp.get("/v2/*", docker.get.bind(docker));
+        this.httpApp.put("/v2/*", docker.put.bind(docker));
+        this.httpApp.post("/v2/*", docker.post.bind(docker));
+        this.httpApp.delete("/v2/*", docker.delete.bind(docker));
+        this.httpApp.patch("/v2/*", docker.patch.bind(docker));
+        this.httpApp.get("/docker/*", docker.images.bind(docker));
+        this.httpApp.post("/usedImages", bodyParser.json(), docker.usedImages.bind(docker));
+        this.httpApp.get("/messages", this.countMessages.bind(this));
+        this.httpApp.get("/metrics", this.metrics.bind(this));
+        this.wss.on("connection", (ws, request) => {
             const rawAddresses = request.socket.address();
             const address =
-                (request.headers['x-forwarded-for'] as string) ||
-                (typeof rawAddresses == 'string' ? rawAddresses : (rawAddresses as any).address);
+                (request.headers["x-forwarded-for"] as string) ||
+                (typeof rawAddresses == "string" ? rawAddresses : (rawAddresses as any).address);
             if (!request.url) {
                 ws.close();
                 return;
             }
             const u = url.parse(request.url, true);
-            if (u.pathname == '/sysadmin') {
+            if (u.pathname == "/sysadmin") {
                 const wc = new WebClient(ws, address);
                 this.webclients.add(wc);
-            } else if (u.pathname == '/terminal') {
+            } else if (u.pathname == "/terminal") {
                 const server = +u.query!.server!;
                 const cols = +u.query!.cols!;
                 const rows = +u.query!.rows!;
@@ -830,11 +830,11 @@ export class WebClients {
     }
 
     startServer() {
-        this.httpServer.listen(8182, 'localhost', function () {
-            console.log('Web server started on port 443');
+        this.httpServer.listen(8182, "localhost", function () {
+            console.log("Web server started on port 443");
         });
-        this.httpServer.on('close', () => {
-            console.log('Web server stopped');
+        this.httpServer.on("close", () => {
+            console.log("Web server stopped");
         });
     }
 }

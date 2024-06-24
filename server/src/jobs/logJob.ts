@@ -1,14 +1,14 @@
-import * as fs from 'fs';
+import * as fs from "fs";
 
-import { Job } from '../job';
-import * as message from '../messages';
-import { ACTION, IAddLogLines } from '.././shared/actions';
-import nullCheck from '.././shared/nullCheck';
-import type { HostClient } from '../hostclient';
-import type { WebClient } from '../webclient';
+import { Job } from "../job";
+import * as message from "../messages";
+import { ACTION, IAddLogLines } from ".././shared/actions";
+import nullCheck from ".././shared/nullCheck";
+import type { HostClient } from "../hostclient";
+import type { WebClient } from "../webclient";
 
 export class LogJob extends Job {
-    part: string = '';
+    part: string = "";
 
     constructor(
         hostClient: HostClient,
@@ -22,14 +22,14 @@ export class LogJob extends Job {
         const args = [logType];
         if (unit) args.push(unit);
         const msg: message.RunScript = {
-            type: 'run_script',
+            type: "run_script",
             id: this.id,
-            name: 'log.py',
-            interperter: '/usr/bin/python3',
-            content: fs.readFileSync('scripts/log.py', 'utf-8'),
+            name: "log.py",
+            interperter: "/usr/bin/python3",
+            content: fs.readFileSync("scripts/log.py", "utf-8"),
             args: args,
-            stdin_type: 'none',
-            stdout_type: 'text',
+            stdin_type: "none",
+            stdout_type: "text",
         };
         hostClient.sendMessage(msg);
         this.running = true;
@@ -37,9 +37,9 @@ export class LogJob extends Job {
 
     handleMessage(obj: message.Incomming) {
         switch (obj.type) {
-            case 'data':
-                if (obj.source == 'stdout') {
-                    const lines = (this.part + obj.data).split('\n');
+            case "data":
+                if (obj.source == "stdout") {
+                    const lines = (this.part + obj.data).split("\n");
                     this.part = nullCheck(lines.pop());
                     if (lines.length != 0) {
                         const msg: IAddLogLines = {
