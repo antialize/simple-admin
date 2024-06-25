@@ -1,11 +1,15 @@
-import { TextField, Typography } from "@mui/material";
+import { Button, TextField, Typography } from "@mui/material";
+import { useState } from "react";
 
 interface IProps {
     variables: Array<{ key: string; value: string }>;
+    secret?: boolean;
     setVariables: (vars: Array<{ key: string; value: string }>) => void;
 }
 
 function Variables(props: IProps) {
+    const [filter, setFilter] = useState<string>("");
+
     const vars = props.variables.slice(0);
     const rows = [];
     const setVars = () => {
@@ -14,6 +18,7 @@ function Variables(props: IProps) {
 
     for (let i = 0; i < vars.length; ++i) {
         const v = vars[i];
+        if (filter !== "" && !v.key.toLowerCase().includes(filter.toLowerCase())) continue;
         rows.push(
             <tr key={i}>
                 <td>
@@ -34,7 +39,20 @@ function Variables(props: IProps) {
                             setVars();
                         }}
                         variant="standard"
+                        type={props.secret ? "password" : "text"}
+                        style={{ width: 500 }}
                     />
+                </td>
+                <td>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                            navigator.clipboard.writeText(v.value);
+                        }}
+                    >
+                        Copy
+                    </Button>
                 </td>
             </tr>,
         );
@@ -60,8 +78,11 @@ function Variables(props: IProps) {
                         setVars();
                     }}
                     variant="standard"
+                    type={props.secret ? "password" : "text"}
+                    style={{ width: 500 }}
                 />
             </td>
+            <td />
         </tr>,
     );
 
@@ -70,12 +91,20 @@ function Variables(props: IProps) {
             <thead>
                 <tr>
                     <th>
-                        <Typography>Key</Typography>
+                        <TextField
+                            label="Key"
+                            size="small"
+                            value={filter}
+                            onChange={(e) => {
+                                setFilter(e.target.value);
+                            }}
+                            variant="standard"
+                        />
                     </th>
                     <th>
                         <Typography>Value</Typography>
                     </th>
-                    <th />
+                    <th>Copy</th>
                 </tr>
             </thead>
             <tbody>{rows}</tbody>
