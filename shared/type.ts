@@ -85,7 +85,15 @@ export type ITypeProp =
     | ITypeContentTypeProp
     | INoneTypeProp;
 
-export type KindType = "host" | "root" | "collection" | "delta" | "sum" | "type" | "trigger";
+export type KindType =
+    | "host"
+    | "root"
+    | "collection"
+    | "delta"
+    | "sum"
+    | "type"
+    | "trigger"
+    | "hostvar";
 
 export interface IType {
     plural?: string;
