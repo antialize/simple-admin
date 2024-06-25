@@ -33,14 +33,23 @@ import {
 } from "../../shared/actions";
 import getOrInsert from "../../shared/getOrInsert";
 import nullCheck from "../../shared/nullCheck";
-import { type Host, type IVariables, hostId, rootId, rootInstanceId } from "../../shared/type";
+import {
+    type Host,
+    IContains,
+    type IVariables,
+    hostId,
+    rootId,
+    rootInstanceId,
+} from "../../shared/type";
 import { config } from "./config";
 import * as crt from "./crt";
+import { collectionId, complexCollectionId, hostVariableId } from "./default";
 import { getAuth } from "./getAuth";
 import type { HostClient } from "./hostclient";
 import { db, hostClients, webClients } from "./instances";
 import { Job } from "./job";
 import type * as message from "./messages";
+import { IDepends } from "./shared/type";
 import type { WebClient } from "./webclient";
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
@@ -1001,32 +1010,15 @@ finally:
             let deployUser: string | null = null;
             let userService = false;
             let serviceFile: string | null = null;
-            let usePodman = false;
+            const usePodman = false;
             if (act.config) {
                 const configRow = await db.get(
                     "SELECT `content` FROM `objects` WHERE `name`=? AND `newest`=1 AND `type`=10226",
                     act.config,
                 );
-                const hostRow = await db.get(
-                    "SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
-                    host.id,
-                    hostId,
-                );
-                const rootRow = await db.get(
-                    "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
-                    rootInstanceId,
-                    rootId,
-                );
-                if (!configRow) {
-                    client.sendMessage({
-                        type: ACTION.DockerDeployDone,
-                        ref: act.ref,
-                        status: false,
-                        message: `Could not find specified config ${act.config}`,
-                    });
-                    return;
-                }
-                if (!hostRow || !rootRow) {
+
+                const res = await db.getHostVariables(host.id);
+                if (!res) {
                     client.sendMessage({
                         type: ACTION.DockerDeployDone,
                         ref: act.ref,
@@ -1035,13 +1027,7 @@ finally:
                     });
                     return;
                 }
-                const hostInfo = JSON.parse(hostRow.content) as Host;
-                usePodman = !!hostInfo.usePodman;
-                const variables: { [key: string]: string } = {};
-                for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
-                    variables[v.key] = v.value;
-                variables.nodename = hostRow.name;
-                for (const v of hostInfo.variables) variables[v.key] = v.value;
+                const [hostInfo, variables] = res;
 
                 for (let i = 0; i < 10; ++i)
                     variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");
@@ -1350,7 +1336,6 @@ finally:
                 if (cl.hostname === hostIdentifier || cl.id === hostIdentifier) host = cl;
             }
             const user = nullCheck(client.auth.user, "Missing user");
-
             if (!host || !host.id) {
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
@@ -1361,17 +1346,8 @@ finally:
                 return;
             }
 
-            const hostRow = await db.get(
-                "SELECT `name`, `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
-                host.id,
-                hostId,
-            );
-            const rootRow = await db.get(
-                "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
-                rootInstanceId,
-                rootId,
-            );
-            if (!hostRow || !rootRow) {
+            const res = await db.getHostVariables(host.id);
+            if (!res) {
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
                     ref,
@@ -1380,12 +1356,8 @@ finally:
                 });
                 return;
             }
-            const hostInfo = JSON.parse(hostRow.content) as Host;
-            const variables: { [key: string]: string } = {};
-            for (const v of (JSON.parse(rootRow.content) as IVariables).variables)
-                variables[v.key] = v.value;
-            variables.nodename = hostRow.name;
-            for (const v of hostInfo.variables) variables[v.key] = v.value;
+            const [hostInfo, variables] = res;
+
             for (let i = 0; i < 10; ++i)
                 variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");
 

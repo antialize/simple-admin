@@ -22,6 +22,7 @@ import {
     type IObject2,
 } from "./shared/state";
 import {
+    type Host,
     type IContains,
     type IDepends,
     ISudoOn,
@@ -39,6 +40,7 @@ import {
 import { promisify } from "node:util";
 
 import { exec } from "node:child_process";
+import { collectionId, complexCollectionId, hostVariableId } from "./default";
 //Type only import
 import type { HostClient } from "./hostclient";
 import nullCheck from "./shared/nullCheck";
@@ -196,9 +198,10 @@ export class Deployment {
                 variables = Object.assign({}, variables);
                 let hasVars = false;
 
-                if (type.content.hasVariables && "variables" in obj.content) {
-                    for (const v of (obj.content as IVariables).variables)
-                        variables[v.key] = v.value;
+                if (type.content.hasVariables) {
+                    const vs = obj.content as IVariables;
+                    if (vs.variables) for (const v of vs.variables) variables[v.key] = v.value;
+                    if (vs.secrets) for (const v of vs.secrets) variables[v.key] = v.value;
                     hasVars = true;
                 }
                 if (type.content.nameVariable) variables[type.content.nameVariable] = obj.name;
@@ -272,10 +275,39 @@ export class Deployment {
                 type DagNode = SentinalDagNode | NormalDagNode;
 
                 const hostObject = objects[hostId];
-                const hostVariables = nullCheck(
-                    visitObject(hostId, rootVariable, hostId),
-                ).variables;
+                const hostContent = hostObject.content as Host;
+                const hostVariables = Object.assign({}, rootVariable);
+
+                const visitObjectInHost = (id: number) => {
+                    const obj = objects[id];
+                    if (obj == null) return;
+                    switch (obj.type) {
+                        case collectionId:
+                        case complexCollectionId: {
+                            const o = obj.content as IContains & IDepends;
+                            if (o.contains) for (const id of o.contains) visitObjectInHost(id);
+                            if (o.depends) for (const id of o.depends) visitObjectInHost(id);
+                            break;
+                        }
+                        case hostVariableId: {
+                            const vs = obj.content as IVariables;
+                            if (vs.variables)
+                                for (const v of vs.variables)
+                                    hostVariables[v.key] = Mustache.render(v.value, hostVariables);
+                            if (vs.secrets)
+                                for (const v of vs.secrets)
+                                    hostVariables[v.key] = Mustache.render(v.value, hostVariables);
+                            break;
+                        }
+                    }
+                };
                 hostVariables.nodename = hostObject.name;
+                for (const id of hostContent.contains) visitObjectInHost(id);
+                if (hostContent.variables)
+                    for (const v of hostContent.variables) hostVariables[v.key] = v.value;
+                if (hostContent.secrets)
+                    for (const v of hostContent.secrets) hostVariables[v.key] = v.value;
+
                 const nodes = new Map<string, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const tops = new Map<number, { node: NormalDagNode; sentinal: SentinalDagNode }>();
                 const topVisiting = new Set<number>();
@@ -515,7 +547,8 @@ export class Deployment {
                     if (
                         type.content.kind === "collection" ||
                         type.content.kind === "root" ||
-                        type.content.kind === "host"
+                        type.content.kind === "host" ||
+                        type.content.kind === "hostvar"
                     )
                         continue;
                     const name = nullCheck(node.name);

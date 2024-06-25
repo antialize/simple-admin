@@ -158,6 +158,9 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
             </Box>
         );
 
+    if (containers.length === 0) {
+        return <></>;
+    }
     return (
         <>
             <thead>

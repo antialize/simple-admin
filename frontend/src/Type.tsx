@@ -148,7 +148,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
     return (
         <div>
             <InformationList key={`${id}_${current.version ?? 0}`}>
-                <InformationListRow name="Name">
+                <InformationListRow name="Name" key="name">
                     <TextField
                         key="name"
                         variant="standard"
@@ -159,7 +159,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                         }}
                     />
                 </InformationListRow>
-                <InformationListRow name="Comment">
+                <InformationListRow name="Comment" key="content">
                     <TextField
                         key="comment"
                         variant="standard"
@@ -173,7 +173,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     />
                 </InformationListRow>
                 {type.hasCategory ? (
-                    <InformationListRow name="Category">
+                    <InformationListRow name="Category" key="category">
                         <Category
                             type={myType}
                             category={current.category}
@@ -186,7 +186,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                 ) : null}
                 {rows}
                 {type.hasTriggers ? (
-                    <InformationListRow name="Triggers" long={true}>
+                    <InformationListRow name="Triggers" long={true} key="triggers">
                         <Triggers
                             triggers={c.triggers ?? []}
                             setTriggers={(triggers) => {
@@ -196,7 +196,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     </InformationListRow>
                 ) : null}
                 {type.hasVariables ? (
-                    <InformationListRow name="Variables" long={true}>
+                    <InformationListRow name="Variables" long={true} key="variabels">
                         <Variables
                             variables={c.variables ?? []}
                             setVariables={(vars: Array<{ key: string; value: string }>) => {
@@ -205,8 +205,23 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                         />
                     </InformationListRow>
                 ) : null}
+                {type.hasVariables ? (
+                    <InformationListRow name="Secrets" long={true} key="secrets">
+                        <Variables
+                            variables={c.secrets ?? []}
+                            setVariables={(vars: Array<{ key: string; value: string }>) => {
+                                setProp("secrets", vars);
+                            }}
+                            secret
+                        />
+                    </InformationListRow>
+                ) : null}
                 {type.hasContains ? (
-                    <InformationListRow name={type.containsName ?? "Contains"} long={true}>
+                    <InformationListRow
+                        name={type.containsName ?? "Contains"}
+                        long={true}
+                        key="contains"
+                    >
                         <ObjectSelector
                             filter={(type, _) =>
                                 type !== hostId && type !== typeId && type !== rootId
@@ -219,7 +234,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     </InformationListRow>
                 ) : null}
                 {type.hasDepends ? (
-                    <InformationListRow name="Depends on" long={true}>
+                    <InformationListRow name="Depends on" long={true} key="depends_on">
                         <ObjectSelector
                             filter={(type, _) =>
                                 type !== hostId && type !== typeId && type !== rootId
@@ -232,7 +247,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     </InformationListRow>
                 ) : null}
                 {type.hasSudoOn ? (
-                    <InformationListRow name="Sudo on" long={true}>
+                    <InformationListRow name="Sudo on" long={true} key="sudo_on">
                         <ObjectSelector
                             filter={(type, _) => type === hostId}
                             selected={c.sudoOn ? c.sudoOn : []}

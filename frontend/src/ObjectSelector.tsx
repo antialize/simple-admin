@@ -33,6 +33,7 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
             disableClearable
             multiple
             fullWidth
+            getOptionKey={(item) => item.value}
             renderInput={(params) => (
                 <TextField {...params} variant="standard" placeholder="Select objects" />
             )}

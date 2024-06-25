@@ -21,6 +21,7 @@ export const collectionId = 7;
 export const complexCollectionId = 8;
 export const ufwAllowId = 9;
 export const packageId = 10;
+export const hostVariableId = 10840;
 
 export const reloadServiceTriggerId = 50;
 export const restartServiceTriggerId = 51;
