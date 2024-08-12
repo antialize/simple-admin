@@ -85,7 +85,6 @@ export const defaults: IDefault[] = [
                         "collection",
                         "root",
                         "type",
-                        "monitor",
                     ],
                 } as IChoiceTypeProp,
                 {

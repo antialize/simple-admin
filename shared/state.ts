@@ -133,7 +133,6 @@ export enum DEPLOYMENT_OBJECT_ACTION {
     Modify = 1,
     Remove = 2,
     Trigger = 3,
-    Monitor = 4,
 }
 
 export interface IDeploymentTrigger {
