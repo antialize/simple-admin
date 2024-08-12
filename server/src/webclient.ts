@@ -134,7 +134,7 @@ export class WebClient extends JobOwner {
                     this.sendMessage({
                         type: ACTION.AuthStatus,
                         pwd: false,
-                        otp,
+                        otp: false,
                         session: session,
                         user: act.user,
                         auth: false,
@@ -145,6 +145,26 @@ export class WebClient extends JobOwner {
                     });
                     this.auth = noAccess;
                 } else if (!pwd || !otp) {
+                    if (otp && newOtp) {
+                        const now = (Date.now() / 1000) | 0;
+                        if (session) {
+                            await db.run(
+                                "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
+                                now,
+                                session,
+                            );
+                        } else {
+                            session = crypto.randomBytes(64).toString("hex");
+                            await db.run(
+                                "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
+                                act.user,
+                                this.host,
+                                null,
+                                now,
+                                session,
+                            );
+                        }
+                    }
                     this.sendMessage({
                         type: ACTION.AuthStatus,
                         pwd: false,
@@ -157,7 +177,11 @@ export class WebClient extends JobOwner {
                         dockerPush: false,
                         message: "Invalid password or one time password",
                     });
-                    this.auth = noAccess;
+                    this.auth = {
+                        ...noAccess,
+                        session,
+                        otp,
+                    };
                 } else {
                     const now = (Date.now() / 1000) | 0;
                     if (session && newOtp) {
@@ -833,7 +857,7 @@ export class WebClients {
 
     startServer() {
         this.httpServer.listen(8182, "localhost", () => {
-            console.log("Web server started on port 443");
+            console.log("Web server started on port 8182");
         });
         this.httpServer.on("close", () => {
             console.log("Web server stopped");
