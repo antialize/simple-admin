@@ -51,6 +51,10 @@ interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
 }
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class WebClient extends JobOwner {
     connection: WebSocket;
     auth: AuthInfo;
@@ -117,6 +121,7 @@ export class WebClient extends JobOwner {
                         if (contentStr) {
                             const content = JSON.parse(contentStr);
                             found = true;
+                            await sleep(1000);
                             pwd = await crypt.validate(act.pwd, content.password);
                             if (act.otp) {
                                 otp = speakeasy.totp.verify({
