@@ -1539,6 +1539,10 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         .init()
         .unwrap();
 
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
+
     let journal_socket = tokio::net::UnixDatagram::unbound()?;
     journal_socket
         .connect("/run/systemd/journal/socket")
