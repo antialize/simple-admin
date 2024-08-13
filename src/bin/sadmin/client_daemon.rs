@@ -9,7 +9,7 @@ use std::{
     path::Path,
     process::Stdio,
     sync::{atomic::AtomicU64, Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::{bail, ensure, Context, Result};
@@ -1023,6 +1023,7 @@ impl Client {
             };
 
             info!("Connected to server");
+            let mut last_ping_time = Instant::now();
             let mut buffer = BytesMut::with_capacity(40960);
             let mut last_watchdog = std::time::Instant::now();
             loop {
@@ -1071,7 +1072,12 @@ impl Client {
                         let o = &o[..o.len() - 1];
                         start = 0;
                         match serde_json::from_slice(o) {
-                            Ok(msg) => self.handle_message(msg),
+                            Ok(msg) => {
+                                if matches!(msg, ClientMessage::Ping { .. }) {
+                                    last_ping_time = Instant::now();
+                                }
+                                self.handle_message(msg)
+                            }
                             Err(e) => warn!("Invalid message: {}\n{}", e, std::str::from_utf8(o)?),
                         }
                         continue;
@@ -1081,8 +1087,15 @@ impl Client {
                 if buffer.capacity() == buffer.len() {
                     buffer.reserve(buffer.capacity());
                 }
+                if last_ping_time.elapsed().as_secs_f32() > 200.0 {
+                    error!("Timout receivivg ping from server");
+                    self.recv_failure_notify.notify_one();
+                    break;
+                }
             }
+            info!("Trying to take sender for disconnect");
             self.sender.lock().await.take();
+            info!("Took sender for disconnect");
             if let Some(notifier) = &notifier {
                 notifier.set_status("Disconnected".to_string())?;
             }
