@@ -51,6 +51,10 @@ interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
 }
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class WebClient extends JobOwner {
     connection: WebSocket;
     auth: AuthInfo;
@@ -117,6 +121,7 @@ export class WebClient extends JobOwner {
                         if (contentStr) {
                             const content = JSON.parse(contentStr);
                             found = true;
+                            await sleep(1000);
                             pwd = await crypt.validate(act.pwd, content.password);
                             if (act.otp) {
                                 otp = speakeasy.totp.verify({
@@ -134,7 +139,7 @@ export class WebClient extends JobOwner {
                     this.sendMessage({
                         type: ACTION.AuthStatus,
                         pwd: false,
-                        otp,
+                        otp: false,
                         session: session,
                         user: act.user,
                         auth: false,
@@ -145,6 +150,26 @@ export class WebClient extends JobOwner {
                     });
                     this.auth = noAccess;
                 } else if (!pwd || !otp) {
+                    if (otp && newOtp) {
+                        const now = (Date.now() / 1000) | 0;
+                        if (session) {
+                            await db.run(
+                                "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
+                                now,
+                                session,
+                            );
+                        } else {
+                            session = crypto.randomBytes(64).toString("hex");
+                            await db.run(
+                                "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
+                                act.user,
+                                this.host,
+                                null,
+                                now,
+                                session,
+                            );
+                        }
+                    }
                     this.sendMessage({
                         type: ACTION.AuthStatus,
                         pwd: false,
@@ -157,7 +182,11 @@ export class WebClient extends JobOwner {
                         dockerPush: false,
                         message: "Invalid password or one time password",
                     });
-                    this.auth = noAccess;
+                    this.auth = {
+                        ...noAccess,
+                        session,
+                        otp,
+                    };
                 } else {
                     const now = (Date.now() / 1000) | 0;
                     if (session && newOtp) {
@@ -509,13 +538,6 @@ export class WebClient extends JobOwner {
                 }
                 await deployment.toggleObject(act.index, act.enabled);
                 break;
-            case ACTION.DockerDeployStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.deploy(this, act);
-                break;
             case ACTION.ServiceDeployStart:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
@@ -579,33 +601,12 @@ export class WebClient extends JobOwner {
                 }
                 await docker.listImageTagHistory(this, act);
                 break;
-            case ACTION.DockerContainerStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.containerCommand(this, act.host, act.container, "start");
-                break;
-            case ACTION.DockerContainerStop:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.containerCommand(this, act.host, act.container, "stop");
-                break;
             case ACTION.DockerContainerForget:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
                     return;
                 }
                 await docker.forgetContainer(this, act.host, act.container);
-                break;
-            case ACTION.DockerContainerRemove:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.containerCommand(this, act.host, act.container, "rm");
                 break;
             case ACTION.ModifiedFilesScan:
                 if (!this.auth.admin) {
@@ -833,7 +834,7 @@ export class WebClients {
 
     startServer() {
         this.httpServer.listen(8182, "localhost", () => {
-            console.log("Web server started on port 443");
+            console.log("Web server started on port 8182");
         });
         this.httpServer.on("close", () => {
             console.log("Web server stopped");

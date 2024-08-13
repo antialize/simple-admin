@@ -89,7 +89,6 @@ export class DB {
         await r(
             "CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)",
         );
-        await r("DROP TABLE IF EXISTS `host_monitor`");
 
         //await r('DROP TABLE `docker_images`');
         await r(

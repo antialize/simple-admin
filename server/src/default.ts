@@ -15,17 +15,22 @@ import {
     userId,
 } from "./shared/type";
 
-export const groupId = 5;
-export const fileId = 6;
 export const collectionId = 7;
 export const complexCollectionId = 8;
+export const fileId = 6;
+export const groupId = 5;
 export const ufwAllowId = 9;
-export const packageId = 10;
-export const hostVariableId = 10840;
-
 export const reloadServiceTriggerId = 50;
 export const restartServiceTriggerId = 51;
 export const runTriggerId = 52;
+export const packageId = 10;
+export const cronId = 10240;
+export const fstabId = 10616;
+export const hostVariableId = 10840;
+export const limitId = 10675;
+export const runId = 10072;
+export const shellTriggerId = 52;
+export const systemdServiceId = 10206;
 
 interface IDefault {
     type: number;
@@ -37,7 +42,6 @@ interface IDefault {
 }
 
 export const defaults: IDefault[] = [
-    ////////////////////////////////////////////////////// Type Type /////////////////////////////////////////////////////////
     {
         type: typeId,
         id: typeId,
@@ -86,6 +90,8 @@ export const defaults: IDefault[] = [
                         "root",
                         "type",
                         "monitor",
+                        "docker",
+                        "hostvar",
                     ],
                 } as IChoiceTypeProp,
                 {
@@ -158,7 +164,10 @@ export const defaults: IDefault[] = [
                     template: false,
                     variable: "",
                 } as ITextTypeProp,
-                { type: TypePropType.typeContent, name: "content" } as ITypeContentTypeProp,
+                {
+                    type: TypePropType.typeContent,
+                    name: "content",
+                } as ITypeContentTypeProp,
                 {
                     type: TypePropType.document,
                     title: "Script",
@@ -169,10 +178,15 @@ export const defaults: IDefault[] = [
                     template: false,
                 } as IDocumentTypeProp,
             ],
+            contains: [],
+            depends: [],
+            nameVariable: "",
+            hasVariables: false,
+            hasSudoOn: false,
+            contairsName: "Has",
+            script: "",
         } as IType,
     },
-
-    //////////////////////////////////////////////// Host Type //////////////////////////////////////////////////////////////
     {
         type: typeId,
         id: hostId,
@@ -203,11 +217,37 @@ export const defaults: IDefault[] = [
                     template: false,
                     variable: "",
                 } as IBoolTypeProp,
+                {
+                    type: TypePropType.bool,
+                    name: "debPackages",
+                    title: "Debian packages",
+                    default: true,
+                    variable: "depPackages",
+                    description: "Do we have debian packages",
+                } as IBoolTypeProp,
+                {
+                    type: TypePropType.text,
+                    lines: 5,
+                    name: "notes",
+                    title: "Notes",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.bool,
+                    name: "usePodman",
+                    title: "Use podman",
+                    description: "Should we use podman instead of docker",
+                    variable: "usePodman",
+                } as IBoolTypeProp,
             ],
+            contains: [],
+            depends: [],
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            contairsName: "Has",
+            script: "",
         } as IType,
     },
-
-    //////////////////////////////////////////////// Root Type //////////////////////////////////////////////////////////////
     {
         type: typeId,
         id: rootId,
@@ -229,17 +269,27 @@ export const defaults: IDefault[] = [
                     template: true,
                     variable: "preamble",
                 } as IDocumentTypeProp,
+                {},
+                {},
             ],
+            contains: [],
+            depends: [],
+            nameVariable: "",
+            hasCategory: false,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            script: "",
         } as IType,
     },
-
-    //////////////////////////////////////////////// Collection Type //////////////////////////////////////////////////////////////
     {
         type: typeId,
         id: collectionId,
         name: "Collection",
         category: "Buildin",
-        comment: "Generic collection type, does not split elements",
+        comment: "",
         content: {
             deployOrder: 10,
             plural: "Collections",
@@ -248,10 +298,23 @@ export const defaults: IDefault[] = [
             hasContains: true,
             hasDepends: true,
             containsName: "Has",
+            contains: [],
+            depends: [],
+            nameVariable: "",
+            hasVariables: false,
+            hasTriggers: false,
+            hasSudoOn: false,
+            contairsName: "Has",
+            content: [
+                {
+                    type: TypePropType.text,
+                    name: "comment",
+                    title: "Comment",
+                } as ITextTypeProp,
+            ],
+            script: "",
         } as IType,
     },
-
-    //////////////////////////////////////////////// Complex collection Type //////////////////////////////////////////////////////////////
     {
         type: typeId,
         id: complexCollectionId,
@@ -269,8 +332,6 @@ export const defaults: IDefault[] = [
             containsName: "Has",
         } as IType,
     },
-
-    ///////////////////////////////////////////////////// File type ///////////////////////////////////////////////////////////
     {
         type: typeId,
         id: fileId,
@@ -293,7 +354,7 @@ export const defaults: IDefault[] = [
                     template: true,
                     variable: "path",
                     deployTitle: true,
-                },
+                } as ITextTypeProp,
                 {
                     type: TypePropType.text,
                     title: "User",
@@ -302,7 +363,7 @@ export const defaults: IDefault[] = [
                     default: "{{{user}}}",
                     template: true,
                     variable: "",
-                },
+                } as ITextTypeProp,
                 {
                     type: TypePropType.text,
                     title: "Group",
@@ -311,7 +372,7 @@ export const defaults: IDefault[] = [
                     default: "{{{user}}}",
                     template: true,
                     variable: "",
-                },
+                } as ITextTypeProp,
                 {
                     type: TypePropType.text,
                     title: "Mode",
@@ -320,7 +381,7 @@ export const defaults: IDefault[] = [
                     default: "644",
                     template: true,
                     variable: "",
-                },
+                } as ITextTypeProp,
                 {
                     type: TypePropType.document,
                     title: "Data",
@@ -331,7 +392,7 @@ export const defaults: IDefault[] = [
                     lang: "",
                     template: true,
                     variable: "",
-                },
+                } as IDocumentTypeProp,
             ],
             script:
                 "{{{preamble}}}\n" +
@@ -344,7 +405,7 @@ export const defaults: IDefault[] = [
                 "else:\n" +
                 "    d = os.path.dirname(new['path'])\n" +
                 "    if not os.path.exists(d):\n" +
-                "        run(['sudo', '-u', new['user'], 'mkdir', '-p', d])\n" +
+                "        run(['mkdir', '-p', d])\n" +
                 "    tf = tempfile.NamedTemporaryFile(dir=d, suffix='~', prefix='.tmp', delete=False, mode='w', encoding='utf-8')\n" +
                 "    prompt('# writing to %s'%tf.name)\n" +
                 "    tf.write(new['data'])\n" +
@@ -353,17 +414,22 @@ export const defaults: IDefault[] = [
                 "    run(['chown', new['user']+':'+new['group'], tf.name])\n" +
                 "    run(['chmod', new['mode'], tf.name])\n" +
                 "    run(['mv', '-f', tf.name, new['path']])\n",
-        },
+            contains: [],
+            depends: [],
+            nameVariable: "name",
+            hasVariables: false,
+            hasDepends: true,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+        } as IType,
     },
-
-    /////////////////////////////////////////////// User Type ////////////////////////////////////////////////////////////////
     {
         type: typeId,
         id: userId,
         name: "User",
         category: "Buildin",
-        comment:
-            "The type of a user\nDo not delete the password field, as that is also used when logging in to simple admin",
+        comment: "",
         content: {
             deployOrder: 30,
             plural: "Users",
@@ -454,6 +520,44 @@ export const defaults: IDefault[] = [
                     template: true,
                     variable: "",
                 } as ITextTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "uid",
+                    title: "ID",
+                    variable: "uid",
+                    description: "User id of user",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.bool,
+                    name: "dockerPull",
+                    title: "Docker Pull",
+                    description: "Allow user to pull from docker",
+                } as IBoolTypeProp,
+                {
+                    type: TypePropType.bool,
+                    name: "dockerDeploy",
+                    title: "Docker Deploy",
+                    description: "Allow the user to deploy using docker",
+                } as IBoolTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "sessions",
+                    title: "Sessions",
+                    template: true,
+                    description: "Static sessions to allow",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.bool,
+                    name: "dockerPush",
+                    title: "Docker Push",
+                    description: "Allow the user to push to docker",
+                } as IBoolTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "sslname",
+                    title: "SSLName",
+                    template: true,
+                } as ITextTypeProp,
             ],
             script:
                 "{{{preamble}}}\n" +
@@ -462,27 +566,48 @@ export const defaults: IDefault[] = [
                 "new = content['new']\n" +
                 "\n" +
                 "egroups = set()\n" +
-                "for line in open('/etc/group', 'r'):\n" +
+                "for line in open('/etc/group', 'r', encoding='utf-8'):\n" +
                 "    group = line.split(':')[0]\n" +
                 "    egroups.add(group)\n" +
                 "\n" +
-                "exists = False\n" +
+                "new_exists = False\n" +
                 "isSystem = False\n" +
                 "if new:\n" +
                 "    try:\n" +
-                "        ent = pwd.getpwnam(new['name'])\n" +
-                "        isSystem = ent.pw_uid < 1000\n" +
-                "        exists = True\n" +
+                "        new_ent = pwd.getpwnam(new['name'])\n" +
+                "        isSystem = new_ent.pw_uid < 1000\n" +
+                "        new_exists = True\n" +
                 "    except KeyError:\n" +
                 "        pass\n" +
+                "\t\n" +
                 "\n" +
-                "if not new or (old and old['name'] != new['name']) or not exists or isSystem != new['system']:\n" +
+                "gid = new['uid'] if new and not new['system'] else \"100\"\n" +
+                "\n" +
+                "# Should we recreate with userdel/useradd just to change the UID/GID?\n" +
+                "# If the new user exists on system and already has the correct ID, don't change.\n" +
+                "change_uid_gid = new and new_exists and (str(new_ent.pw_uid) != new['uid'] or str(new_ent.pw_gid) != gid) and (not old or old['name'] == new['name'])\n" +
+                "\n" +
+                "with open('/tmp/kkk', 'w') as f:\n" +
+                "\tf.write(json.dumps(content))\n" +
+                "\n" +
+                "if not new or (old and old['name'] != new['name']) or not new_exists or isSystem != new['system'] or change_uid_gid:\n" +
+                '    if new and \'name\' in new: run(["bash", "-c", "! pgrep -U %s -l"%new[\'name\']])\n' +
+                '    if old and \'name\' in old: run(["bash", "-c", "! pgrep -U %s -l"%old[\'name\']])\n' +
+                "    \n" +
+                "    if (new and old and old.get('uid', '') != new['uid']) or (new_exists and str(new_ent.pw_uid) != new['uid']):\n" +
+                "        assert new['uid']\n" +
+                "        run([\"find\", \"/data\", \"/opt\", \"/home\", \"-xdev\", \"-group\", old['uid'], '-exec', 'chgrp', '-h', new['uid'], '{}', '+'])\n" +
+                "        run([\"find\", \"/data\", \"/opt\", \"/home\", \"-xdev\", \"-user\", old['uid'], '-exec', 'chown', '-h', new['uid'], '{}', '+'])\n" +
+                "\n" +
                 "    if old:\n" +
                 "        runUnchecked(['userdel', old['name']])\n" +
+                "        runUnchecked(['groupdel', old['name']])\n" +
+                "\n" +
                 "    if new:\n" +
                 "        runUnchecked(['userdel', new['name']])\n" +
+                "        runUnchecked(['groupdel', new['name']])\n" +
                 "        args = ['useradd']\n" +
-                "        groups = set(new['groups'])\n" +
+                "        groups = set(map(lambda x: x.strip(), new['groups'].split(',')))\n" +
                 "        if new['system']:\n" +
                 "            args.append('-M')\n" +
                 "            args.append('-N')\n" +
@@ -490,8 +615,9 @@ export const defaults: IDefault[] = [
                 "        else:\n" +
                 "            args.append('-U')\n" +
                 "            args.append('-m')\n" +
-                "        if new['sudo']:\n" +
+                "        if new['sudo'] or new['sudoOn']:\n" +
                 "            groups.add('sudo')\n" +
+                "            groups.add('wheel')\n" +
                 "        if new['password']:\n" +
                 "            args.append('-p')\n" +
                 "            args.append(new['password'])\n" +
@@ -502,11 +628,14 @@ export const defaults: IDefault[] = [
                 "        if mygroups:\n" +
                 "            args.append('-G')\n" +
                 "            args.append(','.join(mygroups))\n" +
+                "        if 'uid' in new:\n" +
+                "            args.append('-u')\n" +
+                "            args.append(new['uid'])\n" +
                 "        args.append(new['name'])\n" +
                 "        run(args)\n" +
                 "else:\n" +
                 "    args = ['usermod']\n" +
-                "    groups = set(new['groups'])\n" +
+                "    groups = set(map(lambda x: x.strip(), new['groups'].split(',')))\n" +
                 "    if new['password']:\n" +
                 "        args.append('-p')\n" +
                 "        args.append(new['password'])\n" +
@@ -515,8 +644,9 @@ export const defaults: IDefault[] = [
                 "    if 'shell' in new and new['shell']:\n" +
                 "        args.append('-s')\n" +
                 "        args.append(new['shell'])\n" +
-                "    if new['sudo']:\n" +
+                "    if new['sudo'] or new['sudoOn']:\n" +
                 "        groups.add('sudo')\n" +
+                "        groups.add('wheel')\n" +
                 "    if not new['system']:\n" +
                 "        groups.add(new['name'])\n" +
                 "    mygroups = groups & egroups\n" +
@@ -524,10 +654,12 @@ export const defaults: IDefault[] = [
                 "    args.append(','.join(groups & egroups))\n" +
                 "    args.append(new['name'])\n" +
                 "    run(args)\n",
-        },
+            contains: [],
+            depends: [],
+            hasTriggers: false,
+            contairsName: "Has",
+        } as IType,
     },
-
-    ///////////////////////////////////////////////////////////////////////// Group type ///////////////////////////////////////////////////////
     {
         type: typeId,
         id: groupId,
@@ -551,7 +683,13 @@ export const defaults: IDefault[] = [
                     default: false,
                     template: false,
                     variable: "",
-                },
+                } as IBoolTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "id",
+                    title: "ID",
+                    description: "Group id",
+                } as ITextTypeProp,
             ],
             script:
                 "{{{preamble}}}\n" +
@@ -569,19 +707,34 @@ export const defaults: IDefault[] = [
                 "    except KeyError:\n" +
                 "        pass\n" +
                 "\n" +
-                "if not new or (old and new['name'] != old['name']) or new['system'] != isSystem or not exists:\n" +
-                "    if old:\n" +
-                "        runUnchecked(['groupdel', old['name']])\n" +
+                "if not new or (old and new['name'] != old['name']) or new['system'] != isSystem or not exists or (not old or old.get('id', '') != new['id']):\n" +
+                "    if (old and old.get('id', '') != new['id']) or (exists and str(ent.gr_gid) != new['id']):\n" +
+                "        ent = grp.getgrnam(new['name'])\n" +
+                "        if ent.gr_gid != int(new['id']):\n" +
+                "            run([\"find\", \"/data\", \"/opt\", \"/home\", \"-xdev\", \"-group\", new['name'], '-exec', 'chgrp', '-h', new['id'], '{}', '+'])\n" +
+                "    if old: runUnchecked(['groupdel', old['name']])\n" +
+                "    if new: runUnchecked(['groupdel', new['name']])\n" +
                 "    if new:\n" +
                 "        args = ['groupadd']\n" +
                 "        if new['system']:\n" +
                 "            args.append('-r')\n" +
+                "        if 'id' in new:\n" +
+                "            args.append('-g')\n" +
+                "            args.append(new['id'])\n" +
                 "        args.append(new['name'])\n" +
-                "        run(args)\n",
-        },
+                "        run(args)\n" +
+                "elif 'id' in new:\n" +
+                "    run([\"groupmod\", \"-g\", new['id'], new['name']])\n" +
+                "\t\n",
+            contains: [],
+            depends: [],
+            nameVariable: "",
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            contairsName: "Has",
+        } as IType,
     },
-
-    ///////////////////////////////////////////////////// UFWAllow type ///////////////////////////////////////////////////////////
     {
         type: typeId,
         id: ufwAllowId,
@@ -601,22 +754,40 @@ export const defaults: IDefault[] = [
                     description: "ufw allow *",
                     template: false,
                     variable: "",
-                },
+                } as ITextTypeProp,
             ],
             script:
                 "{{{preamble}}}\n" +
+                "import hashlib\n" +
+                "\n" +
                 "old = content['old']\n" +
                 "new = content['new']\n" +
                 "\n" +
+                "oldmagic = hashlib.sha224(old['allow'].encode('utf-8')).hexdigest() if old else None\n" +
+                "newmagic = hashlib.sha224(new['allow'].encode('utf-8')).hexdigest() if new else None\n" +
+                "\n" +
                 "if not new or not old or old['allow'] != new['allow']:\n" +
-                "    if old:\n" +
-                "        run(['ufw', 'reject', *old['allow'].split(' ')])\n" +
+                "    if oldmagic:\n" +
+                '        oldcomment = "simple_admin_"+oldmagic\n' +
+                '        output = subprocess.check_output(["ufw", "status", "numbered"]).decode()\n' +
+                "        for line in reversed(output.split('\\n')):\n" +
+                "            if not oldcomment in line:\n" +
+                "               continue\n" +
+                '            run(["ufw", "-f", "delete", line[1:].split(\']\',1)[0].strip()])\n' +
                 "    if new:\n" +
-                "        run(['ufw', 'allow', *new['allow'].split(' ')])\n",
-        },
+                "        run(['ufw', 'allow', *new['allow'].split(' '), 'comment', \"simple_admin_\"+newmagic])\n",
+            contains: [],
+            depends: [],
+            nameVariable: "",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+        } as IType,
     },
-
-    ///////////////////////////////////////////////////// reload service trigger ///////////////////////////////////////////////////////////
     {
         type: typeId,
         id: reloadServiceTriggerId,
@@ -636,13 +807,11 @@ export const defaults: IDefault[] = [
                     description: "Service to reload",
                     template: true,
                     variable: "",
-                },
+                } as ITextTypeProp,
             ],
             script: "{{{preamble}}}\n" + "run(['systemctl', 'reload', content['service']])\n",
-        },
+        } as IType,
     },
-
-    ///////////////////////////////////////////////////// restart service trigger ///////////////////////////////////////////////////////////
     {
         type: typeId,
         id: restartServiceTriggerId,
@@ -662,19 +831,17 @@ export const defaults: IDefault[] = [
                     description: "Service to restart",
                     template: true,
                     variable: "",
-                },
+                } as ITextTypeProp,
             ],
             script: "{{{preamble}}}\n" + "run(['systemctl', 'restart', content['service']])\n",
-        },
+        } as IType,
     },
-
-    ///////////////////////////////////////////////////// run trigger ///////////////////////////////////////////////////////////
     {
         type: typeId,
         id: runTriggerId,
-        name: "Run",
+        name: "Shell",
         category: "Buildin",
-        comment: "Run some shell code",
+        comment: "",
         content: {
             deployOrder: 0,
             plural: "",
@@ -688,19 +855,25 @@ export const defaults: IDefault[] = [
                     description: "Shell code to run",
                     template: true,
                     variable: "",
-                },
+                } as ITextTypeProp,
             ],
             script: "{{{preamble}}}\n" + "runShell(content['code'])\n",
-        },
+            nameVariable: "",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+        } as IType,
     },
-
-    ///////////////////////////////////////////////////// Package type ///////////////////////////////////////////////////////////
     {
         type: typeId,
         id: packageId,
         name: "Package",
         category: "Buildin",
-        comment: "Install debian packages",
+        comment: "",
         content: {
             deployOrder: 50,
             plural: "Packages",
@@ -718,6 +891,7 @@ export const defaults: IDefault[] = [
                 "    pass\n" +
                 "\n" +
                 "base = tempfile.mkdtemp()\n" +
+                "os.umask(0o022)\n" +
                 "os.chmod(base, 0o755)\n" +
                 "d = os.path.join(base, 'simple-admin-meta-%d.0'%version)\n" +
                 "\n" +
@@ -737,20 +911,420 @@ export const defaults: IDefault[] = [
                 "'''%(version, ', '.join(map(lambda x: x['name'], content['objects'].values()))))\n" +
                 "\n" +
                 "run(['dpkg-deb', '--build', d, deb])\n" +
+                "run(['apt', 'update', '-y'])\n" +
                 "run(['apt', 'install', '-y', deb])\n" +
                 "run(['apt', 'autoremove', '-y'])\n",
-        },
+            nameVariable: "",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            contains: [],
+            depends: [],
+        } as IType,
     },
-
-    //////////////////////////////////////////////// Root instance //////////////////////////////////////////////////////////////
+    {
+        type: typeId,
+        id: cronId,
+        name: "Cron",
+        category: "Buildin",
+        comment: "Cron scripts",
+        content: {
+            contains: [],
+            depends: [],
+            nameVariable: "name",
+            plural: "Cron",
+            kind: "delta",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: true,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            content: [
+                {
+                    type: TypePropType.text,
+                    name: "user",
+                    title: "User",
+                    template: true,
+                    lines: 0,
+                    deployTitle: false,
+                    variable: "myUser",
+                    description: "The cron line to add",
+                    default: "{{{user}}}",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "mode",
+                    title: "Mode",
+                    template: true,
+                    default: "755",
+                    description: "The mode to store the script as",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "path",
+                    title: "Path",
+                    template: true,
+                    default: "/opt/cron/{{{name}}}",
+                    variable: "path",
+                    description: "The path to store the script at",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "line",
+                    title: "Line",
+                    default: "2  1  1 * *  {{{myUser}}} {{{path}}}",
+                    template: true,
+                    lines: 1,
+                    description: "The line to add to the cron tab",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.text,
+                    name: "group",
+                    title: "Group",
+                    default: "{{{group}}}",
+                    template: true,
+                    deployTitle: false,
+                    description: "The group to store the script as",
+                } as ITextTypeProp,
+                {
+                    type: TypePropType.document,
+                    name: "script",
+                    title: "Script",
+                    template: true,
+                    langName: "lang",
+                    description: "The script",
+                } as IDocumentTypeProp,
+            ],
+            script:
+                "{{{preamble}}}\n" +
+                "import tempfile, hashlib\n" +
+                "old = content['old']\n" +
+                "new = content['new']\n" +
+                "\t\n" +
+                "oldmagic = hashlib.sha224(old['name'].encode('utf-8')).hexdigest() if old else None\n" +
+                "newmagic = hashlib.sha224(new['name'].encode('utf-8')).hexdigest() if new else None\n" +
+                "\n" +
+                "if old and (not new or not new['script']):\n" +
+                "    run(['rm','-f', old['path']])\n" +
+                "\n" +
+                "if new:\n" +
+                "    d = os.path.dirname(new['path'])\n" +
+                "    if not os.path.exists(d):\n" +
+                "        run(['mkdir', '-p', d])\n" +
+                "    tf = tempfile.NamedTemporaryFile(dir=d, suffix='~', prefix='.tmp', delete=False, mode='w', encoding='utf-8')\n" +
+                "    prompt('# writing to %s'%tf.name)\n" +
+                "    tf.write(new['script'])\n" +
+                "    tf.close()\n" +
+                "\n" +
+                "    # run(['chown', new['user']+':'+new['group'], tf.name])\n" +
+                "    run(['chmod', new['mode'], tf.name])\n" +
+                "    run(['mv', '-f', tf.name, new['path']])\n" +
+                "\n" +
+                "\n" +
+                "\n" +
+                'cron = ""\n' +
+                'if os.path.exists("/etc/crontab"):\n' +
+                '\twith open("/etc/crontab", "r", encoding="utf-8") as f:\n' +
+                "\t\tcron = f.read()\n" +
+                "\t\t\n" +
+                "if oldmagic:\n" +
+                '\tcron = "\\n".join([line for line in cron.split("\\n") if not line.endswith("#simple admin cron %s"%oldmagic)])\n' +
+                "if newmagic:\n" +
+                '\tcron = "\\n".join([line for line in cron.split("\\n") if not line.endswith("#simple admin cron %s"%newmagic)])\n' +
+                "\n" +
+                "if newmagic and new['line']:\n" +
+                "\tif not cron.endswith('\\n'): \n" +
+                "\t\tcron += '\\n'\n" +
+                "\tcron += \"%s #simple admin cron %s\\n\"%(new['line'].strip(), newmagic)\n" +
+                "\t\n" +
+                'print("Write chron tab:")\n' +
+                "print(cron)\n" +
+                'with open("/etc/crontab~", "w", encoding="utf-8") as f:\n' +
+                "\tf.write(cron)\n" +
+                "run(['mv', '-f', \"/etc/crontab~\", \"/etc/crontab\"])\n",
+            deployOrder: 0,
+        } as IType,
+    },
+    {
+        type: typeId,
+        id: fstabId,
+        name: "Fstab",
+        category: "Buildin",
+        comment: "Fstab entry",
+        content: {
+            contains: [],
+            depends: [],
+            nameVariable: "name",
+            plural: "Fstab",
+            kind: "delta",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: true,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            content: [
+                {
+                    type: TypePropType.text,
+                    name: "line",
+                    title: "Line",
+                    template: true,
+                    description: "fstab entry",
+                } as ITextTypeProp,
+            ],
+            script:
+                "{{{preamble}}}\n" +
+                "import tempfile, hashlib\n" +
+                "old = content['old']\n" +
+                "new = content['new']\n" +
+                "\t\n" +
+                "oldmagic = hashlib.sha224(old['name'].encode('utf-8')).hexdigest() if old else None\n" +
+                "newmagic = hashlib.sha224(new['name'].encode('utf-8')).hexdigest() if new else None\n" +
+                "\n" +
+                'fstab = ""\n' +
+                'if os.path.exists("/etc/fstab"):\n' +
+                '\twith open("/etc/fstab", "r", encoding="utf-8") as f:\n' +
+                "\t\tfstab = f.read()\n" +
+                "\t\t\n" +
+                "if oldmagic:\n" +
+                '\tfstab = "\\n".join([line for line in fstab.split("\\n") if not line.endswith("#simple admin fstab %s"%oldmagic)])\n' +
+                "if newmagic:\n" +
+                '\tfstab = "\\n".join([line for line in fstab.split("\\n") if not line.endswith("#simple admin fstab %s"%newmagic)])\n' +
+                "\n" +
+                "if newmagic and new['line']:\n" +
+                "\tif not fstab.endswith('\\n'): \n" +
+                "\t\tfstab += '\\n'\n" +
+                "\tfstab += \"%s #simple admin fstab %s\\n\"%(new['line'].strip(), newmagic)\n" +
+                "\t\n" +
+                'print("Write fstab tab:")\n' +
+                "print(fstab)\n" +
+                'with open("/etc/fstab~", "w", encoding="utf-8") as f:\n' +
+                "\tf.write(fstab)\n" +
+                "run(['mv', '-f', \"/etc/fstab~\", \"/etc/fstab\"])\n",
+        } as IType,
+    },
+    {
+        type: typeId,
+        id: hostVariableId,
+        name: "Host Variabel",
+        category: "",
+        comment: "",
+        content: {
+            contains: [],
+            depends: [],
+            nameVariable: "",
+            plural: "Host Variabels",
+            kind: "hostvar",
+            hasCategory: false,
+            hasVariables: true,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            content: [],
+            script: "",
+        } as IType,
+    },
+    {
+        type: typeId,
+        id: limitId,
+        name: "Limit",
+        category: "Buildin",
+        comment: "/etc/security/limits.conf entry",
+        content: {
+            contains: [],
+            depends: [],
+            nameVariable: "name",
+            plural: "Limits",
+            kind: "delta",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            content: [
+                {
+                    type: TypePropType.text,
+                    name: "line",
+                    title: "Line",
+                    template: true,
+                    description: "limits line",
+                } as ITextTypeProp,
+            ],
+            script:
+                "{{{preamble}}}\n" +
+                "import tempfile, hashlib\n" +
+                "old = content['old']\n" +
+                "new = content['new']\n" +
+                "\t\n" +
+                "oldmagic = hashlib.sha224(old['name'].encode('utf-8')).hexdigest() if old else None\n" +
+                "newmagic = hashlib.sha224(new['name'].encode('utf-8')).hexdigest() if new else None\n" +
+                "\n" +
+                'fstab = ""\n' +
+                'if os.path.exists("/etc/security/limits.conf"):\n' +
+                '\twith open("/etc/security/limits.conf", "r", encoding="utf-8") as f:\n' +
+                "\t\tfstab = f.read()\n" +
+                "\t\t\n" +
+                "if oldmagic:\n" +
+                '\tfstab = "\\n".join([line for line in fstab.split("\\n") if not line.endswith("#simple admin limit %s"%oldmagic)])\n' +
+                "if newmagic:\n" +
+                '\tfstab = "\\n".join([line for line in fstab.split("\\n") if not line.endswith("#simple admin limit %s"%newmagic)])\n' +
+                "\n" +
+                "if newmagic and new['line']:\n" +
+                "\tif not fstab.endswith('\\n'): \n" +
+                "\t\tfstab += '\\n'\n" +
+                "\tfstab += \"%s #simple admin limit %s\\n\"%(new['line'].strip(), newmagic)\n" +
+                "\t\n" +
+                'print("Write /etc/security/limits.conf:")\n' +
+                "print(fstab)\n" +
+                'with open("/etc/security/limits.conf~", "w", encoding="utf-8") as f:\n' +
+                "\tf.write(fstab)\n" +
+                "run(['mv', '-f', \"/etc/security/limits.conf~\", \"/etc/security/limits.conf\"])\n",
+        } as IType,
+    },
+    {
+        type: typeId,
+        id: runId,
+        name: "Run",
+        category: "",
+        comment: "",
+        content: {
+            nameVariable: "",
+            plural: "Run instances",
+            kind: "delta",
+            hasCategory: true,
+            hasVariables: false,
+            hasTriggers: true,
+            hasDepends: true,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            content: [
+                {
+                    type: TypePropType.document,
+                    name: "run",
+                    title: "Run",
+                    variable: "run",
+                    template: true,
+                    lang: "Python",
+                } as IDocumentTypeProp,
+            ],
+            script: "{{{preamble}}}\n" + "{{{run}}}\n",
+        } as IType,
+    },
+    {
+        type: typeId,
+        id: shellTriggerId,
+        name: "Shell",
+        category: "Buildin",
+        comment: "",
+        content: {
+            deployOrder: 0,
+            plural: "",
+            kind: "trigger",
+            content: [
+                {
+                    type: TypePropType.text,
+                    name: "code",
+                    title: "Code",
+                    default: "",
+                    description: "Shell code to run",
+                    template: true,
+                    variable: "",
+                } as ITextTypeProp,
+            ],
+            script: "{{{preamble}}}\n" + "runShell(content['code'])\n",
+            nameVariable: "",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: false,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+        } as IType,
+    },
+    {
+        type: typeId,
+        id: systemdServiceId,
+        name: "Systemd service",
+        category: "",
+        comment: "",
+        content: {
+            contains: [],
+            depends: [],
+            nameVariable: "systemdService",
+            plural: "Systemd services",
+            kind: "delta",
+            hasCategory: false,
+            hasVariables: false,
+            hasTriggers: false,
+            hasDepends: true,
+            hasSudoOn: false,
+            hasContains: false,
+            contairsName: "Has",
+            content: [
+                {
+                    type: TypePropType.document,
+                    name: "unit",
+                    template: true,
+                } as IDocumentTypeProp,
+                {
+                    type: TypePropType.document,
+                    name: "env",
+                    template: true,
+                } as IDocumentTypeProp,
+            ],
+            script:
+                "{{{preamble}}}\n" +
+                "\n" +
+                "old = content['old']\n" +
+                "new = content['new']\n" +
+                "if old:\n" +
+                '    runUnchecked(["systemctl", "disable", old["name"]])\n' +
+                '    runUnchecked(["systemctl", "stop", old["name"]])\n' +
+                '    path = "/etc/systemd/system/%s.service" % old["name"]\n' +
+                "    if os.path.exists(path):\n" +
+                "        os.unlink(path)\n" +
+                '    path = "/etc/systemd/system/%s.env" % old["name"]\n' +
+                "    if os.path.exists(path):\n" +
+                "        os.unlink(path)\n" +
+                "\n" +
+                "if new:\n" +
+                '    path = "/etc/systemd/system/%s.service" % new["name"]\n' +
+                '    with open(path + "~", "w") as fp:\n' +
+                '        fp.write(new["unit"])\n' +
+                '    os.rename(path + "~", path)\n' +
+                "    \n" +
+                '    if new["env"]:\n' +
+                '        path = "/etc/systemd/system/%s.env" % new["name"]\n' +
+                '        with open(os.open(path+"~", os.O_CREAT | os.O_WRONLY, 0o400), "w") as fp:\n' +
+                '            fp.write(new["env"])\n' +
+                '            os.rename(path + "~", path)\n' +
+                "    \n" +
+                '    run(["systemctl", "daemon-reload"])\n' +
+                '    run(["systemctl", "enable", new["name"]])\n' +
+                '    run(["systemctl", "start", new["name"]])\n',
+        } as IType,
+    },
     {
         type: rootId,
         id: rootInstanceId,
         name: "Root",
         category: "",
-        comment: "The singular root instance",
+        comment: "",
         content: {
-            variables: [{ key: "user", value: "root" }],
+            variables: [],
             preamble:
                 "import sys, json, subprocess, pty, fcntl, os, select, socket, shlex\n" +
                 "\n" +
@@ -772,21 +1346,53 @@ export const defaults: IDefault[] = [
                 "hostname = socket.gethostname()\n" +
                 "os.environ['name'] = 'xterm-color'\n" +
                 "os.environ['TERM'] = 'xterm'\n" +
+                "os.environ['DEBIAN_FRONTEND'] = 'noninteractive'\n" +
+                'runas = "root"\n' +
                 "\n" +
                 "def prompt(value):\n" +
-                "    os.write(1, ('\\033[94m%s$\\033[0m %s\\r\\n'%(hostname, value)).encode('utf-8'))\n" +
+                "\tglobal runas\n" +
+                "\tos.write(1, ('\\033[94m%s@%s:%s$\\033[0m %s\\r\\n'%(runas, hostname, os.getcwd(), value)).encode('utf-8'))\n" +
                 "\n" +
                 "def run(args):\n" +
-                "    prompt(' '.join(map(shlex.quote, args)))\n" +
-                "    subprocess.check_call(args)\n" +
+                "\tglobal runas\n" +
+                "\tprompt(' '.join(map(shlex.quote, args)))\n" +
+                '\tif runas != "root":\n' +
+                "\t\tsubprocess.check_call(['sudo', '-u', runas] + args)\n" +
+                "\telse:\n" +
+                "\t\tsubprocess.check_call(args)\n" +
                 "\n" +
                 "def runUnchecked(args):\n" +
-                "    prompt(' '.join(map(shlex.quote, args)))\n" +
-                "    subprocess.call(args)\n" +
+                "\tglobal runas\n" +
+                "\tprompt(' '.join(map(shlex.quote, args)))\n" +
+                '\tif runas != "root":\n' +
+                "\t\tsubprocess.call(['sudo', '-u', runas] + args)\n" +
+                "\telse:\n" +
+                "\t\tsubprocess.call(args)\n" +
                 "\n" +
                 "def runShell(cmd):\n" +
-                "    prompt(cmd)\n" +
-                "    subprocess.call([cmd], shell=True)\n",
+                '\tcmd = "%s" % (cmd,)\n' +
+                "\tprompt(cmd)\n" +
+                '\tif runas != "root":\n' +
+                '\t\tcmd = "sudo -u %s %s" % (runas, cmd)\n' +
+                "\tsubprocess.call(cmd, shell=True)\n" +
+                "\n" +
+                'def su(user="root"):\n' +
+                "\tglobal runas\n" +
+                '\tprompt("su %s"%shlex.quote(user))\n' +
+                "\trunas = user\n" +
+                "\n" +
+                "def cd(d):\n" +
+                '\tprompt("cd %s"%shlex.quote(d))\n' +
+                "\tos.chdir(d)\n",
+            status: "",
+            monitor: "",
+            path: "",
+            user: "{{{user}}}",
+            group: "{{{user}}}",
+            mode: "644",
+            lang: "",
+            data: "",
+            secrets: [],
         },
     },
 ];

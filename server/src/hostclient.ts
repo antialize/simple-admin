@@ -27,9 +27,9 @@ export class HostClient extends JobOwner {
     id: number | null = null;
     pingId = 10;
     pingTimer: ReturnType<typeof setTimeout> | null = null;
-    pingStart: number | null = null;
     closeHandled = false;
     certificateTimer: ReturnType<typeof setTimeout> | null = null;
+    authTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -39,9 +39,7 @@ export class HostClient extends JobOwner {
         this.socket.on("error", (err: Error) => {
             console.warn("Client socket error", { hostname: this.hostname, error: err });
         });
-        this.pingTimer = setTimeout(() => {
-            this.sendPing();
-        }, 10000);
+        this.authTimer = setTimeout(() => this.onAuthTimeout(), 10000);
     }
 
     runShell(commandLine: string): Promise<string> {
@@ -140,8 +138,6 @@ export class HostClient extends JobOwner {
 
     sendPing() {
         this.pingTimer = null;
-        const time = process.hrtime();
-        this.pingStart = time[0] + time[1] * 1e-9;
         this.sendMessage({ type: "ping", id: this.pingId++ });
         this.pingTimer = setTimeout(() => {
             this.onPingTimeout();
@@ -155,11 +151,16 @@ export class HostClient extends JobOwner {
         this.socket.end();
     }
 
+    onAuthTimeout() {
+        this.authTimer = null;
+        this.closeHandled = true;
+        console.warn("Client auth timeout", { hostname: this.hostname });
+        this.socket.end();
+    }
+
     onPingResponce(id: number) {
         if (!this.pingTimer) return;
         clearTimeout(this.pingTimer);
-        const time = process.hrtime();
-        const pingEnd = time[0] + time[1] * 1e-9;
         this.pingTimer = setTimeout(() => {
             this.sendPing();
         }, 9000);
@@ -168,6 +169,7 @@ export class HostClient extends JobOwner {
     onClose() {
         if (this.pingTimer != null) clearTimeout(this.pingTimer);
         if (this.certificateTimer != null) clearTimeout(this.certificateTimer);
+        if (this.authTimer != null) clearTimeout(this.authTimer);
 
         if (!this.auth) {
             console.log("Bad auth for client", { hostname: this.hostname });
@@ -213,7 +215,10 @@ export class HostClient extends JobOwner {
                 this.auth = false;
                 return;
             }
-
+            if (this.authTimer !== null) {
+                clearTimeout(this.authTimer);
+                this.authTimer = null;
+            }
             const [id, _] = await Promise.all([this.validateAuth(obj), delay(1000)]);
             if (id !== null) {
                 console.log("Client authorized", {
@@ -228,6 +233,10 @@ export class HostClient extends JobOwner {
                 const act: IHostUp = { type: ACTION.HostUp, id: id };
                 webClients.broadcast(act);
                 this.signHostCertificate();
+
+                this.pingTimer = setTimeout(() => {
+                    this.sendPing();
+                }, 10000);
             } else {
                 console.warn("Client invalid auth", {
                     address: this.socket.remoteAddress,

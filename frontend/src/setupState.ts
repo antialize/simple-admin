@@ -1,6 +1,6 @@
 import { ActionTargets } from "./ActionTargets";
-import DockerContainersState from "./DockerContairsState";
 import DockerImagesState from "./DockerImagesState";
+import DockerrvicesState from "./DockerServicesState";
 import LoginState from "./LoginState";
 import ModifiedFilesState from "./ModifiedFilesState";
 import PageState from "./PageState";
@@ -14,7 +14,7 @@ function setupState() {
     state.page = new PageState();
     state.actionTargets = new ActionTargets();
     state.dockerImages = new DockerImagesState();
-    state.dockerContainers = new DockerContainersState();
+    state.dockerContainers = new DockerrvicesState();
     state.modifiedFiles = new ModifiedFilesState();
     state.search = new SearchState();
 }

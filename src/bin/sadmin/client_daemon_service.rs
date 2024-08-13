@@ -1591,8 +1591,8 @@ It will be hard killed in {:?} if it does not stop before that. ",
                     let pfx = stdout_tail.len();
                     i.buf[..pfx].copy_from_slice(&stdout_tail);
                     match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf[pfx..]).map_err(|v| v.into())){
-                    Ok(Ok(mut v)) => {
-                        v += pfx;
+                    Ok(Ok(rd)) => {
+                        let v = rd + pfx;
                         log.stdout(&i.buf[pfx..v]).await?;
 
                         send_journal_messages(
@@ -1615,10 +1615,9 @@ It will be hard killed in {:?} if it does not stop before that. ",
                             stdout_tail.resize(tl, 0);
                             stdout_tail.copy_from_slice(&i.buf[v-tl..v])
                         }
-                        if v == 0 {
+                        if rd == 0 {
                             i.go_stdout = false;
                             info!("Finished reading from stdout for {}", self.name);
-
                         }
                     }
                     Err(_) => {continue}
@@ -1629,8 +1628,8 @@ It will be hard killed in {:?} if it does not stop before that. ",
                     let pfx = stderr_tail.len();
                     i.buf[..pfx].copy_from_slice(&stderr_tail);
                     match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf[pfx..]).map_err(|v| v.into())){
-                    Ok(Ok(mut v)) => {
-                        v += pfx;
+                    Ok(Ok(rd)) => {
+                        let v = rd + pfx;
                         log.stderr(&i.buf[pfx..v]).await?;
 
                         send_journal_messages(
@@ -1653,10 +1652,9 @@ It will be hard killed in {:?} if it does not stop before that. ",
                             stderr_tail.resize(tl, 0);
                             stderr_tail.copy_from_slice(&i.buf[v-tl..v])
                         }
-                        if v == 0 {
+                        if rd == 0 {
                             i.go_stderr = false;
                             info!("Finished reading from stderr for {}", self.name);
-
                         }
                     }
                     Err(_) => {continue}

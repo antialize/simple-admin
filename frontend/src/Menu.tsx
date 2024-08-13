@@ -250,7 +250,7 @@ const Menu = observer(function Menu() {
         page.set({ type: State.PAGE_TYPE.DockerImages });
     });
     useHotkeys("c", () => {
-        page.set({ type: State.PAGE_TYPE.DockerContainers });
+        page.set({ type: State.PAGE_TYPE.DockerServices });
     });
     return (
         <AppBar color="primary" enableColorOnDark>
@@ -317,11 +317,11 @@ const Menu = observer(function Menu() {
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: State.PAGE_TYPE.DockerContainers });
+                            page.onClick(e, { type: State.PAGE_TYPE.DockerServices });
                         }}
-                        href={page.link({ type: State.PAGE_TYPE.DockerContainers })}
+                        href={page.link({ type: State.PAGE_TYPE.DockerServices })}
                     >
-                        Containers
+                        Services
                     </Button>
                     <Button
                         color="inherit"

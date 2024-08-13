@@ -10,7 +10,7 @@ import {
 import getOrInsert from "./shared/getOrInsert";
 import state from "./state";
 
-export default class DockerContainersState {
+export default class DockerrvicesState {
     constructor() {
         makeObservable(this);
     }
