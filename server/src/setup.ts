@@ -43,7 +43,9 @@ export default async (req: Request, res: Response) => {
 
     let script = "#!/bin/bash\n";
     script += "set -e\n";
-    script += "apt install -y wget unzip\n";
+    script += "if which apt; then\n";
+    script += "  apt install -y wget unzip\n";
+    script += "fi\n";
     script += `echo \'{"server_host": "${config.hostname}", "hostname": "${host}\"}' > /etc/sadmin.json\n`;
     script += `echo \'{"password": "${npw}\"}' > /etc/sadmin_client_auth.json\n`;
     script += "chmod 0600 /etc/sadmin_client_auth.json\n";
