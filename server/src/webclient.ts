@@ -538,13 +538,6 @@ export class WebClient extends JobOwner {
                 }
                 await deployment.toggleObject(act.index, act.enabled);
                 break;
-            case ACTION.DockerDeployStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.deploy(this, act);
-                break;
             case ACTION.ServiceDeployStart:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
@@ -608,33 +601,12 @@ export class WebClient extends JobOwner {
                 }
                 await docker.listImageTagHistory(this, act);
                 break;
-            case ACTION.DockerContainerStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.containerCommand(this, act.host, act.container, "start");
-                break;
-            case ACTION.DockerContainerStop:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.containerCommand(this, act.host, act.container, "stop");
-                break;
             case ACTION.DockerContainerForget:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
                     return;
                 }
                 await docker.forgetContainer(this, act.host, act.container);
-                break;
-            case ACTION.DockerContainerRemove:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.containerCommand(this, act.host, act.container, "rm");
                 break;
             case ACTION.ModifiedFilesScan:
                 if (!this.auth.admin) {

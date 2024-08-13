@@ -1,7 +1,7 @@
 import { computed, makeObservable, observable } from "mobx";
 import type { ActionTargets } from "./ActionTargets";
-import type DockerContainersState from "./DockerContairsState";
 import type DockerImagesState from "./DockerImagesState";
+import type DockerrvicesState from "./DockerServicesState";
 import type LoginState from "./LoginState";
 import type ModifiedFilesState from "./ModifiedFilesState";
 import type ObjectState from "./ObjectState";
@@ -92,7 +92,7 @@ class State {
     dockerImages: DockerImagesState | null = null;
 
     @observable.shallow
-    dockerContainers: DockerContainersState | null = null;
+    dockerContainers: DockerrvicesState | null = null;
 
     @observable.shallow
     modifiedFiles: ModifiedFilesState | null = null;

@@ -19,9 +19,6 @@ export enum ACTION {
     DeleteObject = "DeleteObject",
     DeployObject = "DeployObject",
     DockerContainerForget = "DockerContainerForget",
-    DockerContainerRemove = "DockerContainerRemove",
-    DockerContainerStart = "DockerContainerStart",
-    DockerContainerStop = "DockerContainerStop",
     DockerDeployDone = "DockerDeployEnd",
     DockerDeployLog = "DockerDeployLog",
     DockerDeploymentsChanged = "DockerDeploymentsChanged",
@@ -326,17 +323,6 @@ export interface IStatValueChanges {
     level: number;
     index: number;
 }
-
-export interface IDockerDeployStart {
-    type: ACTION.DockerDeployStart;
-    host: number | string;
-    image: string;
-    container?: string;
-    config?: string;
-    restoreOnFailure: boolean;
-    ref: Ref;
-}
-
 export interface IServiceDeployStart {
     type: ACTION.ServiceDeployStart;
     ref: Ref;
@@ -477,24 +463,6 @@ export interface IDockerDeploymentsChanged {
     removed: Array<{ host: number; name: string }>;
 }
 
-export interface IDockerContainerStart {
-    type: ACTION.DockerContainerStart;
-    host: number;
-    container: string;
-}
-
-export interface IDockerContainerStop {
-    type: ACTION.DockerContainerStop;
-    host: number;
-    container: string;
-}
-
-export interface IDockerContainerRemove {
-    type: ACTION.DockerContainerRemove;
-    host: number;
-    container: string;
-}
-
 export interface IDockerContainerForget {
     type: ACTION.DockerContainerForget;
     host: number;
@@ -602,13 +570,9 @@ export type IAction =
     | IDeleteObject
     | IDeployObject
     | IDockerContainerForget
-    | IDockerContainerRemove
-    | IDockerContainerStart
-    | IDockerContainerStop
     | IDockerDeployDone
     | IDockerDeployLog
     | IDockerDeploymentsChanged
-    | IDockerDeployStart
     | IDockerImageSetPin
     | IDockerImageTagsCharged
     | IDockerImageTagSetPin

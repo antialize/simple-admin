@@ -43,7 +43,7 @@ class PageState {
             case State.PAGE_TYPE.DockerImages:
                 nullCheck(state.dockerImages).load();
                 break;
-            case State.PAGE_TYPE.DockerContainers:
+            case State.PAGE_TYPE.DockerServices:
                 nullCheck(state.dockerContainers).load();
                 break;
             case State.PAGE_TYPE.ModifiedFiles:
@@ -117,7 +117,7 @@ class PageState {
             case State.PAGE_TYPE.DockerImages:
                 o.page = "dockerImages";
                 break;
-            case State.PAGE_TYPE.DockerContainers:
+            case State.PAGE_TYPE.DockerServices:
                 o.page = "dockerContainers";
                 break;
             case State.PAGE_TYPE.ModifiedFiles:
@@ -167,7 +167,7 @@ class PageState {
                 this.current = { type: State.PAGE_TYPE.DockerImages };
                 break;
             case "dockerContainers":
-                this.current = { type: State.PAGE_TYPE.DockerContainers };
+                this.current = { type: State.PAGE_TYPE.DockerServices };
                 break;
             case "modifiedFiles":
                 this.current = { type: State.PAGE_TYPE.ModifiedFiles };

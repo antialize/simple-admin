@@ -4,7 +4,7 @@ export enum PAGE_TYPE {
     DeploymentDetails = 2,
     DockerContainerDetails = 3,
     DockerContainerHistory = 4,
-    DockerContainers = 5,
+    DockerServices = 5,
     DockerImageHistory = 6,
     DockerImages = 7,
     ModifiedFile = 8,
@@ -55,7 +55,7 @@ export interface IDockerImagesPage {
 }
 
 export interface IDockerContainersPage {
-    type: PAGE_TYPE.DockerContainers;
+    type: PAGE_TYPE.DockerServices;
 }
 
 export interface IDockerImageHistory {

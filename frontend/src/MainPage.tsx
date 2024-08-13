@@ -1,12 +1,8 @@
 import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
 import Deployment from "./Deployment";
-import {
-    DockerContainerDetails,
-    DockerContainerHistory,
-    DockerContainers,
-} from "./DockerContainers";
 import { DockerImageHistory, DockerImages } from "./DockerImages";
+import { DockerServiceDetails, DockerServiceHistory, DockerServices } from "./DockerServices";
 import DisplayError from "./Error";
 import Messages from "./Messages";
 import { ModifiedFileRevolver, ModifiedFiles } from "./ModifiedFiles";
@@ -52,16 +48,16 @@ export const MainPage = observer(function MainPage() {
             );
         case State.PAGE_TYPE.DockerImages:
             return <DockerImages />;
-        case State.PAGE_TYPE.DockerContainers:
-            return <DockerContainers />;
+        case State.PAGE_TYPE.DockerServices:
+            return <DockerServices />;
         case State.PAGE_TYPE.ModifiedFiles:
             return <ModifiedFiles />;
         case State.PAGE_TYPE.ModifiedFile:
             return <ModifiedFileRevolver id={p.id} />;
         case State.PAGE_TYPE.DockerContainerDetails:
-            return <DockerContainerDetails />;
+            return <DockerServiceDetails />;
         case State.PAGE_TYPE.DockerContainerHistory:
-            return <DockerContainerHistory />;
+            return <DockerServiceHistory />;
         case State.PAGE_TYPE.DockerImageHistory:
             return <DockerImageHistory />;
         case State.PAGE_TYPE.Search:

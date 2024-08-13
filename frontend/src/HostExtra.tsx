@@ -1,6 +1,6 @@
 import { observer } from "mobx-react";
 import Box from "./Box";
-import { HostDockerContainers } from "./DockerContainers";
+import { HostDockerContainers } from "./DockerServices";
 import Messages from "./Messages";
 import Setup from "./Setup";
 import HostTerminals from "./Terminal";

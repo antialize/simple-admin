@@ -5,7 +5,6 @@ use client_daemon::ClientDaemon;
 use connection::{Config, Connection};
 #[cfg(feature = "daemon")]
 use debug_persist::DebugPersist;
-use docker_deploy::DockerDeploy;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
 use message::{LogOut, Message};
@@ -23,7 +22,6 @@ mod client_daemon_service;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
-mod docker_deploy;
 mod dyn_format;
 mod finite_float;
 mod list_deployments;
@@ -85,8 +83,6 @@ enum Action {
     ListImages(ListImages),
     #[clap(alias("listDeployments"))]
     ListDeployments(ListDeployments),
-    #[clap(alias("dockerDeploy"))]
-    DockerDeploy(DockerDeploy),
     Upgrade(Upgrade),
     Setup(Setup),
     ServiceDeploy(ServiceDeploy),
@@ -182,7 +178,6 @@ async fn main() -> Result<()> {
         Action::ListImages(args) => list_images::list_images(config, args).await,
         Action::Deauth(args) => deauth(config, args).await,
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
-        Action::DockerDeploy(args) => docker_deploy::deploy(config, args).await,
         Action::Upgrade(args) => upgrade::upgrade(args).await,
         Action::Setup(args) => upgrade::setup(args).await,
         Action::ServiceDeploy(args) => service_deploy::deploy(config, args).await,

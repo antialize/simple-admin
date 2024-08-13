@@ -63,44 +63,6 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                 <td>{container.start ? <UnixTime time={container.start} /> : null}</td>
                 <td>{container.end ? <UnixTime time={container.end} /> : null}</td>
                 <td>
-                    {container.state === "running" ? (
-                        <Button
-                            onClick={() => {
-                                state.sendMessage({
-                                    type: ACTION.DockerContainerStop,
-                                    host: p.host,
-                                    container: container.name,
-                                });
-                            }}
-                        >
-                            Stop
-                        </Button>
-                    ) : null}
-                    {container.state !== "running" ? (
-                        <Button
-                            onClick={() => {
-                                state.sendMessage({
-                                    type: ACTION.DockerContainerStart,
-                                    host: p.host,
-                                    container: container.name,
-                                });
-                            }}
-                        >
-                            Start
-                        </Button>
-                    ) : null}
-                    <Button
-                        onClick={() => {
-                            confirm("Delete this container from host?") &&
-                                state.sendMessage({
-                                    type: ACTION.DockerContainerRemove,
-                                    host: p.host,
-                                    container: container.name,
-                                });
-                        }}
-                    >
-                        Remove
-                    </Button>
                     <Button
                         onClick={() => {
                             confirm("Forget this container from host?") &&
@@ -136,7 +98,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
 
     const headers = (
         <tr>
-            <th>Container</th>
+            <th>Service</th>
             <th>Project</th>
             <th>Status</th>
             <th>Commit</th>
@@ -150,7 +112,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
 
     if (p.standalone)
         return (
-            <Box title="Docker containers">
+            <Box title="Docker services">
                 <InfoTable>
                     <thead>{headers}</thead>
                     <tbody>{rows}</tbody>
@@ -174,7 +136,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
     );
 });
 
-export const DockerContainers = observer(function DockerContainers(_: { host?: string }) {
+export const DockerServices = observer(function DockerServices(_: { host?: string }) {
     const dockerContainers = state.dockerContainers;
     if (!dockerContainers) return <DisplayError>Missing state.dockerContainers</DisplayError>;
     const r = extractRemote(dockerContainers.hosts);
@@ -190,13 +152,13 @@ export const DockerContainers = observer(function DockerContainers(_: { host?: s
         lst.push(<HostDockerContainers key={host} host={host} standalone={false} />);
 
     return (
-        <Box title="Docker containers">
+        <Box title="Docker services">
             <InfoTable>{lst}</InfoTable>
         </Box>
     );
 });
 
-export const DockerContainerDetails = observer(function DockerContainerDetails() {
+export const DockerServiceDetails = observer(function DockerServiceDetails() {
     const spage = state.page;
     if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
@@ -271,7 +233,7 @@ export const DockerContainerDetails = observer(function DockerContainerDetails()
     );
 });
 
-export const DockerContainerHistory = observer(function DockerContainerHistory() {
+export const DockerServiceHistory = observer(function DockerServiceHistory() {
     const s = state.dockerContainers;
     if (!s) return <DisplayError>Missing state.dockerContainers</DisplayError>;
     const spage = state.page;
@@ -328,7 +290,7 @@ export const DockerContainerHistory = observer(function DockerContainerHistory()
         );
     }
     return (
-        <Box title={`Docker containers history: ${page.container}@${hostName}`}>
+        <Box title={`Docker service history: ${page.container}@${hostName}`}>
             <InfoTable>
                 <thead>
                     <tr>
