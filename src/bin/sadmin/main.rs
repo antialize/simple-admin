@@ -133,6 +133,7 @@ async fn deauth(config: Config, args: Deauth) -> Result<()> {
 async fn main() -> Result<()> {
     let mut args = Args::parse();
 
+    #[cfg(feature = "daemon")]
     tokio_rustls::rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
