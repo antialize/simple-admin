@@ -133,6 +133,10 @@ async fn deauth(config: Config, args: Deauth) -> Result<()> {
 async fn main() -> Result<()> {
     let mut args = Args::parse();
 
+    tokio_rustls::rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
+
     let config_path: Cow<std::path::Path> = match &args.config {
         Some(v) => v.as_path().into(),
         None => {
