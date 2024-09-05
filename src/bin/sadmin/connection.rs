@@ -41,12 +41,12 @@ pub struct Connection {
     ca_file: PathBuf,
     key_file: PathBuf,
     crt_file: PathBuf,
-    session: String,
+    pub session: String,
     stream: Wss,
     otp: bool,
     pwd: bool,
     pub user: Option<String>,
-    server_host: String,
+    pub server_host: String,
 }
 
 #[derive(Serialize, Deserialize)]
