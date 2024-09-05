@@ -16,6 +16,7 @@ daemon = [
     "hyper",
     "tempfile",
     "rusqlite"]
+nix = ["dep:nix"]
 
 [dependencies]
 anyhow = "1"
@@ -41,7 +42,7 @@ sdnotify = {version = "0.2", default-features = false, optional=true}
 reqwest = {version = "0.12",  default-features = false, features=['json', 'rustls-tls-webpki-roots']}
 zip = {version= "2",  default-features = false, features=['deflate']}
 indicatif = "0.17"
-nix = { version = "0.29", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio"], optional=true}
+nix = { version = "0.29", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio", "term"], optional = true }
 rusqlite = { version = "0.32", features = ["bundled"], optional=true}
 serde_yaml = "0.9"
 cgroups-rs = {version = "0.2", optional=true}

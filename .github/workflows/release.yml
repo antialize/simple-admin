@@ -39,7 +39,7 @@ jobs:
           toolchain: stable
           override: true
       - run: echo "${{ github.ref }}" > src/version.txt
-      - run: cargo build --release --features=daemon
+      - run: cargo build --release --features=daemon,nix
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client target/release/sadmin
       - name: Get release url 1

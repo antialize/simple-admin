@@ -29,6 +29,7 @@ mod list_images;
 mod message;
 #[cfg(feature = "daemon")]
 mod persist_daemon;
+mod run;
 #[cfg(feature = "daemon")]
 mod service_control;
 mod service_deploy;
@@ -37,6 +38,8 @@ mod service_description;
 #[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;
+
+use run::{Run, Shell};
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin")]
@@ -95,6 +98,8 @@ enum Action {
     Service(Service),
     #[cfg(feature = "daemon")]
     DebugPersist(DebugPersist),
+    Shell(Shell),
+    Run(Run),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -195,5 +200,7 @@ async fn main() -> Result<()> {
         Action::DebugPersist(args) => debug_persist::run(args).await,
         #[cfg(feature = "daemon")]
         Action::Service(args) => service_control::run(args).await,
+        Action::Shell(args) => run::shell(config, args).await,
+        Action::Run(args) => run::run(config, args).await,
     }
 }

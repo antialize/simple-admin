@@ -14,7 +14,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features=daemon
+          args: --features=daemon,nix
 
   fmt:
     name: Rustfmt
@@ -46,7 +46,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --features=daemon -- -D warnings
+          args: --features=daemon,nix -- -D warnings
 
   build:
     name: Build Linux
@@ -59,7 +59,7 @@ jobs:
           toolchain: stable
           override: true
 
-      - run: cargo build --release --features=daemon
+      - run: cargo build --release --features=daemon,nix
       - run: strip target/release/sadmin
       - uses: actions/upload-artifact@v3
         with:
