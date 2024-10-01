@@ -29,6 +29,8 @@ pub struct Run {
 async fn connect(
     config: Config,
     host: String,
+    lines: i32,
+    cols: i32,
 ) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
     let protocol = if config.server_insecure == Some(true) {
         "ws://"
@@ -63,10 +65,9 @@ async fn connect(
         Some(v) => v,
         None => bail!("Unable to find host"),
     };
-
     let url = format!(
         "{}{}:{}/terminal?server={}&cols={}&rows={}&session={}",
-        protocol, c.server_host, server_port, host_id, 80, 150, c.session
+        protocol, c.server_host, server_port, host_id, cols, lines, c.session
     );
     let (stream, _) = tokio_tungstenite::connect_async(url)
         .await
@@ -75,7 +76,27 @@ async fn connect(
 }
 
 pub async fn shell(config: Config, args: Shell) -> Result<()> {
-    let (mut send, mut recv) = connect(config, args.host).await?.split();
+    let mut lines = 60;
+    let mut cols = 120;
+
+    #[cfg(feature = "nix")]
+    unsafe {
+        use nix::libc::{STDIN_FILENO, ioctl, winsize, TIOCGWINSZ};
+        let mut res: winsize = std::mem::zeroed();
+        if ioctl(STDIN_FILENO, TIOCGWINSZ, &mut res) != -1 {
+            lines = res.ws_row.into();
+            cols = res.ws_col.into();
+        }
+    }
+    if let Ok(v) = std::env::var("LINES") {
+        lines = v.parse()?;
+    }
+    if let Ok(v) = std::env::var("COLUMNS") {
+        cols = v.parse()?;
+    }
+
+    let (mut send, mut recv) = connect(config, args.host, lines, cols).await?.split();
+    send.send(tungstenite::Message::text(format!("dexport LINES={} COLUMNS={}\n\0", lines, cols))).await?;
 
     #[cfg(feature = "nix")]
     let old = {
@@ -153,7 +174,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
 }
 
 pub async fn run(config: Config, args: Run) -> Result<()> {
-    let (mut send, mut recv) = connect(config, args.host).await?.split();
+    let (mut send, mut recv) = connect(config, args.host, 60, 100).await?.split();
 
     let mut cmd = String::new();
     for arg in [args.command].iter().chain(&args.args) {
