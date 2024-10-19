@@ -274,14 +274,14 @@ export class HostClient extends JobOwner {
                 const validityDays = 7;
                 const sshCrt = await crt.generate_ssh_crt(
                     `${this.hostname} sadmin host`,
-                    `${this.hostname},${this.hostname}.scalgo.com`,
+                    `${this.hostname},${this.hostname}.scalgo.com,${this.hostname}.sadmin.sscale`,
                     sshHostCaKey,
                     hostKey,
                     validityDays,
                     "host",
                 );
                 await this.writeSmallFile("/etc/ssh/ssh_host_ed25519_key-cert.pub", sshCrt);
-                await this.runShell("systemctl reload sshd");
+                await this.runShell("systemctl reload sshd; systemctl reload ssh");
             }
         } catch (e) {
             const d = descript(e);
