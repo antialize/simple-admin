@@ -12,6 +12,7 @@ export interface AuthInfo {
     dockerDeploy: boolean;
     session: string | null;
     sslname: string | null;
+    authDays: number | null;
 }
 
 export const noAccess: AuthInfo = {
@@ -25,6 +26,7 @@ export const noAccess: AuthInfo = {
     dockerDeploy: false,
     session: null,
     sslname: null,
+    authDays: null,
 };
 
 export async function getAuth(host: string | null, sid: string | null): Promise<AuthInfo> {
@@ -63,6 +65,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
     let dockerPush = false;
     let dockerDeploy = false;
     let sslname = null;
+    let authDays = null;
     if (!found && !specialSession && user === "docker_client") {
         found = true;
         dockerPull = true;
@@ -101,6 +104,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 dockerPush = content.dockerPush;
                 dockerDeploy = content.dockerDeploy;
                 sslname = content.sslname;
+                authDays = parseInt(content.authDays) ?? null;
             }
         } catch (e) {
             console.error("Query failed", e);
@@ -118,5 +122,6 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
         dockerDeploy: pwd && otp && (admin || dockerDeploy),
         sslname: pwd && otp ? sslname : null,
         session: sid,
+        authDays,
     };
 }
