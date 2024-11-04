@@ -281,7 +281,7 @@ export class HostClient extends JobOwner {
                     "host",
                 );
                 await this.writeSmallFile("/etc/ssh/ssh_host_ed25519_key-cert.pub", sshCrt);
-                await this.runShell("systemctl reload sshd; systemctl reload ssh");
+                await this.runShell("systemctl reload 'ssh*.service'");
             }
         } catch (e) {
             const d = descript(e);

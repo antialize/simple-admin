@@ -104,7 +104,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 dockerPush = content.dockerPush;
                 dockerDeploy = content.dockerDeploy;
                 sslname = content.sslname;
-                authDays = parseInt(content.authDays) ?? null;
+                authDays = content.authDays != null ? parseInt(content.authDays) : null;
             }
         } catch (e) {
             console.error("Query failed", e);
