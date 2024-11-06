@@ -35,8 +35,8 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
     let pwd = false;
     let otp = false;
     let specialSession = false;
+    let row = null;
     if (!sid.includes(":")) {
-        let row = null;
         try {
             row = await db.get(
                 "SELECT `pwd`, `otp`, `user`, `host` FROM `sessions` WHERE `sid`=?",
@@ -45,11 +45,6 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
             if (!row) return noAccess;
             if (host !== null && row.host !== host) return noAccess;
             user = row.user;
-            const pwdExpiration = user === "docker_client" ? 60 * 60 : 12 * 60 * 60; //Passwords time out after 24 hours
-            const otpExpiration = user === "docker_client" ? 60 * 60 : 64 * 24 * 60 * 60; //otp time out after 2 months
-            const now = (Date.now() / 1000) | 0;
-            pwd = row.pwd != null && row.pwd + pwdExpiration > now;
-            otp = row.otp != null && row.otp + otpExpiration > now;
         } catch (e) {
             console.error("Query failed", e);
             return noAccess;
@@ -70,6 +65,9 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
         found = true;
         dockerPull = true;
         dockerPush = true;
+        const now = (Date.now() / 1000) | 0;
+        pwd = row.pwd != null && row.pwd + 60*60 > now;
+        otp = row.otp != null && row.otp + 60*60 > now;
     }
     if (!found && !specialSession && config.users) {
         for (const u of config.users) {
@@ -79,6 +77,9 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 dockerPull = true;
                 dockerPush = true;
                 dockerDeploy = true;
+                const now = (Date.now() / 1000) | 0;
+                pwd = row.pwd != null && row.pwd + 12 * 60 * 60 > now;
+                otp = row.otp != null && row.otp + 64 * 24 * 60 * 60 > now
             }
         }
     }
@@ -105,6 +106,11 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 dockerDeploy = content.dockerDeploy;
                 sslname = content.sslname;
                 authDays = content.authDays != null ? parseInt(content.authDays) : null;
+                const pwdExpiration = user === "docker_client" ? 60 * 60 : (authDays?authDays*24:12) * 60 * 60; //Passwords time out after 12 hours
+                const otpExpiration = user === "docker_client" ? 60 * 60 : 64 * 24 * 60 * 60; //otp time out after 2 months
+                const now = (Date.now() / 1000) | 0;
+                pwd = row.pwd != null && row.pwd + pwdExpiration > now;
+                otp = row.otp != null && row.otp + Math.max(otpExpiration, pwdExpiration) > now;
             }
         } catch (e) {
             console.error("Query failed", e);

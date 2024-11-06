@@ -767,7 +767,7 @@ export class WebClients {
         let downHosts = 0;
         for (const row of await db.all(
             "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1",
-            [hostId],
+            hostId,
         )) {
             if (hostClients.hostClients[row.id]?.auth || !row.content) continue;
             const content: Host = JSON.parse(row.content);
