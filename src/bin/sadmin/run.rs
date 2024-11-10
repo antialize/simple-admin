@@ -81,7 +81,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
 
     #[cfg(feature = "nix")]
     unsafe {
-        use nix::libc::{STDIN_FILENO, ioctl, winsize, TIOCGWINSZ};
+        use nix::libc::{ioctl, winsize, STDIN_FILENO, TIOCGWINSZ};
         let mut res: winsize = std::mem::zeroed();
         if ioctl(STDIN_FILENO, TIOCGWINSZ, &mut res) != -1 {
             lines = res.ws_row.into();
@@ -96,7 +96,11 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
     }
 
     let (mut send, mut recv) = connect(config, args.host, lines, cols).await?.split();
-    send.send(tungstenite::Message::text(format!("dexport LINES={} COLUMNS={}\n\0", lines, cols))).await?;
+    send.send(tungstenite::Message::text(format!(
+        "dexport LINES={} COLUMNS={}\n\0",
+        lines, cols
+    )))
+    .await?;
 
     #[cfg(feature = "nix")]
     let old = {

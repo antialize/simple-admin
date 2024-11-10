@@ -660,7 +660,7 @@ impl Client {
                     id,
                     source: Some(DataSource::Stderr),
                     data: base64::engine::general_purpose::STANDARD
-                        .encode(&format!("Error deploying service: {e:?}"))
+                        .encode(format!("Error deploying service: {e:?}"))
                         .into(),
                     eof: Some(true),
                 }))

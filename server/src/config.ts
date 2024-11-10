@@ -4,6 +4,7 @@ interface Config {
     users?: { name: string; password: string }[];
     hostname: string;
     usedImagesToken?: string;
+    statusToken?: string;
 }
 
 export const config: Config = JSON.parse(fs.readFileSync("config.json", { encoding: "utf-8" }));

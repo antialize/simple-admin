@@ -767,7 +767,7 @@ export class WebClients {
         let downHosts = 0;
         for (const row of await db.all(
             "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1",
-            [hostId],
+            hostId,
         )) {
             if (hostClients.hostClients[row.id]?.auth || !row.content) continue;
             const content: Host = JSON.parse(row.content);
@@ -777,6 +777,22 @@ export class WebClients {
         res.header("Content-Type", "application/json; charset=utf-8")
             .json({ count: downHosts + (await msg.getCount()) })
             .end();
+    }
+
+    async status(req: express.Request, res: express.Response) {
+        const token = req.query.token;
+        if (!token || token !== config.statusToken) {
+            res.status(403).end();
+            return;
+        }
+        const ans: { [key: string]: boolean } = {};
+        for (const row of await db.all(
+            "SELECT `id`, `name` FROM `objects` WHERE `type` = ? AND `newest`=1",
+            hostId,
+        )) {
+            ans[row.name] = hostClients.hostClients[row.id]?.auth || false;
+        }
+        res.header("Content-Type", "application/json; charset=utf-8").json(ans).end();
     }
 
     async metrics(req: express.Request, res: express.Response) {
@@ -798,6 +814,7 @@ export class WebClients {
         this.httpApp.get("/docker/*", docker.images.bind(docker));
         this.httpApp.post("/usedImages", bodyParser.json(), docker.usedImages.bind(docker));
         this.httpApp.get("/messages", this.countMessages.bind(this));
+        this.httpApp.get("/status", this.status.bind(this));
         this.httpApp.get("/metrics", this.metrics.bind(this));
         this.wss.on("connection", (ws, request) => {
             const rawAddresses = request.socket.address();
