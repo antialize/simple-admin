@@ -66,8 +66,8 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
         dockerPull = true;
         dockerPush = true;
         const now = (Date.now() / 1000) | 0;
-        pwd = row.pwd != null && row.pwd + 60*60 > now;
-        otp = row.otp != null && row.otp + 60*60 > now;
+        pwd = row.pwd != null && row.pwd + 60 * 60 > now;
+        otp = row.otp != null && row.otp + 60 * 60 > now;
     }
     if (!found && !specialSession && config.users) {
         for (const u of config.users) {
@@ -79,7 +79,7 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 dockerDeploy = true;
                 const now = (Date.now() / 1000) | 0;
                 pwd = row.pwd != null && row.pwd + 12 * 60 * 60 > now;
-                otp = row.otp != null && row.otp + 64 * 24 * 60 * 60 > now
+                otp = row.otp != null && row.otp + 64 * 24 * 60 * 60 > now;
             }
         }
     }
@@ -105,8 +105,9 @@ export async function getAuth(host: string | null, sid: string | null): Promise<
                 dockerPush = content.dockerPush;
                 dockerDeploy = content.dockerDeploy;
                 sslname = content.sslname;
-                authDays = content.authDays != null ? parseInt(content.authDays) : null;
-                const pwdExpiration = user === "docker_client" ? 60 * 60 : (authDays?authDays*24:12) * 60 * 60; //Passwords time out after 12 hours
+                authDays = content.authDays != null ? Number.parseInt(content.authDays) : null;
+                const pwdExpiration =
+                    user === "docker_client" ? 60 * 60 : (authDays ? authDays * 24 : 12) * 60 * 60; //Passwords time out after 12 hours
                 const otpExpiration = user === "docker_client" ? 60 * 60 : 64 * 24 * 60 * 60; //otp time out after 2 months
                 const now = (Date.now() / 1000) | 0;
                 pwd = row.pwd != null && row.pwd + pwdExpiration > now;

@@ -785,16 +785,14 @@ export class WebClients {
             res.status(403).end();
             return;
         }
-        let ans: {[key:string]: boolean} = {};
+        const ans: { [key: string]: boolean } = {};
         for (const row of await db.all(
             "SELECT `id`, `name` FROM `objects` WHERE `type` = ? AND `newest`=1",
             hostId,
         )) {
-            ans[row.name] = hostClients.hostClients[row.id]?.auth || false;    
+            ans[row.name] = hostClients.hostClients[row.id]?.auth || false;
         }
-        res.header("Content-Type", "application/json; charset=utf-8")
-            .json(ans)
-            .end();
+        res.header("Content-Type", "application/json; charset=utf-8").json(ans).end();
     }
 
     async metrics(req: express.Request, res: express.Response) {
