@@ -274,7 +274,7 @@ export class HostClient extends JobOwner {
                 const validityDays = 7;
                 const sshCrt = await crt.generate_ssh_crt(
                     `${this.hostname} sadmin host`,
-                    `${this.hostname},${this.hostname}.scalgo.com,${this.hostname}.sadmin.sscale`,
+                    `${this.hostname},${this.hostname}.scalgo.com,${this.hostname}.emu-buri.ts.net`,
                     sshHostCaKey,
                     hostKey,
                     validityDays,
