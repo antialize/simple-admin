@@ -1,4 +1,3 @@
-
 @media (max-width: 1500px) {
     .deployment_container {
         display: flex;
@@ -67,20 +66,20 @@
 
     .deployment_log {
         grid-column: 2;
-        grid-row: 2/6;
+        grid-row: 2 / 6;
     }
 }
 
 .modified_container {
     display: grid;
     grid-gap: 1rem;
-    grid-template-columns: 1fr  1fr;
+    grid-template-columns: 1fr 1fr;
 
     grid-template-areas:
-      "head head"
-      "lt   right"
-      "lb   right";
-  }
+        "head head"
+        "lt   right"
+        "lb   right";
+}
 
 .modified_container div.CodeMirror {
     height: calc(100vh - 20em);
@@ -92,9 +91,9 @@
 }
 
 .cm-trailingspace {
-     background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QUXCToH00Y1UgAAACFJREFUCNdjPMDBUc/AwNDAAAFMTAwMDA0OP34wQgX/AQBYgwYEx4f9lQAAAABJRU5ErkJggg==);
-     background-position: bottom left;
-     background-repeat: repeat-x;
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3QUXCToH00Y1UgAAACFJREFUCNdjPMDBUc/AwNDAAAFMTAwMDA0OP34wQgX/AQBYgwYEx4f9lQAAAABJRU5ErkJggg==);
+    background-position: bottom left;
+    background-repeat: repeat-x;
 }
 
 body {
@@ -102,7 +101,7 @@ body {
 }
 
 main {
-    margin: 20px
+    margin: 20px;
 }
 
 th {
@@ -112,7 +111,6 @@ th {
 div.CodeMirror {
     height: 750px;
 }
-
 
 main {
     margin-top: 90px;

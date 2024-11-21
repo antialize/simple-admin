@@ -1,6 +1,6 @@
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
-import { Terminal } from "xterm";
-import { FitAddon } from "xterm-addon-fit";
 
 const fit = new FitAddon();
 const term = new Terminal({ cursorBlink: false, scrollback: 100000 });
