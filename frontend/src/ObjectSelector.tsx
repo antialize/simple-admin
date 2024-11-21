@@ -1,5 +1,7 @@
-import { Autocomplete, TextField } from "@mui/material";
+import { Autocomplete, Chip, TextField } from "@mui/material";
 import { observer } from "mobx-react";
+import * as State from "./shared/state";
+import { hostId } from "./shared/type";
 import state from "./state";
 
 interface IProps {
@@ -41,6 +43,37 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
             onChange={(_, values) => {
                 p.setSelected(values.map((i) => i.value));
             }}
+            renderTags={(tagValue, getTagProps) =>
+                tagValue.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    let t = hostId;
+                    for (const [type, digests] of state.objectDigests) {
+                        if (digests.has(option.value)) {
+                            t = type;
+                            break;
+                        }
+                    }
+                    const pageDetails: State.IPage = {
+                        type: State.PAGE_TYPE.Object,
+                        objectType: t,
+                        id: option.value,
+                    };
+                    const page = state.page;
+                    if (page === null) return <span>Missing state.page</span>;
+                    return (
+                        <Chip
+                            key={key}
+                            label={option.label}
+                            {...tagProps}
+                            component="a"
+                            onClick={(e) => {
+                                page.onClick(e, pageDetails);
+                            }}
+                            href={page.link(pageDetails)}
+                        />
+                    );
+                })
+            }
         />
     );
 });

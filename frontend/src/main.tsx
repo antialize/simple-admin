@@ -14,7 +14,7 @@ import type * as State from "./shared/state.ts";
 import state from "./state.ts";
 
 import "./style.css";
-import "xterm/css/xterm.css";
+import "@xterm/xterm/css/xterm.css";
 
 setupState();
 setupSocket();

@@ -1,9 +1,9 @@
-import "xterm/css/xterm.css";
+import "@xterm/xterm/css/xterm.css";
 import { Button, Chip } from "@mui/material";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
 import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
-import { Terminal } from "xterm";
-import { FitAddon } from "xterm-addon-fit";
 
 class Connection {
     connected = false;
