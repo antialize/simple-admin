@@ -393,6 +393,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33480d6946193aa8033910124896ca395333cae7e2d1113d1fef6c3272217df2"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1613,6 +1622,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "form_urlencoded",
  "futures-util",
  "http-body-util",
  "hyper",
@@ -1633,9 +1643,11 @@ dependencies = [
  "simple_logger",
  "tempfile",
  "tokio",
+ "tokio-rusqlite",
  "tokio-rustls",
  "tokio-tasks",
  "tokio-tungstenite",
+ "url",
  "webpki",
  "webpki-roots",
  "zip",
@@ -1913,6 +1925,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-rusqlite"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b65501378eb676f400c57991f42cbd0986827ab5c5200c53f206d710fb32a945"
+dependencies = [
+ "crossbeam-channel",
+ "rusqlite",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-rustls"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2034,9 +2057,9 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "url"
-version = "2.5.3"
+version = "2.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d157f1b96d14500ffdc1f10ba712e780825526c03d9a49b4d0324b0d9113ada"
+checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
 dependencies = [
  "form_urlencoded",
  "idna",

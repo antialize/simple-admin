@@ -16,7 +16,14 @@ daemon = [
     "hyper",
     "tempfile",
     "rusqlite"]
+server = [
+    "log",
+    "tokio-tasks",
+    "rusqlite",
+    "hyper",
+]
 nix = ["dep:nix"]
+hyper = ["dep:hyper"]
 
 [dependencies]
 anyhow = "1"
@@ -49,7 +56,10 @@ cgroups-rs = {version = "0.2", optional=true}
 passfd = {version = "0.1", optional=true}
 tokio-tasks = {version = "0.2", optional=true}
 chrono = {version = "0.4", default-features = false, features = ["std", "clock"], optional=true}
-hyper = { version = "1", features = ["server", "http1"], optional=true}
-hyper-util = { version = "0.1", features = ["http1", "tokio", "server"]}
-http-body-util = "0.1"
+hyper = { version = "1", features = ["server", "http1"], optional = true }
+hyper-util = { version = "0.1.10" }
+http-body-util = "0.1.2"
+tokio-rusqlite = "0.6.0"
+url = "2.5.4"
+form_urlencoded = "1.2.1"
 
