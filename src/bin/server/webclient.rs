@@ -1,15 +1,22 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use bytes::Bytes;
+use futures_util::stream::{SplitSink, SplitStream};
+use futures_util::StreamExt;
 use http_body_util::Full;
-use hyper::{Method, Response};
+use hyper::upgrade::Upgraded;
+use hyper::{Method, Response, StatusCode};
+use hyper_tungstenite::HyperWebsocket;
 use hyper_util::rt::TokioIo;
 use log::{info, warn};
 use tokio::net::TcpListener;
 use hyper::{server::conn::http1, Request};
 use hyper::service::{service_fn, HttpService};
 use tokio_tasks::{cancelable, RunToken};
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::WebSocketStream;
 
 // import * as crypto from "node:crypto";
 // import * as http from "node:http";
@@ -93,19 +100,182 @@ use tokio_tasks::{cancelable, RunToken};
 //         webClients.webclients.delete(this);
 //     }
 
-//     async sendAuthStatus(sid: string | null) {
+
+
+
+//     sendMessage(obj: IAction) {
+//         this.connection.send(JSON.stringify(obj), (err?: Error) => {
+//             if (err) {
+//                 if (Object.getOwnPropertyNames(err).length !== 0)
+//                     console.warn("Web client error sending message", { err, host: this.host });
+//                 this.connection.terminate();
+//                 this.onClose();
+//             }
+//         });
+//     }
+// }
+
+// async function sendInitialState(c: WebClient) {
+//     const rows = db.getAllObjectsFull();
+//     const msgs = msg.getResent();
+
+//     const hostsUp: number[] = [];
+//     for (const id in hostClients.hostClients) hostsUp.push(+id);
+
+//     const action: ISetInitialState = {
+//         type: ACTION.SetInitialState,
+//         objectNamesAndIds: {},
+//         messages: await msgs,
+//         deploymentObjects: deployment.getView(),
+//         deploymentStatus: deployment.status,
+//         deploymentMessage: deployment.message || "",
+//         deploymentLog: deployment.log,
+//         hostsUp,
+//         types: {},
+//         usedBy: [],
+//     };
+//     for (const row of await rows) {
+//         const content = JSON.parse(row.content);
+//         if (row.type === typeId) {
+//             action.types[row.id] = {
+//                 id: row.id,
+//                 type: row.type,
+//                 name: row.name,
+//                 category: row.category,
+//                 content: content as IType,
+//                 version: row.version,
+//                 comment: row.comment,
+//                 time: row.time,
+//                 author: row.author,
+//             };
+//         }
+//         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
+//         action.objectNamesAndIds[row.type].push({
+//             type: row.type,
+//             id: row.id,
+//             name: row.name,
+//             category: row.category,
+//             comment: row.comment,
+//         });
+//         for (const o of getReferences(content)) {
+//             action.usedBy.push([o, row.id]);
+//         }
+//     }
+
+//     const m: { [key: string]: number } = {};
+//     for (const id in action) {
+//         const x = JSON.stringify((action as any)[id]);
+//         if (x) m[id] = x.length;
+//     }
+//     console.log("Send initial state", m);
+//     c.sendMessage(action);
+// }
+
+
+
+struct WebClient {
+    host: String,
+    sink: SplitSink<WebSocketStream<TokioIo<Upgraded>>, Message>,
+}
+
+impl WebClient {
+    fn new(host: String, sink: SplitSink<WebSocketStream<TokioIo<Upgraded>>, Message>) -> Self {
+        Self {host, sink}
+    }
+
+    async fn send_auth_status(sid: String) -> Result<()> {
 //         this.auth = await getAuth(this.host, sid);
 //         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
-//     }
+    }
+
+    async fn handle_message(self: &Arc<Self>, message: Message) -> Result<()> {
+        let text = message.to_text()?;
+        let msg: sadmin2::message::Message = serde_json::from_str(text)?;
+ 
+        match msg {
+            sadmin2::message::Message::RequestAuthStatus { session } => {
+                info!("Auth status {}", self.host); // this.auth.session, this.auth.user
+                //this.sendAuthStatus(act.session || null);
+            }
+            sadmin2::message::Message::AuthStatus(auth_status) => todo!(),
+            sadmin2::message::Message::Login { user, pwd, otp } => todo!(),
+            sadmin2::message::Message::GenerateKey { r#ref, ssh_public_key } => todo!(),
+            sadmin2::message::Message::GenerateKeyRes(generate_key_res) => todo!(),
+            sadmin2::message::Message::DockerListImageByHash { r#ref, hash } => todo!(),
+            sadmin2::message::Message::DockerListImageTags { r#ref } => todo!(),
+            sadmin2::message::Message::DockerListImageTagsRes(docker_list_image_tags_res) => todo!(),
+            sadmin2::message::Message::DockerListImageByHashRes(docker_list_image_by_hash_res) => todo!(),
+            sadmin2::message::Message::LogOut(log_out) => todo!(),
+            sadmin2::message::Message::RequestInitialState {  } => todo!(),
+            sadmin2::message::Message::SetInitialState(state) => todo!(),
+            sadmin2::message::Message::DockerListDeployments { r#ref, host, image } => todo!(),
+            sadmin2::message::Message::DockerListDeploymentHistory { r#ref, host, name } => todo!(),
+            sadmin2::message::Message::DockerListDeploymentsRes { r#ref, deployments } => todo!(),
+            sadmin2::message::Message::DockerListDeploymentHistoryRes { r#ref, deployments } => todo!(),
+            sadmin2::message::Message::DockerDeployStart(docker_deploy_start) => todo!(),
+            sadmin2::message::Message::ServiceDeployStart(service_deploy_start) => todo!(),
+            sadmin2::message::Message::ServiceRedeployStart(service_redeploy_start) => todo!(),
+            sadmin2::message::Message::DockerDeployLog { r#ref, message } => todo!(),
+            sadmin2::message::Message::DockerDeployEnd { r#ref, message, status } => todo!(),
+            sadmin2::message::Message::DockerListImageTagsChanged { removed, changed } => todo!(),
+            sadmin2::message::Message::HostDown { id } => todo!(),
+            sadmin2::message::Message::HostUp { id } => todo!(),
+            sadmin2::message::Message::Alert { message, title } => todo!(),
+            sadmin2::message::Message::ModifiedFilesChanged { scanning, full } => todo!(),
+            sadmin2::message::Message::AddDeploymentLog => todo!(),
+            sadmin2::message::Message::AddLogLines => todo!(),
+            sadmin2::message::Message::AddMessage => todo!(),
+            sadmin2::message::Message::CancelDeployment => todo!(),
+            sadmin2::message::Message::ClearDeploymentLog => todo!(),
+            sadmin2::message::Message::DeleteObject => todo!(),
+            sadmin2::message::Message::DeployObject => todo!(),
+            sadmin2::message::Message::DockerContainerForget => todo!(),
+            sadmin2::message::Message::DockerContainerRemove => todo!(),
+            sadmin2::message::Message::DockerContainerStart => todo!(),
+            sadmin2::message::Message::DockerContainerStop => todo!(),
+            sadmin2::message::Message::DockerDeploymentsChanged => todo!(),
+            sadmin2::message::Message::DockerImageSetPin => todo!(),
+            sadmin2::message::Message::DockerImageTagSetPin => todo!(),
+            sadmin2::message::Message::DockerListImageTagHistory => todo!(),
+            sadmin2::message::Message::DockerListImageTagHistoryRes => todo!(),
+            sadmin2::message::Message::EndLog => todo!(),
+            sadmin2::message::Message::FetchObject => todo!(),
+            sadmin2::message::Message::GetObjectHistory => todo!(),
+            sadmin2::message::Message::GetObjectHistoryRes => todo!(),
+            sadmin2::message::Message::GetObjectId => todo!(),
+            sadmin2::message::Message::GetObjectIdRes => todo!(),
+            sadmin2::message::Message::ListModifiedFiles => todo!(),
+            sadmin2::message::Message::MessageTextRep => todo!(),
+            sadmin2::message::Message::MessageTextReq => todo!(),
+            sadmin2::message::Message::ModifiedFilesList => todo!(),
+            sadmin2::message::Message::ModifiedFilesResolve => todo!(),
+            sadmin2::message::Message::ModifiedFilesScan => todo!(),
+            sadmin2::message::Message::ObjectChanged => todo!(),
+            sadmin2::message::Message::ResetServerState => todo!(),
+            sadmin2::message::Message::SaveObject => todo!(),
+            sadmin2::message::Message::Search => todo!(),
+            sadmin2::message::Message::SearchRes => todo!(),
+            sadmin2::message::Message::SetDeploymentMessage => todo!(),
+            sadmin2::message::Message::SetDeploymentObjects => todo!(),
+            sadmin2::message::Message::SetDeploymentObjectStatus => todo!(),
+            sadmin2::message::Message::SetDeploymentStatus => todo!(),
+            sadmin2::message::Message::SetMessageDismissed => todo!(),
+            sadmin2::message::Message::SetPage => todo!(),
+            sadmin2::message::Message::StartDeployment => todo!(),
+            sadmin2::message::Message::StartLog => todo!(),
+            sadmin2::message::Message::StatValueChanges => todo!(),
+            sadmin2::message::Message::StopDeployment => todo!(),
+            sadmin2::message::Message::SubscribeStatValues => todo!(),
+            sadmin2::message::Message::ToggleDeploymentObject => todo!(),
+            sadmin2::message::Message::UpdateStatus => todo!(),
+        }
 
 //     async onMessage(str: string) {
 //         const act = JSON.parse(str) as IAction;
 
 //         switch (act.type) {
 //             case ACTION.RequestAuthStatus:
-//                 console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
-//                 this.sendAuthStatus(act.session || null);
-//                 break;
+
 //             case ACTION.Login: {
 //                 let session = this.auth.session;
 //                 const auth = session ? await getAuth(this.host, session) : noAccess;
@@ -695,74 +865,23 @@ use tokio_tasks::{cancelable, RunToken};
 //                 console.warn("Web client unknown message", { act });
 //         }
 //     }
+        Ok(())
+    }
 
-//     sendMessage(obj: IAction) {
-//         this.connection.send(JSON.stringify(obj), (err?: Error) => {
-//             if (err) {
-//                 if (Object.getOwnPropertyNames(err).length !== 0)
-//                     console.warn("Web client error sending message", { err, host: this.host });
-//                 this.connection.terminate();
-//                 this.onClose();
-//             }
-//         });
-//     }
-// }
+    async fn handle_messages(self: Arc<Self>, rt: RunToken, mut source: SplitStream<WebSocketStream<TokioIo<Upgraded>>>) -> Result<()> {
+        loop {
+            let message = match cancelable(&rt, source.next()).await {
+                Ok(Some(v)) => v?,
+                Ok(None) | Err(_) => break,
+            };
+            if let Err(e) = self.handle_message(message).await {
 
-// async function sendInitialState(c: WebClient) {
-//     const rows = db.getAllObjectsFull();
-//     const msgs = msg.getResent();
+            }
+        }
+        Ok(())
+    }
+}
 
-//     const hostsUp: number[] = [];
-//     for (const id in hostClients.hostClients) hostsUp.push(+id);
-
-//     const action: ISetInitialState = {
-//         type: ACTION.SetInitialState,
-//         objectNamesAndIds: {},
-//         messages: await msgs,
-//         deploymentObjects: deployment.getView(),
-//         deploymentStatus: deployment.status,
-//         deploymentMessage: deployment.message || "",
-//         deploymentLog: deployment.log,
-//         hostsUp,
-//         types: {},
-//         usedBy: [],
-//     };
-//     for (const row of await rows) {
-//         const content = JSON.parse(row.content);
-//         if (row.type === typeId) {
-//             action.types[row.id] = {
-//                 id: row.id,
-//                 type: row.type,
-//                 name: row.name,
-//                 category: row.category,
-//                 content: content as IType,
-//                 version: row.version,
-//                 comment: row.comment,
-//                 time: row.time,
-//                 author: row.author,
-//             };
-//         }
-//         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-//         action.objectNamesAndIds[row.type].push({
-//             type: row.type,
-//             id: row.id,
-//             name: row.name,
-//             category: row.category,
-//             comment: row.comment,
-//         });
-//         for (const o of getReferences(content)) {
-//             action.usedBy.push([o, row.id]);
-//         }
-//     }
-
-//     const m: { [key: string]: number } = {};
-//     for (const id in action) {
-//         const x = JSON.stringify((action as any)[id]);
-//         if (x) m[id] = x.length;
-//     }
-//     console.log("Send initial state", m);
-//     c.sendMessage(action);
-// }
 
 // export class WebClients {
 //     httpApp = express();
@@ -814,7 +933,79 @@ use tokio_tasks::{cancelable, RunToken};
 //             .end();
 //     }
 
-//     constructor() {
+
+fn make_response(message: impl Into<Bytes>, status: StatusCode) -> Response<Full<Bytes>> {
+    let mut res = Response::new(Full::new(message.into()));
+    *res.status_mut() = status;
+    res
+}
+
+
+async fn handle_webclient(websocket: HyperWebsocket, remote: String, rt: RunToken) -> Result<()> {
+    let websocket = match cancelable(&rt,websocket).await {
+        Ok(v) => v?,
+        Err(_) => return Ok(())
+    };
+    let (sink, source) = websocket.split();
+    let webclient = Arc::new(WebClient::new(remote, sink));
+    webclient.handle_messages(rt, source).await?;
+    Ok(())
+}
+
+async fn handle_request(mut req: Request<hyper::body::Incoming>, address: SocketAddr, rt: RunToken) -> Result<Response<Full<Bytes>>> {
+    let remote = if let Some(xf) = req.headers().get("X-Forwarded-For") {               
+        xf.to_str()?.to_owned()
+    } else {
+        address.ip().to_string()
+    };
+    info!("Got request from {} {} {}", remote, req.method(), req.uri());
+    if hyper_tungstenite::is_upgrade_request(&req) {
+        match req.uri().path() {
+            "/sysadmin" => {
+                let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
+                tokio_tasks::TaskBuilder::new("websocket_connection").shutdown_order(1)
+                    .create(|rt| async move {
+
+                        //                 const wc = new WebClient(ws, address);
+//                 this.webclients.add(wc);
+
+
+                        if let Err(e) = handle_webclient(websocket, remote, rt).await {
+                            eprintln!("Error in websocket connection: {e}");
+                        }
+                        Ok::<_, Error>(())
+                    }
+                );
+                return Ok(response)
+            },
+            "/terminal" => {
+//                 const server = +u.query!.server!;
+//                 const cols = +u.query!.cols!;
+//                 const rows = +u.query!.rows!;
+//                 const session = u.query.session as string;
+//                 getAuth(address, session)
+//                     .then((a: any) => {
+//                         if (a.auth && server in hostClients.hostClients)
+//                             new ShellJob(hostClients.hostClients[server], ws, cols, rows);
+//                         else ws.close();
+//                     })
+//                     .catch(() => {
+//                         ws.close();
+//                     });
+                todo!()
+            }
+            _ => {
+                return Ok(make_response("forbidden", StatusCode::FORBIDDEN));
+            }
+       }
+    }
+
+    let part = req.uri().path();
+    if part == "/setup.sh" && req.method() == Method::GET {
+        info!("SETUP");
+    }
+
+    //     constructor() {
 //         this.httpApp.use(helmet());
 //         this.httpServer = http.createServer(this.httpApp);
 //         this.wss = new WebSocket.Server({ server: this.httpServer });
@@ -829,60 +1020,12 @@ use tokio_tasks::{cancelable, RunToken};
 //         this.httpApp.get("/messages", this.countMessages.bind(this));
 //         this.httpApp.get("/status", this.status.bind(this));
 //         this.httpApp.get("/metrics", this.metrics.bind(this));
-//         this.wss.on("connection", (ws, request) => {
-//             const rawAddresses = request.socket.address();
-//             const address =
-//                 (request.headers["x-forwarded-for"] as string) ||
-//                 (typeof rawAddresses === "string" ? rawAddresses : (rawAddresses as any).address);
-//             if (!request.url) {
-//                 ws.close();
-//                 return;
-//             }
-//             const u = url.parse(request.url, true);
-//             if (u.pathname === "/sysadmin") {
-//                 const wc = new WebClient(ws, address);
-//                 this.webclients.add(wc);
-//             } else if (u.pathname === "/terminal") {
-//                 const server = +u.query!.server!;
-//                 const cols = +u.query!.cols!;
-//                 const rows = +u.query!.rows!;
-//                 const session = u.query.session as string;
-//                 getAuth(address, session)
-//                     .then((a: any) => {
-//                         if (a.auth && server in hostClients.hostClients)
-//                             new ShellJob(hostClients.hostClients[server], ws, cols, rows);
-//                         else ws.close();
-//                     })
-//                     .catch(() => {
-//                         ws.close();
-//                     });
-//             } else {
-//                 ws.close();
-//             }
-//         });
+
 //     }
-
-//     startServer() {
-//         this.httpServer.listen(8182, "localhost", () => {
-//             console.log("Web server started on port 8182");
-//         });
-//         this.httpServer.on("close", () => {
-//             console.log("Web server stopped");
-//         });
-//     }
-// }
-
-async fn hello(req: Request<hyper::body::Incoming>, rt: RunToken) -> Result<Response<Full<Bytes>>> {
-    let part = req.uri().path();
-
-    if part == "/setup.sh" && req.method() == Method::GET {
-        info!("SETUP");
-    }
 
 
     Ok(Response::new(Full::new(Bytes::from("Hello, World!\n"))))
 }
-
 
 
 pub async fn run(run_token: RunToken) -> Result<()> {
@@ -895,18 +1038,22 @@ pub async fn run(run_token: RunToken) -> Result<()> {
             Err(_) => break,
         };
 
-        let io = TokioIo::new(stream);
+        let mut http = hyper::server::conn::http1::Builder::new();
+        http.keep_alive(true);
 
+        let address = stream.peer_addr()?;
+        let io = TokioIo::new(stream);
+        
         tokio_tasks::TaskBuilder::new("web_connection").shutdown_order(1)
             .create(|rt| {
                 async move {
                     let rt = &rt;
-                    if let Err(err) = http1::Builder::new()
+                    if let Err(err) = http1::Builder::new().keep_alive(true)
                         .serve_connection(io, service_fn(|req| {
                             let rt = rt.clone();
                             async move {
-                            hello(req, rt).await
-                        }}))
+                            handle_request(req, address, rt).await
+                        }})).with_upgrades()
                         .await
                     {
                         warn!("Error serving connection: {:?}", err);

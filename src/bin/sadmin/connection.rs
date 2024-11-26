@@ -1,4 +1,4 @@
-use crate::message::Message;
+use sadmin2::message::Message;
 use anyhow::{bail, Context, Result};
 use base64::Engine;
 use futures_util::{SinkExt, StreamExt};

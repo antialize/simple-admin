@@ -7,7 +7,7 @@ use connection::{Config, Connection};
 use debug_persist::DebugPersist;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
-use message::{LogOut, Message};
+use sadmin2::message::{LogOut, Message};
 #[cfg(feature = "daemon")]
 use persist_daemon::PersistDaemon;
 #[cfg(feature = "daemon")]
@@ -22,12 +22,8 @@ mod client_daemon_service;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
-mod dyn_format;
-mod finite_float;
 mod list_deployments;
-mod list_images;
-mod message;
-#[cfg(feature = "daemon")]
+mod list_images;#[cfg(feature = "daemon")]
 mod persist_daemon;
 mod run;
 #[cfg(feature = "daemon")]

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use crate::{
-    connection::{Config, Connection},
-    message::{Message, ServiceDeployStart, ServiceRedeployStart},
+    connection::{Config, Connection}
 };
+use sadmin2::message::{Message, ServiceDeployStart, ServiceRedeployStart};
 use anyhow::{bail, Context, Result};
 use rand::Rng;
 

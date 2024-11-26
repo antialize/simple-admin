@@ -18,14 +18,14 @@ use tokio_tasks::RunToken;
 use anyhow::Result;
 
 async fn get_setup_dot_sh(req: Request<hyper::body::Incoming>, rt: RunToken) -> Result<Response<Full<Bytes>>> {
-    let mut query = HashMap::new();
-    let host = None;
-    let token = None;
+    let mut host = None;
+    let mut token = None;
     if let Some(query) = req.uri().query() {
         for (key, value) in form_urlencoded::parse(query.as_bytes()) {
             match key.borrow() {
                 "host" => host = Some(value),
                 "token" => token = Some(value),
+                _ => (),
             }
         }
     }
@@ -82,6 +82,6 @@ async fn get_setup_dot_sh(req: Request<hyper::body::Incoming>, rt: RunToken) -> 
 //     script += "echo 'Done'\n";
 //     res.send(script);
 // };
-
-    Ok(())
+    todo!();
+    //Ok(())
 }

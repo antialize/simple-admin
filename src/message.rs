@@ -7,7 +7,7 @@ use crate::{
     finite_float::FiniteF64,
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthStatus {
     pub message: Option<String>,
@@ -28,7 +28,7 @@ pub struct AuthStatus {
     pub sslname: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct GenerateKeyRes {
     pub r#ref: u64,
     pub key: String,
@@ -51,7 +51,7 @@ fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Err
     })
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Debug)]
 pub struct ImageInfo {
     pub id: u64,
     pub image: String,
@@ -93,12 +93,13 @@ impl GetFmtArgDict for ImageInfo {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct DockerPinnedImageTag {
     pub image: String,
     pub tag: String,
 }
 
+#[derive(Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Type {
     Id(u64),
@@ -140,7 +141,7 @@ impl<'de> Deserialize<'de> for Type {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct StateNameAndId {
     pub name: Option<String>,
     pub id: u64,
@@ -149,13 +150,13 @@ pub struct StateNameAndId {
     pub comment: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
     pub object_names_and_ids: HashMap<String, Vec<StateNameAndId>>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct DockerListImageTagsRes {
     pub r#ref: u64,
@@ -163,20 +164,20 @@ pub struct DockerListImageTagsRes {
     pub pinned_image_tags: Vec<DockerPinnedImageTag>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct DockerListImageByHashRes {
     pub r#ref: u64,
     pub tags: HashMap<String, ImageInfo>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct LogOut {
     pub forget_pwd: bool,
     pub forget_otp: bool,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Deployment {
     #[serde(default)]
@@ -202,7 +203,7 @@ pub struct Deployment {
     pub state: Option<String>,
     pub use_podman: bool,
 }
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct DockerDeployStart {
     pub r#ref: u64,
@@ -213,7 +214,7 @@ pub struct DockerDeployStart {
     pub container: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceDeployStart {
     pub r#ref: u64,
@@ -223,7 +224,7 @@ pub struct ServiceDeployStart {
     pub description: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceRedeployStart {
     pub r#ref: u64,
@@ -231,7 +232,7 @@ pub struct ServiceRedeployStart {
 }
 
 #[allow(clippy::enum_variant_names)]
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 pub enum Message {
     RequestAuthStatus {

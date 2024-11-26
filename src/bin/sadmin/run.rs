@@ -8,8 +8,8 @@ use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
 use crate::{
     connection::{Config, Connection},
-    message::Message,
 };
+use sadmin2::message::Message;
 
 /// Deauthenticate your user
 #[derive(clap::Parser)]

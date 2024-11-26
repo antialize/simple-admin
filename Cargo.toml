@@ -62,4 +62,5 @@ http-body-util = "0.1.2"
 tokio-rusqlite = "0.6.0"
 url = "2.5.4"
 form_urlencoded = "1.2.1"
+hyper-tungstenite = "0.15.0"
 
