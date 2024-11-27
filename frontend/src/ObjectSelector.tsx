@@ -45,7 +45,7 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
             }}
             renderTags={(tagValue, getTagProps) =>
                 tagValue.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
+                    const { key, onDelete, ...tagProps } = getTagProps({ index });
                     let t = hostId;
                     for (const [type, digests] of state.objectDigests) {
                         if (digests.has(option.value)) {
@@ -67,8 +67,17 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
                             {...tagProps}
                             component="a"
                             onClick={(e) => {
+                                e.preventDefault();
                                 page.onClick(e, pageDetails);
+                                return false;
                             }}
+                            onDelete={
+                                (e) => {
+                                    e.preventDefault();
+                                    onDelete(e)
+                                    return false;
+                                }
+                            }
                             href={page.link(pageDetails)}
                         />
                     );
