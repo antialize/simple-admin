@@ -143,9 +143,9 @@
 //     usePodman?: boolean;
 // }
 
-pub const TYPE_ID : i64= 1;
-pub const HOST_ID : i64= 2;
-pub const ROOT_ID : i64= 3;
-pub const USER_ID : i64= 4;
-pub const PACKAGE_ID:  i64 = 10;
+pub const TYPE_ID: i64 = 1;
+pub const HOST_ID: i64 = 2;
+pub const ROOT_ID: i64 = 3;
+pub const USER_ID: i64 = 4;
+pub const PACKAGE_ID: i64 = 10;
 pub const ROOT_INSTANCE_ID: i64 = 100;

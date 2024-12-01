@@ -24,6 +24,7 @@ server = [
 ]
 nix = ["dep:nix"]
 hyper = ["dep:hyper"]
+tempfile = ["dep:tempfile"]
 
 [dependencies]
 anyhow = "1"
@@ -43,7 +44,7 @@ tokio-tungstenite = { version = "0.24", features=['rustls-tls-webpki-roots']}
 webpki = "0.22"
 webpki-roots = "0.26"
 simple_logger = {version = "5", default-features=false }
-tempfile = {version="3", optional=true}
+tempfile = { version = "3", optional = true }
 clap = {version = "4", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}
 sdnotify = {version = "0.2", default-features = false, optional=true}
 reqwest = {version = "0.12",  default-features = false, features=['json', 'rustls-tls-webpki-roots']}

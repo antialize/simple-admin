@@ -1,11 +1,9 @@
 use std::path::PathBuf;
 
-use crate::{
-    connection::{Config, Connection}
-};
-use sadmin2::message::{Message, ServiceDeployStart, ServiceRedeployStart};
+use crate::connection::{Config, Connection};
 use anyhow::{bail, Context, Result};
 use rand::Rng;
+use sadmin2::message::{Message, ServiceDeployStart, ServiceRedeployStart};
 
 /// Deploy a service to a remote host
 #[derive(clap::Parser)]

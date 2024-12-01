@@ -1,8 +1,8 @@
-use sadmin2::message::Message;
 use anyhow::{bail, Context, Result};
 use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use rand::Rng;
+use sadmin2::message::Message;
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::unix::prelude::OpenOptionsExt;

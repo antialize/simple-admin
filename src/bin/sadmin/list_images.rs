@@ -1,8 +1,8 @@
 use crate::connection::Config;
 use crate::connection::Connection;
+use anyhow::Result;
 use sadmin2::dyn_format::dyn_format;
 use sadmin2::message::Message;
-use anyhow::Result;
 use std::collections::HashSet;
 use std::io::Write;
 

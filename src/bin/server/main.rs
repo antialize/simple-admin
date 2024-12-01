@@ -1,12 +1,14 @@
 use anyhow::Result;
 use clap::Parser;
 use log::info;
+mod crt;
 mod db;
-mod r#type;
 mod default;
-mod webclient;
-mod setup;
+mod docker;
 mod get_auth;
+mod setup;
+mod r#type;
+mod webclient;
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin_server")]
@@ -49,7 +51,8 @@ async fn main() -> Result<()> {
 
     //setup();
 
-    tokio_tasks::TaskBuilder::new("webclient").main()
+    tokio_tasks::TaskBuilder::new("webclient")
+        .main()
         .create(|rt| webclient::run(rt, db.clone()));
 
     tokio::spawn(async {

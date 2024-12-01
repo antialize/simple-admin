@@ -6,9 +6,7 @@ use tokio::net::TcpStream;
 use tokio::signal;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
-use crate::{
-    connection::{Config, Connection},
-};
+use crate::connection::{Config, Connection};
 use sadmin2::message::Message;
 
 /// Deauthenticate your user
