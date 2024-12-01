@@ -82,6 +82,7 @@ export class WebClient extends JobOwner {
 
     async sendAuthStatus(sid: string | null) {
         this.auth = await getAuth(this.host, sid);
+        info!("HI THERE {:?}"), this.auth;
         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 

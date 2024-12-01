@@ -7,7 +7,7 @@ use crate::{
     finite_float::FiniteF64,
 };
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthStatus {
     pub message: Option<String>,
@@ -26,6 +26,8 @@ pub struct AuthStatus {
     pub session: Option<String>,
     #[serde(default)]
     pub sslname: Option<String>,
+    #[serde(default)]
+    pub auth_days: Option<u32>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

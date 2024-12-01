@@ -1,6 +1,9 @@
+use std::sync::{atomic::AtomicI64, Arc, Mutex};
+
 use anyhow::{Context, Result};
 use log::info;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
 
 use crate::{default::{COLLECTION_ID, FILE_ID, GROUP_ID, PACKAGE_ID, UFW_ALLOW_ID}, r#type::{HOST_ID, USER_ID}};
 
@@ -67,11 +70,39 @@ use crate::{default::{COLLECTION_ID, FILE_ID, GROUP_ID, PACKAGE_ID, UFW_ALLOW_ID
 //             });
 
 //         };
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserContent {
+    #[serde(default)]
+    pub sessions: Option<String>,
+    #[serde(default)]
+    pub admin: bool,
+    #[serde(default)]
+    pub docker_pull: bool,
+    #[serde(default)]
+    pub docker_push: bool,
+    #[serde(default)]
+    pub docker_deploy: bool,
+    #[serde(default)]
+    pub sslname: Option<String>,
+    #[serde(default)]
+    pub auth_days: Option<u32>,
+    pub password: String,
+    #[serde(rename = "otp_base32")]
+    pub otp_base32: String,
+}
+
 const DEFAULT_NEXT_OBJECT_ID: i64 = 10000;
 
-pub fn init() -> Result<()> {
+pub struct Db {
+    conn: Mutex<Connection>,
+    next_object_id: AtomicI64,
+}
+
+pub fn init() -> Result<Arc<Db>> {
     let db = Connection::open("sysadmin.db").context("Failed to open sysadmin.db")?;
-    db.query_row("PRAGMA journal_mode=WAL", (), |r| Ok(()))?;
+    db.query_row("PRAGMA journal_mode=WAL", (), |_| Ok(()))?;
     db.execute(
             "CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)", ()
         )?;
@@ -211,14 +242,14 @@ pub fn init() -> Result<()> {
     //         d.id,
     //     ]);
     // }
-    let nextObjectId = i64::max(
+    let next_object_id = i64::max(
         db.query_row("SELECT max(`id`) as `id` FROM `objects`", (), |r| r.get(0))?,
         DEFAULT_NEXT_OBJECT_ID,
     );
 
-    info!("Db inited, nextObjectId={}", nextObjectId);
+    info!("Db inited, nextObjectId={}", next_object_id);
 
-    Ok(())
+    Ok(Arc::new(Db { conn: Mutex::new(db), next_object_id: AtomicI64::new(next_object_id) }))
 }
 
 //     all(sql: string, ...params: any[]) {
@@ -230,6 +261,14 @@ pub fn init() -> Result<()> {
 //             });
 //         });
 //     }
+
+impl Db {
+    #[inline]
+    pub fn get<T, F:  FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>>(&self, sql: &str, params: impl rusqlite::Params, f: F) -> Result<Option<T>> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn.query_row(sql, params, f).optional()?)
+    }
+
 
 //     get(sql: string, ...params: any[]) {
 //         const db = nullCheck(this.db);
@@ -260,15 +299,12 @@ pub fn init() -> Result<()> {
 //         });
 //     }
 
-//     run(sql: string, ...params: any[]) {
-//         const db = nullCheck(this.db);
-//         return new Promise<number | undefined>((cb, cbe) => {
-//             db.run(sql, params, function (err) {
-//                 if (err) cbe(new SAError(ErrorType.Database, err));
-//                 else cb(this.changes);
-//             });
-//         });
-//     }
+    #[inline]
+    pub fn run(&self, sql: &str, params: impl rusqlite::Params) -> Result<usize> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn.execute(sql, params)?)
+    }
+
 
 //     runPrepared(stmt: sqlite.Statement, ...params: any[]) {
 //         return new Promise<void>((cb, cbe) => {
@@ -331,21 +367,15 @@ pub fn init() -> Result<()> {
 //             });
 //         });
 //     }
-
-//     getUserContent(name: string) {
-//         const db = nullCheck(this.db);
-//         return new Promise<string | null>((cb, cbe) => {
-//             db.get<{ content: string }>(
-//                 "SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-//                 [userId, name],
-//                 (err, row) => {
-//                     if (err) cbe(new SAError(ErrorType.Database, err));
-//                     else if (row) cb(row.content);
-//                     else cb(null);
-//                 },
-//             );
-//         });
-//     }
+    pub fn get_user_content(&self, name: &str) -> Result<Option<UserContent>> {
+        let conn = self.conn.lock().unwrap();
+        let s  : Option<String> = conn.query_row("SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1", (USER_ID, name), |r| Ok(r.get("content")?)).optional()?;
+        info!("HI KAT {:?}", s);
+        match s {
+            Some(v) => Ok(Some(serde_json::from_str(&v)?)),
+            None => Ok(None)
+        }
+    }
 
 //     getAllObjects() {
 //         const db = nullCheck(this.db);
@@ -629,3 +659,4 @@ pub fn init() -> Result<()> {
 //         return [hostInfo, variables];
 //     }
 // }
+}

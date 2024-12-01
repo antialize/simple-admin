@@ -6,6 +6,7 @@ mod r#type;
 mod default;
 mod webclient;
 mod setup;
+mod get_auth;
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin_server")]
@@ -29,7 +30,7 @@ async fn main() -> Result<()> {
 
     info!("STARTING SERVER");
 
-    db::init()?;
+    let db = db::init()?;
 
     //     instances.setMsg(new Msg());
     //     instances.setDeployment(new Deployment());
@@ -49,7 +50,7 @@ async fn main() -> Result<()> {
     //setup();
 
     tokio_tasks::TaskBuilder::new("webclient").main()
-        .create(|rt| webclient::run(rt));
+        .create(|rt| webclient::run(rt, db.clone()));
 
     tokio::spawn(async {
         tokio::signal::ctrl_c().await.unwrap();

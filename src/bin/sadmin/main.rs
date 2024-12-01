@@ -166,6 +166,10 @@ async fn main() -> Result<()> {
         Ok(v) => v,
         Err(e) => bail!("Invalid configfile {:?}: {}", config_path, e),
     };
+    let config = serde_json::from_str("{}")?;
+    let mut config = Config {  server_host: Some("127.0.0.1".to_string()), server_port: 8182, server_insecure: Some(true), ..config };
+    println!("HI {:?} {}", config.server_host, config.server_port);
+
     if let Some(v) = args.server_cert.take() {
         config.server_cert = Some(v);
     }
