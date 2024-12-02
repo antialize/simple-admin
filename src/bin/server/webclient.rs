@@ -18,7 +18,7 @@ use hyper::{Method, Response, StatusCode};
 use hyper_tungstenite::HyperWebsocket;
 use hyper_util::rt::TokioIo;
 use itertools::Itertools;
-use log::{info, warn};
+use log::{error, info, warn};
 use sadmin2::message::{AuthStatus, GenerateKeyRes, Message};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex as TMutex;
@@ -28,6 +28,7 @@ use tokio_tungstenite::WebSocketStream;
 
 use crate::crt::Type;
 use crate::db::Db;
+use crate::docker::Docker;
 use crate::get_auth::get_auth;
 
 extern "C" {
@@ -214,12 +215,14 @@ struct WebClient {
     host: String,
     sink: TMutex<SplitSink<WebSocketStream<TokioIo<Upgraded>>, TMessage>>,
     db: Arc<Db>,
+    docker: Arc<Docker>,
     auth: Mutex<AuthStatus>,
 }
 
 impl WebClient {
     fn new(
         db: Arc<Db>,
+        docker: Arc<Docker>,
         host: String,
         sink: SplitSink<WebSocketStream<TokioIo<Upgraded>>, TMessage>,
     ) -> Self {
@@ -227,6 +230,7 @@ impl WebClient {
             host,
             sink: TMutex::new(sink),
             db,
+            docker,
             auth: Mutex::new(Default::default()),
         }
     }
@@ -424,45 +428,54 @@ impl WebClient {
                     self.sink.lock().await.close().await?;
                     return Ok(());
                 };
-
+                info!("10");
                 let (_uname, rem) = ssl_name.split_once('.').context("Bad ssl_name")?;
                 let (_uid, mut caps) = if let Some((_uid, caps_string)) = rem.split_once('.') {
                     (_uid, caps_string.split('~'))
                 } else {
                     (rem, "".split('~'))
                 };
-                todo!();
-                //                 await docker.ensure_ca();
+
+                let (ca_key, ca_crt) = self.docker.ensure_ca_key_crt(&self.db).await?;
+                info!("20");
+
                 let my_key = crate::crt::generate_key().await?;
                 let my_srs =
                     crate::crt::generate_srs(&my_key, &format!("{}.user", ssl_name)).await?;
                 let my_crt = crate::crt::generate_crt(
-                    "", // TODOdocker.ca_key!,
-                    "", // docker.ca_crt!,
+                    &ca_key,
+                    &ca_crt,
                     &my_srs,
                     &[],
                     auth_days.unwrap_or(1),
                 )
                 .await?;
 
+                info!("30");
+
                 let mut res = GenerateKeyRes {
                     r#ref: r#ref,
                     key: my_srs,
                     crt: my_crt,
-                    ca_pem: "".to_string(), // TODO docker.ca_crt
+                    ca_pem: ca_crt,
                     ssh_host_ca: None,
                     ssh_crt: None,
                 };
 
+                info!("40");
+
                 if caps.contains(&"ssh") {
                     if let Some(ssh_public_key) = &ssh_public_key {
-                        let root_vars = self.db.get_root_valiabels()?;
+                        info!("45");
+                        let root_vars =
+                            self.db.get_root_valiabels().context("get_root_valiabels")?;
 
                         if let (Some(ssh_host_ca_key), Some(ssh_host_ca_pub), Some(user)) = (
                             root_vars.get("sshHostCaPub"),
                             root_vars.get("sshHostCaKey"),
                             &user,
                         ) {
+                            info!("50");
                             let ssh_crt = crate::crt::generate_ssh_crt(
                                 &format!("{} sadmin user", user),
                                 &user,
@@ -471,13 +484,22 @@ impl WebClient {
                                 1,
                                 Type::User,
                             )
-                            .await?;
+                            .await
+                            .context("generate_ssh_crt")?;
+                            info!("60");
                             res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
+                            info!("61");
                             res.ssh_crt = Some(ssh_crt);
+                            info!("65");
                         }
+                        info!("66");
                     }
+                    info!("67");
                 }
-                self.send_message(&Message::GenerateKeyRes(res)).await?;
+                info!("70");
+                self.send_message(&Message::GenerateKeyRes(res))
+                    .await
+                    .context("Send message")?;
             }
             Message::GenerateKeyRes(generate_key_res) => todo!(),
             Message::DockerListImageByHash { r#ref, hash } => todo!(),
@@ -1115,7 +1137,9 @@ impl WebClient {
                 Ok(Some(v)) => v?,
                 Ok(None) | Err(_) => break,
             };
-            if let Err(e) = self.handle_message(message).await {}
+            if let Err(e) = self.handle_message(message).await {
+                error!("Error in handle message {:?}", e);
+            }
         }
         Ok(())
     }
@@ -1180,6 +1204,7 @@ fn make_response(message: impl Into<Bytes>, status: StatusCode) -> Response<Full
 async fn handle_webclient(
     websocket: HyperWebsocket,
     db: Arc<Db>,
+    docker: Arc<Docker>,
     remote: String,
     rt: RunToken,
 ) -> Result<()> {
@@ -1188,7 +1213,7 @@ async fn handle_webclient(
         Err(_) => return Ok(()),
     };
     let (sink, source) = websocket.split();
-    let webclient = Arc::new(WebClient::new(db, remote, sink));
+    let webclient = Arc::new(WebClient::new(db, docker, remote, sink));
     webclient.handle_messages(rt, source).await?;
     Ok(())
 }
@@ -1196,6 +1221,7 @@ async fn handle_webclient(
 async fn handle_request(
     mut req: Request<hyper::body::Incoming>,
     db: Arc<Db>,
+    docker: Arc<Docker>,
     address: SocketAddr,
     rt: RunToken,
 ) -> Result<Response<Full<Bytes>>> {
@@ -1209,6 +1235,7 @@ async fn handle_request(
         match req.uri().path() {
             "/sysadmin" => {
                 let db = db.clone();
+                let docker = docker.clone();
                 let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
                 tokio_tasks::TaskBuilder::new("websocket_connection")
                     .shutdown_order(1)
@@ -1216,7 +1243,7 @@ async fn handle_request(
                         //                 const wc = new WebClient(ws, address);
                         //                 this.webclients.add(wc);
 
-                        if let Err(e) = handle_webclient(websocket, db, remote, rt).await {
+                        if let Err(e) = handle_webclient(websocket, db, docker, remote, rt).await {
                             eprintln!("Error in websocket connection: {e}");
                         }
                         Ok::<_, Error>(())
@@ -1271,7 +1298,7 @@ async fn handle_request(
     Ok(Response::new(Full::new(Bytes::from("Hello, World!\n"))))
 }
 
-pub async fn run(run_token: RunToken, db: Arc<Db>) -> Result<()> {
+pub async fn run(run_token: RunToken, db: Arc<Db>, docker: Arc<Docker>) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 8182));
     let listener = TcpListener::bind(addr).await?;
 
@@ -1288,11 +1315,13 @@ pub async fn run(run_token: RunToken, db: Arc<Db>) -> Result<()> {
         let io = TokioIo::new(stream);
 
         let db = db.clone();
+        let docker = docker.clone();
         tokio_tasks::TaskBuilder::new("web_connection")
             .shutdown_order(1)
             .create(|rt| async move {
                 let rt = &rt;
                 let db = &db;
+                let docker = &docker;
                 if let Err(err) = http1::Builder::new()
                     .keep_alive(true)
                     .serve_connection(
@@ -1300,7 +1329,8 @@ pub async fn run(run_token: RunToken, db: Arc<Db>) -> Result<()> {
                         service_fn(|req| {
                             let rt = rt.clone();
                             let db = db.clone();
-                            async move { handle_request(req, db, address, rt).await }
+                            let docker = docker.clone();
+                            async move { handle_request(req, db, docker, address, rt).await }
                         }),
                     )
                     .with_upgrades()

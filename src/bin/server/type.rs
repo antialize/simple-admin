@@ -111,6 +111,26 @@
 //     nameVariable?: string;
 // }
 
+use std::collections::HashMap;
+
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IVariable {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct IVariables {
+    #[serde(default)]
+    pub variables: Option<Vec<IVariable>>,
+    #[serde(default)]
+    pub secrets: Option<Vec<IVariable>>,
+}
+
 // export interface IVariables {
 //     variables?: Array<{ key: string; value: string }>;
 //     secrets?: Array<{ key: string; value: string }>;

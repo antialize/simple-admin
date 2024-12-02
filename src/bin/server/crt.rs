@@ -48,33 +48,24 @@ pub async fn generate_key() -> Result<String> {
 
 pub async fn generate_ca_crt(key: &str) -> Result<String> {
     let mut t1 = NamedTempFile::new()?;
-    t1.write_all("[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nC=US\n".as_bytes())?;
+    t1.write_all(
+        "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nC=US\n"
+            .as_bytes(),
+    )?;
 
     let mut t2 = NamedTempFile::new()?;
     t2.write_all(key.as_bytes())?;
 
-
     let res = tokio::process::Command::new("openssl")
-    .args(&[
-                "req",
-                "-x509",
-                "-new",
-                "-nodes",
-                "-key"])
-    .arg(t2.path())
-    .args(&["-sha256",
-                "-days",
-                "9999",
-                "-out",
-                "-",
-                "-config",
-    ])
-    .arg(t1.path())
-    .stdin(std::process::Stdio::null())
-    .stderr(std::process::Stdio::inherit())
-    .stdout(std::process::Stdio::piped())
-    .output()
-    .await?;
+        .args(&["req", "-x509", "-new", "-nodes", "-key"])
+        .arg(t2.path())
+        .args(&["-sha256", "-days", "9999", "-out", "-", "-config"])
+        .arg(t1.path())
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::piped())
+        .output()
+        .await?;
     if !res.status.success() {
         bail!("openssl exited with code {}", res.status);
     }
@@ -167,16 +158,44 @@ pub async fn generate_ssh_crt(
     validity_days: u32,
     r#type: Type,
 ) -> Result<String> {
-    let mut ssh_host_ca_key_file = NamedTempFile::new()?;
+    let mut ssh_host_ca_key_file = NamedTempFile::with_suffix(".pem")?;
     let tmp_dir = TempDir::new()?;
     let client_public_key_path = tmp_dir.path().join("thing.pub");
     std::fs::write(&client_public_key_path, client_public_key.as_bytes())?;
     let output_certificate_path = tmp_dir.path().join("thing-cert.pub");
     writeln!(
         ssh_host_ca_key_file,
-        "-----BEGIN OPENSSH PRIVATE KEY-----\n{}\n-----END OPENSSH PRIVATE KEY-----\n",
+        "-----BEGIN OPENSSH PRIVATE KEY-----\n{}\n-----END OPENSSH PRIVATE KEY-----",
         ca_private_key
     )?;
+    ssh_host_ca_key_file.flush()?;
+
+
+    println!(
+        "-----BEGIN OPENSSH PRIVATE KEY-----\n{}\n-----END OPENSSH PRIVATE KEY-----",
+        ca_private_key
+    );
+
+    // fs.writeFileSync(
+    //     sshHostCaKeyFile,
+    //     `-----BEGIN OPENSSH PRIVATE KEY-----\n${caPrivateKey}\n-----END OPENSSH PRIVATE KEY-----\n`,
+    //     { mode: 0o400 },
+    // );
+    // fs.writeFileSync(clientPublicKeyFile, clientPublicKey, { mode: 0o400 });
+    // const args = [
+    //     "-s",
+    //     sshHostCaKeyFile,
+    //     "-I",
+    //     keyId,
+    //     ...(type === "host" ? ["-h"] : []),
+    //     "-n",
+    //     principal,
+    //     "-V",
+    //     `-5m:+${+validityDays}d`,
+    //     "-z",
+    //     "42",
+    //     clientPublicKeyFile,
+    // ];
 
     let mut cmd = tokio::process::Command::new("ssh-keygen");
     cmd.arg("-s");
@@ -195,25 +214,30 @@ pub async fn generate_ssh_crt(
     cmd.arg(&client_public_key_path);
     let res = cmd
         .stdin(std::process::Stdio::null())
-        .stderr(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .output()
         .await?;
 
     if !res.status.success() {
-        bail!("ssh-keygen exited with code {}", res.status);
+        bail!("ssh-keygen exited with code {}: {}{}", res.status, String::from_utf8_lossy(&res.stdout), String::from_utf8_lossy(&res.stderr));
     }
     Ok(std::fs::read_to_string(output_certificate_path)?)
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_strip()  {
-        assert_eq!(strip("-----BEGIN EC PRIVATE KEY-----\nX\nY\n-----END EC PRIVATE KEY-----\n"), "X\nY");
-        assert_eq!(strip("-----BEGIN EC PRIVATE KEY-----\nX\nY\n-----END EC PRIVATE KEY-----"), "X\nY");
+    fn test_strip() {
+        assert_eq!(
+            strip("-----BEGIN EC PRIVATE KEY-----\nX\nY\n-----END EC PRIVATE KEY-----\n"),
+            "X\nY"
+        );
+        assert_eq!(
+            strip("-----BEGIN EC PRIVATE KEY-----\nX\nY\n-----END EC PRIVATE KEY-----"),
+            "X\nY"
+        );
     }
 }

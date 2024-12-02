@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use clap::Parser;
+use docker::Docker;
 use log::info;
 mod crt;
 mod db;
@@ -33,6 +36,7 @@ async fn main() -> Result<()> {
     info!("STARTING SERVER");
 
     let db = db::init()?;
+    let docker: Arc<Docker> = Default::default();
 
     //     instances.setMsg(new Msg());
     //     instances.setDeployment(new Deployment());
@@ -53,7 +57,7 @@ async fn main() -> Result<()> {
 
     tokio_tasks::TaskBuilder::new("webclient")
         .main()
-        .create(|rt| webclient::run(rt, db.clone()));
+        .create(|rt| webclient::run(rt, db.clone(), docker.clone()));
 
     tokio::spawn(async {
         tokio::signal::ctrl_c().await.unwrap();

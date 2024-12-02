@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     default::{COLLECTION_ID, FILE_ID, GROUP_ID, PACKAGE_ID, UFW_ALLOW_ID},
-    r#type::{HOST_ID, USER_ID},
+    r#type::{IVariable, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID, USER_ID},
 };
 
 // import * as sqlite from "sqlite3";
@@ -286,25 +286,11 @@ impl Db {
         Ok(conn.query_row(sql, params, f).optional()?)
     }
 
-    //     get(sql: string, ...params: any[]) {
-    //         const db = nullCheck(this.db);
-    //         return new Promise<any>((cb, cbe) => {
-    //             db.get(sql, params, (err, row) => {
-    //                 if (err) cbe(new SAError(ErrorType.Database, err));
-    //                 else cb(row);
-    //             });
-    //         });
-    //     }
-
-    //     insert(sql: string, ...params: any[]) {
-    //         const db = nullCheck(this.db);
-    //         return new Promise<number>((cb, cbe) => {
-    //             db.run(sql, params, function (err) {
-    //                 if (err) cbe(new SAError(ErrorType.Database, err));
-    //                 else cb(this.lastID);
-    //             });
-    //         });
-    //     }
+    pub fn insert(&self, sql: &str, params: impl rusqlite::Params) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(sql, params)?;
+        Ok(conn.last_insert_rowid())
+    }
 
     //     insertPrepared(stmt: sqlite.Statement, ...params: any[]) {
     //         return new Promise<number>((cb, cbe) => {
@@ -607,17 +593,38 @@ impl Db {
     //         });
     //     }
     pub fn get_root_valiabels(&self) -> Result<HashMap<String, String>> {
-        //         const rootRow = await this.get(
-        //             "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
-        //             rootInstanceId,
-        //             rootId,
-        //         );
-        //         const variables: { [key: string]: string } = {};
-        //         const rootVars = JSON.parse(rootRow.content) as IVariables;
-        //         if (rootVars.variables) for (const v of rootVars.variables) variables[v.key] = v.value;
-        //         if (rootVars.secrets) for (const v of rootVars.secrets) variables[v.key] = v.value;
-        //         return variables;
-        todo!()
+        let root_row: String = self
+            .get(
+                "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`=1 AND `type`=?",
+                (ROOT_INSTANCE_ID, ROOT_ID),
+                |v| v.get(0),
+            )?
+            .context("Unable to find root")?;
+
+        let root_vars: IVariables = serde_json::from_str(&root_row)?;
+        let mut vars = HashMap::with_capacity(
+            root_vars
+                .secrets
+                .as_ref()
+                .map(|v| v.len())
+                .unwrap_or_default()
+                + root_vars
+                    .variables
+                    .as_ref()
+                    .map(|v| v.len())
+                    .unwrap_or_default(),
+        );
+        if let Some(v) = root_vars.variables {
+            for IVariable { key, value } in v.into_iter() {
+                vars.insert(key, value);
+            }
+        }
+        if let Some(v) = root_vars.secrets {
+            for IVariable { key, value } in v.into_iter() {
+                vars.insert(key, value);
+            }
+        }
+        Ok(vars)
     }
 
     //     async getHostVariables(id: number): Promise<null | [Host, { [key: string]: string }]> {
