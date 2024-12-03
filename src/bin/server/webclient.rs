@@ -247,12 +247,9 @@ impl WebClient {
     }
 
     async fn send_auth_status(&self, sid: String) -> Result<()> {
-        info!("A");
         let auth = get_auth(&self.db, Some(&self.host), Some(&sid)).await;
-        info!("B {:?}", auth);
         let auth = auth?;
         *self.auth.lock().unwrap() = auth.clone();
-        info!("send_auth_status {:?}", auth);
         self.send_message(&Message::AuthStatus(AuthStatus {
             message: None,
             ..auth
@@ -428,7 +425,6 @@ impl WebClient {
                     self.sink.lock().await.close().await?;
                     return Ok(());
                 };
-                info!("10");
                 let (_uname, rem) = ssl_name.split_once('.').context("Bad ssl_name")?;
                 let (_uid, mut caps) = if let Some((_uid, caps_string)) = rem.split_once('.') {
                     (_uid, caps_string.split('~'))
@@ -437,7 +433,6 @@ impl WebClient {
                 };
 
                 let (ca_key, ca_crt) = self.docker.ensure_ca_key_crt(&self.db).await?;
-                info!("20");
 
                 let my_key = crate::crt::generate_key().await?;
                 let my_srs =
@@ -451,8 +446,6 @@ impl WebClient {
                 )
                 .await?;
 
-                info!("30");
-
                 let mut res = GenerateKeyRes {
                     r#ref: r#ref,
                     key: my_srs,
@@ -462,20 +455,16 @@ impl WebClient {
                     ssh_crt: None,
                 };
 
-                info!("40");
-
                 if caps.contains(&"ssh") {
                     if let Some(ssh_public_key) = &ssh_public_key {
-                        info!("45");
                         let root_vars =
                             self.db.get_root_valiabels().context("get_root_valiabels")?;
 
                         if let (Some(ssh_host_ca_key), Some(ssh_host_ca_pub), Some(user)) = (
-                            root_vars.get("sshHostCaPub"),
                             root_vars.get("sshHostCaKey"),
+                            root_vars.get("sshHostCaPub"),
                             &user,
                         ) {
-                            info!("50");
                             let ssh_crt = crate::crt::generate_ssh_crt(
                                 &format!("{} sadmin user", user),
                                 &user,
@@ -486,17 +475,11 @@ impl WebClient {
                             )
                             .await
                             .context("generate_ssh_crt")?;
-                            info!("60");
                             res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
-                            info!("61");
                             res.ssh_crt = Some(ssh_crt);
-                            info!("65");
                         }
-                        info!("66");
                     }
-                    info!("67");
                 }
-                info!("70");
                 self.send_message(&Message::GenerateKeyRes(res))
                     .await
                     .context("Send message")?;

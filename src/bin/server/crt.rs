@@ -1,6 +1,3 @@
-
-
-
 use anyhow::{bail, Result};
 use std::io::Write;
 use tempfile::{NamedTempFile, TempDir};
@@ -170,7 +167,6 @@ pub async fn generate_ssh_crt(
     )?;
     ssh_host_ca_key_file.flush()?;
 
-
     println!(
         "-----BEGIN OPENSSH PRIVATE KEY-----\n{}\n-----END OPENSSH PRIVATE KEY-----",
         ca_private_key
@@ -220,7 +216,12 @@ pub async fn generate_ssh_crt(
         .await?;
 
     if !res.status.success() {
-        bail!("ssh-keygen exited with code {}: {}{}", res.status, String::from_utf8_lossy(&res.stdout), String::from_utf8_lossy(&res.stderr));
+        bail!(
+            "ssh-keygen exited with code {}: {}{}",
+            res.status,
+            String::from_utf8_lossy(&res.stdout),
+            String::from_utf8_lossy(&res.stderr)
+        );
     }
     Ok(std::fs::read_to_string(output_certificate_path)?)
 }
