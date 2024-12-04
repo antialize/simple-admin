@@ -264,17 +264,34 @@ pub fn init() -> Result<Arc<Db>> {
     }))
 }
 
-//     all(sql: string, ...params: any[]) {
-//         const db = nullCheck(this.db);
-//         return new Promise<any[]>((cb, cbe) => {
-//             db.all(sql, params, (err, rows) => {
-//                 if (err) cbe(new SAError(ErrorType.Database, err));
-//                 else cb(rows);
-//             });
-//         });
-//     }
+pub struct FullObject {
+    id: i64,
+    r#type: i64,
+    name: String,
+    content: String,
+    category: String,
+    version: i64,
+    comment: String,
+    time: i64,
+    author: Option<String>
+}
 
 impl Db {
+    pub fn all<T, F: Fn(&rusqlite::Row<'_>) -> rusqlite::Result<T>>(
+        &self,
+        sql: &str,
+        params: impl rusqlite::Params,
+        f: F,
+    ) -> Result<Vec<T>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(sql)?;
+        let mut ans = Vec::new();
+        for r in stmt.query_map(params, f)? {
+            ans.push(r?);
+        }
+        Ok(ans)
+    }
+
     #[inline]
     pub fn get<T, F: FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>>(
         &self,
@@ -377,7 +394,6 @@ impl Db {
                 |r| Ok(r.get("content")?),
             )
             .optional()?;
-        info!("HI KAT {:?}", s);
         match s {
             Some(v) => Ok(Some(serde_json::from_str(&v)?)),
             None => Ok(None),
@@ -400,41 +416,22 @@ impl Db {
     //         );
     //     }
 
-    //     getAllObjectsFull() {
-    //         const db = nullCheck(this.db);
-    //         return new Promise<
-    //             {
-    //                 id: number;
-    //                 type: number;
-    //                 name: string;
-    //                 content: string;
-    //                 category: string;
-    //                 version: number;
-    //                 comment: string;
-    //                 time: number;
-    //                 author: string | null;
-    //             }[]
-    //         >((cb, cbe) => {
-    //             db.all<{
-    //                 id: number;
-    //                 type: number;
-    //                 name: string;
-    //                 content: string;
-    //                 category: string;
-    //                 version: number;
-    //                 comment: string;
-    //                 time: number;
-    //                 author: string | null;
-    //             }>(
-    //                 "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
-    //                 (err, rows) => {
-    //                     if (err) cbe(new SAError(ErrorType.Database, err));
-    //                     else if (rows === undefined) cb([]);
-    //                     else cb(rows);
-    //                 },
-    //             );
-    //         });
-    //     }
+    pub fn get_all_objects_full(&self) -> Result<Vec<FullObject>> {
+        self.all("SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
+            (), |r| {
+            Ok(FullObject{
+                id: r.get(0)?,
+                r#type: r.get(1)?,
+                name: r.get(2)?,
+                content: r.get(3)?,
+                category: r.get(4)?,
+                version: r.get(5)?,
+                comment: r.get(6)?,
+                time: r.get(7)?,
+                author: r.get(8)?
+            })
+        })
+    }
 
     //     getObjectByID(id: number) {
     //         const db = nullCheck(this.db);

@@ -19,7 +19,7 @@ use hyper_tungstenite::HyperWebsocket;
 use hyper_util::rt::TokioIo;
 use itertools::Itertools;
 use log::{error, info, warn};
-use sadmin2::message::{AuthStatus, GenerateKeyRes, Message};
+use sadmin2::message::{AuthStatus, GenerateKeyRes, LogOut, Message, State};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex as TMutex;
 use tokio_tasks::{cancelable, RunToken};
@@ -30,6 +30,7 @@ use crate::crt::Type;
 use crate::db::Db;
 use crate::docker::Docker;
 use crate::get_auth::get_auth;
+use crate::msg::msg_get_resent;
 
 extern "C" {
     pub fn crypt_r(
@@ -155,61 +156,8 @@ fn validate_password(provided: &str, expected: &str) -> Result<bool> {
 //     }
 // }
 
-// async function sendInitialState(c: WebClient) {
-//     const rows = db.getAllObjectsFull();
-//     const msgs = msg.getResent();
 
-//     const hostsUp: number[] = [];
-//     for (const id in hostClients.hostClients) hostsUp.push(+id);
 
-//     const action: ISetInitialState = {
-//         type: ACTION.SetInitialState,
-//         objectNamesAndIds: {},
-//         messages: await msgs,
-//         deploymentObjects: deployment.getView(),
-//         deploymentStatus: deployment.status,
-//         deploymentMessage: deployment.message || "",
-//         deploymentLog: deployment.log,
-//         hostsUp,
-//         types: {},
-//         usedBy: [],
-//     };
-//     for (const row of await rows) {
-//         const content = JSON.parse(row.content);
-//         if (row.type === typeId) {
-//             action.types[row.id] = {
-//                 id: row.id,
-//                 type: row.type,
-//                 name: row.name,
-//                 category: row.category,
-//                 content: content as IType,
-//                 version: row.version,
-//                 comment: row.comment,
-//                 time: row.time,
-//                 author: row.author,
-//             };
-//         }
-//         if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-//         action.objectNamesAndIds[row.type].push({
-//             type: row.type,
-//             id: row.id,
-//             name: row.name,
-//             category: row.category,
-//             comment: row.comment,
-//         });
-//         for (const o of getReferences(content)) {
-//             action.usedBy.push([o, row.id]);
-//         }
-//     }
-
-//     const m: { [key: string]: number } = {};
-//     for (const id in action) {
-//         const x = JSON.stringify((action as any)[id]);
-//         if (x) m[id] = x.length;
-//     }
-//     console.log("Send initial state", m);
-//     c.sendMessage(action);
-// }
 
 struct WebClient {
     host: String,
@@ -257,6 +205,66 @@ impl WebClient {
         .await?;
         Ok(())
     }
+
+    async fn send_initial_state(&self) -> Result<()> {
+        let rows = self.db.get_all_objects_full()?;
+        let messages = msg_get_resent(&self.db)?;
+
+        let hosts_up = Vec::new();
+        // TODO(jakobt)
+        // for (const id in hostClients.hostClients) hostsUp.push(+id);
+
+        let mut res = State {
+            object_names_and_ids: Default::default(),
+            messages,
+            // deploymentObjects: deployment.getView(), TODO(jakobt)
+            deployment_message: "".to_string(), // TODO(jakobt) deployment.message || "",
+            deployment_log: Vec::new(), // TODO(jakobt) deployment.log,
+            hosts_up,
+            used_by: Default::default(),
+        };
+
+        for row in rows {
+            
+        }
+        // for (const row of await rows) {
+        //     const content = JSON.parse(row.content);
+        //     if (row.type === typeId) {
+        //         action.types[row.id] = {
+        //             id: row.id,
+        //             type: row.type,
+        //             name: row.name,
+        //             category: row.category,
+        //             content: content as IType,
+        //             version: row.version,
+        //             comment: row.comment,
+        //             time: row.time,
+        //             author: row.author,
+        //         };
+        //     }
+        //     if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
+        //     action.objectNamesAndIds[row.type].push({
+        //         type: row.type,
+        //         id: row.id,
+        //         name: row.name,
+        //         category: row.category,
+        //         comment: row.comment,
+        //     });
+        //     for (const o of getReferences(content)) {
+        //         action.usedBy.push([o, row.id]);
+        //     }
+        // }
+
+        // const m: { [key: string]: number } = {};
+        // for (const id in action) {
+        //     const x = JSON.stringify((action as any)[id]);
+        //     if (x) m[id] = x.length;
+        // }
+        // console.log("Send initial state", m);
+        // c.sendMessage(action);
+        todo!()
+    }
+
 
     async fn handle_message(self: &Arc<Self>, message: TMessage) -> Result<()> {
         let text = message.to_text()?;
@@ -489,8 +497,38 @@ impl WebClient {
             Message::DockerListImageTags { r#ref } => todo!(),
             Message::DockerListImageTagsRes(docker_list_image_tags_res) => todo!(),
             Message::DockerListImageByHashRes(docker_list_image_by_hash_res) => todo!(),
-            Message::LogOut(log_out) => todo!(),
-            Message::RequestInitialState {} => todo!(),
+            Message::LogOut(LogOut{ forget_pwd, forget_otp }) => {
+                let session = {
+                    let auth = self.auth.lock().unwrap();
+                    if auth.auth {
+                        //this.connection.close(403);
+                        todo!()
+                    }
+                    info!(
+                        "logout host={} user={} session={} forgetPwd={} forgetOtp={}", self.host, auth.user.as_deref().unwrap_or_default(), auth.session.as_deref().unwrap_or_default(),
+                        forget_pwd, forget_otp
+                    );
+                    auth.session.clone().context("Missing session")?
+                };
+                if forget_pwd {
+                    self.db.run("UPDATE `sessions` SET `pwd`=null WHERE `sid`=?", (&session,))?;
+                    let mut auth = self.auth.lock().unwrap();
+                    auth.pwd = false;
+                    auth.auth = false;
+                }
+                if forget_otp {
+                    self.db.run("UPDATE `sessions` SET `otp`=null WHERE `sid`=?", (&session,))?;
+                    *self.auth.lock().unwrap() = Default::default();
+                }
+                self.send_auth_status(session).await?;
+            }
+            Message::RequestInitialState {} => {
+                if self.auth.lock().unwrap().auth {
+                    //this.connection.close(403);
+                    todo!()
+                }
+                self.send_initial_state().await?;
+            }
             Message::SetInitialState(state) => todo!(),
             Message::DockerListDeployments { r#ref, host, image } => todo!(),
             Message::DockerListDeploymentHistory { r#ref, host, name } => todo!(),
@@ -565,165 +603,10 @@ impl WebClient {
         //             case ACTION.RequestAuthStatus:
 
         //             case ACTION.Login: {
-        //                 let session = this.auth.session;
-        //                 const auth = session ? await getAuth(this.host, session) : noAccess;
-        //                 let found = false;
-        //                 let newOtp = false;
-        //                 let otp = auth?.otp;
-        //                 let pwd = auth?.pwd;
-
-        //                 if (config.users) {
-        //                     for (const u of config.users) {
-        //                         if (u.name === act.user) {
-        //                             found = true;
-        //                             if (u.password === act.pwd) {
-        //                                 otp = true;
-        //                                 pwd = true;
-        //                                 newOtp = true;
-        //                                 break;
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-
-        //                 if (!found) {
-        //                     try {
-        //                         const contentStr = await db.getUserContent(act.user);
-        //                         if (contentStr) {
-        //                             const content = JSON.parse(contentStr);
-        //                             found = true;
-        //                             await sleep(1000);
-        //                             pwd = await crypt.validate(act.pwd, content.password);
-        //                             if (act.otp) {
-        //                                 otp = speakeasy.totp.verify({
-        //                                     secret: content.otp_base32,
-        //                                     encoding: "base32",
-        //                                     token: act.otp,
-        //                                     window: 1,
-        //                                 });
-        //                                 newOtp = true;
-        //                             }
-        //                         }
-        //                     } catch (e) {}
-        //                 }
-        //                 if (!found) {
-        //                     this.sendMessage({
-        //                         type: ACTION.AuthStatus,
-        //                         pwd: false,
-        //                         otp: false,
-        //                         session: session,
-        //                         user: act.user,
-        //                         auth: false,
-        //                         admin: false,
-        //                         dockerPull: false,
-        //                         dockerPush: false,
-        //                         message: "Invalid user name",
-        //                     });
-        //                     this.auth = noAccess;
-        //                 } else if (!pwd || !otp) {
-        //                     if (otp && newOtp) {
-        //                         const now = (Date.now() / 1000) | 0;
-        //                         if (session) {
-        //                             await db.run(
-        //                                 "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
-        //                                 now,
-        //                                 session,
-        //                             );
-        //                         } else {
-        //                             session = crypto.randomBytes(64).toString("hex");
-        //                             await db.run(
-        //                                 "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-        //                                 act.user,
-        //                                 this.host,
-        //                                 null,
-        //                                 now,
-        //                                 session,
-        //                             );
-        //                         }
-        //                     }
-        //                     this.sendMessage({
-        //                         type: ACTION.AuthStatus,
-        //                         pwd: false,
-        //                         otp,
-        //                         session: session,
-        //                         user: act.user,
-        //                         auth: false,
-        //                         admin: false,
-        //                         dockerPull: false,
-        //                         dockerPush: false,
-        //                         message: "Invalid password or one time password",
-        //                     });
-        //                     this.auth = {
-        //                         ...noAccess,
-        //                         session,
-        //                         otp,
-        //                     };
-        //                 } else {
-        //                     const now = (Date.now() / 1000) | 0;
-        //                     if (session && newOtp) {
-        //                         await db.run(
-        //                             "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
-        //                             now,
-        //                             now,
-        //                             session,
-        //                         );
-        //                     } else if (session) {
-        //                         const eff = await db.run(
-        //                             "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
-        //                             now,
-        //                             session,
-        //                         );
-        //                     } else {
-        //                         session = crypto.randomBytes(64).toString("hex");
-        //                         await db.run(
-        //                             "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-        //                             act.user,
-        //                             this.host,
-        //                             now,
-        //                             now,
-        //                             session,
-        //                         );
-        //                     }
-        //                     this.auth = await getAuth(this.host, session);
-        //                     if (!this.auth.auth) throw Error("Internal auth error");
-        //                     this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
-        //                 }
-        //                 break;
-        //             }
         //             case ACTION.RequestInitialState:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await sendInitialState(this);
-        //                 break;
+
         //             case ACTION.Logout:
-        //                 if (!this.auth.auth) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 console.log(
-        //                     "logout",
-        //                     this.host,
-        //                     this.auth.user,
-        //                     this.auth.session,
-        //                     act.forgetPwd,
-        //                     act.forgetOtp,
-        //                 );
-        //                 if (act.forgetPwd)
-        //                     await db.run(
-        //                         "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
-        //                         this.auth.session,
-        //                     );
-        //                 if (act.forgetOtp) {
-        //                     await db.run(
-        //                         "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
-        //                         this.auth.session,
-        //                     );
-        //                     this.auth = noAccess;
-        //                 }
-        //                 this.sendAuthStatus(this.auth.session);
-        //                 break;
+      
         //             case ACTION.FetchObject: {
         //                 if (!this.auth.admin) {
         //                     this.connection.close(403);

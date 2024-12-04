@@ -12,6 +12,7 @@ mod get_auth;
 mod setup;
 mod r#type;
 mod webclient;
+mod msg;
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin_server")]

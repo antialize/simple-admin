@@ -1,120 +1,150 @@
-// export enum TypePropType {
-//     none = 0,
-//     bool = 1,
-//     text = 2,
-//     password = 3,
-//     document = 4,
-//     choice = 5,
-//     typeContent = 6,
-//     number = 7,
-// }
-
-// export interface IBoolTypeProp {
-//     type: TypePropType.bool;
-//     title: string;
-//     name: string;
-//     description: string;
-//     default: boolean;
-//     variable: string;
-// }
-
-// export interface ITextTypeProp {
-//     type: TypePropType.text;
-//     title: string;
-//     name: string;
-//     description: string;
-//     default: string;
-//     template: boolean;
-//     variable: string;
-//     deployTitle?: boolean;
-//     lines?: number;
-// }
-
-// export interface IPasswordTypeProp {
-//     type: TypePropType.password;
-//     title: string;
-//     name: string;
-//     description: string;
-// }
-
-// export interface IDocumentTypeProp {
-//     type: TypePropType.document;
-//     title: string;
-//     name: string;
-//     langName: string;
-//     lang: string;
-//     description: string;
-//     template: boolean;
-//     variable: string;
-// }
-
-// export interface IChoiceTypeProp {
-//     type: TypePropType.choice;
-//     title: string;
-//     name: string;
-//     description: string;
-//     default: string;
-//     choices: string[];
-//     variable: string;
-// }
-
-// export interface INumberTypeProp {
-//     type: TypePropType.number;
-//     title: string;
-//     name: string;
-//     description: string;
-//     default: number;
-// }
-
-// export interface ITypeContentTypeProp {
-//     type: TypePropType.typeContent;
-//     name: string;
-// }
-
-// export interface INoneTypeProp {
-//     type: TypePropType.none;
-// }
-
-// export type ITypeProp =
-//     | IBoolTypeProp
-//     | ITextTypeProp
-//     | INumberTypeProp
-//     | IPasswordTypeProp
-//     | IDocumentTypeProp
-//     | IChoiceTypeProp
-//     | ITypeContentTypeProp
-//     | INoneTypeProp;
-
-// export type KindType =
-//     | "host"
-//     | "root"
-//     | "collection"
-//     | "delta"
-//     | "sum"
-//     | "type"
-//     | "trigger"
-//     | "hostvar";
-
-// export interface IType {
-//     plural?: string;
-//     kind?: KindType;
-//     deployOrder?: number;
-//     script?: string;
-//     hasCategory?: boolean;
-//     hasVariables?: boolean;
-//     hasContains?: boolean;
-//     hasSudoOn?: boolean;
-//     hasTriggers?: boolean;
-//     hasDepends?: boolean;
-//     containsName?: string;
-//     content?: ITypeProp[];
-//     nameVariable?: string;
-// }
-
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IBoolTypeProp {
+    pub title: String,
+    pub name: String,
+    pub description: String,
+    pub default: bool,
+    pub variable: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ITextTypeProp {
+    pub title: String,
+    pub name: String,
+    pub description: String,
+    pub default: String,
+    pub template: bool,
+    pub variable: String,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub deploy_title: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub lines: Option<u64>,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IPasswordTypeProp {
+    pub title: String,
+    pub name: String,
+    pub description: String,
+}
+
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IDocumentTypeProp {
+    pub title: String,
+    pub name: String,
+    pub lang_name: String,
+    pub lang: String,
+    pub description: String,
+    pub template: bool,
+    pub variable: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IChoiceTypeProp {
+    pub title: String,
+    pub name: String,
+    pub description: String,
+    pub default: String,
+    pub choices: Vec<String>,
+    pub variable: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct INumberTypeProp {
+    pub title: String,
+    pub name: String,
+    pub description: String,
+    pub default: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ITypeContentTypeProp {
+    pub name: String,
+}
+
+
+// TODO(jakobt) this should be integer tagged
+// see https://stackoverflow.com/questions/65575385/deserialization-of-json-with-serde-by-a-numerical-value-as-type-identifier/65576570#65576570
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum ITypeProp {
+    #[serde(rename = "0")]
+    None{},
+    #[serde(rename = "1")]
+    Bool(IBoolTypeProp),
+    #[serde(rename = "2")]
+    Text(ITextTypeProp),
+    #[serde(rename = "3")]
+    Password(IPasswordTypeProp),
+    #[serde(rename = "4")]
+    Document(IDocumentTypeProp),
+    #[serde(rename = "5")]
+    Choice(IChoiceTypeProp),
+    #[serde(rename = "6")]
+    TypeContent(ITypeContentTypeProp),
+    #[serde(rename = "7")]
+    Number(INumberTypeProp),
+}
+
+#[derive(Serialize, Deserialize, Debug)] 
+#[serde(rename_all = "camelCase")]
+pub enum KindType {
+    Host,
+    Root,
+    Collection,
+    Delta,
+    Sum,
+    Type,
+    Trigger,
+    Hostvar,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct IType {
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub plural: Option<String>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub kind: Option<KindType>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub deploy_order: Option<i64>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub script: Option<String>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub has_category: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub has_variables: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub has_contains: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub has_sudo_on: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub has_triggers: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub has_depends: Option<bool>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub contains_name: Option<String>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub content: Option<Vec<ITypeProp>>,
+    #[serde(default, skip_serializing_if="Option::is_none")]
+    pub name_variable: Option<String>,
+}
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct IVariable {
@@ -125,9 +155,9 @@ pub struct IVariable {
 #[derive(Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct IVariables {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if="Option::is_none")]
     pub variables: Option<Vec<IVariable>>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if="Option::is_none")]
     pub secrets: Option<Vec<IVariable>>,
 }
 
