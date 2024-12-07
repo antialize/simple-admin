@@ -8,10 +8,8 @@ use log::info;
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    default::{COLLECTION_ID, FILE_ID, GROUP_ID, PACKAGE_ID, UFW_ALLOW_ID},
-    r#type::{IVariable, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID, USER_ID},
-};
+use crate::default::{COLLECTION_ID, FILE_ID, GROUP_ID, PACKAGE_ID, UFW_ALLOW_ID};
+use sadmin2::r#type::{IVariable, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID, USER_ID};
 
 // import * as sqlite from "sqlite3";
 // import type { IObject2 } from "./shared/state";
@@ -265,15 +263,15 @@ pub fn init() -> Result<Arc<Db>> {
 }
 
 pub struct FullObject {
-    id: i64,
-    r#type: i64,
-    name: String,
-    content: String,
-    category: String,
-    version: i64,
-    comment: String,
-    time: i64,
-    author: Option<String>
+    pub id: u64,
+    pub r#type: u64,
+    pub name: String,
+    pub content: String,
+    pub category: String,
+    pub version: i64,
+    pub comment: String,
+    pub time: i64,
+    pub author: Option<String>,
 }
 
 impl Db {

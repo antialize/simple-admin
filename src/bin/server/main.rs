@@ -9,10 +9,9 @@ mod db;
 mod default;
 mod docker;
 mod get_auth;
-mod setup;
-mod r#type;
-mod webclient;
 mod msg;
+mod setup;
+mod webclient;
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin_server")]

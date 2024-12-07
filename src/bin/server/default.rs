@@ -15,22 +15,22 @@
 //     userId,
 // } from "./shared/type";
 
-pub const COLLECTION_ID: i64 = 7;
-pub const COMPLEX_COLLECTION_ID: i64 = 8;
-pub const FILE_ID: i64 = 6;
-pub const GROUP_ID: i64 = 5;
-pub const UFW_ALLOW_ID: i64 = 9;
-pub const RELOAD_SERVICE_TRIGGER_ID: i64 = 50;
-pub const RESTART_SERVICE_TRIGGER_ID: i64 = 51;
-pub const RUN_TRIGGER_ID: i64 = 52;
-pub const PACKAGE_ID: i64 = 10;
-pub const CRON_ID: i64 = 10240;
-pub const FSTAB_ID: i64 = 10616;
-pub const HOST_VARIABLE_ID: i64 = 10840;
-pub const LIMIT_ID: i64 = 10675;
-pub const RUN_ID: i64 = 10072;
-pub const SHELL_TRIGGER_ID: i64 = 52;
-pub const SYSTEMD_SERVICE_ID: i64 = 10206;
+pub const COLLECTION_ID: u64 = 7;
+pub const COMPLEX_COLLECTION_ID: u64 = 8;
+pub const FILE_ID: u64 = 6;
+pub const GROUP_ID: u64 = 5;
+pub const UFW_ALLOW_ID: u64 = 9;
+pub const RELOAD_SERVICE_TRIGGER_ID: u64 = 50;
+pub const RESTART_SERVICE_TRIGGER_ID: u64 = 51;
+pub const RUN_TRIGGER_ID: u64 = 52;
+pub const PACKAGE_ID: u64 = 10;
+pub const CRON_ID: u64 = 10240;
+pub const FSTAB_ID: u64 = 10616;
+pub const HOST_VARIABLE_ID: u64 = 10840;
+pub const LIMIT_ID: u64 = 10675;
+pub const RUN_ID: u64 = 10072;
+pub const SHELL_TRIGGER_ID: u64 = 52;
+pub const SYSTEMD_SERVICE_ID: u64 = 10206;
 
 // interface IDefault {
 //     type: number;

@@ -19,7 +19,7 @@ use hyper_tungstenite::HyperWebsocket;
 use hyper_util::rt::TokioIo;
 use itertools::Itertools;
 use log::{error, info, warn};
-use sadmin2::message::{AuthStatus, GenerateKeyRes, LogOut, Message, State};
+use sadmin2::message::{AuthStatus, GenerateKeyRes, LogOut, Message, State, StateNameAndId};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex as TMutex;
 use tokio_tasks::{cancelable, RunToken};
@@ -31,6 +31,7 @@ use crate::db::Db;
 use crate::docker::Docker;
 use crate::get_auth::get_auth;
 use crate::msg::msg_get_resent;
+use sadmin2::r#type::{IObject, IType, TYPE_ID};
 
 extern "C" {
     pub fn crypt_r(
@@ -156,9 +157,6 @@ fn validate_password(provided: &str, expected: &str) -> Result<bool> {
 //     }
 // }
 
-
-
-
 struct WebClient {
     host: String,
     sink: TMutex<SplitSink<WebSocketStream<TokioIo<Upgraded>>, TMessage>>,
@@ -214,57 +212,58 @@ impl WebClient {
         // TODO(jakobt)
         // for (const id in hostClients.hostClients) hostsUp.push(+id);
 
-        let mut res = State {
+        let mut state = State {
             object_names_and_ids: Default::default(),
             messages,
             // deploymentObjects: deployment.getView(), TODO(jakobt)
             deployment_message: "".to_string(), // TODO(jakobt) deployment.message || "",
-            deployment_log: Vec::new(), // TODO(jakobt) deployment.log,
+            deployment_log: Vec::new(),         // TODO(jakobt) deployment.log,
             hosts_up,
             used_by: Default::default(),
+            types: Default::default(),
         };
 
         for row in rows {
-            
+            let content: serde_json::Value = serde_json::from_str(&row.content)?;
+
+            if row.r#type == TYPE_ID {
+                state.types.insert(
+                    row.id,
+                    IObject {
+                        id: row.id,
+                        r#type: row.r#type,
+                        name: row.name.clone(),
+                        category: row.category.clone(),
+                        content: serde_json::from_value(content)?,
+                        version: Some(row.version),
+                        comment: row.comment.clone(),
+                        author: row.author,
+                        time: Some(row.time),
+                    },
+                );
+            }
+
+            state
+                .object_names_and_ids
+                .entry(row.r#type)
+                .or_default()
+                .push(StateNameAndId {
+                    name: Some(row.name),
+                    id: row.id,
+                    r#type: Some(sadmin2::message::Type::Id(row.r#type)), // TODO(jakobt) is this right?
+                    category: Some(row.category),
+                    comment: Some(row.comment),
+                });
+
+            // TODO(jakobt)
+            //     for (const o of getReferences(content)) {
+            //         action.usedBy.push([o, row.id]);
+            //     }
         }
-        // for (const row of await rows) {
-        //     const content = JSON.parse(row.content);
-        //     if (row.type === typeId) {
-        //         action.types[row.id] = {
-        //             id: row.id,
-        //             type: row.type,
-        //             name: row.name,
-        //             category: row.category,
-        //             content: content as IType,
-        //             version: row.version,
-        //             comment: row.comment,
-        //             time: row.time,
-        //             author: row.author,
-        //         };
-        //     }
-        //     if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        //     action.objectNamesAndIds[row.type].push({
-        //         type: row.type,
-        //         id: row.id,
-        //         name: row.name,
-        //         category: row.category,
-        //         comment: row.comment,
-        //     });
-        //     for (const o of getReferences(content)) {
-        //         action.usedBy.push([o, row.id]);
-        //     }
-        // }
 
-        // const m: { [key: string]: number } = {};
-        // for (const id in action) {
-        //     const x = JSON.stringify((action as any)[id]);
-        //     if (x) m[id] = x.length;
-        // }
-        // console.log("Send initial state", m);
-        // c.sendMessage(action);
-        todo!()
+        self.send_message(&Message::SetInitialState(state)).await?;
+        Ok(())
     }
-
 
     async fn handle_message(self: &Arc<Self>, message: TMessage) -> Result<()> {
         let text = message.to_text()?;
@@ -497,7 +496,10 @@ impl WebClient {
             Message::DockerListImageTags { r#ref } => todo!(),
             Message::DockerListImageTagsRes(docker_list_image_tags_res) => todo!(),
             Message::DockerListImageByHashRes(docker_list_image_by_hash_res) => todo!(),
-            Message::LogOut(LogOut{ forget_pwd, forget_otp }) => {
+            Message::LogOut(LogOut {
+                forget_pwd,
+                forget_otp,
+            }) => {
                 let session = {
                     let auth = self.auth.lock().unwrap();
                     if auth.auth {
@@ -505,19 +507,29 @@ impl WebClient {
                         todo!()
                     }
                     info!(
-                        "logout host={} user={} session={} forgetPwd={} forgetOtp={}", self.host, auth.user.as_deref().unwrap_or_default(), auth.session.as_deref().unwrap_or_default(),
-                        forget_pwd, forget_otp
+                        "logout host={} user={} session={} forgetPwd={} forgetOtp={}",
+                        self.host,
+                        auth.user.as_deref().unwrap_or_default(),
+                        auth.session.as_deref().unwrap_or_default(),
+                        forget_pwd,
+                        forget_otp
                     );
                     auth.session.clone().context("Missing session")?
                 };
                 if forget_pwd {
-                    self.db.run("UPDATE `sessions` SET `pwd`=null WHERE `sid`=?", (&session,))?;
+                    self.db.run(
+                        "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
+                        (&session,),
+                    )?;
                     let mut auth = self.auth.lock().unwrap();
                     auth.pwd = false;
                     auth.auth = false;
                 }
                 if forget_otp {
-                    self.db.run("UPDATE `sessions` SET `otp`=null WHERE `sid`=?", (&session,))?;
+                    self.db.run(
+                        "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
+                        (&session,),
+                    )?;
                     *self.auth.lock().unwrap() = Default::default();
                 }
                 self.send_auth_status(session).await?;
@@ -606,7 +618,7 @@ impl WebClient {
         //             case ACTION.RequestInitialState:
 
         //             case ACTION.Logout:
-      
+
         //             case ACTION.FetchObject: {
         //                 if (!this.auth.admin) {
         //                     this.connection.close(403);

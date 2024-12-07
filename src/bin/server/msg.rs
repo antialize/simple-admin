@@ -7,7 +7,14 @@ use crate::db::Db;
 use anyhow::{Context, Result};
 use sadmin2::message::HostMessage;
 
-pub async fn msg_emit(db: &Db, host: i64, r#type: &str, message: &str, subtype: Option<String>, url: Option<String>) -> Result<()> {
+pub async fn msg_emit(
+    db: &Db,
+    host: i64,
+    r#type: &str,
+    message: &str,
+    subtype: Option<String>,
+    url: Option<String>,
+) -> Result<()> {
     // const time = +new Date() / 1000;
     // const id = await db.insert(
     //     "INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)",
@@ -57,10 +64,12 @@ pub async fn msg_set_dismissed(db: &Db, ids: &[i64], dismissed: bool) -> Result<
     todo!()
 }
 
-
 pub fn msg_get_resent(db: &Db) -> Result<Vec<HostMessage>> {
-    let now = std::time::SystemTime::now().duration_since(UNIX_EPOCH).context("Bad unix time")?.as_secs();
-    let time = now - 60*60*24*2; //Two dayes ago
+    let now = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .context("Bad unix time")?
+        .as_secs();
+    let time = now - 60 * 60 * 24 * 2; //Two dayes ago
     db.all("SELECT `id`, `host`, `type`, `subtype`, `message`, `url`, `time` FROM `messages`, `dismissed` WHERE `dismissed`=0 OR `dismissedTime`>?", (time,),
     |r| {
         let mut message: String = r.get(4)?;
@@ -81,7 +90,11 @@ pub fn msg_get_resent(db: &Db) -> Result<Vec<HostMessage>> {
 }
 
 pub fn msg_get_full_text(db: &Db, id: i64) -> Result<Option<String>> {
-    Ok(db.get("SELECT `message` FROM `messages` WHERE `id`=?", (id,), |v| v.get(0))?)
+    Ok(db.get(
+        "SELECT `message` FROM `messages` WHERE `id`=?",
+        (id,),
+        |v| v.get(0),
+    )?)
 }
 
 pub fn get_all(db: &Db) -> Result<Vec<HostMessage>> {
@@ -103,7 +116,6 @@ pub fn get_all(db: &Db) -> Result<Vec<HostMessage>> {
             })
         })
 }
-
 
 pub fn get_count(db: &Db) -> Result<i64> {
     Ok(db.get("SELECT count(*) as `count` FROM `messages` WHERE `dismissed` = 0 AND `message` IS NOT NULL", (), |v| v.get(0))?.unwrap_or_default())

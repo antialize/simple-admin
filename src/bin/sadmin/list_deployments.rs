@@ -340,7 +340,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     let mut type_ids = HashMap::new();
     for v in state
         .object_names_and_ids
-        .get("1")
+        .get(&1)
         .map(|v| v.as_slice())
         .unwrap_or_default()
     {
@@ -352,7 +352,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     if let Some(host_type_id) = type_ids.get("Host") {
         for v in state
             .object_names_and_ids
-            .get(&host_type_id.to_string())
+            .get(&host_type_id)
             .map(|v| v.as_slice())
             .unwrap_or_default()
         {

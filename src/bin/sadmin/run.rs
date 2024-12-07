@@ -49,7 +49,7 @@ async fn connect(
     };
 
     let mut host_id = None;
-    if let Some(v) = state.object_names_and_ids.get("2") {
+    if let Some(v) = state.object_names_and_ids.get(&2) {
         for obj in v {
             if let Some(name) = &obj.name {
                 if name == &host {

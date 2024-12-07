@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     dyn_format::{FormatArg, GetFmtArgDict, RelTime},
     finite_float::FiniteF64,
+    r#type::{IObject, IType},
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
@@ -155,14 +156,14 @@ pub struct StateNameAndId {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
-    pub object_names_and_ids: HashMap<String, Vec<StateNameAndId>>,
+    pub object_names_and_ids: HashMap<u64, Vec<StateNameAndId>>,
     pub messages: Vec<HostMessage>,
     // deploymentObjects: IDeploymentObject[];
     // deploymentStatus: DEPLOYMENT_STATUS;
     pub deployment_message: String,
     pub deployment_log: Vec<String>,
-    // types: Record<number, IObject2<IType>>;
-    pub hosts_up: Vec<i64>,
+    pub types: HashMap<u64, IObject<IType>>,
+    pub hosts_up: Vec<u64>,
     pub used_by: Vec<(i64, i64)>,
 }
 
@@ -254,7 +255,6 @@ pub struct HostMessage {
     pub url: Option<String>,
     pub dismissed: bool,
 }
-
 
 #[allow(clippy::enum_variant_names)]
 #[derive(Deserialize, Serialize, Debug)]
