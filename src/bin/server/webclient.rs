@@ -19,13 +19,14 @@ use hyper_tungstenite::HyperWebsocket;
 use hyper_util::rt::TokioIo;
 use itertools::Itertools;
 use log::{error, info, warn};
-use sadmin2::message::{AuthStatus, GenerateKeyRes, LogOut, Message, State, StateNameAndId};
+use sadmin2::message::{AuthStatus, DockerListImageByHashRes, DockerListImageTagsRes, GenerateKeyRes, LogOut, Message, State, StateNameAndId};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex as TMutex;
 use tokio_tasks::{cancelable, RunToken};
 use tokio_tungstenite::tungstenite::Message as TMessage;
 use tokio_tungstenite::WebSocketStream;
 
+use crate::config::{self, Config};
 use crate::crt::Type;
 use crate::db::Db;
 use crate::docker::Docker;
@@ -162,6 +163,7 @@ struct WebClient {
     sink: TMutex<SplitSink<WebSocketStream<TokioIo<Upgraded>>, TMessage>>,
     db: Arc<Db>,
     docker: Arc<Docker>,
+    config: &'static Config,
     auth: Mutex<AuthStatus>,
 }
 
@@ -169,6 +171,7 @@ impl WebClient {
     fn new(
         db: Arc<Db>,
         docker: Arc<Docker>,
+        config: &'static Config,
         host: String,
         sink: SplitSink<WebSocketStream<TokioIo<Upgraded>>, TMessage>,
     ) -> Self {
@@ -177,6 +180,7 @@ impl WebClient {
             sink: TMutex::new(sink),
             db,
             docker,
+            config,
             auth: Mutex::new(Default::default()),
         }
     }
@@ -193,7 +197,7 @@ impl WebClient {
     }
 
     async fn send_auth_status(&self, sid: String) -> Result<()> {
-        let auth = get_auth(&self.db, Some(&self.host), Some(&sid)).await;
+        let auth = get_auth(&self.db, self.config, Some(&self.host), Some(&sid)).await;
         let auth = auth?;
         *self.auth.lock().unwrap() = auth.clone();
         self.send_message(&Message::AuthStatus(AuthStatus {
@@ -265,6 +269,10 @@ impl WebClient {
         Ok(())
     }
 
+    async fn close_forbiddern(self: &Self) -> Result<()> {
+        todo!()
+    }
+
     async fn handle_message(self: &Arc<Self>, message: TMessage) -> Result<()> {
         let text = message.to_text()?;
         let msg: Message = serde_json::from_str(text)?;
@@ -278,11 +286,10 @@ impl WebClient {
                 );
                 self.send_auth_status(session).await?;
             }
-            Message::AuthStatus(auth_status) => todo!(),
             Message::Login { user, pwd, otp } => {
                 let session = self.auth.lock().unwrap().session.clone();
                 let auth = if let Some(session) = &session {
-                    get_auth(&self.db, Some(&self.host), Some(session)).await?
+                    get_auth(&self.db, self.config, Some(&self.host), Some(session)).await?
                 } else {
                     Default::default()
                 };
@@ -292,19 +299,16 @@ impl WebClient {
                 let mut otp_correct = auth.otp;
                 let mut pwd_correct = auth.pwd;
 
-                //                 if (config.users) {
-                //                     for (const u of config.users) {
-                //                         if (u.name === act.user) {
-                //                             found = true;
-                //                             if (u.password === act.pwd) {
-                //                                 otp = true;
-                //                                 pwd = true;
-                //                                 newOtp = true;
-                //                                 break;
-                //                             }
-                //                         }
-                //                     }
-                //                 }
+                for u in &self.config.users {
+                    if u.name == user {
+                        found = true;
+                        if u.password == pwd {
+                            otp_correct = true;
+                            pwd_correct = true;
+                            new_otp = true;
+                        }
+                    }
+                }
 
                 if !found {
                     let content = self.db.get_user_content(&user)?;
@@ -365,7 +369,7 @@ impl WebClient {
                     *self.auth.lock().unwrap() = AuthStatus {
                         session: session.clone(),
                         otp: otp_correct,
-                        //user: Some(user),
+                        //user: Some(user), // TODO(jakobt)
                         ..Default::default()
                     };
 
@@ -412,7 +416,7 @@ impl WebClient {
                         session
                     };
 
-                    let auth = get_auth(&self.db, Some(&self.host), Some(&session)).await?;
+                    let auth = get_auth(&self.db, self.config, Some(&self.host), Some(&session)).await?;
                     *self.auth.lock().unwrap() = auth.clone();
                     if !auth.auth {
                         bail!("Internal auth error");
@@ -491,20 +495,33 @@ impl WebClient {
                     .await
                     .context("Send message")?;
             }
-            Message::GenerateKeyRes(generate_key_res) => todo!(),
-            Message::DockerListImageByHash { r#ref, hash } => todo!(),
-            Message::DockerListImageTags { r#ref } => todo!(),
-            Message::DockerListImageTagsRes(docker_list_image_tags_res) => todo!(),
-            Message::DockerListImageByHashRes(docker_list_image_by_hash_res) => todo!(),
+            Message::DockerListImageByHash { r#ref, hash } => {
+                if !self.auth.lock().unwrap().docker_pull {
+                    return self.close_forbiddern().await;
+                }                let res = 
+                    DockerListImageByHashRes {
+                        r#ref,
+                        tags: self.docker.get_tags_by_hash( &hash, &self.db).await?,
+                    };
+                self.send_message(&Message::DockerListImageByHashRes(res))
+                .await
+                .context("Send message")?;
+            }
+            Message::DockerListImageTags { r#ref } => {
+                if !self.auth.lock().unwrap().docker_pull {
+                    return self.close_forbiddern().await;
+                }   
+                let res = self.docker.list_image_tags(r#ref, &self.db).await?;
+                self.send_message(&Message::DockerListImageTagsRes(res)).await.context("Send message")?;
+            }
             Message::LogOut(LogOut {
                 forget_pwd,
                 forget_otp,
             }) => {
                 let session = {
                     let auth = self.auth.lock().unwrap();
-                    if auth.auth {
-                        //this.connection.close(403);
-                        todo!()
+                    if !auth.auth {
+                        return self.close_forbiddern().await;
                     }
                     info!(
                         "logout host={} user={} session={} forgetPwd={} forgetOtp={}",
@@ -535,473 +552,409 @@ impl WebClient {
                 self.send_auth_status(session).await?;
             }
             Message::RequestInitialState {} => {
-                if self.auth.lock().unwrap().auth {
-                    //this.connection.close(403);
-                    todo!()
+                if !self.auth.lock().unwrap().auth {
+                    return self.close_forbiddern().await;
                 }
                 self.send_initial_state().await?;
             }
-            Message::SetInitialState(state) => todo!(),
-            Message::DockerListDeployments { r#ref, host, image } => todo!(),
-            Message::DockerListDeploymentHistory { r#ref, host, name } => todo!(),
-            Message::DockerListDeploymentsRes { r#ref, deployments } => todo!(),
-            Message::DockerListDeploymentHistoryRes { r#ref, deployments } => todo!(),
-            Message::DockerDeployStart(docker_deploy_start) => todo!(),
-            Message::ServiceDeployStart(service_deploy_start) => todo!(),
-            Message::ServiceRedeployStart(service_redeploy_start) => todo!(),
-            Message::DockerDeployLog { r#ref, message } => todo!(),
-            Message::DockerDeployEnd {
-                r#ref,
-                message,
-                status,
-            } => todo!(),
-            Message::DockerListImageTagsChanged { removed, changed } => todo!(),
-            Message::HostDown { id } => todo!(),
-            Message::HostUp { id } => todo!(),
-            Message::Alert { message, title } => todo!(),
-            Message::ModifiedFilesChanged { scanning, full } => todo!(),
-            Message::AddDeploymentLog => todo!(),
-            Message::AddLogLines => todo!(),
-            Message::AddMessage => todo!(),
-            Message::CancelDeployment => todo!(),
+            Message::DockerListDeployments { r#ref, host, image } => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.listDeployments(this, act);
+                todo!()
+            }
+            Message::DockerListDeploymentHistory { r#ref, host, name } => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.listDeploymentHistory(this, act);
+                todo!()
+            },
+            Message::ServiceDeployStart(service_deploy_start) => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.deployService(this, act);
+                todo!()
+            }
+            Message::ServiceRedeployStart(service_redeploy_start) => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.redeployService(this, act);
+                todo!()
+            }
+            Message::CancelDeployment => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // deployment.cancel();
+                todo!()
+            }
             Message::ClearDeploymentLog => todo!(),
-            Message::DeleteObject => todo!(),
-            Message::DeployObject => todo!(),
-            Message::DockerContainerForget => todo!(),
-            Message::DockerContainerRemove => todo!(),
-            Message::DockerContainerStart => todo!(),
-            Message::DockerContainerStop => todo!(),
-            Message::DockerDeploymentsChanged => todo!(),
-            Message::DockerImageSetPin => todo!(),
-            Message::DockerImageTagSetPin => todo!(),
-            Message::DockerListImageTagHistory => todo!(),
-            Message::DockerListImageTagHistoryRes => todo!(),
-            Message::EndLog => todo!(),
-            Message::FetchObject => todo!(),
-            Message::GetObjectHistory => todo!(),
-            Message::GetObjectHistoryRes => todo!(),
-            Message::GetObjectId => todo!(),
-            Message::GetObjectIdRes => todo!(),
-            Message::ListModifiedFiles => todo!(),
-            Message::MessageTextRep => todo!(),
-            Message::MessageTextReq => todo!(),
-            Message::ModifiedFilesList => todo!(),
-            Message::ModifiedFilesResolve => todo!(),
-            Message::ModifiedFilesScan => todo!(),
-            Message::ObjectChanged => todo!(),
-            Message::ResetServerState => todo!(),
-            Message::SaveObject => todo!(),
-            Message::Search => todo!(),
-            Message::SearchRes => todo!(),
-            Message::SetDeploymentMessage => todo!(),
-            Message::SetDeploymentObjects => todo!(),
-            Message::SetDeploymentObjectStatus => todo!(),
-            Message::SetDeploymentStatus => todo!(),
-            Message::SetMessageDismissed => todo!(),
-            Message::SetPage => todo!(),
-            Message::StartDeployment => todo!(),
-            Message::StartLog => todo!(),
-            Message::StatValueChanges => todo!(),
-            Message::StopDeployment => todo!(),
-            Message::SubscribeStatValues => todo!(),
-            Message::ToggleDeploymentObject => todo!(),
-            Message::UpdateStatus => todo!(),
+            Message::DeleteObject => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }
+                // {
+                //     const objects = await db.getAllObjectsFull();
+                //     const conflicts: string[] = [];
+                //     for (const object of objects) {
+                //         const content = JSON.parse(object.content);
+                //         if (!content) continue;
+                //         if (object.type === act.id)
+                //             conflicts.push(`* ${object.name} (${object.type}) type`);
+                //         for (const val of ["sudoOn", "depends", "contains"]) {
+                //             if (!(val in content)) continue;
+                //             for (const id of content[val] as number[]) {
+                //                 if (id !== act.id) continue;
+                //                 conflicts.push(`* ${object.name} (${object.type}) ${val}`);
+                //             }
+                //         }
+                //     }
+                //     if (conflicts.length > 0) {
+                //         const res: IAlert = {
+                //             type: ACTION.Alert,
+                //             title: "Cannot delete object",
+                //             message: `The object can not be delete as it is in use by:\n${conflicts.join("\n")}`,
+                //         };
+                //         this.sendMessage(res);
+                //     } else {
+                //         console.log("Web client delete object", { id: act.id });
+                //         await db.changeObject(act.id, null, nullCheck(this.auth.user));
+                //         const res2: IObjectChanged = {
+                //             type: ACTION.ObjectChanged,
+                //             id: act.id,
+                //             object: [],
+                //         };
+                //         webClients.broadcast(res2);
+                //         const res3: ISetPageAction = {
+                //             type: ACTION.SetPage,
+                //             page: { type: PAGE_TYPE.Dashbord },
+                //         };
+                //         this.sendMessage(res3);
+                //     }
+                //     break;
+                // }
+                todo!()
+            }
+            Message::DeployObject => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // deployment
+                //     .deployObject(act.id, act.redeploy)
+                //     .catch(errorHandler("Deployment::deployObject", this));
+                todo!()
+            }
+            Message::DockerContainerForget => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.forgetContainer(this, act.host, act.container);
+                todo!()
+            }
+            Message::DockerImageSetPin => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.imageSetPin(this, act);
+                todo!()
+            }
+            Message::DockerImageTagSetPin => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.imageTagSetPin(this, act);
+                todo!()
+            }
+            Message::DockerListImageTagHistory => {
+                if !self.auth.lock().unwrap().docker_push {
+                    return self.close_forbiddern().await;
+                }   
+                // await docker.listImageTagHistory(this, act);
+                todo!()
+            }
+            Message::EndLog => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // if (act.id in this.logJobs) this.logJobs[act.id].kill();
+                todo!()
+            }
+            Message::FetchObject => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // const rows = await db.getObjectByID(act.id);
+                // const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
+                // for (const row of rows) {
+                //     res.object.push({
+                //         id: act.id,
+                //         version: row.version,
+                //         type: row.type,
+                //         name: row.name,
+                //         content: JSON.parse(row.content),
+                //         category: row.category,
+                //         comment: row.comment,
+                //         time: row.time,
+                //         author: row.author,
+                //     });
+                // }
+                // this.sendMessage(res);
+                todo!()
+            }
+            Message::GetObjectHistory => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // const history: {
+                //     version: number;
+                //     time: number;
+                //     author: string | null;
+                // }[] = [];
+                // for (const row of await db.all(
+                //     "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
+                //     act.id,
+                // )) {
+                //     history.push({ version: row.version, time: row.time, author: row.author });
+                // }
+                // this.sendMessage({
+                //     type: ACTION.GetObjectHistoryRes,
+                //     ref: act.ref,
+                //     history,
+                //     id: act.id,
+                // });
+                todo!()
+            }
+            Message::GetObjectId => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // let id = null;
+                // try {
+                //     const parts = act.path.split("/", 2);
+                //     if (parts.length !== 2) break;
+                //     const typeRow = await db.get(
+                //         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
+                //         typeId,
+                //         parts[0],
+                //     );
+                //     if (!typeRow || !typeRow.id) break;
+                //     const objectRow = await db.get(
+                //         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
+                //         typeRow.id,
+                //         parts[1],
+                //     );
+                //     if (objectRow) id = objectRow.id;
+                // } finally {
+                //     this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
+                // }
+                todo!()
+            }
+            Message::MessageTextReq => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // {
+                //     const row = await msg.getFullText(act.id);
+                //     this.sendMessage({
+                //         type: ACTION.MessageTextRep,
+                //         id: act.id,
+                //         message: row ? row.message : "missing",
+                //     });
+                // }
+                todo!()
+            }
+            Message::ModifiedFilesList => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await modifiedFiles.list(this, act);
+                todo!()
+            }
+            Message::ModifiedFilesResolve => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await modifiedFiles.resolve(this, act);
+                todo!()
+            }
+            Message::ModifiedFilesScan => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await modifiedFiles.scan(this, act);
+                todo!()
+            }
+            Message::ResetServerState => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await db.resetServer(act.host);
+                todo!()
+            }
+            Message::SaveObject => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // {
+                //     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
+                //     if (!act.obj) throw Error("Missing object in action");
+                //     const c = act.obj.content;
+                //     const typeRow = await db.getNewestObjectByID(act.obj.type);
+                //     const type = JSON.parse(typeRow.content) as IType;
+                //     for (const r of type.content || []) {
+                //         if (r.type !== TypePropType.password) continue;
+                //         if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
+                //         c[r.name] = await crypt.hash(c[r.name]);
+                //     }
+
+                //     if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {
+                //         const secret = speakeasy.generateSecret({
+                //             name: `Simple Admin:${act.obj.name}`,
+                //         });
+                //         c.otp_base32 = secret.base32;
+                //         c.otp_url = secret.otpauth_url;
+                //     }
+
+                //     const { id, version } = await db.changeObject(
+                //         act.id,
+                //         act.obj,
+                //         nullCheck(this.auth.user),
+                //     );
+                //     act.obj.version = version;
+                //     const res2: IObjectChanged = {
+                //         type: ACTION.ObjectChanged,
+                //         id: id,
+                //         object: [act.obj],
+                //     };
+                //     webClients.broadcast(res2);
+                //     const res3: ISetPageAction = {
+                //         type: ACTION.SetPage,
+                //         page: { type: PAGE_TYPE.Object, objectType: act.obj.type, id, version },
+                //     };
+                //     this.sendMessage(res3);
+                // }
+                todo!()
+            }
+            Message::Search => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // const objects: {
+                //     type: number;
+                //     id: number;
+                //     version: number;
+                //     name: string;
+                //     comment: string;
+                //     content: string;
+                // }[] = [];
+                // for (const row of await db.all(
+                //     "SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1",
+                //     act.pattern,
+                //     act.pattern,
+                //     act.pattern,
+                // )) {
+                //     objects.push({
+                //         id: row.id,
+                //         type: row.type,
+                //         name: row.name,
+                //         content: row.content,
+                //         comment: row.comment,
+                //         version: row.version,
+                //     });
+                // }
+                // const res4: ISearchRes = {
+                //     type: ACTION.SearchRes,
+                //     ref: act.ref,
+                //     objects,
+                // };
+                // this.sendMessage(res4);
+                todo!()
+            }
+            Message::SetMessageDismissed => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await msg.setDismissed(act.ids, act.dismissed);
+                todo!()
+            }
+            Message::StartDeployment => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await deployment.start().catch(errorHandler("Deployment::start", this));
+                todo!()
+            }
+            Message::StartLog => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // if (act.host in hostClients.hostClients) {
+                //     new LogJob(
+                //         hostClients.hostClients[act.host],
+                //         this,
+                //         act.id,
+                //         act.logtype,
+                //         act.unit,
+                //     );
+                // }
+                todo!()
+            }
+            Message::StopDeployment => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await deployment.stop();
+                todo!()
+            }
+            Message::ToggleDeploymentObject => {
+                if !self.auth.lock().unwrap().admin {
+                    return self.close_forbiddern().await;
+                }   
+                // await deployment.toggleObject(act.index, act.enabled);
+                todo!()
+            }
+            Message::AuthStatus(_) |
+            Message::GenerateKeyRes(_) |
+            Message::DockerDeployLog { ..} |
+            Message::DockerDeployEnd { ..} |
+            Message::HostDown { ..} |
+            Message::HostUp { ..} |
+            Message::Alert { ..} |
+            Message::ModifiedFilesChanged { .. } |
+            Message::AddDeploymentLog |
+            Message::AddLogLines |
+            Message::AddMessage |
+            Message::DockerContainerRemove |
+            Message::DockerContainerStart |
+            Message::DockerContainerStop |
+            Message::DockerDeploymentsChanged |
+            Message::GetObjectHistoryRes |
+            Message::GetObjectIdRes |
+            Message::ListModifiedFiles |
+            Message::MessageTextRep |
+            Message::ObjectChanged |
+            Message::SearchRes |
+            Message::SetDeploymentMessage |
+            Message::SetDeploymentObjects |
+            Message::SetDeploymentObjectStatus |
+            Message::SetDeploymentStatus |
+            Message::SetPage |
+            Message::StatValueChanges |
+            Message::DockerListImageTagsRes(_) |
+            Message::DockerListImageByHashRes(_) |
+            Message::UpdateStatus |
+            Message::SetInitialState(_) |
+            Message::DockerListDeploymentsRes {..} |
+            Message::DockerListDeploymentHistoryRes {..} |
+            Message::DockerDeployStart(_) |
+            Message::DockerListImageTagsChanged { .. } |
+            Message::DockerListImageTagHistoryRes |
+            Message::SubscribeStatValues => todo!()
         }
-
-        //     async onMessage(str: string) {
-        //         const act = JSON.parse(str) as IAction;
-
-        //         switch (act.type) {
-        //             case ACTION.RequestAuthStatus:
-
-        //             case ACTION.Login: {
-        //             case ACTION.RequestInitialState:
-
-        //             case ACTION.Logout:
-
-        //             case ACTION.FetchObject: {
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 const rows = await db.getObjectByID(act.id);
-        //                 const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
-        //                 for (const row of rows) {
-        //                     res.object.push({
-        //                         id: act.id,
-        //                         version: row.version,
-        //                         type: row.type,
-        //                         name: row.name,
-        //                         content: JSON.parse(row.content),
-        //                         category: row.category,
-        //                         comment: row.comment,
-        //                         time: row.time,
-        //                         author: row.author,
-        //                     });
-        //                 }
-        //                 this.sendMessage(res);
-        //                 break;
-        //             }
-        //             case ACTION.GetObjectId: {
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 let id = null;
-        //                 try {
-        //                     const parts = act.path.split("/", 2);
-        //                     if (parts.length !== 2) break;
-        //                     const typeRow = await db.get(
-        //                         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-        //                         typeId,
-        //                         parts[0],
-        //                     );
-        //                     if (!typeRow || !typeRow.id) break;
-        //                     const objectRow = await db.get(
-        //                         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-        //                         typeRow.id,
-        //                         parts[1],
-        //                     );
-        //                     if (objectRow) id = objectRow.id;
-        //                 } finally {
-        //                     this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
-        //                 }
-        //                 break;
-        //             }
-        //             case ACTION.GetObjectHistory: {
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 const history: {
-        //                     version: number;
-        //                     time: number;
-        //                     author: string | null;
-        //                 }[] = [];
-        //                 for (const row of await db.all(
-        //                     "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-        //                     act.id,
-        //                 )) {
-        //                     history.push({ version: row.version, time: row.time, author: row.author });
-        //                 }
-        //                 this.sendMessage({
-        //                     type: ACTION.GetObjectHistoryRes,
-        //                     ref: act.ref,
-        //                     history,
-        //                     id: act.id,
-        //                 });
-        //                 break;
-        //             }
-        //             case ACTION.StartLog:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 if (act.host in hostClients.hostClients) {
-        //                     new LogJob(
-        //                         hostClients.hostClients[act.host],
-        //                         this,
-        //                         act.id,
-        //                         act.logtype,
-        //                         act.unit,
-        //                     );
-        //                 }
-        //                 break;
-        //             case ACTION.EndLog:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 if (act.id in this.logJobs) this.logJobs[act.id].kill();
-        //                 break;
-        //             case ACTION.SetMessagesDismissed:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await msg.setDismissed(act.ids, act.dismissed);
-        //                 break;
-        //             case ACTION.MessageTextReq:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 {
-        //                     const row = await msg.getFullText(act.id);
-        //                     this.sendMessage({
-        //                         type: ACTION.MessageTextRep,
-        //                         id: act.id,
-        //                         message: row ? row.message : "missing",
-        //                     });
-        //                 }
-        //                 break;
-        //             case ACTION.SaveObject:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 {
-        //                     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
-        //                     if (!act.obj) throw Error("Missing object in action");
-        //                     const c = act.obj.content;
-        //                     const typeRow = await db.getNewestObjectByID(act.obj.type);
-        //                     const type = JSON.parse(typeRow.content) as IType;
-        //                     for (const r of type.content || []) {
-        //                         if (r.type !== TypePropType.password) continue;
-        //                         if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
-        //                         c[r.name] = await crypt.hash(c[r.name]);
-        //                     }
-
-        //                     if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {
-        //                         const secret = speakeasy.generateSecret({
-        //                             name: `Simple Admin:${act.obj.name}`,
-        //                         });
-        //                         c.otp_base32 = secret.base32;
-        //                         c.otp_url = secret.otpauth_url;
-        //                     }
-
-        //                     const { id, version } = await db.changeObject(
-        //                         act.id,
-        //                         act.obj,
-        //                         nullCheck(this.auth.user),
-        //                     );
-        //                     act.obj.version = version;
-        //                     const res2: IObjectChanged = {
-        //                         type: ACTION.ObjectChanged,
-        //                         id: id,
-        //                         object: [act.obj],
-        //                     };
-        //                     webClients.broadcast(res2);
-        //                     const res3: ISetPageAction = {
-        //                         type: ACTION.SetPage,
-        //                         page: { type: PAGE_TYPE.Object, objectType: act.obj.type, id, version },
-        //                     };
-        //                     this.sendMessage(res3);
-        //                 }
-        //                 break;
-        //             case ACTION.Search: {
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 const objects: {
-        //                     type: number;
-        //                     id: number;
-        //                     version: number;
-        //                     name: string;
-        //                     comment: string;
-        //                     content: string;
-        //                 }[] = [];
-        //                 for (const row of await db.all(
-        //                     "SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1",
-        //                     act.pattern,
-        //                     act.pattern,
-        //                     act.pattern,
-        //                 )) {
-        //                     objects.push({
-        //                         id: row.id,
-        //                         type: row.type,
-        //                         name: row.name,
-        //                         content: row.content,
-        //                         comment: row.comment,
-        //                         version: row.version,
-        //                     });
-        //                 }
-        //                 const res4: ISearchRes = {
-        //                     type: ACTION.SearchRes,
-        //                     ref: act.ref,
-        //                     objects,
-        //                 };
-        //                 this.sendMessage(res4);
-        //                 break;
-        //             }
-        //             case ACTION.ResetServerState:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await db.resetServer(act.host);
-        //                 break;
-        //             case ACTION.DeleteObject:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 {
-        //                     const objects = await db.getAllObjectsFull();
-        //                     const conflicts: string[] = [];
-        //                     for (const object of objects) {
-        //                         const content = JSON.parse(object.content);
-        //                         if (!content) continue;
-        //                         if (object.type === act.id)
-        //                             conflicts.push(`* ${object.name} (${object.type}) type`);
-        //                         for (const val of ["sudoOn", "depends", "contains"]) {
-        //                             if (!(val in content)) continue;
-        //                             for (const id of content[val] as number[]) {
-        //                                 if (id !== act.id) continue;
-        //                                 conflicts.push(`* ${object.name} (${object.type}) ${val}`);
-        //                             }
-        //                         }
-        //                     }
-        //                     if (conflicts.length > 0) {
-        //                         const res: IAlert = {
-        //                             type: ACTION.Alert,
-        //                             title: "Cannot delete object",
-        //                             message: `The object can not be delete as it is in use by:\n${conflicts.join("\n")}`,
-        //                         };
-        //                         this.sendMessage(res);
-        //                     } else {
-        //                         console.log("Web client delete object", { id: act.id });
-        //                         await db.changeObject(act.id, null, nullCheck(this.auth.user));
-        //                         const res2: IObjectChanged = {
-        //                             type: ACTION.ObjectChanged,
-        //                             id: act.id,
-        //                             object: [],
-        //                         };
-        //                         webClients.broadcast(res2);
-        //                         const res3: ISetPageAction = {
-        //                             type: ACTION.SetPage,
-        //                             page: { type: PAGE_TYPE.Dashbord },
-        //                         };
-        //                         this.sendMessage(res3);
-        //                     }
-        //                     break;
-        //                 }
-        //             case ACTION.DeployObject:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 deployment
-        //                     .deployObject(act.id, act.redeploy)
-        //                     .catch(errorHandler("Deployment::deployObject", this));
-        //                 break;
-        //             case ACTION.CancelDeployment:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 deployment.cancel();
-        //                 break;
-        //             case ACTION.StartDeployment:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await deployment.start().catch(errorHandler("Deployment::start", this));
-        //                 break;
-        //             case ACTION.StopDeployment:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await deployment.stop();
-        //                 break;
-        //             case ACTION.ToggleDeploymentObject:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await deployment.toggleObject(act.index, act.enabled);
-        //                 break;
-        //             case ACTION.ServiceDeployStart:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.deployService(this, act);
-        //                 break;
-        //             case ACTION.ServiceRedeployStart:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.redeployService(this, act);
-        //                 break;
-        //             case ACTION.DockerListDeployments:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.listDeployments(this, act);
-        //                 break;
-        //             case ACTION.DockerListImageByHash:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.listImageByHash(this, act);
-        //                 break;
-        //             case ACTION.DockerListImageTags:
-        //                 if (!this.auth.dockerPull) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.listImageTags(this, act);
-        //                 break;
-        //             case ACTION.DockerImageSetPin:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.imageSetPin(this, act);
-        //                 break;
-        //             case ACTION.DockerImageTagSetPin:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.imageTagSetPin(this, act);
-        //                 break;
-        //             case ACTION.DockerListDeploymentHistory:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.listDeploymentHistory(this, act);
-        //                 break;
-        //             case ACTION.DockerListImageTagHistory:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.listImageTagHistory(this, act);
-        //                 break;
-        //             case ACTION.DockerContainerForget:
-        //                 if (!this.auth.dockerPush) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await docker.forgetContainer(this, act.host, act.container);
-        //                 break;
-        //             case ACTION.ModifiedFilesScan:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await modifiedFiles.scan(this, act);
-        //                 break;
-        //             case ACTION.ModifiedFilesList:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await modifiedFiles.list(this, act);
-        //                 break;
-        //             case ACTION.ModifiedFilesResolve:
-        //                 if (!this.auth.admin) {
-        //                     this.connection.close(403);
-        //                     return;
-        //                 }
-        //                 await modifiedFiles.resolve(this, act);
-        //                 break;
-        //             case ACTION.GenerateKey: {
-
-        //             }
-        //             default:
-        //                 console.warn("Web client unknown message", { act });
-        //         }
-        //     }
         Ok(())
     }
 
@@ -1083,6 +1036,7 @@ async fn handle_webclient(
     websocket: HyperWebsocket,
     db: Arc<Db>,
     docker: Arc<Docker>,
+    config: &'static Config,
     remote: String,
     rt: RunToken,
 ) -> Result<()> {
@@ -1091,7 +1045,7 @@ async fn handle_webclient(
         Err(_) => return Ok(()),
     };
     let (sink, source) = websocket.split();
-    let webclient = Arc::new(WebClient::new(db, docker, remote, sink));
+    let webclient = Arc::new(WebClient::new(db, docker, config, remote, sink));
     webclient.handle_messages(rt, source).await?;
     Ok(())
 }
@@ -1100,6 +1054,7 @@ async fn handle_request(
     mut req: Request<hyper::body::Incoming>,
     db: Arc<Db>,
     docker: Arc<Docker>,
+    config: &'static Config,
     address: SocketAddr,
     rt: RunToken,
 ) -> Result<Response<Full<Bytes>>> {
@@ -1121,7 +1076,7 @@ async fn handle_request(
                         //                 const wc = new WebClient(ws, address);
                         //                 this.webclients.add(wc);
 
-                        if let Err(e) = handle_webclient(websocket, db, docker, remote, rt).await {
+                        if let Err(e) = handle_webclient(websocket, db, docker, config, remote, rt).await {
                             eprintln!("Error in websocket connection: {e}");
                         }
                         Ok::<_, Error>(())
@@ -1176,7 +1131,7 @@ async fn handle_request(
     Ok(Response::new(Full::new(Bytes::from("Hello, World!\n"))))
 }
 
-pub async fn run(run_token: RunToken, db: Arc<Db>, docker: Arc<Docker>) -> Result<()> {
+pub async fn run(run_token: RunToken, db: Arc<Db>, docker: Arc<Docker>, config: &'static Config) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 8182));
     let listener = TcpListener::bind(addr).await?;
 
@@ -1208,7 +1163,7 @@ pub async fn run(run_token: RunToken, db: Arc<Db>, docker: Arc<Docker>) -> Resul
                             let rt = rt.clone();
                             let db = db.clone();
                             let docker = docker.clone();
-                            async move { handle_request(req, db, docker, address, rt).await }
+                            async move { handle_request(req, db, docker, config, address, rt).await }
                         }),
                     )
                     .with_upgrades()

@@ -1,5 +1,8 @@
-use anyhow::Result;
+use anyhow::{Context, Error, Result};
+use itertools::Itertools;
 use log::info;
+use rusqlite::params_from_iter;
+use sadmin2::message::{DockerListImageTagsRes, DockerPinnedImageTag, ImageInfo};
 // import * as crypto from "node:crypto";
 // import * as fs from "node:fs";
 // import { Stream } from "node:stream";
@@ -129,7 +132,7 @@ use crate::{
     crt::{generate_ca_crt, generate_key},
     db::Db,
 };
-use std::sync::{Mutex, RwLock};
+use std::{collections::HashMap, sync::{Mutex, RwLock}};
 use tokio::sync::Mutex as TMutex;
 
 #[derive(Debug, Default)]
@@ -1127,42 +1130,42 @@ impl Docker {
     //         );
     //     }
 
-    //     async getTagsByHash(hashes: string[]) {
-    //         const placeholders: string[] = [];
-    //         for (const _ of hashes) placeholders.push("?");
-    //         const tagByHash: { [hash: string]: DockerImageTag } = {};
-    //         for (const row of await db.all(
-    //             `SELECT \`id\`, \`hash\`, \`time\`, \`project\`, \`user\`, \`tag\`, \`pin\`, \`labels\`, \`removed\` FROM \`docker_images\` WHERE \`hash\` IN (${placeholders.join(",")})`,
-    //             ...hashes,
-    //         )) {
-    //             tagByHash[row.hash] = {
-    //                 id: row.id,
-    //                 image: row.project,
-    //                 hash: row.hash,
-    //                 tag: row.tag,
-    //                 user: row.user,
-    //                 time: row.time,
-    //                 pin: row.pin,
-    //                 labels: JSON.parse(row.labels || "{}"),
-    //                 removed: row.removed,
-    //             };
-    //         }
-    //         return tagByHash;
-    //     }
 
-    //     async listImageByHash(client: WebClient, act: IDockerListImageByHash) {
-    //         const res: IDockerListImageByHashRes = {
-    //             type: ACTION.DockerListImageByHashRes,
-    //             ref: act.ref,
-    //             tags: {},
-    //         };
-    //         try {
-    //             res.tags = await this.getTagsByHash(act.hash);
-    //         } finally {
-    //             client.sendMessage(res);
-    //         }
-    //     }
+    pub async fn get_tags_by_hash(self: &Self, hashes: &[String], db : &Db) -> Result<HashMap<String, ImageInfo>> {
+        let mut placeholders: String = "?,".repeat(hashes.len());
+        placeholders.pop();
+        let rows: Vec<(_, _, String, _, _, f64, _, Option<String>, Option<f64>)> = db.all(
+            &format!("SELECT `id`, `project`, `hash`, `tag`, `user`, `time`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `hash` IN ({})", placeholders),
+            params_from_iter(hashes), |r: &rusqlite::Row<'_>| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)? ,r.get(6)? , r.get(7)?, r.get(8)?))
+                })?;
+        rows.into_iter().map(|(id, image, hash, tag, user, time, pin, labels, removed)| {
+            let labels = match labels {
+                Some(v) => serde_json::from_str(&v)?,
+                None => Default::default()
+            };
+            Ok::<_,Error> ((hash.clone(), ImageInfo{
+                id,
+                image,
+                tag,
+                hash,
+                time: time.try_into()?,
+                user,
+                pin,
+                labels,
+                removed: match removed {
+                    Some(v) => Some(v.try_into()?),
+                    None => None
+                },
+                pinned_image_tag: false, // TODO(jakobt)
+            }))
+        }).collect()
+    }
 
+
+    pub async fn list_deployments(&self, db: &Db) -> Result<()> {
+
+  
     //     async listDeployments(client: WebClient, act: IDockerListDeployments) {
     //         const res: IDockerListDeploymentsRes = {
     //             type: ACTION.DockerListDeploymentsRes,
@@ -1201,43 +1204,55 @@ impl Docker {
     //             client.sendMessage(res);
     //         }
     //     }
+        todo!()
+    }
 
-    //     async listImageTags(
-    //         client: WebClient,
-    //         act: IDockerListImageTags,
-    //         maxRemovedAge: number = 14 * 24 * 60 * 60,
-    //     ) {
-    //         const res: IDockerListImageTagsRes = {
-    //             type: ACTION.DockerListImageTagsRes,
-    //             ref: act.ref,
-    //             tags: [],
-    //             pinnedImageTags: [],
-    //         };
-    //         try {
-    //             for (const row of await db.all(
-    //                 "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)",
-    //                 +new Date() / 1000 - maxRemovedAge,
-    //             ))
-    //                 res.tags.push({
-    //                     id: row.id,
-    //                     image: row.project,
-    //                     hash: row.hash,
-    //                     tag: row.tag,
-    //                     user: row.user,
-    //                     time: row.time,
-    //                     pin: row.pin,
-    //                     labels: JSON.parse(row.labels || "{}"),
-    //                     removed: row.removed,
-    //                 });
-    //             for (const row of await db.all("SELECT `project`, `tag` FROM `docker_image_tag_pins`"))
-    //                 nullCheck(res.pinnedImageTags).push({
-    //                     image: row.project,
-    //                     tag: row.tag,
-    //                 });
-    //         } finally {
-    //             client.sendMessage(res);
-    //         }
-    //     }
+    pub async fn list_image_tags(&self, r#ref: u64, db : &Db) -> Result<DockerListImageTagsRes> {
+        let max_removed_age= 14.0 * 24.0 * 60.0 * 60.0;
+
+        let cutof = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .context("Bad unix time")?
+            .as_secs_f64() - max_removed_age;
+
+        let rows :Vec<(_, _, f64, _, _, _, _, Option<String>, Option<f64>)> = db.all("SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (
+            SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)",
+            (cutof,), |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)))?;
+
+        let mut tags = Vec::new();
+        for (id, hash, time, image, user, tag, pin, labels, removed) in rows {
+            let labels = match labels {
+                Some(v) => serde_json::from_str(&v)?,
+                None => Default::default()
+            };
+            tags.push(ImageInfo{
+                id,
+                image,
+                hash,
+                tag,
+                user,
+                time: time.try_into()?,
+                pin,
+                labels,
+                removed:  match removed {
+                    Some(v) => Some(v.try_into()?),
+                    None => None
+                },
+                pinned_image_tag: false, // TODO(jakobt)
+            });
+        }
+
+        let pinned_image_tags = db.all("SELECT `project`, `tag` FROM `docker_image_tag_pins`", (), |r| (
+            Ok(DockerPinnedImageTag{image: r.get(0)?,
+            tag: r.get(1)?})
+        ))?;
+
+        Ok(DockerListImageTagsRes{
+            r#ref,
+            tags,
+            pinned_image_tags,
+        })
+    }
 
     //     async listDeploymentHistory(client: WebClient, act: IDockerListDeploymentHistory) {
     //         const res: IDockerListDeploymentHistoryRes = {
@@ -1282,6 +1297,7 @@ impl Docker {
     //         }
     //     }
 
+    pub async fn list_image_tage_history(&self, tag: &str, image: &str, db : &Db) -> Result<()> {
     //     async listImageTagHistory(client: WebClient, act: IDockerListImageTagHistory) {
     //         const res: IDockerListImageTagHistoryRes = {
     //             type: ACTION.DockerListImageTagHistoryRes,
@@ -1310,7 +1326,8 @@ impl Docker {
     //         } finally {
     //             client.sendMessage(res);
     //         }
-    //     }
+        todo!()
+     }
 
     //     async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
     //         await db.run("UPDATE `docker_images` SET pin=? WHERE `id`=?", act.pin ? 1 : 0, act.id);

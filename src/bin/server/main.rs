@@ -12,7 +12,7 @@ mod get_auth;
 mod msg;
 mod setup;
 mod webclient;
-
+mod config;
 #[derive(clap::Parser)]
 #[command(name = "sadmin_server")]
 #[command(version = include_str!("../../version.txt"))]
@@ -34,6 +34,9 @@ async fn main() -> Result<()> {
         .unwrap();
 
     info!("STARTING SERVER");
+
+    let config = config::read_config()?;
+    let config = Box::leak(Box::new(config));
 
     let db = db::init()?;
     let docker: Arc<Docker> = Default::default();
@@ -57,7 +60,7 @@ async fn main() -> Result<()> {
 
     tokio_tasks::TaskBuilder::new("webclient")
         .main()
-        .create(|rt| webclient::run(rt, db.clone(), docker.clone()));
+        .create(|rt| webclient::run(rt, db.clone(), docker.clone(), config));
 
     tokio::spawn(async {
         tokio::signal::ctrl_c().await.unwrap();

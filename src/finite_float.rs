@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
+use anyhow::{bail, Error};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FiniteF64(f64);
@@ -11,16 +12,17 @@ impl From<FiniteF64> for f64 {
     }
 }
 
+#[derive(Debug)]
 pub struct NotFiniteFloat;
 
 impl TryInto<FiniteF64> for f64 {
-    type Error = NotFiniteFloat;
+    type Error = Error;
 
     fn try_into(self) -> Result<FiniteF64, Self::Error> {
         if self.is_finite() {
             Ok(FiniteF64(self))
         } else {
-            Err(NotFiniteFloat)
+            bail!("Not finite float")
         }
     }
 }

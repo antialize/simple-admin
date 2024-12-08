@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{de::DeserializeOwned, ser::SerializeMap, Deserialize, Serialize, Serializer};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -261,3 +263,4 @@ pub const ROOT_ID: u64 = 3;
 pub const USER_ID: u64 = 4;
 pub const PACKAGE_ID: u64 = 10;
 pub const ROOT_INSTANCE_ID: u64 = 100;
+

@@ -3,9 +3,9 @@
 use anyhow::{Context, Result};
 use sadmin2::message::AuthStatus;
 
-use crate::db::Db;
+use crate::{config::Config, db::Db};
 
-pub async fn get_auth(db: &Db, host: Option<&str>, sid: Option<&str>) -> Result<AuthStatus> {
+pub async fn get_auth(db: &Db, config: &'static Config, host: Option<&str>, sid: Option<&str>) -> Result<AuthStatus> {
     let Some(sid) = sid else {
         return Ok(Default::default());
     };
@@ -76,22 +76,32 @@ pub async fn get_auth(db: &Db, host: Option<&str>, sid: Option<&str>) -> Result<
                 session: Some(sid.to_string()),
                 ..Default::default()
             });
-        }
+        } else {
+            for u in &config.users {
+                if u.name == user {
+                    let now = std::time::SystemTime::now();
+                    let now = now
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .context("Bad unix time")?
+                        .as_secs();
+                    let pwd = row.pwd.map(|v| v + 60 * 60 > now).unwrap_or_default();
+                    let otp = row.otp.map(|v| v + 60 * 60 > now).unwrap_or_default();
+                    return Ok(AuthStatus {
+                        docker_pull: true,
+                        docker_push: true,
+                        docker_deploy: true,
+                        admin: true,
+                        auth: true,
+                        pwd,
+                        otp,
+                        session: None,
+                        user: Some(user.to_string()),
+                        ..Default::default()
+                    });
 
-        // if (!found && && config.users) {
-        //     for (const u of config.users) {
-        //         if (u.name === user) {
-        //             found = true;
-        //             admin = true;
-        //             dockerPull = true;
-        //             dockerPush = true;
-        //             dockerDeploy = true;
-        //             const now = (Date.now() / 1000) | 0;
-        //             pwd = row.pwd != null && row.pwd + 12 * 60 * 60 > now;
-        //             otp = row.otp != null && row.otp + 64 * 24 * 60 * 60 > now;
-        //         }
-        //     }
-        // }
+                }
+            }
+        }
 
         let Some(content) = db.get_user_content(&user)? else {
             return Ok(Default::default());
