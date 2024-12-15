@@ -71,13 +71,11 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
                                 page.onClick(e, pageDetails);
                                 return false;
                             }}
-                            onDelete={
-                                (e) => {
-                                    e.preventDefault();
-                                    onDelete(e)
-                                    return false;
-                                }
-                            }
+                            onDelete={(e) => {
+                                e.preventDefault();
+                                onDelete(e);
+                                return false;
+                            }}
                             href={page.link(pageDetails)}
                         />
                     );

@@ -92,7 +92,7 @@ pub trait GetFmtArgDict {
     fn get_fmt_arg(&self, name: &str) -> FormatArg<'_>;
 }
 
-impl<'a> std::fmt::Display for FormatArg<'a> {
+impl std::fmt::Display for FormatArg<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FormatArg::String(v) => f.write_str(v),

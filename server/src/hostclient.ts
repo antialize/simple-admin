@@ -2,12 +2,12 @@ import * as fs from "node:fs";
 import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
 import * as crt from "./crt";
-import * as crypt from "./crypt";
 import { descript, errorHandler } from "./error";
 import { db, hostClients, msg, webClients } from "./instances";
 import { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import type * as message from "./messages";
+const serverRs = require("simple_admin_server_rs");
 
 function delay(time: number) {
     return new Promise<void>((resolve) => {
@@ -196,7 +196,10 @@ export class HostClient extends JobOwner {
         const res = await db.getHostContentByName(obj.hostname);
         if (
             res &&
-            (await crypt.validate(obj.password, res?.content && (res.content as any).password))
+            serverRs.cryptValidatePassword(
+                obj.password,
+                res?.content && (res.content as any).password,
+            )
         )
             return res.id;
         return null;

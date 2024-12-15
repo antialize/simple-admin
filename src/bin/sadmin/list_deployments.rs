@@ -74,7 +74,7 @@ enum NameOrId<'a> {
     Id(u64),
 }
 
-impl<'a> Display for NameOrId<'a> {
+impl Display for NameOrId<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NameOrId::Name(v) => f.write_str(v),
