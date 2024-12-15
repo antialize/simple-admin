@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const proxy_target = "sadmin.scalgo.com";
+const proxy_target = "127.0.0.1:8182";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -9,12 +9,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/sysadmin': {
-        target: 'wss://'+proxy_target,
+        target: 'ws://'+proxy_target,
         ws: true,
         changeOrigin: true,
       },
       '/terminal': {
-        target: 'wss://'+proxy_target,
+        target: 'ws://'+proxy_target,
         ws: true,
         changeOrigin: true,
       }
