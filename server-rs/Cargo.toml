@@ -8,5 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1"
+base64 = "0.22"
 libc = "0.2"
 neon = "1"
+totp-rs= {version="5", features = ["otpauth"]}

@@ -4,7 +4,6 @@ import * as url from "node:url";
 import * as bodyParser from "body-parser";
 import * as express from "express";
 import helmet from "helmet";
-import * as speakeasy from "speakeasy";
 import * as WebSocket from "ws";
 import { config } from "./config";
 import * as crt from "./crt";
@@ -123,12 +122,7 @@ export class WebClient extends JobOwner {
                             await sleep(1000);
                             pwd = serverRs.cryptValidatePassword(act.pwd, content.password);
                             if (act.otp) {
-                                otp = speakeasy.totp.verify({
-                                    secret: content.otp_base32,
-                                    encoding: "base32",
-                                    token: act.otp,
-                                    window: 1,
-                                });
+                                otp = serverRs.cryptValidateOtp(act.otp, content.otp_base32);
                                 newOtp = true;
                             }
                         }
@@ -391,11 +385,9 @@ export class WebClient extends JobOwner {
                     }
 
                     if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {
-                        const secret = speakeasy.generateSecret({
-                            name: `Simple Admin:${act.obj.name}`,
-                        });
-                        c.otp_base32 = secret.base32;
-                        c.otp_url = secret.otpauth_url;
+                        const [otp_base32, otp_url] = serverRs.cryptGenerateOtpSecret(act.obj.name);
+                        c.otp_base32 = otp_base32;
+                        c.otp_url = otp_url;
                     }
 
                     const { id, version } = await db.changeObject(
