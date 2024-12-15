@@ -642,7 +642,7 @@ export class WebClient extends JobOwner {
                     docker.ca_crt!,
                     my_srs,
                     [],
-                    this.auth.authDays ?? 1,
+                    this.auth.authDays || 1,
                 );
                 const res2: IGenerateKeyRes = {
                     type: ACTION.GenerateKeyRes,
