@@ -49,7 +49,7 @@ enum MetricItem<'a> {
     },
 }
 
-impl<'a> Display for MetricItem<'a> {
+impl Display for MetricItem<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MetricItem::Comment { line } => f.write_str(line),
