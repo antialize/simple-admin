@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { config } from "./config";
-import * as crypt from "./crypt";
 import { db } from "./instances";
 import { webClients } from "./instances";
 import { ACTION, type IObjectChanged } from "./shared/actions";
 import type { IObject2 } from "./shared/state";
+const serverRs = require("simple_admin_server_rs");
 
 export default async (req: Request, res: Response) => {
     res.type("text/x-shellscript");
@@ -22,7 +22,7 @@ export default async (req: Request, res: Response) => {
     }
 
     const npw = randomBytes(18).toString("base64");
-    const cpw = await crypt.hash(npw);
+    const cpw = serverRs.cryptHash(npw);
     const obj: IObject2<any> = {
         id: ho.id,
         type: ho.type,

@@ -8,7 +8,6 @@ import * as speakeasy from "speakeasy";
 import * as WebSocket from "ws";
 import { config } from "./config";
 import * as crt from "./crt";
-import * as crypt from "./crypt";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import { type AuthInfo, getAuth, noAccess } from "./getAuth";
@@ -46,7 +45,7 @@ import {
     typeId,
     userId,
 } from "./shared/type";
-
+const serverRs = require("simple_admin_server_rs");
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
 }
@@ -122,7 +121,7 @@ export class WebClient extends JobOwner {
                             const content = JSON.parse(contentStr);
                             found = true;
                             await sleep(1000);
-                            pwd = await crypt.validate(act.pwd, content.password);
+                            pwd = serverRs.cryptValidatePassword(act.pwd, content.password);
                             if (act.otp) {
                                 otp = speakeasy.totp.verify({
                                     secret: content.otp_base32,
@@ -382,8 +381,13 @@ export class WebClient extends JobOwner {
                     const type = JSON.parse(typeRow.content) as IType;
                     for (const r of type.content || []) {
                         if (r.type !== TypePropType.password) continue;
-                        if (!(r.name in c) || c[r.name].startsWith("$6$")) continue;
-                        c[r.name] = await crypt.hash(c[r.name]);
+                        if (
+                            !(r.name in c) ||
+                            c[r.name].startsWith("$6$") ||
+                            c[r.name].startsWith("$y$")
+                        )
+                            continue;
+                        c[r.name] = serverRs.cryptHash(c[r.name]);
                     }
 
                     if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {

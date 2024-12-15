@@ -1,0 +1,97 @@
+use anyhow::{bail, Context, Result};
+use std::{
+    ffi::{CStr, CString},
+    os::raw::{c_char, c_int, c_ulong, c_void},
+};
+
+extern "C" {
+    pub fn crypt_rn(
+        __phrase: *const c_char,
+        __setting: *const c_char,
+        __data: *mut c_void,
+        __size: c_int,
+    ) -> *mut c_char;
+
+    pub fn crypt_gensalt_rn(
+        __prefix: *const c_char,
+        __count: c_ulong,
+        __rbytes: *const c_char,
+        __nrbytes: c_int,
+        __output: *mut c_char,
+        __output_size: c_int,
+    ) -> *mut c_char;
+}
+
+const CRYPT_DATA_SIZE: usize = 384 + 384 + 512 + 767 + 1 + 30720 + 128;
+
+pub fn hash(key: &str) -> Result<String> {
+    let key = CString::new(key)?;
+    unsafe {
+        let mut buf = [0; 128];
+        let salt = crypt_gensalt_rn(
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            0,
+            buf.as_mut_ptr(),
+            buf.len() as c_int,
+        );
+        if salt.is_null() {
+            Err(std::io::Error::last_os_error()).context("Unable to generate salt")?;
+        }
+        let mut buf = [0u8; CRYPT_DATA_SIZE];
+        let res = crypt_rn(
+            key.as_ptr(),
+            salt,
+            (&mut buf) as *mut u8 as *mut c_void,
+            buf.len() as c_int,
+        );
+        if res.is_null() {
+            Err(std::io::Error::last_os_error()).context("Unable to crypt password")?;
+        }
+        Ok(CStr::from_ptr(res).to_str().map(|v| v.to_string())?)
+    }
+}
+
+pub fn validate_password(provided: &str, hash: &str) -> Result<bool> {
+    let provided = CString::new(provided)?;
+    let chash = CString::new(hash)?;
+    unsafe {
+        let mut buf = [0u8; CRYPT_DATA_SIZE];
+        let res = crypt_rn(
+            provided.as_ptr(),
+            chash.as_ptr(),
+            (&mut buf) as *mut u8 as *mut c_void,
+            buf.len() as c_int,
+        );
+        if res.is_null() {
+            Err(std::io::Error::last_os_error()).context("Unable to crypt password")?;
+        }
+        let l = libc::strlen(res);
+        if l != hash.len() {
+            bail!("Wrong hash size");
+        }
+        // Based on netbsd consttime_memequal.c
+        // https://github.com/intel/linux-sgx/blob/main/sdk/tlibc/string/consttime_memequal.c
+        let mut sum = 0;
+        for i in 0..l {
+            sum |= *chash.as_ptr().add(i) ^ *res.add(i);
+        }
+        let sum = sum as u32;
+        Ok((1 & (sum.wrapping_sub(1) >> 8)) != 0)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crypt() -> Result<()> {
+        let v1 = hash("my_password")?;
+        assert!(validate_password("my_password", &v1)?);
+        assert!(!(validate_password("my_password2", &v1)?));
+        Ok(())
+    }
+}
