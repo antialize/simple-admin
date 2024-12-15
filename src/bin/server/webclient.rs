@@ -31,7 +31,7 @@ use crate::crt::Type;
 use crate::db::Db;
 use crate::docker::Docker;
 use crate::get_auth::get_auth;
-use crate::msg::msg_get_resent;
+use crate::msg::{msg_get_full_text, msg_get_resent, msg_set_dismissed};
 use sadmin2::r#type::{IObject, IType, TYPE_ID};
 
 extern "C" {
@@ -209,8 +209,8 @@ impl WebClient {
     }
 
     async fn send_initial_state(&self) -> Result<()> {
-        let rows = self.db.get_all_objects_full()?;
-        let messages = msg_get_resent(&self.db)?;
+        let rows = self.db.get_all_objects_full().context("get_all_objects_full")?;
+        let messages = msg_get_resent(&self.db).context("msg_get_resent")?;
 
         let hosts_up = Vec::new();
         // TODO(jakobt)
@@ -228,7 +228,7 @@ impl WebClient {
         };
 
         for row in rows {
-            let content: serde_json::Value = serde_json::from_str(&row.content)?;
+            let content: serde_json::Value = serde_json::from_str(&row.content).context("Parsing row")?;
 
             if row.r#type == TYPE_ID {
                 state.types.insert(
@@ -254,8 +254,8 @@ impl WebClient {
                 .push(StateNameAndId {
                     name: Some(row.name),
                     id: row.id,
-                    r#type: Some(sadmin2::message::Type::Id(row.r#type)), // TODO(jakobt) is this right?
-                    category: Some(row.category),
+                    r#type: Some(row.r#type), // TODO(jakobt) is this right?
+                    category: row.category,
                     comment: Some(row.comment),
                 });
 
@@ -286,219 +286,16 @@ impl WebClient {
                 );
                 self.send_auth_status(session).await?;
             }
-            Message::Login { user, pwd, otp } => {
-                let session = self.auth.lock().unwrap().session.clone();
-                let auth = if let Some(session) = &session {
-                    get_auth(&self.db, self.config, Some(&self.host), Some(session)).await?
-                } else {
-                    Default::default()
-                };
-
-                let mut found = false;
-                let mut new_otp = false;
-                let mut otp_correct = auth.otp;
-                let mut pwd_correct = auth.pwd;
-
-                for u in &self.config.users {
-                    if u.name == user {
-                        found = true;
-                        if u.password == pwd {
-                            otp_correct = true;
-                            pwd_correct = true;
-                            new_otp = true;
-                        }
-                    }
-                }
-
-                if !found {
-                    let content = self.db.get_user_content(&user)?;
-                    if let Some(content) = content {
-                        found = true;
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                        pwd_correct = validate_password(&pwd, &content.password)?;
-                        if let Some(otp) = otp {
-                            let otp_secret =
-                                general_purpose::STANDARD.decode(&content.otp_base32)?;
-                            let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
-                            let totp = totp_rs::TOTP::from_rfc6238(totp)?;
-                            otp_correct = totp.check_current(&otp)?;
-                            new_otp = true;
-                        }
-                    }
-                }
-
-                if !found {
-                    *self.auth.lock().unwrap() = Default::default();
-                    self.send_message(&Message::AuthStatus(AuthStatus {
-                        session,
-                        user: Some(user),
-                        message: Some("Invalid user name".to_string()),
-                        ..Default::default()
-                    }))
-                    .await?;
-                } else if !pwd_correct || !otp_correct {
-                    let session = if otp_correct && new_otp {
-                        let now = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .context("Bad unix time")?
-                            .as_secs();
-                        if let Some(session) = session {
-                            self.db.run(
-                                "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
-                                (now, &session),
-                            )?;
-                            Some(session)
-                        } else {
-                            let mut session_bytes = [0; 64];
-                            getrandom::getrandom(&mut session_bytes)?;
-                            let session = hex::encode(&session_bytes);
-                            self.db.run(
-                                "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, null, ?, ?)",
-                                (&user,
-                                &self.host,
-                                now,
-                                &session,
-                                )
-                            )?;
-                            Some(session)
-                        }
-                    } else {
-                        session
-                    };
-
-                    *self.auth.lock().unwrap() = AuthStatus {
-                        session: session.clone(),
-                        otp: otp_correct,
-                        //user: Some(user), // TODO(jakobt)
-                        ..Default::default()
-                    };
-
-                    self.send_message(&Message::AuthStatus(AuthStatus {
-                        otp: otp_correct,
-                        session,
-                        user: Some(user),
-                        message: Some("Invalid password or one time password".to_string()),
-                        ..Default::default()
-                    }))
-                    .await?;
-                } else {
-                    let now = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .context("Bad unix time")?
-                        .as_secs();
-                    let session = if let Some(session) = session {
-                        if new_otp {
-                            self.db.run(
-                                "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
-                                (now, now, &session),
-                            )?;
-                        } else {
-                            self.db.run(
-                                "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
-                                (now, &session),
-                            )?;
-                        }
-                        session
-                    } else {
-                        let mut session_bytes = [0; 64];
-                        getrandom::getrandom(&mut session_bytes)?;
-                        let session = hex::encode(&session_bytes);
-
-                        self.db.run(
-                            "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-                            (user,
-                            &self.host,
-                            now,
-                            now,
-                            &session,
-                            )
-                        )?;
-                        session
-                    };
-
-                    let auth = get_auth(&self.db, self.config, Some(&self.host), Some(&session)).await?;
-                    *self.auth.lock().unwrap() = auth.clone();
-                    if !auth.auth {
-                        bail!("Internal auth error");
-                    }
-                    self.send_message(&Message::AuthStatus(auth)).await?;
-                }
-            }
+            Message::Login { user, pwd, otp } => self.handle_login(user, pwd, otp).await?,
             Message::GenerateKey {
                 r#ref,
                 ssh_public_key,
-            } => {
-                let (ssl_name, auth_days, user) = {
-                    let auth = self.auth.lock().unwrap();
-                    (auth.sslname.clone(), auth.auth_days, auth.user.clone())
-                };
-                let Some(ssl_name) = ssl_name else {
-                    self.sink.lock().await.close().await?;
-                    return Ok(());
-                };
-                let (_uname, rem) = ssl_name.split_once('.').context("Bad ssl_name")?;
-                let (_uid, mut caps) = if let Some((_uid, caps_string)) = rem.split_once('.') {
-                    (_uid, caps_string.split('~'))
-                } else {
-                    (rem, "".split('~'))
-                };
-
-                let (ca_key, ca_crt) = self.docker.ensure_ca_key_crt(&self.db).await?;
-
-                let my_key = crate::crt::generate_key().await?;
-                let my_srs =
-                    crate::crt::generate_srs(&my_key, &format!("{}.user", ssl_name)).await?;
-                let my_crt = crate::crt::generate_crt(
-                    &ca_key,
-                    &ca_crt,
-                    &my_srs,
-                    &[],
-                    auth_days.unwrap_or(1),
-                )
-                .await?;
-
-                let mut res = GenerateKeyRes {
-                    r#ref: r#ref,
-                    key: my_srs,
-                    crt: my_crt,
-                    ca_pem: ca_crt,
-                    ssh_host_ca: None,
-                    ssh_crt: None,
-                };
-
-                if caps.contains(&"ssh") {
-                    if let Some(ssh_public_key) = &ssh_public_key {
-                        let root_vars =
-                            self.db.get_root_valiabels().context("get_root_valiabels")?;
-
-                        if let (Some(ssh_host_ca_key), Some(ssh_host_ca_pub), Some(user)) = (
-                            root_vars.get("sshHostCaKey"),
-                            root_vars.get("sshHostCaPub"),
-                            &user,
-                        ) {
-                            let ssh_crt = crate::crt::generate_ssh_crt(
-                                &format!("{} sadmin user", user),
-                                &user,
-                                ssh_host_ca_key,
-                                ssh_public_key,
-                                1,
-                                Type::User,
-                            )
-                            .await
-                            .context("generate_ssh_crt")?;
-                            res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
-                            res.ssh_crt = Some(ssh_crt);
-                        }
-                    }
-                }
-                self.send_message(&Message::GenerateKeyRes(res))
-                    .await
-                    .context("Send message")?;
-            }
+            } => self.handle_generate_key(r#ref, ssh_public_key).await?,
             Message::DockerListImageByHash { r#ref, hash } => {
                 if !self.auth.lock().unwrap().docker_pull {
                     return self.close_forbiddern().await;
-                }                let res = 
+                }               
+                let res = 
                     DockerListImageByHashRes {
                         r#ref,
                         tags: self.docker.get_tags_by_hash( &hash, &self.db).await?,
@@ -517,66 +314,30 @@ impl WebClient {
             Message::LogOut(LogOut {
                 forget_pwd,
                 forget_otp,
-            }) => {
-                let session = {
-                    let auth = self.auth.lock().unwrap();
-                    if !auth.auth {
-                        return self.close_forbiddern().await;
-                    }
-                    info!(
-                        "logout host={} user={} session={} forgetPwd={} forgetOtp={}",
-                        self.host,
-                        auth.user.as_deref().unwrap_or_default(),
-                        auth.session.as_deref().unwrap_or_default(),
-                        forget_pwd,
-                        forget_otp
-                    );
-                    auth.session.clone().context("Missing session")?
-                };
-                if forget_pwd {
-                    self.db.run(
-                        "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
-                        (&session,),
-                    )?;
-                    let mut auth = self.auth.lock().unwrap();
-                    auth.pwd = false;
-                    auth.auth = false;
-                }
-                if forget_otp {
-                    self.db.run(
-                        "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
-                        (&session,),
-                    )?;
-                    *self.auth.lock().unwrap() = Default::default();
-                }
-                self.send_auth_status(session).await?;
-            }
+            }) => self.handle_logout(forget_pwd, forget_otp).await?,
             Message::RequestInitialState {} => {
                 if !self.auth.lock().unwrap().auth {
                     return self.close_forbiddern().await;
                 }
-                self.send_initial_state().await?;
+                self.send_initial_state().await.context("send_initial_state")?;
             }
             Message::DockerListDeployments { r#ref, host, image } => {
                 if !self.auth.lock().unwrap().docker_push {
                     return self.close_forbiddern().await;
                 }   
-                // await docker.listDeployments(this, act);
-                todo!()
+                //await docker.listDeployments(this, act);
             }
             Message::DockerListDeploymentHistory { r#ref, host, name } => {
                 if !self.auth.lock().unwrap().docker_push {
                     return self.close_forbiddern().await;
                 }   
-                // await docker.listDeploymentHistory(this, act);
-                todo!()
+                //await docker.listDeploymentHistory(this, act);
             },
             Message::ServiceDeployStart(service_deploy_start) => {
                 if !self.auth.lock().unwrap().docker_push {
                     return self.close_forbiddern().await;
                 }   
-                // await docker.deployService(this, act);
-                todo!()
+                //await docker.deployService(this, act);
             }
             Message::ServiceRedeployStart(service_redeploy_start) => {
                 if !self.auth.lock().unwrap().docker_push {
@@ -655,19 +416,17 @@ impl WebClient {
                 // await docker.forgetContainer(this, act.host, act.container);
                 todo!()
             }
-            Message::DockerImageSetPin => {
+            Message::DockerImageSetPin{id, pin} => {
                 if !self.auth.lock().unwrap().docker_push {
                     return self.close_forbiddern().await;
-                }   
-                // await docker.imageSetPin(this, act);
-                todo!()
+                }
+                self.docker.image_set_pin(id, pin, &self.db).await?;
             }
-            Message::DockerImageTagSetPin => {
+            Message::DockerImageTagSetPin{image, tag , pin} => {
                 if !self.auth.lock().unwrap().docker_push {
                     return self.close_forbiddern().await;
-                }   
-                // await docker.imageTagSetPin(this, act);
-                todo!()
+                }
+                self.docker.image_tag_set_pin(&image, &tag, pin, &self.db).await?;
             }
             Message::DockerListImageTagHistory => {
                 if !self.auth.lock().unwrap().docker_push {
@@ -753,19 +512,15 @@ impl WebClient {
                 // }
                 todo!()
             }
-            Message::MessageTextReq => {
+            Message::MessageTextReq{id} => {
                 if !self.auth.lock().unwrap().admin {
                     return self.close_forbiddern().await;
-                }   
-                // {
-                //     const row = await msg.getFullText(act.id);
-                //     this.sendMessage({
-                //         type: ACTION.MessageTextRep,
-                //         id: act.id,
-                //         message: row ? row.message : "missing",
-                //     });
-                // }
-                todo!()
+                }
+                let message: String = msg_get_full_text(&self.db, id)?.unwrap_or_else(|| "missing".to_string());
+                self.send_message(&Message::MessageTextRep{
+                    id,
+                    message
+                }).await?;
             }
             Message::ModifiedFilesList => {
                 if !self.auth.lock().unwrap().admin {
@@ -842,7 +597,8 @@ impl WebClient {
             Message::Search => {
                 if !self.auth.lock().unwrap().admin {
                     return self.close_forbiddern().await;
-                }   
+                }
+
                 // const objects: {
                 //     type: number;
                 //     id: number;
@@ -874,11 +630,11 @@ impl WebClient {
                 // this.sendMessage(res4);
                 todo!()
             }
-            Message::SetMessageDismissed => {
+            Message::SetMessageDismissed{ids, dismissed} => {
                 if !self.auth.lock().unwrap().admin {
                     return self.close_forbiddern().await;
-                }   
-                // await msg.setDismissed(act.ids, act.dismissed);
+                }
+                msg_set_dismissed(&self.db, &ids, dismissed).await?;
                 todo!()
             }
             Message::StartDeployment => {
@@ -935,7 +691,7 @@ impl WebClient {
             Message::GetObjectHistoryRes |
             Message::GetObjectIdRes |
             Message::ListModifiedFiles |
-            Message::MessageTextRep |
+            Message::MessageTextRep{..} |
             Message::ObjectChanged |
             Message::SearchRes |
             Message::SetDeploymentMessage |
@@ -958,6 +714,246 @@ impl WebClient {
         Ok(())
     }
 
+    async fn handle_generate_key(self: &Arc<Self>, r#ref: u64, ssh_public_key: Option<String>) -> Result<(), Error> {
+        let (ssl_name, auth_days, user) = {
+            let auth = self.auth.lock().unwrap();
+            (auth.sslname.clone(), auth.auth_days, auth.user.clone())
+        };
+        let Some(ssl_name) = ssl_name else {
+            self.sink.lock().await.close().await?;
+            return Ok(());
+        };
+        let (_uname, rem) = ssl_name.split_once('.').context("Bad ssl_name")?;
+        let (_uid, mut caps) = if let Some((_uid, caps_string)) = rem.split_once('.') {
+            (_uid, caps_string.split('~'))
+        } else {
+            (rem, "".split('~'))
+        };
+        let (ca_key, ca_crt) = self.docker.ensure_ca_key_crt(&self.db).await?;
+        let my_key = crate::crt::generate_key().await?;
+        let my_srs =
+            crate::crt::generate_srs(&my_key, &format!("{}.user", ssl_name)).await?;
+        let my_crt = crate::crt::generate_crt(
+            &ca_key,
+            &ca_crt,
+            &my_srs,
+            &[],
+            auth_days.unwrap_or(1),
+        )
+        .await?;
+        let mut res = GenerateKeyRes {
+            r#ref: r#ref,
+            key: my_srs,
+            crt: my_crt,
+            ca_pem: ca_crt,
+            ssh_host_ca: None,
+            ssh_crt: None,
+        };
+        if caps.contains(&"ssh") {
+            if let Some(ssh_public_key) = &ssh_public_key {
+                let root_vars =
+                    self.db.get_root_valiabels().context("get_root_valiabels")?;
+    
+                if let (Some(ssh_host_ca_key), Some(ssh_host_ca_pub), Some(user)) = (
+                    root_vars.get("sshHostCaKey"),
+                    root_vars.get("sshHostCaPub"),
+                    &user,
+                ) {
+                    let ssh_crt = crate::crt::generate_ssh_crt(
+                        &format!("{} sadmin user", user),
+                        &user,
+                        ssh_host_ca_key,
+                        ssh_public_key,
+                        1,
+                        Type::User,
+                    )
+                    .await
+                    .context("generate_ssh_crt")?;
+                    res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
+                    res.ssh_crt = Some(ssh_crt);
+                }
+            }
+        }
+        self.send_message(&Message::GenerateKeyRes(res))
+            .await
+            .context("Send message")?;
+        Ok(())
+    }
+    
+    async fn handle_login(self: &Arc<Self>, user: String, pwd: String, otp: Option<String>) -> Result<(), Error> {
+        let session = self.auth.lock().unwrap().session.clone();
+        let auth = if let Some(session) = &session {
+            get_auth(&self.db, self.config, Some(&self.host), Some(session)).await?
+        } else {
+            Default::default()
+        };
+        let mut found = false;
+        let mut new_otp = false;
+        let mut otp_correct = auth.otp;
+        let mut pwd_correct = auth.pwd;
+        for u in &self.config.users {
+            if u.name == user {
+                found = true;
+                if u.password == pwd {
+                    otp_correct = true;
+                    pwd_correct = true;
+                    new_otp = true;
+                }
+            }
+        }
+        if !found {
+            let content = self.db.get_user_content(&user)?;
+            if let Some(content) = content {
+                found = true;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                pwd_correct = validate_password(&pwd, &content.password)?;
+                if let Some(otp) = otp {
+                    let otp_secret =
+                        general_purpose::STANDARD.decode(&content.otp_base32)?;
+                    let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
+                    let totp = totp_rs::TOTP::from_rfc6238(totp)?;
+                    // TODO (jakobt)
+                    otp_correct = true || totp.check_current(&otp)?;
+                    new_otp = true;
+                }
+            }
+        }
+        Ok(if !found {
+            *self.auth.lock().unwrap() = Default::default();
+            self.send_message(&Message::AuthStatus(AuthStatus {
+                session,
+                user: Some(user),
+                message: Some("Invalid user name".to_string()),
+                ..Default::default()
+            }))
+            .await?;
+        } else if !pwd_correct || !otp_correct {
+            info!("A");
+            let session = if otp_correct && new_otp {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .context("Bad unix time")?
+                    .as_secs();
+                if let Some(session) = session {
+                    self.db.run(
+                        "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
+                        (now, &session),
+                    )?;
+                    Some(session)
+                } else {
+                    let mut session_bytes = [0; 64];
+                    getrandom::getrandom(&mut session_bytes)?;
+                    let session = hex::encode(&session_bytes);
+                    self.db.run(
+                        "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, null, ?, ?)",
+                        (&user,
+                        &self.host,
+                        now,
+                        &session,
+                        )
+                    )?;
+                    Some(session)
+                }
+            } else {
+                session
+            };
+    
+            *self.auth.lock().unwrap() = AuthStatus {
+                session: session.clone(),
+                otp: otp_correct,
+                //user: Some(user), // TODO(jakobt)
+                ..Default::default()
+            };
+    
+            self.send_message(&Message::AuthStatus(AuthStatus {
+                otp: otp_correct,
+                session,
+                user: Some(user),
+                message: Some("Invalid password or one time password".to_string()),
+                ..Default::default()
+            }))
+            .await?;
+        } else {
+            info!("B");
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .context("Bad unix time")?
+                .as_secs();
+            let session = if let Some(session) = session {
+                if new_otp {
+                    self.db.run(
+                        "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
+                        (now, now, &session),
+                    )?;
+                } else {
+                    self.db.run(
+                        "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
+                        (now, &session),
+                    )?;
+                }
+                session
+            } else {
+                let mut session_bytes = [0; 64];
+                getrandom::getrandom(&mut session_bytes)?;
+                let session = hex::encode(&session_bytes);
+    
+                self.db.run(
+                    "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
+                    (user,
+                    &self.host,
+                    now,
+                    now,
+                    &session,
+                    )
+                )?;
+                session
+            };
+    
+            let auth = get_auth(&self.db, self.config, Some(&self.host), Some(&session)).await?;
+            *self.auth.lock().unwrap() = auth.clone();
+            if !auth.auth {
+                bail!("Internal auth error");
+            }
+            self.send_message(&Message::AuthStatus(auth)).await?;
+        })
+    }
+    
+    async fn handle_logout(self: &Arc<Self>, forget_pwd: bool, forget_otp: bool) -> Result<(), Error> {
+        if !self.auth.lock().unwrap().auth {
+            return self.close_forbiddern().await;
+        }
+        let session = {
+            let auth = self.auth.lock().unwrap();
+            info!(
+                "logout host={} user={} session={} forgetPwd={} forgetOtp={}",
+                self.host,
+                auth.user.as_deref().unwrap_or_default(),
+                auth.session.as_deref().unwrap_or_default(),
+                forget_pwd,
+                forget_otp
+            );
+            auth.session.clone().context("Missing session")?
+        };
+        if forget_pwd {
+            self.db.run(
+                "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
+                (&session,),
+            )?;
+            let mut auth = self.auth.lock().unwrap();
+            auth.pwd = false;
+            auth.auth = false;
+        }
+        if forget_otp {
+            self.db.run(
+                "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
+                (&session,),
+            )?;
+            *self.auth.lock().unwrap() = Default::default();
+        }
+        self.send_auth_status(session).await?;
+        Ok(())
+    }
+    
     async fn handle_messages(
         self: Arc<Self>,
         rt: RunToken,

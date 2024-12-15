@@ -9,7 +9,7 @@ use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::default::{COLLECTION_ID, FILE_ID, GROUP_ID, PACKAGE_ID, UFW_ALLOW_ID};
-use sadmin2::r#type::{IVariable, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID, USER_ID};
+use sadmin2::{message::Type, r#type::{IVariable, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID, USER_ID}};
 
 // import * as sqlite from "sqlite3";
 // import type { IObject2 } from "./shared/state";
@@ -264,10 +264,10 @@ pub fn init() -> Result<Arc<Db>> {
 
 pub struct FullObject {
     pub id: u64,
-    pub r#type: u64,
+    pub r#type: Type,
     pub name: String,
     pub content: String,
-    pub category: String,
+    pub category: Option<String>,
     pub version: i64,
     pub comment: String,
     pub time: i64,
@@ -417,6 +417,9 @@ impl Db {
     pub fn get_all_objects_full(&self) -> Result<Vec<FullObject>> {
         self.all("SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest`=1 ORDER BY `id`",
             (), |r| {
+            let time: String = r.get(7)?;
+            let time: i64 = time.parse().unwrap();
+            Type::parse(r.get(1)?)
             Ok(FullObject{
                 id: r.get(0)?,
                 r#type: r.get(1)?,
@@ -425,7 +428,7 @@ impl Db {
                 category: r.get(4)?,
                 version: r.get(5)?,
                 comment: r.get(6)?,
-                time: r.get(7)?,
+                time,
                 author: r.get(8)?
             })
         })

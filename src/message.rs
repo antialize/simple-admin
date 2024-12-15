@@ -102,7 +102,7 @@ pub struct DockerPinnedImageTag {
     pub tag: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 #[allow(clippy::enum_variant_names)]
 pub enum Type {
     Id(u64),
@@ -156,7 +156,7 @@ pub struct StateNameAndId {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
-    pub object_names_and_ids: HashMap<u64, Vec<StateNameAndId>>,
+    pub object_names_and_ids: HashMap<Type, Vec<StateNameAndId>>,
     pub messages: Vec<HostMessage>,
     // deploymentObjects: IDeploymentObject[];
     // deploymentStatus: DEPLOYMENT_STATUS;
@@ -349,8 +349,15 @@ pub enum Message {
     DockerContainerStart,
     DockerContainerStop,
     DockerDeploymentsChanged,
-    DockerImageSetPin,
-    DockerImageTagSetPin,
+    DockerImageSetPin {
+        id: i64,
+        pin: bool,
+    },
+    DockerImageTagSetPin {
+        image: String,
+        tag: String,
+        pin: bool,
+    },
     DockerListImageTagHistory,
     DockerListImageTagHistoryRes,
     EndLog,
@@ -360,8 +367,13 @@ pub enum Message {
     GetObjectId,
     GetObjectIdRes,
     ListModifiedFiles,
-    MessageTextRep,
-    MessageTextReq,
+    MessageTextRep{
+        id: i64,
+        message: String,
+    },
+    MessageTextReq{
+        id: i64
+    },
     ModifiedFilesList,
     ModifiedFilesResolve,
     ModifiedFilesScan,
@@ -374,7 +386,10 @@ pub enum Message {
     SetDeploymentObjects,
     SetDeploymentObjectStatus,
     SetDeploymentStatus,
-    SetMessageDismissed,
+    SetMessageDismissed{
+        ids: Vec<i64>,
+        dismissed: bool,
+    },
     SetPage,
     StartDeployment,
     StartLog,

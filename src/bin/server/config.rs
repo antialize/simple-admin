@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 #[derive(Deserialize, Default)]
 pub struct ConfigUser {
@@ -19,6 +19,6 @@ pub struct Config {
 }
 
 pub fn read_config() -> Result<Config> {
-    let config = std::fs::read("config.json")?;
-    Ok(serde_json::from_slice(&config)?)
+    let config = std::fs::read("config.json").context("Unable to read config.json")?;
+    Ok(serde_json::from_slice(&config).context("Unable to parse config.json")?)
 }

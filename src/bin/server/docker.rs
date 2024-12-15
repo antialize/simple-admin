@@ -1327,10 +1327,11 @@ impl Docker {
     //             client.sendMessage(res);
     //         }
         todo!()
-     }
+    }
 
-    //     async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
-    //         await db.run("UPDATE `docker_images` SET pin=? WHERE `id`=?", act.pin ? 1 : 0, act.id);
+
+    pub async fn image_set_pin(&self, id: i64, pin: bool, db: &Db) -> Result<()> {
+        db.run("UPDATE `docker_images` SET pin=? WHERE `id`=?", (pin, id))?;
     //         const res: IDockerImageTagsCharged = {
     //             type: ACTION.DockerListImageTagsChanged,
     //             changed: [],
@@ -1352,22 +1353,24 @@ impl Docker {
     //                 labels: JSON.parse(row.labels || "{}"),
     //                 removed: row.removed,
     //             });
-    //         webClients.broadcast(res);
-    //     }
+        //webClients.broadcast(res);
+        Ok(())
+    }
 
-    //     async imageTagSetPin(client: WebClient, act: IDockerImageTagSetPin) {
-    //         if (act.pin)
-    //             await db.run(
-    //                 "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
-    //                 act.image,
-    //                 act.tag,
-    //             );
-    //         else
-    //             await db.run(
-    //                 "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
-    //                 act.image,
-    //                 act.tag,
-    //             );
+    pub async fn image_tag_set_pin(&self, image: &str, tag: &str, pin: bool, db: &Db) -> Result<()> {
+        if pin {
+            db.run(
+                "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
+                (image,
+                tag,)
+            )?;
+        } else {
+            db.run(
+                "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
+                (image,
+                tag,)
+            )?;
+        }
     //         const res: IDockerImageTagsCharged = {
     //             type: ACTION.DockerListImageTagsChanged,
     //             changed: [],
@@ -1375,7 +1378,8 @@ impl Docker {
     //             imageTagPinChanged: [{ image: act.image, tag: act.tag, pin: act.pin }],
     //         };
     //         webClients.broadcast(res);
-    //     }
+        Ok(())
+    }
 
     //     async broadcastDeploymentChange(o: DeploymentInfo) {
     //         const imageInfo: DockerImageTag | undefined = o.hash
@@ -1730,3 +1734,20 @@ impl Docker {
 }
 
 // export const docker = new Docker();
+
+fn assert_send<T: Send>(_: T) {}
+
+fn magic_t<T>() -> T {
+    let v : Option<T> = None;
+    v.unwrap()
+}
+
+fn test() {
+    let docker = magic_t::<Docker>();
+    let db = magic_t::<Db>();
+    assert_send(docker.ensure_ca_key_crt(&db));
+    assert_send(docker.get_tags_by_hash(magic_t(), &db));
+    assert_send(docker.list_deployments(&db));
+    assert_send(docker.list_image_tage_history("tag", "image", &db));
+    assert_send(docker.list_image_tags(42, &db));
+}

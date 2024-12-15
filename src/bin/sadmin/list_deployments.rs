@@ -11,6 +11,7 @@ use sadmin2::dyn_format::{dyn_format, FormatArg};
 use sadmin2::message::Deployment;
 use sadmin2::message::ImageInfo;
 use sadmin2::message::Message;
+use sadmin2::message::Type;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -340,7 +341,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     let mut type_ids = HashMap::new();
     for v in state
         .object_names_and_ids
-        .get(&1)
+        .get(&Type::Id(1))
         .map(|v| v.as_slice())
         .unwrap_or_default()
     {
@@ -352,7 +353,7 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     if let Some(host_type_id) = type_ids.get("Host") {
         for v in state
             .object_names_and_ids
-            .get(&host_type_id)
+            .get(&Type::Id(*host_type_id))
             .map(|v| v.as_slice())
             .unwrap_or_default()
         {

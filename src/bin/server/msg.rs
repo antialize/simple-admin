@@ -5,6 +5,7 @@ use std::time::UNIX_EPOCH;
 
 use crate::db::Db;
 use anyhow::{Context, Result};
+use itertools::Itertools;
 use sadmin2::message::HostMessage;
 
 pub async fn msg_emit(
@@ -45,13 +46,16 @@ pub async fn msg_emit(
 }
 
 pub async fn msg_set_dismissed(db: &Db, ids: &[i64], dismissed: bool) -> Result<()> {
-    // const time = dismissed ? +new Date() / 1000 : null;
-
-    // await db.run(
-    //     `UPDATE \`messages\` SET \`dismissed\`=?, \`dismissedTime\`=? WHERE \`id\` IN (${ids.join(",")})`,
-    //     dismissed,
-    //     time,
-    // );
+    let time = if dismissed {
+        Some(std::time::SystemTime::now()
+           .duration_since(UNIX_EPOCH)
+            .context("Bad unix time")?
+            .as_secs())
+    } else {
+        None
+    };
+    let ids = ids.iter().map(|v| v.to_string()).join(",");
+    db.run(&format!("UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN ({})", ids ), (dismissed, time))?;
 
     // const act: actions.ISetMessagesDismissed = {
     //     type: actions.ACTION.SetMessagesDismissed,

@@ -246,8 +246,8 @@ pub struct IObject<T> {
     pub id: u64,
     pub r#type: u64,
     pub name: String,
-    pub category: String,
-    pub content: T,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<i64>,
     pub comment: String,
@@ -255,6 +255,7 @@ pub struct IObject<T> {
     pub author: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub time: Option<i64>,
+    pub content: T,
 }
 
 pub const TYPE_ID: u64 = 1;
