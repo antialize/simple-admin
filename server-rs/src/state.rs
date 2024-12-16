@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use neon::types::Finalize;
+use simple_logger::SimpleLogger;
 use sqlx::SqlitePool;
 use std::sync::Arc;
 
@@ -12,6 +13,8 @@ pub struct State {
 
 impl State {
     pub async fn new() -> Result<Arc<State>> {
+        SimpleLogger::new().env().init().unwrap();
+
         let config = read_config()?;
         let db = sqlx::SqlitePool::connect("sysadmin.db")
             .await
