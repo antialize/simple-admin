@@ -6,7 +6,6 @@ import * as express from "express";
 import helmet from "helmet";
 import * as WebSocket from "ws";
 import { config } from "./config";
-import * as crt from "./crt";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import { type AuthInfo } from "./getAuth";
@@ -634,9 +633,9 @@ export class WebClient extends JobOwner {
                 const caps = (capsString || "").split("~");
 
                 await docker.ensure_ca();
-                const my_key = await crt.generate_key();
-                const my_srs = await crt.generate_srs(my_key, `${this.auth.sslname}.user`);
-                const my_crt = await crt.generate_crt(
+                const my_key = await serverRs.crtGenerateKey();
+                const my_srs = await serverRs.crtGenerateSrs(my_key, `${this.auth.sslname}.user`);
+                const my_crt = await serverRs.crtGenerateCrt(
                     docker.ca_key!,
                     docker.ca_crt!,
                     my_srs,
@@ -655,7 +654,7 @@ export class WebClient extends JobOwner {
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
                             const validityDays = 1;
-                            const sshCrt = await crt.generate_ssh_crt(
+                            const sshCrt = await serverRs.crtGenerateSshCrt(
                                 `${this.auth.user} sadmin user`,
                                 this.auth.user,
                                 sshHostCaKey,

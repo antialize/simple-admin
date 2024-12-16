@@ -15,4 +15,6 @@ serde = {version="1", features = ["derive"]}
 serde_json = {version = "1", features = ["float_roundtrip"]}
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
 sqlx-type = "0.4.5"
+tempfile = "3.14.0"
+tokio = {version = "1", features = ["process"]}
 totp-rs= {version="5", features = ["otpauth"]}

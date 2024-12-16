@@ -1,10 +1,12 @@
 mod config;
+mod crt;
 mod crypt;
 mod db;
 mod get_auth;
 mod msg;
 mod state;
 
+use anyhow::anyhow;
 use db::UserContent;
 use get_auth::AuthStatus;
 use msg::IMessage;
@@ -72,6 +74,62 @@ async fn msg_get_full_text(
 #[neon::export(name = "msgGetCount")]
 async fn msg_get_count(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
     Ok(msg::get_count(&state).await? as f64)
+}
+
+#[neon::export(name = "crtGenerateKey")]
+async fn crt_generate_key() -> Result<String, Error> {
+    Ok(crt::generate_key().await?)
+}
+
+#[neon::export(name = "crtGenerateCaCrt")]
+async fn crt_generate_ca_crt(key: String) -> Result<String, Error> {
+    Ok(crt::generate_ca_crt(&key).await?)
+}
+
+#[neon::export(name = "crtGenerateSrs")]
+async fn crt_generate_srs(key: String, cn: String) -> Result<String, Error> {
+    Ok(crt::generate_srs(&key, &cn).await?)
+}
+
+#[neon::export(name = "crtGenerateCrt")]
+async fn crt_generate_crt(
+    ca_key: String,
+    ca_crt: String,
+    srs: String,
+    Json(subcerts): Json<Vec<String>>,
+    timout_days: f64,
+) -> Result<String, Error> {
+    Ok(crt::generate_crt(&ca_key, &ca_crt, &srs, &subcerts, timout_days as u32).await?)
+}
+
+#[neon::export(name = "crtGenerateSshCrt")]
+async fn crt_generate_ssh_crt(
+    key_id: String,
+    principal: String,
+    ca_private_key: String,
+    client_public_key: String,
+    validity_days: f64,
+    r#type: String,
+) -> Result<String, Error> {
+    let t = match r#type.as_str() {
+        "host" => crt::Type::Host,
+        "user" => crt::Type::User,
+        _ => Err(anyhow!("Invalid type"))?,
+    };
+    Ok(crt::generate_ssh_crt(
+        &key_id,
+        &principal,
+        &ca_private_key,
+        &client_public_key,
+        validity_days as u32,
+        t,
+    )
+    .await?)
+}
+
+#[neon::export(name = "crtStrip")]
+fn crt_strip(crt: String) -> Result<String, Error> {
+    Ok(crt::strip(&crt).to_string())
 }
 
 #[neon::export]
