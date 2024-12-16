@@ -2,6 +2,7 @@ mod config;
 mod crt;
 mod crypt;
 mod db;
+mod docker;
 mod get_auth;
 mod msg;
 mod state;
@@ -130,6 +131,11 @@ async fn crt_generate_ssh_crt(
 #[neon::export(name = "crtStrip")]
 fn crt_strip(crt: String) -> Result<String, Error> {
     Ok(crt::strip(&crt).to_string())
+}
+
+#[neon::export(name = "dockerPrune")]
+async fn docker_prune(Boxed(state): Boxed<Arc<State>>) -> () {
+    docker::prune(&state).await
 }
 
 #[neon::export]

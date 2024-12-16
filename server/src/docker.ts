@@ -153,8 +153,7 @@ class Docker {
     }
 
     constructor() {
-        //setTimeout(this.prune.bind(this), 1000);
-        setInterval(this.prune.bind(this), 1000 * 60 * 60 * 12); // prune docker images every 12 houers
+        setInterval(serverRs.dockerPrune(rs), 1000 * 60 * 60 * 12); // prune docker images every 12 houers
     }
 
     getContainerState(host: number, container: string): string | undefined {
@@ -1573,91 +1572,6 @@ class Docker {
         for (const id of obj.delete) images.delete(id);
 
         for (const u of obj.update) images.set(u.id, u);
-    }
-
-    async prune(): Promise<void> {
-        try {
-            const files = new Set(
-                await new Promise<string[]>((accept, reject) => {
-                    fs.readdir(docker_blobs_path, { encoding: "utf8" }, (err, files) => {
-                        if (err) reject(err);
-                        else accept(files);
-                    });
-                }),
-            );
-
-            const used = new Set();
-            const now = +new Date() / 1000;
-            const grace = 60 * 60 * 24 * 14; // Number of seconds to keep something around
-
-            for (const row of await db.all(
-                "SELECT \
-                  `docker_images`.`manifest`, \
-                  `docker_images`.`id`, \
-                  `docker_images`.`tag`, \
-                  `docker_images`.`time`, \
-                  `docker_images`.`project`, \
-                  MIN(`docker_deployments`.`startTime`) AS `start`, \
-                  MAX(`docker_deployments`.`endTime`) AS `end`, \
-                  COUNT(`docker_deployments`.`startTime`) - COUNT(`docker_deployments`.`endTime`) AS `active`, \
-                  `docker_images`.`pin`, \
-                  `docker_images`.`used`, \
-                  (SELECT MAX(`x`.`id`) \
-                   FROM `docker_images` AS `x` \
-                   WHERE `x`.`project`=`docker_images`.`project` AND `x`.`tag`=`docker_images`.`tag`) AS `newest`, \
-                  EXISTS (SELECT * FROM `docker_image_tag_pins` WHERE `docker_image_tag_pins`.`project`=`docker_images`.`project` AND `docker_image_tag_pins`.`tag`=`docker_images`.`tag`) AS `tagPin` \
-                FROM `docker_images` \
-                LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash` \
-                WHERE `removed` IS NULL \
-                GROUP BY `docker_images`.`id`",
-            )) {
-                let keep =
-                    row.pin ||
-                    (row.newest === row.id && row.tagPin) ||
-                    ((row.tag === "latest" || row.tag === "master") && row.newest === row.id) ||
-                    row.active > 0 ||
-                    (row.start && row.end && 2 * (row.end - row.start) + grace > now - row.start) ||
-                    (row.used && 2 * (row.used - row.time) + grace > now - row.used) ||
-                    row.time + grace > now;
-
-                const manifest = JSON.parse(row.manifest);
-                if (!files.has(manifest.config.digest)) {
-                    keep = false;
-                    continue;
-                }
-
-                for (const layer of manifest.layers) {
-                    if (!files.has(layer.digest)) {
-                        keep = false;
-                        break;
-                    }
-                }
-
-                if (keep) {
-                    used.add(manifest.config.digest);
-                    for (const layer of manifest.layers) used.add(layer.digest);
-                } else {
-                    await db.run(
-                        "UPDATE `docker_images` SET `removed`=? WHERE `id`=?",
-                        now,
-                        row.id,
-                    );
-                }
-            }
-            const rem = [...files].filter((x) => !used.has(x));
-            console.log("Used: ", used.size, " total: ", files.size, " remove: ", rem.length);
-
-            for (const file of rem) {
-                await new Promise<void>((acc, rej) =>
-                    fs.unlink(`${docker_blobs_path}/${file}`, (e) => {
-                        if (e) rej(e);
-                        else acc();
-                    }),
-                );
-            }
-        } catch (err) {
-            console.error(err);
-        }
     }
 }
 
