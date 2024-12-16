@@ -13,4 +13,6 @@ libc = "0.2"
 neon = {version="1.1.0-alpha.1", features = ["tokio-rt-multi-thread", "serde"]}
 serde = {version="1", features = ["derive"]}
 serde_json = {version = "1", features = ["float_roundtrip"]}
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+sqlx-type = "0.4.5"
 totp-rs= {version="5", features = ["otpauth"]}

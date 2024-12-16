@@ -9,8 +9,8 @@ import { config } from "./config";
 import * as crt from "./crt";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
-import { type AuthInfo, getAuth, noAccess } from "./getAuth";
-import { db, deployment, hostClients, modifiedFiles, msg, webClients } from "./instances";
+import { type AuthInfo } from "./getAuth";
+import { db, deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import { LogJob } from "./jobs/logJob";
@@ -61,7 +61,7 @@ export class WebClient extends JobOwner {
 
     constructor(socket: WebSocket, host: string) {
         super();
-        this.auth = noAccess;
+        this.auth = serverRs.noAccess();
         this.connection = socket;
         this.host = host;
         this.connection.on("close", () => this.onClose());
@@ -79,7 +79,7 @@ export class WebClient extends JobOwner {
     }
 
     async sendAuthStatus(sid: string | null) {
-        this.auth = await getAuth(this.host, sid);
+        this.auth = await serverRs.getAuth(rs, this.host, sid);
         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 
@@ -93,7 +93,7 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.Login: {
                 let session = this.auth.session;
-                const auth = session ? await getAuth(this.host, session) : noAccess;
+                const auth = session ? await serverRs.getAuth(rs, this.host, session) : serverRs.noAccess();
                 let found = false;
                 let newOtp = false;
                 let otp = auth?.otp;
@@ -141,7 +141,7 @@ export class WebClient extends JobOwner {
                         dockerPush: false,
                         message: "Invalid user name",
                     });
-                    this.auth = noAccess;
+                    this.auth = serverRs.noAccess();
                 } else if (!pwd || !otp) {
                     if (otp && newOtp) {
                         const now = (Date.now() / 1000) | 0;
@@ -176,7 +176,7 @@ export class WebClient extends JobOwner {
                         message: "Invalid password or one time password",
                     });
                     this.auth = {
-                        ...noAccess,
+                        ...serverRs.noAccess(),
                         session,
                         otp,
                     };
@@ -206,7 +206,7 @@ export class WebClient extends JobOwner {
                             session,
                         );
                     }
-                    this.auth = await getAuth(this.host, session);
+                    this.auth = await serverRs.getAuth(rs, this.host, session);
                     if (!this.auth.auth) throw Error("Internal auth error");
                     this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
                 }
@@ -242,7 +242,7 @@ export class WebClient extends JobOwner {
                         "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
                         this.auth.session,
                     );
-                    this.auth = noAccess;
+                    this.auth = serverRs.noAccess();
                 }
                 this.sendAuthStatus(this.auth.session);
                 break;
@@ -830,7 +830,7 @@ export class WebClients {
                 const cols = +u.query!.cols!;
                 const rows = +u.query!.rows!;
                 const session = u.query.session as string;
-                getAuth(address, session)
+                serverRs.getAuth(rs, address, session)
                     .then((a: any) => {
                         if (a.auth && server in hostClients.hostClients)
                             new ShellJob(hostClients.hostClients[server], ws, cols, rows);

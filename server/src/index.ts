@@ -6,12 +6,13 @@ import * as instances from "./instances";
 import { ModifiedFiles } from "./modifiedfiles";
 import { Msg } from "./msg";
 import { WebClients } from "./webclient";
-
+const serverRs = require("simple_admin_server_rs");
 const exitHook = require("async-exit-hook");
 
 console.log("STARTING SERVER");
 
 async function setup() {
+    instances.setRs(await serverRs.init());
     instances.setMsg(new Msg());
     instances.setDeployment(new Deployment());
     instances.setDb(new DB());

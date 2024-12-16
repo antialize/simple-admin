@@ -30,12 +30,12 @@ import getOrInsert from "../../shared/getOrInsert";
 import nullCheck from "../../shared/nullCheck";
 import { config } from "./config";
 import * as crt from "./crt";
-import { getAuth } from "./getAuth";
 import type { HostClient } from "./hostclient";
-import { db, hostClients, webClients } from "./instances";
+import { db, hostClients, rs, webClients } from "./instances";
 import { Job } from "./job";
 import type * as message from "./messages";
 import type { WebClient } from "./webclient";
+const serverRs = require("simple_admin_server_rs");
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
 const docker_blobs_path = "/var/simpleadmin_docker_blobs/";
@@ -178,7 +178,7 @@ class Docker {
             // req.connection.remoteAddress
             const parts = auth.split(":");
             if (parts.length > 1) {
-                const a = await getAuth(null, parts.slice(1).join(":"));
+                const a = await serverRs.getAuth(rs, null, parts.slice(1).join(":"));
                 if (parts[0] === a.user && push ? a.dockerPush : a.dockerPull) return a.user;
             }
 
