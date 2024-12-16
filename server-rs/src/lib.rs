@@ -4,6 +4,7 @@ mod db;
 mod get_auth;
 mod state;
 
+use db::UserContent;
 use get_auth::AuthStatus;
 use neon::types::extract::{Boxed, Error, Json};
 use state::State;
@@ -27,6 +28,14 @@ fn crypt_validate_otp(token: String, base32_secret: String) -> Result<bool, Erro
 #[neon::export(name = "cryptGenerateOtpSecret")]
 fn crypt_generate_otp_secret(name: String) -> Result<Json<(String, String)>, Error> {
     Ok(Json(crypt::generate_otp_secret(name)?))
+}
+
+#[neon::export(name = "dbGetUserContent")]
+async fn db_get_user_content(
+    Boxed(state): Boxed<Arc<State>>,
+    name: String,
+) -> Result<Json<Option<UserContent>>, Error> {
+    Ok(Json(db::get_user_content(&state, &name).await?))
 }
 
 #[neon::export(name = "getAuth")]

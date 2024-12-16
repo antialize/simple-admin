@@ -115,9 +115,8 @@ export class WebClient extends JobOwner {
 
                 if (!found) {
                     try {
-                        const contentStr = await db.getUserContent(act.user);
-                        if (contentStr) {
-                            const content = JSON.parse(contentStr);
+                        const content = await serverRs.dbGetUserContent(rs, act.user);
+                        if (content) {
                             found = true;
                             await sleep(1000);
                             pwd = serverRs.cryptValidatePassword(act.pwd, content.password);

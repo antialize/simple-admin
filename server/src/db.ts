@@ -273,21 +273,6 @@ export class DB {
         });
     }
 
-    getUserContent(name: string) {
-        const db = nullCheck(this.db);
-        return new Promise<string | null>((cb, cbe) => {
-            db.get<{ content: string }>(
-                "SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-                [userId, name],
-                (err, row) => {
-                    if (err) cbe(new SAError(ErrorType.Database, err));
-                    else if (row) cb(row.content);
-                    else cb(null);
-                },
-            );
-        });
-    }
-
     getAllObjects() {
         const db = nullCheck(this.db);
         return new Promise<{ id: number; type: number; name: string; category: string }[]>(
