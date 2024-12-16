@@ -353,11 +353,11 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 {
-                    const row = await msg.getFullText(act.id);
+                    const msg = await serverRs.msgGetFullText(rs, act.id);
                     this.sendMessage({
                         type: ACTION.MessageTextRep,
                         id: act.id,
-                        message: row ? row.message : "missing",
+                        message: msg ? msg : "missing",
                     });
                 }
                 break;
@@ -692,7 +692,7 @@ export class WebClient extends JobOwner {
 
 async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjectsFull();
-    const msgs = msg.getResent();
+    const msgs = serverRs.msgGetResent(rs);
 
     const hostsUp: number[] = [];
     for (const id in hostClients.hostClients) hostsUp.push(+id);
@@ -768,9 +768,8 @@ export class WebClients {
             const content: Host = JSON.parse(row.content);
             if (content.messageOnDown) downHosts += 1;
         }
-
         res.header("Content-Type", "application/json; charset=utf-8")
-            .json({ count: downHosts + (await msg.getCount()) })
+            .json({ count: downHosts + (await serverRs.msgGetCount(rs)) })
             .end();
     }
 
@@ -792,7 +791,7 @@ export class WebClients {
 
     async metrics(req: express.Request, res: express.Response) {
         res.header("Content-Type", "text/plain; version=0.0.4")
-            .send(`simpleadmin_messages ${await msg.getCount()}\n`)
+            .send(`simpleadmin_messages ${await serverRs.msgGetCount(rs)}\n`)
             .end();
     }
 

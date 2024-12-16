@@ -2,10 +2,12 @@ mod config;
 mod crypt;
 mod db;
 mod get_auth;
+mod msg;
 mod state;
 
 use db::UserContent;
 use get_auth::AuthStatus;
+use msg::IMessage;
 use neon::types::extract::{Boxed, Error, Json};
 use state::State;
 use std::sync::Arc;
@@ -52,6 +54,24 @@ async fn get_auth(
 #[neon::export(name = "noAccess")]
 fn no_access() -> Json<AuthStatus> {
     Json(Default::default())
+}
+
+#[neon::export(name = "msgGetResent")]
+async fn msg_get_resent(Boxed(state): Boxed<Arc<State>>) -> Result<Json<Vec<IMessage>>, Error> {
+    Ok(Json(msg::get_resent(&state).await?))
+}
+
+#[neon::export(name = "msgGetFullText")]
+async fn msg_get_full_text(
+    Boxed(state): Boxed<Arc<State>>,
+    id: f64,
+) -> Result<Option<String>, Error> {
+    Ok(msg::get_full_text(&state, id as i64).await?)
+}
+
+#[neon::export(name = "msgGetCount")]
+async fn msg_get_count(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
+    Ok(msg::get_count(&state).await? as f64)
 }
 
 #[neon::export]
