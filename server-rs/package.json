@@ -1,6 +1,6 @@
 {
     "name": "simple_admin_server_rs",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "main": "index.node",
     "scripts": {
       "build": "cargo-cp-artifact -nc index.node -- cargo build --message-format=json-render-diagnostics",
