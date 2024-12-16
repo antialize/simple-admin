@@ -17,8 +17,8 @@ fn crypt_validate_password(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
 fn crypt_validate_otp(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     let token: Handle<JsString> = cx.argument(0)?;
-    let base64_secret: Handle<JsString> = cx.argument(1)?;
-    let v = crypt::validate_otp(&token.value(&mut cx), &base64_secret.value(&mut cx))
+    let base32_secret: Handle<JsString> = cx.argument(1)?;
+    let v = crypt::validate_otp(&token.value(&mut cx), &base32_secret.value(&mut cx))
         .or_else(|e| cx.throw_error(format!("{:?}", e)))?;
     Ok(cx.boolean(v))
 }

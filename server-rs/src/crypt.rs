@@ -1,5 +1,4 @@
 use anyhow::{bail, Context, Result};
-use base64::Engine;
 use libc::{size_t, ssize_t};
 use std::{
     ffi::{CStr, CString},
@@ -86,8 +85,9 @@ pub fn validate_password(provided: &str, hash: &str) -> Result<bool> {
     }
 }
 
-pub fn validate_otp(token: &str, base64_secret: &str) -> Result<bool> {
-    let otp_secret = base64::engine::general_purpose::STANDARD.decode(base64_secret)?;
+pub fn validate_otp(token: &str, base32_secret: &str) -> Result<bool> {
+    let otp_secret = base32::decode(base32::Alphabet::Rfc4648 { padding: false }, base32_secret)
+        .context("base32-error")?;
     let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
     let totp = totp_rs::TOTP::from_rfc6238(totp)?;
     Ok(totp.check_current(token)?)
@@ -97,11 +97,7 @@ pub fn generate_otp_secret(name: String) -> Result<(String, String)> {
     let mut secret = vec![0u8; 32];
     unsafe {
         // We use getrandom here because the function used in totp_rs is unsafe
-        if getrandom(
-            secret.as_mut_ptr() as *mut c_void,
-            secret.len(),
-            0,
-        ) != secret.len() as ssize_t
+        if getrandom(secret.as_mut_ptr() as *mut c_void, secret.len(), 0) != secret.len() as ssize_t
         {
             Err(std::io::Error::last_os_error()).context("getrandom failed")?;
         }
@@ -130,12 +126,24 @@ mod tests {
         let (secret, _) = generate_otp_secret("monkey".to_string())?;
 
         let token = {
-            let otp_secret = base64::engine::general_purpose::STANDARD.decode(&secret)?;
+            let otp_secret = base32::decode(base32::Alphabet::Rfc4648 { padding: false }, &secret)
+                .context("base32-error")?;
             let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
             totp_rs::TOTP::from_rfc6238(totp)?.generate_current()?
         };
         assert!(!validate_otp("0000009", &secret)?);
         assert!(validate_otp(&token, &secret)?);
+
+        let otp_secret = base32::decode(
+            base32::Alphabet::Rfc4648 { padding: false },
+            &"ONKVAZKQIFBXIYZQKZKVUKLTI42SMNTSKQVCKM2SIVNUUL3XHE3A",
+        )
+        .context("base32-error")?;
+        let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
+        assert_eq!(
+            totp_rs::TOTP::from_rfc6238(totp)?.generate(42 * 30),
+            "591527"
+        );
         Ok(())
     }
 }
