@@ -11,6 +11,7 @@ export let deployment: Deployment;
 export let msg: Msg;
 export let db: DB;
 export let modifiedFiles: ModifiedFiles;
+export let rs: any;
 export function setWebClients(_: WebClients) {
     webClients = _;
 }
@@ -28,4 +29,7 @@ export function setDb(_: DB) {
 }
 export function setModifiedFiles(_: ModifiedFiles) {
     modifiedFiles = _;
+}
+export function setRs(_: any) {
+    rs = _;
 }

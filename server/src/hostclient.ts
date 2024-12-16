@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
-import * as crt from "./crt";
 import { descript, errorHandler } from "./error";
 import { db, hostClients, msg, webClients } from "./instances";
 import { Job } from "./job";
@@ -275,7 +274,7 @@ export class HostClient extends JobOwner {
             const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
             if (sshHostCaKey != null && sshHostCaPub != null && this.hostname != null) {
                 const validityDays = 7;
-                const sshCrt = await crt.generate_ssh_crt(
+                const sshCrt = await serverRs.crtGenerateSshCrt(
                     `${this.hostname} sadmin host`,
                     `${this.hostname},${this.hostname}.scalgo.com,${this.hostname}.emu-buri.ts.net`,
                     sshHostCaKey,

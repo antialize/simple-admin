@@ -136,7 +136,7 @@ mod tests {
 
         let otp_secret = base32::decode(
             base32::Alphabet::Rfc4648 { padding: false },
-            &"ONKVAZKQIFBXIYZQKZKVUKLTI42SMNTSKQVCKM2SIVNUUL3XHE3A",
+            "ONKVAZKQIFBXIYZQKZKVUKLTI42SMNTSKQVCKM2SIVNUUL3XHE3A",
         )
         .context("base32-error")?;
         let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;

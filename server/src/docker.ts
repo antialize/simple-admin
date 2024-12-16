@@ -29,13 +29,12 @@ import {
 import getOrInsert from "../../shared/getOrInsert";
 import nullCheck from "../../shared/nullCheck";
 import { config } from "./config";
-import * as crt from "./crt";
-import { getAuth } from "./getAuth";
 import type { HostClient } from "./hostclient";
-import { db, hostClients, webClients } from "./instances";
+import { db, hostClients, rs, webClients } from "./instances";
 import { Job } from "./job";
 import type * as message from "./messages";
 import type { WebClient } from "./webclient";
+const serverRs = require("simple_admin_server_rs");
 
 const docker_upload_path = "/var/tmp/simpleadmin_docker_uploads/";
 const docker_blobs_path = "/var/simpleadmin_docker_blobs/";
@@ -142,13 +141,13 @@ class Docker {
         if (r2) this.ca_crt = r2.value;
         if (!this.ca_key) {
             console.log("Generating ca key");
-            this.ca_key = await crt.generate_key();
+            this.ca_key = await serverRs.crtGenerateKey();
             await db.insert("REPLACE INTO kvp (key,value) VALUES (?, ?)", "ca_key", this.ca_key);
         }
 
         if (!this.ca_crt) {
             console.log("Generating ca crt");
-            this.ca_crt = await crt.generate_ca_crt(this.ca_key);
+            this.ca_crt = await serverRs.crtGenerateCaCrt(this.ca_key);
             await db.insert("REPLACE INTO kvp (key, value) VALUES (?,?)", "ca_crt", this.ca_crt);
         }
     }
@@ -178,7 +177,7 @@ class Docker {
             // req.connection.remoteAddress
             const parts = auth.split(":");
             if (parts.length > 1) {
-                const a = await getAuth(null, parts.slice(1).join(":"));
+                const a = await serverRs.getAuth(rs, null, parts.slice(1).join(":"));
                 if (parts[0] === a.user && push ? a.dockerPush : a.dockerPull) return a.user;
             }
 
@@ -852,8 +851,8 @@ class Docker {
 
                 if (description.ssl_service && description.ssl_identity) {
                     await this.ensure_ca();
-                    const my_key = await crt.generate_key();
-                    const my_srs = await crt.generate_srs(
+                    const my_key = await serverRs.crtGenerateKey();
+                    const my_srs = await serverRs.crtGenerateSrs(
                         my_key,
                         `${description.ssl_identity}.${description.ssl_service}`,
                     );
@@ -869,15 +868,16 @@ class Docker {
                     } else {
                         ssl_subcerts = [];
                     }
-                    const my_crt = await crt.generate_crt(
+                    const my_crt = await serverRs.crtGenerateCrt(
                         this.ca_key,
                         this.ca_crt,
                         my_srs,
                         ssl_subcerts,
+                        999
                     );
-                    variables.ca_pem = crt.strip(this.ca_crt);
-                    variables.ssl_key = crt.strip(my_key);
-                    variables.ssl_pem = crt.strip(my_crt);
+                    variables.ca_pem = serverRs.crtStrip(this.ca_crt);
+                    variables.ssl_key = serverRs.crtStrip(my_key);
+                    variables.ssl_pem = serverRs.crtStrip(my_crt);
                     extraEnv.CA_PEM = variables.ca_pem;
                     extraEnv[`${description.ssl_service.toUpperCase()}_KEY`] = variables.ssl_key;
                     extraEnv[`${description.ssl_service.toUpperCase()}_PEM`] = variables.ssl_pem;

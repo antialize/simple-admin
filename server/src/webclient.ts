@@ -6,11 +6,10 @@ import * as express from "express";
 import helmet from "helmet";
 import * as WebSocket from "ws";
 import { config } from "./config";
-import * as crt from "./crt";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
-import { type AuthInfo, getAuth, noAccess } from "./getAuth";
-import { db, deployment, hostClients, modifiedFiles, msg, webClients } from "./instances";
+import { type AuthInfo } from "./getAuth";
+import { db, deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import { LogJob } from "./jobs/logJob";
@@ -61,7 +60,7 @@ export class WebClient extends JobOwner {
 
     constructor(socket: WebSocket, host: string) {
         super();
-        this.auth = noAccess;
+        this.auth = serverRs.noAccess();
         this.connection = socket;
         this.host = host;
         this.connection.on("close", () => this.onClose());
@@ -79,7 +78,7 @@ export class WebClient extends JobOwner {
     }
 
     async sendAuthStatus(sid: string | null) {
-        this.auth = await getAuth(this.host, sid);
+        this.auth = await serverRs.getAuth(rs, this.host, sid);
         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 
@@ -93,7 +92,7 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.Login: {
                 let session = this.auth.session;
-                const auth = session ? await getAuth(this.host, session) : noAccess;
+                const auth = session ? await serverRs.getAuth(rs, this.host, session) : serverRs.noAccess();
                 let found = false;
                 let newOtp = false;
                 let otp = auth?.otp;
@@ -115,9 +114,8 @@ export class WebClient extends JobOwner {
 
                 if (!found) {
                     try {
-                        const contentStr = await db.getUserContent(act.user);
-                        if (contentStr) {
-                            const content = JSON.parse(contentStr);
+                        const content = await serverRs.dbGetUserContent(rs, act.user);
+                        if (content) {
                             found = true;
                             await sleep(1000);
                             pwd = serverRs.cryptValidatePassword(act.pwd, content.password);
@@ -141,7 +139,7 @@ export class WebClient extends JobOwner {
                         dockerPush: false,
                         message: "Invalid user name",
                     });
-                    this.auth = noAccess;
+                    this.auth = serverRs.noAccess();
                 } else if (!pwd || !otp) {
                     if (otp && newOtp) {
                         const now = (Date.now() / 1000) | 0;
@@ -176,7 +174,7 @@ export class WebClient extends JobOwner {
                         message: "Invalid password or one time password",
                     });
                     this.auth = {
-                        ...noAccess,
+                        ...serverRs.noAccess(),
                         session,
                         otp,
                     };
@@ -206,7 +204,7 @@ export class WebClient extends JobOwner {
                             session,
                         );
                     }
-                    this.auth = await getAuth(this.host, session);
+                    this.auth = await serverRs.getAuth(rs, this.host, session);
                     if (!this.auth.auth) throw Error("Internal auth error");
                     this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
                 }
@@ -242,7 +240,7 @@ export class WebClient extends JobOwner {
                         "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
                         this.auth.session,
                     );
-                    this.auth = noAccess;
+                    this.auth = serverRs.noAccess();
                 }
                 this.sendAuthStatus(this.auth.session);
                 break;
@@ -354,11 +352,11 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 {
-                    const row = await msg.getFullText(act.id);
+                    const msg = await serverRs.msgGetFullText(rs, act.id);
                     this.sendMessage({
                         type: ACTION.MessageTextRep,
                         id: act.id,
-                        message: row ? row.message : "missing",
+                        message: msg ? msg : "missing",
                     });
                 }
                 break;
@@ -635,9 +633,9 @@ export class WebClient extends JobOwner {
                 const caps = (capsString || "").split("~");
 
                 await docker.ensure_ca();
-                const my_key = await crt.generate_key();
-                const my_srs = await crt.generate_srs(my_key, `${this.auth.sslname}.user`);
-                const my_crt = await crt.generate_crt(
+                const my_key = await serverRs.crtGenerateKey();
+                const my_srs = await serverRs.crtGenerateSrs(my_key, `${this.auth.sslname}.user`);
+                const my_crt = await serverRs.crtGenerateCrt(
                     docker.ca_key!,
                     docker.ca_crt!,
                     my_srs,
@@ -656,7 +654,7 @@ export class WebClient extends JobOwner {
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
                             const validityDays = 1;
-                            const sshCrt = await crt.generate_ssh_crt(
+                            const sshCrt = await serverRs.crtGenerateSshCrt(
                                 `${this.auth.user} sadmin user`,
                                 this.auth.user,
                                 sshHostCaKey,
@@ -693,7 +691,7 @@ export class WebClient extends JobOwner {
 
 async function sendInitialState(c: WebClient) {
     const rows = db.getAllObjectsFull();
-    const msgs = msg.getResent();
+    const msgs = serverRs.msgGetResent(rs);
 
     const hostsUp: number[] = [];
     for (const id in hostClients.hostClients) hostsUp.push(+id);
@@ -769,9 +767,8 @@ export class WebClients {
             const content: Host = JSON.parse(row.content);
             if (content.messageOnDown) downHosts += 1;
         }
-
         res.header("Content-Type", "application/json; charset=utf-8")
-            .json({ count: downHosts + (await msg.getCount()) })
+            .json({ count: downHosts + (await serverRs.msgGetCount(rs)) })
             .end();
     }
 
@@ -793,7 +790,7 @@ export class WebClients {
 
     async metrics(req: express.Request, res: express.Response) {
         res.header("Content-Type", "text/plain; version=0.0.4")
-            .send(`simpleadmin_messages ${await msg.getCount()}\n`)
+            .send(`simpleadmin_messages ${await serverRs.msgGetCount(rs)}\n`)
             .end();
     }
 
@@ -830,7 +827,7 @@ export class WebClients {
                 const cols = +u.query!.cols!;
                 const rows = +u.query!.rows!;
                 const session = u.query.session as string;
-                getAuth(address, session)
+                serverRs.getAuth(rs, address, session)
                     .then((a: any) => {
                         if (a.auth && server in hostClients.hostClients)
                             new ShellJob(hostClients.hostClients[server], ws, cols, rows);
