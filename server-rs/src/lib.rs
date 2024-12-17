@@ -7,6 +7,7 @@ mod docker;
 mod get_auth;
 mod msg;
 mod state;
+mod type_types;
 
 use anyhow::anyhow;
 use db::UserContent;

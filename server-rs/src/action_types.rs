@@ -2,6 +2,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
 
+fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::Null => false,
+        serde_json::Value::Bool(v) => v,
+        serde_json::Value::Number(v) => v.as_f64() != Some(0.0),
+        serde_json::Value::String(v) => !v.is_empty(),
+        serde_json::Value::Array(v) => !v.is_empty(),
+        serde_json::Value::Object(v) => !v.is_empty(),
+    })
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 pub enum DeploymentStatus {
     Done = 0,
@@ -498,9 +509,12 @@ pub struct DockerImageTag {
     pub hash: String,
     pub time: f64,
     pub user: String,
+    #[serde(default, deserialize_with = "forgiving_bool")]
     pub pin: bool,
     pub labels: HashMap<String, String>,
     pub removed: Option<f64>,
+    #[serde(default)]
+    pub pinned_image_tag: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
