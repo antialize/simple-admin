@@ -2,8 +2,9 @@ use crate::{db::get_user_content, state::State};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sqlx_type::query;
+use ts_rs::TS;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthStatus {
     pub message: Option<String>,

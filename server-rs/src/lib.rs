@@ -1,3 +1,4 @@
+mod action_types;
 mod config;
 mod crt;
 mod crypt;
@@ -6,6 +7,7 @@ mod docker;
 mod get_auth;
 mod msg;
 mod state;
+mod type_types;
 
 use anyhow::anyhow;
 use db::UserContent;
@@ -139,6 +141,6 @@ async fn docker_prune(Boxed(state): Boxed<Arc<State>>) -> () {
 }
 
 #[neon::export]
-async fn init<'cx>() -> Result<Boxed<Arc<State>>, Error> {
+async fn init() -> Result<Boxed<Arc<State>>, Error> {
     Ok(Boxed(State::new().await?))
 }
