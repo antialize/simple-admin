@@ -19,7 +19,7 @@ pub struct UserContent {
     #[serde(default)]
     pub sslname: Option<String>,
     #[serde(default)]
-    pub auth_days: Option<u32>,
+    pub auth_days: Option<String>,
     pub password: String,
     #[serde(rename = "otp_base32")]
     pub otp_base32: String,
