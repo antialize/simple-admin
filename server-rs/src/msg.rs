@@ -46,7 +46,8 @@ pub async fn get_resent(state: &State) -> Result<Vec<IMessage>> {
 pub async fn get_full_text(state: &State, id: i64) -> Result<Option<String>> {
     let row = query!("SELECT `message` FROM `messages` WHERE `id`=?", id)
         .fetch_optional(&state.db)
-        .await.context("Query failed in get_full_text")?;
+        .await
+        .context("Query failed in get_full_text")?;
     Ok(row.and_then(|v| v.message))
 }
 

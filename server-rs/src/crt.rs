@@ -137,7 +137,12 @@ nameConstraints = critical")?;
         .output()
         .await?;
     if !res.status.success() {
-        bail!("openssl exited with code {} in generate_crt:{}{}", res.status, String::from_utf8_lossy(&res.stdout), String::from_utf8_lossy(&res.stderr));
+        bail!(
+            "openssl exited with code {} in generate_crt:{}{}",
+            res.status,
+            String::from_utf8_lossy(&res.stdout),
+            String::from_utf8_lossy(&res.stderr)
+        );
     }
     Ok(String::from_utf8(res.stdout)?)
 }
