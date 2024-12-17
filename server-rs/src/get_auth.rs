@@ -61,7 +61,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             sid
         )
         .fetch_optional(&state.db)
-        .await?;
+        .await.context("Runnig query in get_auth")?;
         let Some(row) = row else {
             return Ok(Default::default());
         };

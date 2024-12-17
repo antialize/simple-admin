@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS `messages` (
     `subtype` TEXT,
     `message` TEXT,
     `url` TEXT,
-    `time` INTEGER,
+    `time` DOUBLE, --TODO support REAL
     `dismissed` BOOLEAN NOT NULL,
-    `dismissedTime` INTEGER
+    `dismissedTime` DOUBLE --TODO support REAL
 );
 
 CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time);

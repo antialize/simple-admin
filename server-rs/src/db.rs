@@ -1,5 +1,5 @@
 use crate::state::State;
-use anyhow::Result;
+use anyhow::{Result, Context};
 use serde::{Deserialize, Serialize};
 use sqlx_type::query;
 
@@ -34,9 +34,9 @@ pub async fn get_user_content(state: &State, name: &str) -> Result<Option<UserCo
         name
     )
     .fetch_optional(&state.db)
-    .await?;
+    .await.context("Runing query in get_user_content")?;
     match row {
-        Some(row) => Ok(Some(serde_json::from_str(&row.content)?)),
+        Some(row) => Ok(Some(serde_json::from_str(&row.content).context("Parsing user content")?)),
         None => Ok(None),
     }
 }

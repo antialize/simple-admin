@@ -153,7 +153,7 @@ class Docker {
     }
 
     constructor() {
-        setInterval(serverRs.dockerPrune(rs), 1000 * 60 * 60 * 12); // prune docker images every 12 houers
+        setInterval(() => {serverRs.dockerPrune(rs)}, 1000 * 60 * 60 * 12); // prune docker images every 12 houers
     }
 
     getContainerState(host: number, container: string): string | undefined {
