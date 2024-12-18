@@ -1,3 +1,4 @@
+import { changeObject } from "./db";
 import { fileId } from "./default";
 import { db, hostClients, msg, webClients, rs } from "./instances";
 import { Job } from "./job";
@@ -329,7 +330,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
             pp.updated = true;
             await this.broadcast_changes();
         } else if (act.action === "updateCurrent") {
-            const row = await db.getNewestObjectByID(f.object);
+            const row = await serverRs.getNewestObjectByID(rs, f.object);
 
             const obj = {
                 id: f.object,
@@ -355,7 +356,7 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                     break;
             }
 
-            const { id, version } = await db.changeObject(
+            const { id, version } = await changeObject(
                 f.object,
                 obj,
                 nullCheck(client.auth.user),

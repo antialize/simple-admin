@@ -43,6 +43,7 @@ import {
     typeId,
     userId,
 } from "./shared/type";
+import { changeObject, getRootVariables } from "./db";
 const serverRs = require("simple_admin_server_rs");
 interface EWS extends express.Express {
     ws(s: string, f: (ws: WebSocket, req: express.Request) => void): void;
@@ -217,7 +218,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                const rows = await db.getObjectByID(act.id);
+                const rows = await serverRs.getObjectByID(rs, act.id);
                 const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                 for (const row of rows) {
                     res.object.push({
@@ -262,10 +263,7 @@ export class WebClient extends JobOwner {
                     time: number;
                     author: string | null;
                 }[] = [];
-                for (const row of await db.all(
-                    "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-                    act.id,
-                )) {
+                for (const row of await serverRs.getObjectHistory(rs, act.id)) {
                     history.push({ version: row.version, time: row.time, author: row.author });
                 }
                 this.sendMessage({
@@ -328,7 +326,7 @@ export class WebClient extends JobOwner {
                     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
                     if (!act.obj) throw Error("Missing object in action");
                     const c = act.obj.content;
-                    const typeRow = await db.getNewestObjectByID(act.obj.type);
+                    const typeRow = await serverRs.getNewestObjectByID(rs, act.obj.type);
                     const type = JSON.parse(typeRow.content) as IType;
                     for (const r of type.content || []) {
                         if (r.type !== TypePropType.password) continue;
@@ -347,7 +345,7 @@ export class WebClient extends JobOwner {
                         c.otp_url = otp_url;
                     }
 
-                    const { id, version } = await db.changeObject(
+                    const { id, version } = await changeObject(
                         act.id,
                         act.obj,
                         nullCheck(this.auth.user),
@@ -371,29 +369,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                const objects: {
-                    type: number;
-                    id: number;
-                    version: number;
-                    name: string;
-                    comment: string;
-                    content: string;
-                }[] = [];
-                for (const row of await db.all(
-                    "SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1",
-                    act.pattern,
-                    act.pattern,
-                    act.pattern,
-                )) {
-                    objects.push({
-                        id: row.id,
-                        type: row.type,
-                        name: row.name,
-                        content: row.content,
-                        comment: row.comment,
-                        version: row.version,
-                    });
-                }
+                const objects = await serverRs.getSearchObjects(rs, act.pattern);
                 const res4: ISearchRes = {
                     type: ACTION.SearchRes,
                     ref: act.ref,
@@ -407,7 +383,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                await db.resetServer(act.host);
+                await serverRs.resetServer(act.host);
                 break;
             case ACTION.DeleteObject:
                 if (!this.auth.admin) {
@@ -415,7 +391,7 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 {
-                    const objects = await db.getAllObjectsFull();
+                    const objects = await serverRs.getAllObjectsFull(rs);
                     const conflicts: string[] = [];
                     for (const object of objects) {
                         const content = JSON.parse(object.content);
@@ -439,7 +415,7 @@ export class WebClient extends JobOwner {
                         this.sendMessage(res);
                     } else {
                         console.log("Web client delete object", { id: act.id });
-                        await db.changeObject(act.id, null, nullCheck(this.auth.user));
+                        await changeObject(act.id, null, nullCheck(this.auth.user));
                         const res2: IObjectChanged = {
                             type: ACTION.ObjectChanged,
                             id: act.id,
@@ -609,7 +585,7 @@ export class WebClient extends JobOwner {
                     crt: my_crt,
                 };
                 if (act.ssh_public_key != null && caps.includes("ssh")) {
-                    const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
+                    const { sshHostCaPub, sshHostCaKey } = await getRootVariables();
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
                             const validityDays = 1;
@@ -649,7 +625,7 @@ export class WebClient extends JobOwner {
 }
 
 async function sendInitialState(c: WebClient) {
-    const rows = db.getAllObjectsFull();
+    const rows = serverRs.getAllObjectsFull(rs);
     const msgs = serverRs.msgGetResent(rs);
 
     const hostsUp: number[] = [];
@@ -718,10 +694,7 @@ export class WebClients {
 
     async countMessages(req: express.Request, res: express.Response) {
         let downHosts = 0;
-        for (const row of await db.all(
-            "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1",
-            hostId,
-        )) {
+        for (const row of await serverRs.getObjectContentByType(rs, hostId)) {
             if (hostClients.hostClients[row.id]?.auth || !row.content) continue;
             const content: Host = JSON.parse(row.content);
             if (content.messageOnDown) downHosts += 1;
@@ -738,16 +711,13 @@ export class WebClients {
             return;
         }
         const ans: { [key: string]: boolean } = {};
-        for (const row of await db.all(
-            "SELECT `id`, `name` FROM `objects` WHERE `type` = ? AND `newest`=1",
-            hostId,
-        )) {
-            ans[row.name] = hostClients.hostClients[row.id]?.auth || false;
+        for (const [id, name] of await serverRs.getIdNamePairsForType(rs, hostId)) {
+            ans[name] = hostClients.hostClients[id]?.auth || false;
         }
         res.header("Content-Type", "application/json; charset=utf-8").json(ans).end();
     }
 
-    async metrics(req: express.Rquest, res: express.Response) {
+    async metrics(req: express.Request, res: express.Response) {
         res.header("Content-Type", "text/plain; version=0.0.4")
             .send(`simpleadmin_messages ${await serverRs.msgGetCount(rs)}\n`)
             .end();
@@ -756,7 +726,7 @@ export class WebClients {
     constructor() {
         this.httpApp.use(helmet());
         this.httpServer = http.createServer(this.httpApp);
-        this.wss = new WebSocket.Serve]r({ server: this.httpServer });
+        this.wss = new WebSocket.Server({ server: this.httpServer });
         this.httpApp.get("/setup.sh", (req, res) => setup(req, res));
         this.httpApp.get("/v2/*", docker.get.bind(docker));
         this.httpApp.put("/v2/*", docker.put.bind(docker));

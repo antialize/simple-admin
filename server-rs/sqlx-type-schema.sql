@@ -7,10 +7,10 @@ CREATE TABLE IF NOT EXISTS `objects` (
     `name` TEXT NOT NULL,
     `content` TEXT NOT NULL,
     `comment` TEXT NOT NULL,
-    `time` INTEGER NOT NULL,
+    `time` DATETIME NOT NULL,
     `newest` BOOLEAN NOT NULL,
-    `category` INTEGER,
-    `author` INTEGER
+    `category` TEXT,
+    `author` TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version);
@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS `messages` (
     `subtype` TEXT,
     `message` TEXT,
     `url` TEXT,
-    `time` DOUBLE, --TODO support REAL
+    `time` REAL,
     `dismissed` BOOLEAN NOT NULL,
-    `dismissedTime` DOUBLE --TODO support REAL
+    `dismissedTime` REAL
 );
 
 CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time);
@@ -53,11 +53,11 @@ CREATE TABLE IF NOT EXISTS `docker_images` (
     `tag` TEXT NOT NULL,
     `manifest` TEXT NOT NULL,
     `hash` TEXT NOT NULL,
-    `user` INTEGER NOT NULL,
-    `time` INTEGER NOT NULL,
+    `user` TEXT NOT NULL, 
+    `time` REAL NOT NULL,
     `pin` BOOLEAN,
     `labels` TEXT,
-    `removed` INTEGER,
+    `removed` REAL,
     `used` INTEGER);
 
       
@@ -70,15 +70,15 @@ CREATE TABLE IF NOT EXISTS `docker_deployments` (
     `endTime` INTEGER,
     `config` TEXT,
     `hash` TEXT NOT NULL,
-    `user` INTEGER,
+    `user` TEXT,
     `setup` TEXT,
     `postSetup` TEXT,
     `timeout` INTEGER DEFAULT 120,
-    `softTakeover` INTEGER NOT NULL DEFAULT 0,
+    `softTakeover` BOOLEAN NOT NULL DEFAULT false,
     `startMagic` TEXT,
     `stopTimeout` INTEGER NOT NULL DEFAULT 10,
-    `usePodman` INTEGER NOT NULL DEFAULT 0,
-    `userService` INTEGER NOT NULL DEFAULT 0,
+    `usePodman` BOOLEAN NOT NULL DEFAULT false,
+    `userService` BOOLEAN NOT NULL DEFAULT false,
     `deployUser` TEXT,
     `serviceFile` TEXT,
     `description` TEXT);
