@@ -175,8 +175,11 @@ class Docker {
 
             // req.connection.remoteAddress
             const parts = auth.split(":");
+            console.log("checkAuth: A");
             if (parts.length > 1) {
+                console.log("checkAuth: B");
                 const a = await serverRs.getAuth(rs, null, parts.slice(1).join(":"));
+                console.log("checkAuth: C", a);
                 if (parts[0] === a.user && push ? a.dockerPush : a.dockerPull) return a.user;
             }
 

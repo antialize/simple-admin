@@ -181,21 +181,25 @@ export class WebClient extends JobOwner {
                 } else {
                     const now = (Date.now() / 1000) | 0;
                     if (session && newOtp) {
-                        await db.run(
+                        const changes = await db.run(
                             "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
                             now,
                             now,
                             session,
                         );
+                        if (changes == 0)
+                            throw Error(`Unable to update session A ${session}`)
                     } else if (session) {
-                        const eff = await db.run(
+                        const changes = await db.run(
                             "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
                             now,
                             session,
                         );
+                        if (changes == 0)
+                            throw Error(`Unable to update session B ${session}`)
                     } else {
                         session = crypto.randomBytes(64).toString("hex");
-                        await db.run(
+                        const changes = await db.run(
                             "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
                             act.user,
                             this.host,
@@ -203,8 +207,12 @@ export class WebClient extends JobOwner {
                             now,
                             session,
                         );
+                        if (changes == 0)
+                            throw Error(`Unable to update session B ${session}`)
                     }
+                    console.log("erverRs.getAuth A", {host: this.host, session});
                     this.auth = await serverRs.getAuth(rs, this.host, session);
+                    console.log("erverRs.getAuth B", {auth: this.auth});
                     if (!this.auth.auth) throw Error("Internal auth error");
                     this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
                 }
