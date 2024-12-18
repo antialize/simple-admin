@@ -144,21 +144,10 @@ export class WebClient extends JobOwner {
                     if (otp && newOtp) {
                         const now = (Date.now() / 1000) | 0;
                         if (session) {
-                            await db.run(
-                                "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
-                                now,
-                                session,
-                            );
+                            await serverRs.setSessionOtp(rs, session, now);
                         } else {
                             session = crypto.randomBytes(64).toString("hex");
-                            await db.run(
-                                "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-                                act.user,
-                                this.host,
-                                null,
-                                now,
-                                session,
-                            );
+                            await serverRs.insertSession(rs, act.user, this.host, null, now, session);
                         }
                     }
                     this.sendMessage({
@@ -181,34 +170,13 @@ export class WebClient extends JobOwner {
                 } else {
                     const now = (Date.now() / 1000) | 0;
                     if (session && newOtp) {
-                        const changes = await db.run(
-                            "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
-                            now,
-                            now,
-                            session,
-                        );
-                        if (changes == 0)
-                            throw Error(`Unable to update session A ${session}`)
+                        await serverRs.setSessionPwdAndOtp(rs, session, now, now);
                     } else if (session) {
-                        const changes = await db.run(
-                            "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
-                            now,
-                            session,
-                        );
-                        if (changes == 0)
-                            throw Error(`Unable to update session B ${session}`)
+                        await serverRs.setSessionPwd(rs, session, now);
                     } else {
                         session = crypto.randomBytes(64).toString("hex");
-                        const changes = await db.run(
-                            "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-                            act.user,
-                            this.host,
-                            now,
-                            now,
-                            session,
-                        );
-                        if (changes == 0)
-                            throw Error(`Unable to update session B ${session}`)
+                        await serverRs.insertSession(rs,
+                                act.user, this.host, now, now, session);
                     }
                     console.log("erverRs.getAuth A", {host: this.host, session});
                     this.auth = await serverRs.getAuth(rs, this.host, session);
@@ -239,17 +207,9 @@ export class WebClient extends JobOwner {
                     act.forgetOtp,
                 );
                 if (act.forgetPwd)
-                    await db.run(
-                        "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
-                        this.auth.session,
-                    );
-                if (act.forgetOtp) {
-                    await db.run(
-                        "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
-                        this.auth.session,
-                    );
-                    this.auth = serverRs.noAccess();
-                }
+                    await serverRs.setSessionPwd(this.auth.session, null);
+                if (act.forgetOtp)
+                    await serverRs.setSessionOtp(this.auth.session, null);
                 this.sendAuthStatus(this.auth.session);
                 break;
             case ACTION.FetchObject: {
@@ -284,18 +244,9 @@ export class WebClient extends JobOwner {
                 try {
                     const parts = act.path.split("/", 2);
                     if (parts.length !== 2) break;
-                    const typeRow = await db.get(
-                        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-                        typeId,
-                        parts[0],
-                    );
-                    if (!typeRow || !typeRow.id) break;
-                    const objectRow = await db.get(
-                        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-                        typeRow.id,
-                        parts[1],
-                    );
-                    if (objectRow) id = objectRow.id;
+                    const objectTypeId = await serverRs.find_object_id(rs, typeId, parts[0]);
+                    if (!objectTypeId) break;
+                    id = await serverRs.find_object_id(rs, objectTypeId, parts[1]);
                 } finally {
                     this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
                 }
@@ -796,7 +747,7 @@ export class WebClients {
         res.header("Content-Type", "application/json; charset=utf-8").json(ans).end();
     }
 
-    async metrics(req: express.Request, res: express.Response) {
+    async metrics(req: express.Rquest, res: express.Response) {
         res.header("Content-Type", "text/plain; version=0.0.4")
             .send(`simpleadmin_messages ${await serverRs.msgGetCount(rs)}\n`)
             .end();
@@ -805,7 +756,7 @@ export class WebClients {
     constructor() {
         this.httpApp.use(helmet());
         this.httpServer = http.createServer(this.httpApp);
-        this.wss = new WebSocket.Server({ server: this.httpServer });
+        this.wss = new WebSocket.Serve]r({ server: this.httpServer });
         this.httpApp.get("/setup.sh", (req, res) => setup(req, res));
         this.httpApp.get("/v2/*", docker.get.bind(docker));
         this.httpApp.put("/v2/*", docker.put.bind(docker));

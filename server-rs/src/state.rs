@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use neon::types::Finalize;
 use simple_logger::SimpleLogger;
-use sqlx::SqlitePool;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
-use std::sync::Arc;
+use sqlx::SqlitePool;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::config::{read_config, Config};
 

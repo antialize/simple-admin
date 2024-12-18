@@ -130,23 +130,40 @@ impl Serialize for ITypeProp {
 }
 
 impl<'de> serde::Deserialize<'de> for ITypeProp {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> 
-        where D::Error: de::Error
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error>
+    where
+        D::Error: de::Error,
     {
         use serde::de::Error;
         use serde_json::Value;
         let value = Value::deserialize(d)?;
-        Ok(match value.get("type").and_then(Value::as_u64).ok_or_else(|| D::Error::custom("missing type"))? {
-            0 => ITypeProp::None,
-            1 => ITypeProp::Bool(IBoolTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            2 => ITypeProp::Text(ITextTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            3 => ITypeProp::Password(IPasswordTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            4 => ITypeProp::Document(IDocumentTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            5 => ITypeProp::Choice(IChoiceTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            6 => ITypeProp::TypeContent(ITypeContentTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            7 => ITypeProp::Number(INumberTypeProp::deserialize(value).map_err(D::Error::custom)?),
-            type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
-        })
+        Ok(
+            match value
+                .get("type")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| D::Error::custom("missing type"))?
+            {
+                0 => ITypeProp::None,
+                1 => ITypeProp::Bool(IBoolTypeProp::deserialize(value).map_err(D::Error::custom)?),
+                2 => ITypeProp::Text(ITextTypeProp::deserialize(value).map_err(D::Error::custom)?),
+                3 => ITypeProp::Password(
+                    IPasswordTypeProp::deserialize(value).map_err(D::Error::custom)?,
+                ),
+                4 => ITypeProp::Document(
+                    IDocumentTypeProp::deserialize(value).map_err(D::Error::custom)?,
+                ),
+                5 => ITypeProp::Choice(
+                    IChoiceTypeProp::deserialize(value).map_err(D::Error::custom)?,
+                ),
+                6 => ITypeProp::TypeContent(
+                    ITypeContentTypeProp::deserialize(value).map_err(D::Error::custom)?,
+                ),
+                7 => ITypeProp::Number(
+                    INumberTypeProp::deserialize(value).map_err(D::Error::custom)?,
+                ),
+                type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
+            },
+        )
     }
 }
 
@@ -264,4 +281,3 @@ pub const ROOT_ID: u64 = 3;
 pub const USER_ID: u64 = 4;
 pub const PACKAGE_ID: u64 = 10;
 pub const ROOT_INSTANCE_ID: u64 = 100;
-

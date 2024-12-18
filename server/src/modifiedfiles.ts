@@ -1,5 +1,5 @@
 import { fileId } from "./default";
-import { db, hostClients, msg, webClients } from "./instances";
+import { db, hostClients, msg, webClients, rs } from "./instances";
 import { Job } from "./job";
 import type * as message from "./messages";
 import {
@@ -13,6 +13,7 @@ import {
 import getOrInsert from "./shared/getOrInsert";
 import nullCheck from "./shared/nullCheck";
 import type { WebClient } from "./webclient";
+const serverRs = require("simple_admin_server_rs");
 
 const cronId = 10240;
 const systemdServiceId = 10206;
@@ -64,12 +65,9 @@ export class ModifiedFiles {
             actual?: string;
         };
         const objects = new Map<number, Obj[]>();
-        for (const row of await db.all(
-            "SELECT `name`, `content`, `type`, `title`, `host` FROM `deployments` WHERE `type` in (?, ?, ?)",
-            fileId,
-            cronId,
-            systemdServiceId,
-        )) {
+        for (const row of 
+            await serverRs.get_deployed_file_like(rs)
+            ) {
             const content = JSON.parse(row.content);
             if (!content.content) continue;
             let data: string | null = null;
@@ -245,11 +243,9 @@ sys.stdout.flush()
             for (const f of this.modifiedFiles) oids.push(f.object);
 
             const m = new Map<number, string>();
-            for (const row of await db.all(
-                `SELECT \`id\`, \`content\` FROM \`objects\` WHERE \`newest\`=1 AND \`id\` in (?${", ?".repeat(oids.length - 1)})`,
-                ...oids,
-            ))
-                m.set(row.id, row.content);
+            for (const [id, content] of 
+                await serverRs.getObjectsContent(oids))
+                m.set(id, content);
 
             for (const f of this.modifiedFiles) {
                 const c = m.get(f.object);
