@@ -1,3 +1,4 @@
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
@@ -84,7 +85,7 @@ pub struct IDeploymentObject {
 #[serde(rename_all = "camelCase")]
 pub struct IObject2<T: Clone> {
     pub id: i64,
-    pub r#type: i64,
+    pub r#type: ObjectType,
     pub name: String,
     pub category: String,
     pub content: T,
@@ -223,10 +224,47 @@ pub struct ISearch {
     pub pattern: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum FixedObjectType {
+    Root,
+    Type,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum ObjectType {
+    Id(i64),
+    Fixed(FixedObjectType),
+}
+
+impl From<ObjectType> for i64 {
+    fn from(value: ObjectType) -> Self {
+        match value {
+            ObjectType::Id(v) => v,
+            ObjectType::Fixed(FixedObjectType::Root) => -1,
+            ObjectType::Fixed(FixedObjectType::Type) => -2,
+        }
+    }
+}
+
+impl TryFrom<i64> for ObjectType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        match value {
+            -1 => Ok(ObjectType::Fixed(FixedObjectType::Root)),
+            -2 => Ok(ObjectType::Fixed(FixedObjectType::Type)),
+            i if i > 0 => Ok(ObjectType::Id(i)),
+            _ => bail!("Invalid object type"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISearchResObject {
-    pub r#type: i64,
+    pub r#type: ObjectType,
     pub id: i64,
     pub version: i64,
     pub name: String,
@@ -865,4 +903,31 @@ pub enum IAction {
     SubscribeStatValues(ISubscribeStatValues),
     #[serde(rename = "ToggleDeploymentObject")]
     ToggleDeploymentObject(IToggleDeploymentObject),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_object_type() {
+        assert_eq!(
+            serde_json::to_string(&ObjectType::Fixed(FixedObjectType::Root)).unwrap(),
+            "\"root\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ObjectType::Fixed(FixedObjectType::Type)).unwrap(),
+            "\"type\""
+        );
+        assert_eq!(serde_json::to_string(&ObjectType::Id(64)).unwrap(), "64");
+        assert_eq!(
+            ObjectType::Fixed(FixedObjectType::Root),
+            serde_json::from_str("\"root\"").unwrap()
+        );
+        assert_eq!(
+            ObjectType::Fixed(FixedObjectType::Type),
+            serde_json::from_str("\"type\"").unwrap()
+        );
+        assert_eq!(ObjectType::Id(64), serde_json::from_str("64").unwrap());
+    }
 }
