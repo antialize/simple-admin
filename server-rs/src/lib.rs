@@ -10,7 +10,7 @@ mod state;
 mod type_types;
 
 use action_types::{
-    DockerImageTag, IDockerImageTagsChargedImageTagPin, IObject2, ISearchResObject,
+    DockerImageTag, IDockerImageTagsChargedImageTagPin, IObject2, ISearchResObject, ObjectType,
 };
 use anyhow::{anyhow, Context};
 use db::UserContent;
@@ -331,10 +331,10 @@ async fn get_deployed_file_like(
 #[neon::export(name = "findObjectId")]
 async fn find_object_id(
     Boxed(state): Boxed<Arc<State>>,
-    r#type: f64,
+    Json(r#type): Json<ObjectType>,
     name: String,
 ) -> Result<Option<f64>, Error> {
-    let r#type = r#type as i64;
+    let r#type: i64 = r#type.into();
     let res = query!(
         "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`",
         r#type,
@@ -380,8 +380,7 @@ async fn get_search_objects(
     Boxed(state): Boxed<Arc<State>>,
     pattern: String,
 ) -> Result<Json<Vec<ISearchResObject>>, Error> {
-    let res = query_as!(
-        ISearchResObject,
+    let rows = query!(
         "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
     FROM `objects`
     WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`",
@@ -391,15 +390,26 @@ async fn get_search_objects(
     )
     .fetch_all(&state.db)
     .await?;
+    let mut res = Vec::new();
+    for row in rows {
+        res.push(ISearchResObject {
+            r#type: row.r#type.try_into()?,
+            id: row.id,
+            version: row.version,
+            name: row.name,
+            comment: row.comment,
+            content: row.content,
+        });
+    }
     Ok(Json(res))
 }
 
 #[neon::export(name = "getIdNamePairsForType")]
 async fn get_id_name_pairs_for_type(
     Boxed(state): Boxed<Arc<State>>,
-    r#type: f64,
+    Json(r#type): Json<ObjectType>,
 ) -> Result<Json<Vec<(f64, String)>>, Error> {
-    let t = r#type as i64;
+    let t: i64 = r#type.into();
     let res = query!(
         "SELECT `id`, `name` FROM `objects` WHERE `type` = ? AND `newest`",
         t
@@ -414,7 +424,7 @@ async fn get_id_name_pairs_for_type(
 struct FullObject {
     id: i64,
     version: i64,
-    r#type: i64,
+    r#type: ObjectType,
     name: String,
     content: String,
     category: Option<String>,
@@ -441,7 +451,7 @@ async fn get_object_by_id(
         res.push(FullObject {
             id: r.id,
             version: r.version,
-            r#type: r.r#type,
+            r#type: r.r#type.try_into()?,
             name: r.name,
             content: r.content,
             category: r.category,
@@ -465,11 +475,12 @@ async fn get_newest_object_by_id(
         WHERE `id`=? AND `newest`",
         id
     )
-    .fetch_one(&state.db).await?;
+    .fetch_one(&state.db)
+    .await?;
     Ok(Json(FullObject {
         id: r.id,
         version: r.version,
-        r#type: r.r#type,
+        r#type: r.r#type.try_into()?,
         name: r.name,
         content: r.content,
         category: r.category,
@@ -499,7 +510,7 @@ async fn get_object_by_name_and_type(
         Some(r) => Some(FullObject {
             id: r.id,
             version: r.version,
-            r#type: r.r#type,
+            r#type: r.r#type.try_into()?,
             name: r.name,
             content: r.content,
             category: r.category,
@@ -507,7 +518,7 @@ async fn get_object_by_name_and_type(
             time: r.time.parse()?,
             author: r.author,
         }),
-        None => None
+        None => None,
     };
     Ok(Json(res))
 }
@@ -527,7 +538,7 @@ async fn get_all_objects_full(
         res.push(FullObject {
             id: r.id,
             version: r.version,
-            r#type: r.r#type,
+            r#type: r.r#type.try_into()?,
             name: r.name,
             content: r.content,
             category: r.category,
@@ -581,9 +592,9 @@ struct ObjectContent {
 #[neon::export(name = "getObjectContentByType")]
 async fn get_object_content_by_type(
     Boxed(state): Boxed<Arc<State>>,
-    r#type: f64,
+    Json(r#type): Json<ObjectType>,
 ) -> Result<Json<Vec<ObjectContent>>, Error> {
-    let t = r#type as i64;
+    let t: i64 = r#type.into();
     let r = query_as!(
         ObjectContent,
         "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`",
@@ -607,10 +618,10 @@ async fn reset_server(Boxed(state): Boxed<Arc<State>>, host: f64) -> Result<(), 
 async fn get_object_content_by_id_and_type(
     Boxed(state): Boxed<Arc<State>>,
     id: f64,
-    r#type: f64,
+    Json(r#type): Json<ObjectType>,
 ) -> Result<Json<ObjectContent>, Error> {
     let id = id as i64;
-    let t = r#type as i64;
+    let t: i64 = r#type.into();
     let r = query_as!(
         ObjectContent,
         "SELECT `id`, `name`, `content` FROM `objects` WHERE `id`=? AND `newest` AND `type`=?",
@@ -637,13 +648,14 @@ async fn insert_object(
     author: String,
 ) -> Result<Json<IV>, Error> {
     let id = id as i64;
-    let version = version as i64; 
+    let version = version as i64;
     let content = serde_json::to_string(&object.content)?;
+    let r#type: i64 = object.r#type.into();
     query!("INSERT INTO `objects` (
         `id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`, `author`)
         VALUES (?, ?, ?, ?, ?, datetime('now'), true, ?, ?, ?)",
-        id, version, 
-        object.r#type,
+        id, version,
+        r#type,
         object.name,
         content,
         object.category,
