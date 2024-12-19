@@ -5,6 +5,7 @@ import { db } from "./instances";
 import { webClients } from "./instances";
 import { ACTION, type IObjectChanged } from "./shared/actions";
 import type { IObject2 } from "./shared/state";
+import { changeObject, getHostContentByName } from "./db";
 const serverRs = require("simple_admin_server_rs");
 
 export default async (req: Request, res: Response) => {
@@ -15,7 +16,7 @@ export default async (req: Request, res: Response) => {
         res.status(405).send('#!/bin/bash\necho "Missing hostname"\n');
         return;
     }
-    const ho = await db.getHostContentByName(host);
+    const ho = await getHostContentByName(host);
     if (!ho || !ho.content || (ho.content as any).password !== token) {
         res.status(406).send('#!/bin/bash\necho "Invalid"\n');
         return;
@@ -35,7 +36,7 @@ export default async (req: Request, res: Response) => {
         author: ho.author,
     };
 
-    const { id, version } = await db.changeObject(obj.id, obj, "setup");
+    const { id, version } = await changeObject(obj.id, obj, "setup");
     obj.version = version;
     obj.id = id;
     const act: IObjectChanged = { type: ACTION.ObjectChanged, id: ho.id, object: [obj] };

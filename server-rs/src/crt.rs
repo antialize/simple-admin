@@ -38,7 +38,7 @@ pub async fn generate_key() -> Result<String> {
         .output()
         .await?;
     if !res.status.success() {
-        bail!("openssl exited with code {}", res.status);
+        bail!("openssl exited with code {} in generate_key", res.status);
     }
     Ok(String::from_utf8(res.stdout)?)
 }
@@ -64,7 +64,7 @@ pub async fn generate_ca_crt(key: &str) -> Result<String> {
         .output()
         .await?;
     if !res.status.success() {
-        bail!("openssl exited with code {}", res.status);
+        bail!("openssl exited with code {} in generate_ca_crt", res.status);
     }
     Ok(String::from_utf8(res.stdout)?)
 }
@@ -85,7 +85,7 @@ pub async fn generate_srs(key: &str, cn: &str) -> Result<String> {
         .output()
         .await?;
     if !res.status.success() {
-        bail!("openssl exited with code {}", res.status);
+        bail!("openssl exited with code {} in generate_srs", res.status);
     }
     Ok(String::from_utf8(res.stdout)?)
 }
@@ -132,12 +132,17 @@ nameConstraints = critical")?;
     }
     let res = cmd
         .stdin(std::process::Stdio::null())
-        .stderr(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .output()
         .await?;
     if !res.status.success() {
-        bail!("openssl exited with code {}", res.status);
+        bail!(
+            "openssl exited with code {} in generate_crt:{}{}",
+            res.status,
+            String::from_utf8_lossy(&res.stdout),
+            String::from_utf8_lossy(&res.stderr)
+        );
     }
     Ok(String::from_utf8(res.stdout)?)
 }
