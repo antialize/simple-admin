@@ -64,7 +64,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             GROUP BY `docker_images`.`id`").fetch_all(&state.db).await.context("Running query in docker prune")?;
 
     for row in rows {
-        let mut keep = row.pin.unwrap_or_default()
+        let mut keep = row.pin
             || (row.newest == Some(row.id) && row.tagPin)
             || ((&row.tag == "latest" || &row.tag == "master") && row.newest == Some(row.id))
             || row.active > 0

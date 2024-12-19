@@ -304,7 +304,7 @@ const SYSTEMD_SERVICE_ID: i64 = 10240;
 
 #[derive(Serialize)]
 struct DeployedContent {
-    name: Option<String>,
+    name: String,
     content: String,
     r#type: f64,
     title: String,
@@ -540,7 +540,7 @@ async fn get_all_objects_full(
 }
 
 #[neon::export(name = "getKvp")]
-async fn getKvp(Boxed(state): Boxed<Arc<State>>, key: String) -> Result<Option<String>, Error> {
+async fn get_kvp(Boxed(state): Boxed<Arc<State>>, key: String) -> Result<Option<String>, Error> {
     let r = query!("SELECT `value` FROM `kvp` WHERE `key` = ?", key)
         .fetch_optional(&state.db)
         .await?;
@@ -548,7 +548,7 @@ async fn getKvp(Boxed(state): Boxed<Arc<State>>, key: String) -> Result<Option<S
 }
 
 #[neon::export(name = "setKvp")]
-async fn setKvp(Boxed(state): Boxed<Arc<State>>, key: String, value: String) -> Result<(), Error> {
+async fn set_kvp(Boxed(state): Boxed<Arc<State>>, key: String, value: String) -> Result<(), Error> {
     query!("REPLACE INTO kvp (`key`, `value`) VALUES (?,?)", key, value)
         .execute(&state.db)
         .await?;
@@ -556,12 +556,11 @@ async fn setKvp(Boxed(state): Boxed<Arc<State>>, key: String, value: String) -> 
 }
 
 #[neon::export(name = "markImageUsed")]
-async fn markImageUsed(
+async fn mark_image_used(
     Boxed(state): Boxed<Arc<State>>,
     hash: String,
     time: f64,
 ) -> Result<(), Error> {
-    let time = time as i64;
     query!(
         "UPDATE `docker_images` SET `used`=? WHERE `hash`=?",
         time,
@@ -679,11 +678,10 @@ async fn insert_docker_image(
     tag: String,
     manifest: String,
     hash: String,
-    user: f64,
+    user: String,
     time: f64,
     labels: String,
 ) -> Result<f64, Error> {
-    let user = user as i64;
     query!(
         "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
         project,
@@ -779,6 +777,7 @@ async fn forget_container(
     Ok(())
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize)]
 struct DockerDeployment {
     id: i64,
@@ -789,22 +788,22 @@ struct DockerDeployment {
     endTime: Option<i64>,
     config: Option<String>,
     hash: String,
-    user: Option<i64>,
+    user: Option<String>,
     setup: Option<String>,
     postSetup: Option<String>,
     timeout: Option<i64>,
-    softTakeover: i64,
+    softTakeover: bool,
     startMagic: Option<String>,
     stopTimeout: i64,
-    usePodman: i64,
-    userService: i64,
+    usePodman: bool,
+    userService: bool,
     deployUser: Option<String>,
     serviceFile: Option<String>,
     description: Option<String>,
 }
 
 #[neon::export(name = "getDockerDeployment")]
-async fn getDockerDeployment(
+async fn get_docker_deployment(
     Boxed(state): Boxed<Arc<State>>,
     host: f64,
     container: String,
@@ -823,7 +822,7 @@ async fn getDockerDeployment(
 }
 
 #[neon::export(name = "getDockerDeploymentById")]
-async fn getDockerDeploymentById(
+async fn get_docker_deployment_by_id(
     Boxed(state): Boxed<Arc<State>>,
     id: f64,
 ) -> Result<Json<Option<DockerDeployment>>, Error> {
@@ -839,7 +838,7 @@ async fn getDockerDeploymentById(
 }
 
 #[neon::export(name = "getDockerDeployments")]
-async fn getDockerDeployments(
+async fn get_docker_deployments(
     Boxed(state): Boxed<Arc<State>>,
     host: f64,
     container: String,
@@ -865,7 +864,7 @@ struct Deployment {
 }
 
 #[neon::export(name = "getDeployments")]
-async fn getDeployments(
+async fn get_deployments(
     Boxed(state): Boxed<Arc<State>>,
     host: f64,
 ) -> Result<Json<Vec<Deployment>>, Error> {
@@ -881,7 +880,7 @@ async fn getDeployments(
 }
 
 #[neon::export(name = "setDeployment")]
-async fn setDeployment(
+async fn set_deployment(
     Boxed(state): Boxed<Arc<State>>,
     host: f64,
     name: String,
@@ -919,7 +918,7 @@ async fn setDeployment(
 }
 
 #[neon::export(name = "imageSetPin")]
-async fn imageSetPin(
+async fn image_set_pin(
     Boxed(state): Boxed<Arc<State>>,
     id: f64,
     pin: bool,
@@ -946,7 +945,7 @@ async fn imageSetPin(
             hash: row.hash,
             time: row.time,
             user: row.user,
-            pin: row.pin.unwrap_or_default(),
+            pin: row.pin,
             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
             removed: row.removed,
             pinned_image_tag: false,
@@ -957,7 +956,7 @@ async fn imageSetPin(
 }
 
 #[neon::export(name = "imageTagSetPin")]
-async fn imageTagSetPin(
+async fn image_tag_set_pin(
     Boxed(state): Boxed<Arc<State>>,
     image: String,
     tag: String,
@@ -993,7 +992,7 @@ async fn handle_depoyment_(
 }
 
 #[neon::export(name = "getTagsByHash")]
-async fn getTagsByHash(
+async fn get_tags_by_hash(
     Boxed(state): Boxed<Arc<State>>,
     Json(hashes): Json<Vec<String>>,
 ) -> Result<Json<Vec<DockerImageTag>>, Error> {
@@ -1014,7 +1013,7 @@ async fn getTagsByHash(
             hash: row.hash,
             time: row.time,
             user: row.user,
-            pin: row.pin.unwrap_or_default(),
+            pin: row.pin,
             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
             removed: row.removed,
             pinned_image_tag: false,
@@ -1024,7 +1023,7 @@ async fn getTagsByHash(
 }
 
 #[neon::export(name = "getImageTagsByProject")]
-async fn getImageTagsByProject(
+async fn get_image_tags_by_project(
     Boxed(state): Boxed<Arc<State>>,
     project: String,
 ) -> Result<Json<Vec<DockerImageTag>>, Error> {
@@ -1045,7 +1044,7 @@ async fn getImageTagsByProject(
             hash: row.hash,
             time: row.time,
             user: row.user,
-            pin: row.pin.unwrap_or_default(),
+            pin: row.pin,
             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
             removed: row.removed,
             pinned_image_tag: false,
@@ -1055,7 +1054,7 @@ async fn getImageTagsByProject(
 }
 
 #[neon::export(name = "listImageTags")]
-async fn listImageTags(
+async fn list_image_tags(
     Boxed(state): Boxed<Arc<State>>,
     time: f64,
 ) -> Result<Json<(Vec<DockerImageTag>, Vec<IDockerImageTagsChargedImageTagPin>)>, Error> {
@@ -1079,7 +1078,7 @@ async fn listImageTags(
             hash: row.hash,
             time: row.time,
             user: row.user,
-            pin: row.pin.unwrap_or_default(),
+            pin: row.pin,
             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
             removed: row.removed,
             pinned_image_tag: false,
@@ -1104,7 +1103,7 @@ struct ImageHash {
 }
 
 #[neon::export(name = "findImage")]
-async fn findImage(Boxed(state): Boxed<Arc<State>>, id: String) -> Result<Json<ImageHash>, Error> {
+async fn find_image(Boxed(state): Boxed<Arc<State>>, id: String) -> Result<Json<ImageHash>, Error> {
     if let Some((image, reference)) = id.split_once('@') {
         let hash = query!(
             "SELECT `hash`, `time` FROM `docker_images` 
@@ -1141,7 +1140,7 @@ async fn findImage(Boxed(state): Boxed<Arc<State>>, id: String) -> Result<Json<I
 }
 
 #[neon::export(name = "listImageTagHistory")]
-async fn listImageTagHistory(
+async fn list_image_tag_history(
     Boxed(state): Boxed<Arc<State>>,
     image: String,
     tag: String,
@@ -1164,7 +1163,7 @@ async fn listImageTagHistory(
             hash: row.hash,
             time: row.time,
             user: row.user,
-            pin: row.pin.unwrap_or_default(),
+            pin: row.pin,
             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
             removed: row.removed,
             pinned_image_tag: false,
@@ -1174,7 +1173,7 @@ async fn listImageTagHistory(
 }
 
 #[neon::export(name = "getDockerImageManifest")]
-async fn getDockerImageManifest(
+async fn get_docker_image_manifest(
     Boxed(state): Boxed<Arc<State>>,
     project: String,
     ident: String,
@@ -1192,7 +1191,7 @@ async fn getDockerImageManifest(
 }
 
 #[neon::export(name = "listDeployments")]
-async fn listDeployments(
+async fn list_deployments(
     Boxed(state): Boxed<Arc<State>>,
 ) -> Result<Json<Vec<DockerDeployment>>, Error> {
     let res = query_as!(

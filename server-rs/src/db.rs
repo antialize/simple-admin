@@ -65,7 +65,7 @@ pub async fn setup(state: &State) -> Result<i64> {
         "CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)",
     ).await?;
     // //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
-    con.execute("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)");
+    con.execute("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)").await?;
     con.execute(
         "CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)",
     )
@@ -146,7 +146,7 @@ pub async fn setup(state: &State) -> Result<i64> {
          "CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)",
     ).await?;
 
-    con.execute("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)");
+    con.execute("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)").await?;
 
     con.execute(
          "CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)",
@@ -197,3 +197,51 @@ pub async fn setup(state: &State) -> Result<i64> {
     info!("Db inited next_object_id = {}", next_object_id);
     Ok(next_object_id)
 }
+
+
+// #[cfg(test)]
+// mod tests {
+//     use std::str::FromStr;
+//     use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+//     use super::*;
+
+//     #[tokio::test]
+//     async fn db() -> Result<()> {
+//         let opt = SqliteConnectOptions::from_str("sqlite://../server/sysadmin.db")?
+//         .journal_mode(SqliteJournalMode::Wal);
+
+//         let db = sqlx::SqlitePool::connect_with(opt)
+//             .await
+//             .context("Unable to connect to sysadmin.db")?;
+
+//         println!("messages");
+//         query!("SELECT * FROM `messages`").fetch_all(&db).await.context("messages")?;
+//         println!("deployments");
+//         query!("SELECT * FROM `deployments`").fetch_all(&db).await.context("deployments")?;
+//         println!("docker_images");
+//         query!("SELECT * FROM `docker_images`").fetch_all(&db).await.context("docker_images")?;
+//         println!("docker_deployments");
+//         query!("SELECT * FROM `docker_deployments`").fetch_all(&db).await.context("docker_deployments")?;
+//         println!("docker_image_tag_pins");
+//         query!("SELECT * FROM `docker_image_tag_pins`").fetch_all(&db).await.context("docker_image_tag_pins")?;
+//         println!("kvp");
+//         query!("SELECT * FROM `kvp`").fetch_all(&db).await.context("kvp")?;
+//         println!("sessions");
+//         query!("SELECT * FROM `sessions`").fetch_all(&db).await.context("sessions")?;
+//         println!("objects");
+            
+//         let rows =  query!("SELECT * FROM `objects`").fetch_all(&db).await.context("objects")?;
+//         let mut err = false;
+//         for row in rows {
+//             let v: Result<serde_json::Value, _> = serde_json::from_str(&row.content);
+//             if let Err(e) = v  {
+//                 println!("Invalid object content {}: {:?}", row.id, e);
+//                 err = true;
+//             }
+//         }
+//         if err {
+//             panic!();
+//         }
+//         Ok(())
+//     }
+// }

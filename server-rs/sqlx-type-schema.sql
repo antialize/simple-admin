@@ -3,50 +3,43 @@
 CREATE TABLE IF NOT EXISTS `objects` (
     `id` INTEGER NOT NULL,
     `version` INTEGER NOT NULL,
-    `type` INTEGER NOT NULL, 
+    `type` INTEGER NOT NULL, -- TODO integer sometimes text, 6 nulls
     `name` TEXT NOT NULL,
     `content` TEXT NOT NULL,
     `comment` TEXT NOT NULL,
-    `time` DATETIME NOT NULL,
+    `time` DATETIME NOT NULL, 
     `newest` BOOLEAN NOT NULL,
     `category` TEXT,
     `author` TEXT
-);
-
+) STRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version);
       
 CREATE TABLE IF NOT EXISTS `messages` (
     `id` INTEGER NOT NULL PRIMARY KEY,
     `host` INTEGER,
     `type` TEXT,
-    `subtype` TEXT,
+    `subtype` TEXT, -- Always null todo delete
     `message` TEXT,
-    `url` TEXT,
+    `url` TEXT, -- Always null todo delete 
     `time` REAL,
     `dismissed` BOOLEAN NOT NULL,
     `dismissedTime` REAL
-);
-
+) STRICT;
 CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time);
 CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime);
 
 CREATE TABLE IF NOT EXISTS `deployments` (
     `id` INTEGER,
     `host` INTEGER NOT NULL,
-    `name` TEXT,
+    `name` TEXT NOT NULL,
     `content` TEXT NOT NULL,
-    `time` INTEGER NOT NULL,
+    `object` INTEGER,
+    `time` DATETIME NOT NULL,
     `type` INTEGER NOT NULL,
     `title` TEXT NOT NULL
-);
+) STRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name);
 
-CREATE TABLE IF NOT EXISTS `installedPackages` (
-    `id` INTEGER,
-    `host` INTEGER NOT NULL,
-    `name` TEXT
-);
-      
 CREATE TABLE IF NOT EXISTS `docker_images` (
     `id` INTEGER NOT NULL PRIMARY KEY,
     `project` TEXT NOT NULL,
@@ -55,12 +48,12 @@ CREATE TABLE IF NOT EXISTS `docker_images` (
     `hash` TEXT NOT NULL,
     `user` TEXT NOT NULL, 
     `time` REAL NOT NULL,
-    `pin` BOOLEAN,
+    `pin` BOOLEAN NOT NULL DEFAULT false,
     `labels` TEXT,
     `removed` REAL,
-    `used` INTEGER);
+    `used` REAL
+) STRICT;
 
-      
 CREATE TABLE IF NOT EXISTS `docker_deployments` (
     `id` INTEGER NOT NULL PRIMARY KEY,
     `project` TEXT NOT NULL,
@@ -81,17 +74,17 @@ CREATE TABLE IF NOT EXISTS `docker_deployments` (
     `userService` BOOLEAN NOT NULL DEFAULT false,
     `deployUser` TEXT,
     `serviceFile` TEXT,
-    `description` TEXT);
+    `description` TEXT) STRICT;
 
 CREATE TABLE IF NOT EXISTS `docker_image_tag_pins` (
     `id` INTEGER NOT NULL PRIMARY KEY,
     `project` TEXT NOT NULL, 
-    `tag` TEXT NOT NULL);
+    `tag` TEXT NOT NULL) STRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`);
 
 CREATE TABLE IF NOT EXISTS `kvp` (
     `key` TEXT NOT NULL PRIMARY KEY,
-    `value` TEXT NOT NULL);
+    `value` TEXT NOT NULL) STRICT;
 
 CREATE TABLE IF NOT EXISTS `sessions` (
     `id` INTEGER NOT NULL PRIMARY KEY,
@@ -99,6 +92,5 @@ CREATE TABLE IF NOT EXISTS `sessions` (
     `host` TEXT NOT NULL,
     `sid` TEXT NOT NULL,
     `pwd` INTEGER,
-    `otp` INTEGER);
-
+    `otp` INTEGER) STRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`);
