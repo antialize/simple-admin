@@ -522,7 +522,7 @@ export class Deployment {
                         name: string;
                     };
                 } = {};
-                for (const row of await serverRs.getDeployments(db, hostId)) {
+                for (const row of await serverRs.getDeployments(rs, hostId)) {
                     const c = JSON.parse(row.content) as IDeployContent;
                     if (!c.content) continue;
                     oldContent[row.name] = {

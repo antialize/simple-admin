@@ -874,7 +874,7 @@ class Docker {
             const now = (Date.now() / 1000) | 0;
             const session = crypto.randomBytes(64).toString("hex");
             try {
-                await serverRs.insertSession("docker_client", "", now, now, session);
+                await serverRs.insertSession(rs, "docker_client", "", now, now, session);
 
 
                 await this.deployServiceJob(
@@ -935,7 +935,7 @@ class Docker {
                 });
                 await this.broadcastDeploymentChange(o);
             } finally {
-                await serverRs.deleteSession(session, "docker_client");
+                await serverRs.deleteSession(rs, session, "docker_client");
             }
         } catch (e) {
             client.sendMessage({
@@ -949,7 +949,7 @@ class Docker {
     }
 
     async redeployService(client: WebClient, act: IServiceRedeployStart) {
-        const deploymentRow = await serverRs.getDockerDeploymentById(act.deploymentId);
+        const deploymentRow = await serverRs.getDockerDeploymentById(rs, act.deploymentId);
         if (!deploymentRow) {
             client.sendMessage({
                 type: ACTION.DockerDeployDone,
@@ -1126,7 +1126,7 @@ class Docker {
             tag: act.tag,
         };
         try {
-            res.images = await serverRs.listImageTagHistory(act.image, act.tag);
+            res.images = await serverRs.listImageTagHistory(rs, act.image, act.tag);
         } finally {
             client.sendMessage(res);
         }

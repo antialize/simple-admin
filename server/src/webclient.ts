@@ -218,7 +218,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                const rows = await serverRs.getObjectByID(rs, act.id);
+                const rows = await serverRs.getObjectById(rs, act.id);
                 const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                 for (const row of rows) {
                     res.object.push({
@@ -383,7 +383,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                await serverRs.resetServer(act.host);
+                await serverRs.resetServer(rs, act.host);
                 break;
             case ACTION.DeleteObject:
                 if (!this.auth.admin) {

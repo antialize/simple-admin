@@ -245,7 +245,7 @@ sys.stdout.flush()
 
             const m = new Map<number, string>();
             for (const [id, content] of 
-                await serverRs.getObjectsContent(oids))
+                await serverRs.getObjectsContent(rs, oids))
                 m.set(id, content);
 
             for (const f of this.modifiedFiles) {

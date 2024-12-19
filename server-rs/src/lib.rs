@@ -266,11 +266,10 @@ async fn insert_message(
 #[neon::export(name = "setDismissed")]
 async fn set_dismissed(
     Boxed(state): Boxed<Arc<State>>,
-    ids: Vec<f64>,
+    Json(ids): Json<Vec<i64>>,
     dismissed: bool,
     time: Option<f64>,
 ) -> Result<(), Error> {
-    let ids: Vec<_> = ids.iter().map(|v| *v as i64).collect();
     query!(
         "UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN (_LIST_)",
         dismissed,
@@ -285,9 +284,8 @@ async fn set_dismissed(
 #[neon::export(name = "getObjectsContent")]
 async fn get_objects_content(
     Boxed(state): Boxed<Arc<State>>,
-    ids: Option<f64>,
+    Json(ids): Json<Vec<i64>>,
 ) -> Result<Json<Vec<(f64, String)>>, Error> {
-    let ids: Vec<_> = ids.iter().map(|v| *v as i64).collect();
     let res = query!(
         "SELECT `id`, `content` FROM `objects` WHERE `newest` AND `id` in (_LIST_)",
         ids
@@ -639,7 +637,7 @@ struct IV {
     version: i64,
 }
 
-#[neon::export(name = "changeObject")]
+#[neon::export(name = "insertObject")]
 async fn insert_object(
     Boxed(state): Boxed<Arc<State>>,
     id: f64,
