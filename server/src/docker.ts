@@ -143,13 +143,13 @@ class Docker {
         if (!this.ca_key) {
             console.log("Generating ca key");
             this.ca_key = await serverRs.crtGenerateKey();
-            serverRs.setKvp("ca_key", this.ca_key);
+            serverRs.setKvp(rs, "ca_key", this.ca_key);
         }
 
         if (!this.ca_crt) {
             console.log("Generating ca crt");
             this.ca_crt = await serverRs.crtGenerateCaCrt(this.ca_key);
-            serverRs.setKvp("ca_crt", this.ca_crt);
+            serverRs.setKvp(rs, "ca_crt", this.ca_crt);
         }
     }
 

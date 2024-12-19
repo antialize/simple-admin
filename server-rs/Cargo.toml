@@ -18,7 +18,7 @@ serde = {version="1", features = ["derive"]}
 serde_json = {version = "1", features = ["float_roundtrip"]}
 simple_logger = "5"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "chrono"] }
-sqlx-type = {path = "../../sqlx-type"}
+sqlx-type = "0.4.6"
 tempfile = "3"
 tokio = {version = "1", features = ["process", "rt", "macros"]}
 totp-rs= {version="5", features = ["otpauth"]}

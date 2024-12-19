@@ -65,7 +65,8 @@ pub async fn setup(state: &State) -> Result<i64> {
         "CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)",
     ).await?;
     // //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
-    con.execute("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)").await?;
+    con.execute("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)")
+        .await?;
     con.execute(
         "CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)",
     )
@@ -146,7 +147,8 @@ pub async fn setup(state: &State) -> Result<i64> {
          "CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)",
     ).await?;
 
-    con.execute("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)").await?;
+    con.execute("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)")
+        .await?;
 
     con.execute(
          "CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)",
@@ -198,7 +200,6 @@ pub async fn setup(state: &State) -> Result<i64> {
     Ok(next_object_id)
 }
 
-
 // #[cfg(test)]
 // mod tests {
 //     use std::str::FromStr;
@@ -229,7 +230,7 @@ pub async fn setup(state: &State) -> Result<i64> {
 //         println!("sessions");
 //         query!("SELECT * FROM `sessions`").fetch_all(&db).await.context("sessions")?;
 //         println!("objects");
-            
+
 //         let rows =  query!("SELECT * FROM `objects`").fetch_all(&db).await.context("objects")?;
 //         let mut err = false;
 //         for row in rows {

@@ -1218,7 +1218,7 @@ async fn list_deployments(
     Ok(Json(res))
 }
 
-#[neon::export(name = "setup_db")]
+#[neon::export(name = "setupDb")]
 async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
     let next_id = db::setup(&state).await?;
     Ok(next_id as f64)

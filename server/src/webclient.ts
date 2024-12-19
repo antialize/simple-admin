@@ -208,9 +208,9 @@ export class WebClient extends JobOwner {
                     act.forgetOtp,
                 );
                 if (act.forgetPwd)
-                    await serverRs.setSessionPwd(this.auth.session, null);
+                    await serverRs.setSessionPwd(rs, this.auth.session, null);
                 if (act.forgetOtp)
-                    await serverRs.setSessionOtp(this.auth.session, null);
+                    await serverRs.setSessionOtp(rs, this.auth.session, null);
                 this.sendAuthStatus(this.auth.session);
                 break;
             case ACTION.FetchObject: {

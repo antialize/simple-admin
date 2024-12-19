@@ -1420,11 +1420,15 @@ dependencies = [
 
 [[package]]
 name = "sql-parse"
-version = "0.23.0"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df31f2e28a3418618bdaf29ee3547e596ca13ca08d9481418e436c6e9f763ed6"
 
 [[package]]
 name = "sql-type"
-version = "0.23.0"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf9ac66b079c06d420fc409f014c21a665dba06bfa471edf1ddfcbf92abcbeb1"
 dependencies = [
  "sql-parse",
 ]
@@ -1639,7 +1643,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-type"
-version = "0.4.5"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c02a3496cce874f317854b66d955427f0d4ace6bbed8ffe3a7680584469d3f9"
 dependencies = [
  "chrono",
  "sqlx-type-macro",
@@ -1647,7 +1653,9 @@ dependencies = [
 
 [[package]]
 name = "sqlx-type-macro"
-version = "0.4.5"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ab615838864348826934adcd737d16e7506dbdd5b99d8bbb118ac449602b765"
 dependencies = [
  "ariadne",
  "once_cell",
