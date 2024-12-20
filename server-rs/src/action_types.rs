@@ -381,7 +381,7 @@ pub struct IRequestAuthStatus {
     pub session: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IAuthStatus {
     pub message: Option<String>,
@@ -390,9 +390,18 @@ pub struct IAuthStatus {
     pub pwd: bool,
     pub otp: bool,
     pub admin: bool,
+    #[serde(default)]
     pub docker_pull: bool,
+    #[serde(default)]
     pub docker_push: bool,
+    #[serde(default)]
+    pub docker_deploy: bool,
+    #[serde(default)]
     pub session: Option<String>,
+    #[serde(default)]
+    pub sslname: Option<String>,
+    #[serde(default)]
+    pub auth_days: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -400,7 +409,7 @@ pub struct IAuthStatus {
 pub struct ILogin {
     pub user: String,
     pub pwd: String,
-    pub otp: String,
+    pub otp: Option<String>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]

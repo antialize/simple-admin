@@ -8,14 +8,15 @@ mod get_auth;
 mod msg;
 mod state;
 mod type_types;
+mod webclient;
 
 use action_types::{
-    DockerImageTag, IDockerImageTagsChargedImageTagPin, IObject2, ISearchResObject, ObjectType,
+    DockerImageTag, IAction, IAuthStatus, IDockerImageTagsChargedImageTagPin, ILogin, IObject2,
+    ISearchResObject, ObjectType,
 };
 use anyhow::{anyhow, Context};
 use db::UserContent;
 use docker::DeploymentInfo;
-use get_auth::AuthStatus;
 use msg::IMessage;
 use neon::types::extract::{Boxed, Error, Json};
 use serde::Serialize;
@@ -56,14 +57,14 @@ async fn get_auth(
     Boxed(state): Boxed<Arc<State>>,
     host: Option<String>,
     sid: Option<String>,
-) -> Result<Json<AuthStatus>, Error> {
+) -> Result<Json<IAuthStatus>, Error> {
     Ok(Json(
         get_auth::get_auth(&state, host.as_deref(), sid.as_deref()).await?,
     ))
 }
 
 #[neon::export(name = "noAccess")]
-fn no_access() -> Json<AuthStatus> {
+fn no_access() -> Json<IAuthStatus> {
     Json(Default::default())
 }
 
@@ -151,19 +152,6 @@ async fn init() -> Result<Boxed<Arc<State>>, Error> {
     Ok(Boxed(State::new().await?))
 }
 
-#[neon::export(name = "setSessionOtp")]
-async fn set_session_otp(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    otp: Option<f64>,
-) -> Result<(), Error> {
-    let otp = otp.map(|v| v as i64);
-    query!("UPDATE `sessions` SET `otp`=? WHERE `sid`=?", otp, sid)
-        .execute(&state.db)
-        .await?;
-    Ok(())
-}
-
 #[neon::export(name = "setSessionPwd")]
 async fn set_session_pwd(
     Boxed(state): Boxed<Arc<State>>,
@@ -174,26 +162,6 @@ async fn set_session_pwd(
     query!("UPDATE `sessions` SET `pwd`=? WHERE `sid`=?", pwd, sid)
         .execute(&state.db)
         .await?;
-    Ok(())
-}
-
-#[neon::export(name = "setSessionPwdAndOtp")]
-async fn set_session_pwd_and_otp(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    pwd: Option<f64>,
-    otp: Option<f64>,
-) -> Result<(), Error> {
-    let otp = otp.map(|v| v as i64);
-    let pwd = pwd.map(|v| v as i64);
-    query!(
-        "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
-        pwd,
-        otp,
-        sid
-    )
-    .execute(&state.db)
-    .await?;
     Ok(())
 }
 
@@ -1231,4 +1199,16 @@ async fn list_deployments(
 async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
     let next_id = db::setup(&state).await?;
     Ok(next_id as f64)
+}
+
+#[neon::export(name = "handleLogin")]
+async fn _handle_login(
+    Boxed(state): Boxed<Arc<State>>,
+    Json(auth): Json<IAuthStatus>,
+    host: String,
+    Json(act): Json<ILogin>,
+) -> Result<Json<(IAction, IAuthStatus)>, Error> {
+    Ok(Json(
+        webclient::handle_login(&state, auth.session, host, act).await?,
+    ))
 }
