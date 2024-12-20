@@ -2,7 +2,7 @@ use crate::state::State;
 use anyhow::{Context, Result};
 use futures::future::join_all;
 use log::{error, info, warn};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx_type::query;
 use std::collections::HashSet;
 
@@ -25,6 +25,7 @@ struct Manifest {
 }
 
 async fn prune_inner(state: &State) -> Result<()> {
+    info!("Prune started");
     let mut files = HashSet::new();
     let mut reader = tokio::fs::read_dir(DOCKER_BLOBS_PATH).await?;
     while let Some(ent) = reader.next_entry().await? {
@@ -32,6 +33,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             files.insert(v);
         }
     }
+    info!("Prune found {} files", files.len());
 
     let mut used = HashSet::new();
 
@@ -39,9 +41,9 @@ async fn prune_inner(state: &State) -> Result<()> {
     let now = now
         .duration_since(std::time::UNIX_EPOCH)
         .context("Bad unix time")?
-        .as_secs() as i64;
+        .as_secs_f64();
 
-    let grace = 60 * 60 * 24 * 14; // Number of seconds to keep something around
+    let grace = 60.0 * 60.0 * 24.0 * 14.0; // Number of seconds to keep something around
 
     let rows = query!("SELECT 
               `docker_images`.`manifest`,
@@ -64,15 +66,17 @@ async fn prune_inner(state: &State) -> Result<()> {
             GROUP BY `docker_images`.`id`").fetch_all(&state.db).await.context("Running query in docker prune")?;
 
     for row in rows {
-        let mut keep = row.pin.unwrap_or_default()
+        let mut keep = row.pin
             || (row.newest == Some(row.id) && row.tagPin)
             || ((&row.tag == "latest" || &row.tag == "master") && row.newest == Some(row.id))
             || row.active > 0
             || (row.start.is_some()
                 && row.end.is_some()
-                && 2 * (row.end.unwrap() - row.start.unwrap()) + grace > now - row.start.unwrap())
+                && 2.0 * (row.end.unwrap() - row.start.unwrap()) as f64 + grace
+                    > now - row.start.unwrap() as f64)
             || (row.used.is_some()
-                && 2 * (row.used.unwrap() - row.time) + grace > now - row.used.unwrap())
+                && 2.0 * (row.used.unwrap() as f64 - row.time) + grace
+                    > now - row.used.unwrap() as f64)
             || row.time + grace > now;
 
         let manifest: Manifest =
@@ -124,6 +128,7 @@ async fn prune_inner(state: &State) -> Result<()> {
         })
         .collect();
     join_all(futures).await;
+    info!("Prune done");
     Ok(())
 }
 
