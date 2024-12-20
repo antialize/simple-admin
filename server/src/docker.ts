@@ -29,7 +29,6 @@ import {
 import getOrInsert from "../../shared/getOrInsert";
 import nullCheck from "../../shared/nullCheck";
 import { config } from "./config";
-import { getHostVariables } from "./db";
 import type { HostClient } from "./hostclient";
 import { hostClients, rs, webClients } from "./instances";
 import { Job } from "./job";
@@ -760,8 +759,8 @@ class Docker {
                 return;
             }
 
-            const res = await getHostVariables(host.id);
-            if (!res) {
+            const variables = await serverRs.getHostVariables(host.id);
+            if (!variables) {
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
                     ref,
@@ -770,7 +769,6 @@ class Docker {
                 });
                 return;
             }
-            const [hostInfo, variables] = res;
 
             for (let i = 0; i < 10; ++i)
                 variables[`token_${i}`] = crypto.randomBytes(24).toString("base64url");

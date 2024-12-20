@@ -3,7 +3,7 @@ use sqlx_type::query;
 use std::time::Duration;
 
 use crate::{
-    action_types::{IAction, IAuthStatus, IGenerateKey, ILogin},
+    action_types::{IAction, IAuthStatus, ILogin},
     crypt::{self, random_fill},
     db,
     get_auth::get_auth,

@@ -1,7 +1,12 @@
-use crate::{action_types::IObject2, state::State, type_types::HOST_ID};
+use std::collections::{HashMap, HashSet};
+
+use crate::{
+    action_types::{IObject2, ObjectType},
+    state::State,
+    type_types::{IContainsAndDepends, IHost, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID},
+};
 use anyhow::{Context, Result};
 use log::info;
-use neon::object;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sqlx::Executor;
 use sqlx_type::query;
@@ -282,6 +287,157 @@ pub async fn get_object_by_name_and_type<T: Clone + DeserializeOwned>(
         None => None,
     };
     Ok(res)
+}
+
+pub async fn get_object_by_id_and_type<T: Clone + DeserializeOwned>(
+    state: &State,
+    id: i64,
+    r#type: i64,
+) -> Result<Option<IObject2<T>>> {
+    let row = query!(
+        "SELECT `id`, `type`, `content`, `version`, `name`, `category`, `comment`,
+        strftime('%s', `time`) AS `time`, `author` FROM `objects`
+        WHERE `type` = ? AND `id`=? AND `newest`",
+        r#type,
+        id
+    )
+    .fetch_optional(&state.db)
+    .await?;
+    let res = match row {
+        Some(r) => Some(IObject2 {
+            id: r.id,
+            version: Some(r.version),
+            r#type: r.r#type.try_into()?,
+            name: r.name,
+            content: serde_json::from_str(&r.content)?,
+            category: r.category.unwrap_or_default(),
+            comment: r.comment,
+            time: Some(r.time.parse()?),
+            author: r.author,
+        }),
+        None => None,
+    };
+    Ok(res)
+}
+
+pub async fn get_newest_object_by_id<T: Clone + DeserializeOwned>(
+    state: &State,
+    id: i64,
+) -> Result<Option<IObject2<T>>> {
+    let row = query!(
+        "SELECT `id`, `type`, `content`, `version`, `name`, `category`, `comment`,
+        strftime('%s', `time`) AS `time`, `author` FROM `objects`
+        WHERE `id`=? AND `newest`",
+        id
+    )
+    .fetch_optional(&state.db)
+    .await?;
+    let res = match row {
+        Some(r) => Some(IObject2 {
+            id: r.id,
+            version: Some(r.version),
+            r#type: r.r#type.try_into()?,
+            name: r.name,
+            content: serde_json::from_str(&r.content)?,
+            category: r.category.unwrap_or_default(),
+            comment: r.comment,
+            time: Some(r.time.parse()?),
+            author: r.author,
+        }),
+        None => None,
+    };
+    Ok(res)
+}
+
+pub async fn get_root_variables(state: &State) -> Result<HashMap<String, String>> {
+    let root_object = get_object_by_id_and_type::<IVariables>(state, ROOT_INSTANCE_ID, ROOT_ID)
+        .await
+        .context("Getting root")?;
+    let mut variables = HashMap::new();
+    if let Some(o) = root_object {
+        if let Some(vs) = o.content.variables {
+            for v in vs {
+                variables.insert(v.key, v.value);
+            }
+        }
+        if let Some(vs) = o.content.secrets {
+            for v in vs {
+                variables.insert(v.key, v.value);
+            }
+        }
+    }
+    Ok(variables)
+}
+
+const COLLECTION_ID: i64 = 7;
+const COMPLEX_COLLECTION_ID: i64 = 8;
+const HOST_VARIABLE_ID: i64 = 10840;
+
+pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap<String, String>>> {
+    let host = get_object_by_id_and_type::<IHost>(state, id, HOST_ID)
+        .await
+        .with_context(|| format!("Getting host {}", id))?;
+    let Some(host) = host else { return Ok(None) };
+    let mut variables = get_root_variables(state).await?;
+    variables.insert("nodename".to_string(), host.name);
+    let mut visited = HashSet::new();
+
+    let mut to_visit = host.content.contains.clone().unwrap_or_default();
+    while let Some(id) = to_visit.pop() {
+        if !visited.insert(id) {
+            continue;
+        }
+        let Some(o) = get_newest_object_by_id(state, id)
+            .await
+            .with_context(|| format!("Getting object {}", id))?
+        else {
+            continue;
+        };
+        match o.r#type {
+            ObjectType::Id(COLLECTION_ID) | ObjectType::Id(COMPLEX_COLLECTION_ID) => {
+                let cc: IContainsAndDepends = serde_json::from_value(o.content)?;
+                if let Some(v) = cc.depends {
+                    for v in v {
+                        if let Some(v) = v {
+                            to_visit.push(v);
+                        }
+                    }
+                }
+                if let Some(v) = cc.contains {
+                    for v in v {
+                        if let Some(v) = v {
+                            to_visit.push(v);
+                        }
+                    }
+                }
+            }
+            ObjectType::Id(HOST_VARIABLE_ID) => {
+                let vars: IVariables = serde_json::from_value(o.content)?;
+                if let Some(vs) = vars.variables.clone() {
+                    for v in vs {
+                        variables.insert(v.key, v.value);
+                    }
+                }
+                if let Some(vs) = vars.secrets.clone() {
+                    for v in vs {
+                        variables.insert(v.key, v.value);
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+    if let Some(vs) = host.content.variables {
+        for v in vs {
+            variables.insert(v.key, v.value);
+        }
+    }
+    if let Some(vs) = host.content.secrets {
+        for v in vs {
+            variables.insert(v.key, v.value);
+        }
+    }
+    Ok(Some(variables))
 }
 
 // #[cfg(test)]

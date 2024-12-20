@@ -210,14 +210,14 @@ pub struct IType {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name_variable: Option<String>,
 }
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct IVariable {
     pub key: String,
     pub value: String,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct IVariables {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -226,10 +226,31 @@ pub struct IVariables {
     pub secrets: Option<Vec<IVariable>>,
 }
 
-// export interface IVariables {
-//     variables?: Array<{ key: string; value: string }>;
-//     secrets?: Array<{ key: string; value: string }>;
-// }
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IHost {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variables: Option<Vec<IVariable>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secrets: Option<Vec<IVariable>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contains: Option<Vec<i64>>,
+    #[serde(default)]
+    pub message_on_down: bool,
+    #[serde(default)]
+    pub deb_packages: bool,
+    #[serde(default)]
+    pub use_podman: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IContainsAndDepends {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contains: Option<Vec<i64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depends: Option<Vec<i64>>,
+}
 
 // export interface IContains {
 //     contains: number[];
