@@ -610,56 +610,6 @@ async fn get_object_content_by_id_and_type(
     Ok(Json(r))
 }
 
-#[derive(Serialize)]
-struct IV {
-    id: i64,
-    version: i64,
-}
-
-#[neon::export(name = "insertObject")]
-async fn insert_object(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-    version: f64,
-    Json(object): Json<IObject2<serde_json::Value>>,
-    author: String,
-) -> Result<Json<IV>, Error> {
-    let id = id as i64;
-    let version = version as i64;
-    let content = serde_json::to_string(&object.content)?;
-    let r#type: i64 = object.r#type.into();
-    query!("INSERT INTO `objects` (
-        `id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`, `author`)
-        VALUES (?, ?, ?, ?, ?, datetime('now'), true, ?, ?, ?)",
-        id, version,
-        r#type,
-        object.name,
-        content,
-        object.category,
-        object.comment,
-        author
-    ).execute(&state.db).await?;
-    Ok(Json(IV { id, version }))
-}
-
-#[neon::export(name = "getMaxVersionAndUnsetNewest")]
-async fn get_max_version_and_unset_newest(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<f64, Error> {
-    let id = id as i64;
-    let row = query!(
-        "SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?",
-        id
-    )
-    .fetch_one(&state.db)
-    .await?;
-    query!("UPDATE `objects` SET `newest`=false WHERE `id` = ?", id)
-        .execute(&state.db)
-        .await?;
-    Ok(row.version.context("Unable to find row")? as f64)
-}
-
 #[neon::export(name = "insertDockerImage")]
 async fn insert_docker_image(
     Boxed(state): Boxed<Arc<State>>,
@@ -1196,9 +1146,9 @@ async fn list_deployments(
 }
 
 #[neon::export(name = "setupDb")]
-async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
-    let next_id = db::setup(&state).await?;
-    Ok(next_id as f64)
+async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<(), Error> {
+    db::setup(&state).await?;
+    Ok(())
 }
 
 #[neon::export(name = "handleLogin")]
@@ -1210,5 +1160,17 @@ async fn _handle_login(
 ) -> Result<Json<(IAction, IAuthStatus)>, Error> {
     Ok(Json(
         webclient::handle_login(&state, auth.session, host, act).await?,
+    ))
+}
+
+#[neon::export(name = "changeObject")]
+async fn _change_object(
+    Boxed(state): Boxed<Arc<State>>,
+    id: f64,
+    Json(object): Json<Option<IObject2<serde_json::Value>>>,
+    author: String,
+) -> Result<Json<db::IV>, Error> {
+    Ok(Json(
+        db::change_object(&state, id as i64, object.as_ref(), &author).await?,
     ))
 }

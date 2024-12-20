@@ -1,6 +1,7 @@
-use crate::state::State;
+use crate::{action_types::IObject2, state::State};
 use anyhow::{Context, Result};
 use log::info;
+use neon::object;
 use serde::{Deserialize, Serialize};
 use sqlx::Executor;
 use sqlx_type::query;
@@ -46,7 +47,7 @@ pub async fn get_user_content(state: &State, name: &str) -> Result<Option<UserCo
     }
 }
 
-pub async fn setup(state: &State) -> Result<i64> {
+pub async fn setup(state: &State) -> Result<()> {
     let mut con = state.db.acquire().await?;
 
     con.execute(
@@ -188,11 +189,6 @@ pub async fn setup(state: &State) -> Result<i64> {
     //     ]);
     // }
 
-    // this.nextObjectId = Math.max(
-    //     (await q("SELECT max(`id`) as `id` FROM `objects`")).id + 1,
-    //     this.nextObjectId,
-    // );
-
     let id = query!("SELECT max(`id`) as `id` FROM `objects`")
         .fetch_optional(&state.db)
         .await?;
@@ -201,7 +197,60 @@ pub async fn setup(state: &State) -> Result<i64> {
         id.and_then(|v| v.id).map(|v| v + 1).unwrap_or_default(),
     );
     info!("Db inited next_object_id = {}", next_object_id);
-    Ok(next_object_id)
+    state
+        .next_object_id
+        .store(next_object_id, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct IV {
+    pub id: i64,
+    pub version: i64,
+}
+
+pub async fn change_object<T: Serialize + Clone>(
+    state: &State,
+    id: i64,
+    object: Option<&IObject2<T>>,
+    author: &str,
+) -> Result<IV> {
+    let (id, version) = if id < 0 {
+        (
+            state
+                .next_object_id
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+            1,
+        )
+    } else {
+        let row = query!(
+            "SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?",
+            id
+        )
+        .fetch_one(&state.db)
+        .await?;
+        let version = row.version.context("Unable to find row")?;
+        query!("UPDATE `objects` SET `newest`=false WHERE `id` = ?", id)
+            .execute(&state.db)
+            .await?;
+        (id, version)
+    };
+    if let Some(object) = object {
+        let content = serde_json::to_string(&object.content)?;
+        let r#type: i64 = object.r#type.into();
+        query!("INSERT INTO `objects` (
+            `id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`, `author`)
+            VALUES (?, ?, ?, ?, ?, datetime('now'), true, ?, ?, ?)",
+            id, version,
+            r#type,
+            object.name,
+            content,
+            object.category,
+            object.comment,
+            author
+            ).execute(&state.db).await?;
+    }
+    Ok(IV { id, version })
 }
 
 // #[cfg(test)]

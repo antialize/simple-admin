@@ -31,7 +31,7 @@ import nullCheck from "../../shared/nullCheck";
 import { config } from "./config";
 import { getHostVariables } from "./db";
 import type { HostClient } from "./hostclient";
-import { db, hostClients, rs, webClients } from "./instances";
+import { hostClients, rs, webClients } from "./instances";
 import { Job } from "./job";
 import type * as message from "./messages";
 import type { WebClient } from "./webclient";

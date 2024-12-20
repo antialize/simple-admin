@@ -9,31 +9,11 @@ import {
     rootInstanceId,
 } from "./shared/type";
 
-type IV = { id: number; version: number };
 import { collectionId, complexCollectionId, hostVariableId } from "./default";
 
 import Mustache = require("mustache");
-import { db, rs } from "./instances";
+import { rs } from "./instances";
 const serverRs = require("simple_admin_server_rs");
-
-export class DB {
-    nextObjectId: number;
-
-    constructor(nextObjectId: number) {
-        this.nextObjectId = nextObjectId;
-    }
-}
-
-export async function changeObject(
-    id: number,
-    object: IObject2<any> | null,
-    author: string,
-): Promise<IV> {
-    if (id < 0) return await serverRs.insertObject(rs, db.nextObjectId++, 1, object, author);
-    const version = (await serverRs.getMaxVersionAndUnsetNewest(rs, id)) + 1;
-    if (object) return await serverRs.insertObject(rs, id, version, object, author);
-    else return { id, version };
-}
 
 export async function getHostContentByName(hostname: string): Promise<{
     id: number;

@@ -1,7 +1,7 @@
 import * as Mustache from "mustache";
 import * as PriorityQueue from "priorityqueuejs";
 import { descript, errorHandler } from "./error";
-import { db, hostClients, rs, webClients } from "./instances";
+import { hostClients, rs, webClients } from "./instances";
 import { DeployJob } from "./jobs/deployJob";
 import {
     ACTION,

@@ -6,11 +6,11 @@ import * as express from "express";
 import helmet from "helmet";
 import * as WebSocket from "ws";
 import { config } from "./config";
-import { changeObject, getRootVariables } from "./db";
+import { getRootVariables } from "./db";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import type { AuthInfo } from "./getAuth";
-import { db, deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
+import { deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import { LogJob } from "./jobs/logJob";
@@ -92,7 +92,12 @@ export class WebClient extends JobOwner {
                 this.sendAuthStatus(act.session || null);
                 break;
             case ACTION.Login: {
-                const [response, newAuth] = await serverRs.handleLogin(rs, this.auth, this.host, act);
+                const [response, newAuth] = await serverRs.handleLogin(
+                    rs,
+                    this.auth,
+                    this.host,
+                    act,
+                );
                 this.sendMessage(response);
                 this.auth = newAuth;
                 break;
@@ -253,7 +258,8 @@ export class WebClient extends JobOwner {
                         c.otp_url = otp_url;
                     }
 
-                    const { id, version } = await changeObject(
+                    const { id, version } = await serverRs.changeObject(
+                        rs,
                         act.id,
                         act.obj,
                         nullCheck(this.auth.user),
@@ -323,7 +329,7 @@ export class WebClient extends JobOwner {
                         this.sendMessage(res);
                     } else {
                         console.log("Web client delete object", { id: act.id });
-                        await changeObject(act.id, null, nullCheck(this.auth.user));
+                        await serverRs.changeObject(rs, act.id, null, nullCheck(this.auth.user));
                         const res2: IObjectChanged = {
                             type: ACTION.ObjectChanged,
                             id: act.id,
