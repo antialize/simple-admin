@@ -3,7 +3,7 @@ import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
 import { getHostContentByName, getRootVariables } from "./db";
 import { descript, errorHandler } from "./error";
-import { db, hostClients, msg, webClients } from "./instances";
+import { hostClients, msg, webClients } from "./instances";
 import { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import type * as message from "./messages";

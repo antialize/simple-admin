@@ -1,6 +1,5 @@
-import { changeObject } from "./db";
 import { fileId } from "./default";
-import { db, hostClients, msg, rs, webClients } from "./instances";
+import { hostClients, msg, rs, webClients } from "./instances";
 import { Job } from "./job";
 import type * as message from "./messages";
 import {
@@ -353,7 +352,12 @@ with open(o['path'], 'w', encoding='utf-8') as f:
                     break;
             }
 
-            const { id, version } = await changeObject(f.object, obj, nullCheck(client.auth.user));
+            const { id, version } = await serverRs.changeObject(
+                rs,
+                f.object,
+                obj,
+                nullCheck(client.auth.user),
+            );
             obj.version = version;
             const res: IObjectChanged = { type: ACTION.ObjectChanged, id: id, object: [obj] };
             webClients.broadcast(res);

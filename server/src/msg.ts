@@ -1,4 +1,4 @@
-import { db, rs, webClients } from "./instances";
+import { rs, webClients } from "./instances";
 import * as actions from "./shared/actions";
 const serverRs = require("simple_admin_server_rs");
 

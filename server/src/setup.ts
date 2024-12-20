@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { config } from "./config";
-import { changeObject, getHostContentByName } from "./db";
-import { db } from "./instances";
+import { getHostContentByName } from "./db";
 import { webClients } from "./instances";
 import { ACTION, type IObjectChanged } from "./shared/actions";
 import type { IObject2 } from "./shared/state";
@@ -36,7 +35,7 @@ export default async (req: Request, res: Response) => {
         author: ho.author,
     };
 
-    const { id, version } = await changeObject(obj.id, obj, "setup");
+    const { id, version } = await serverRs.changeObject(res, obj.id, obj, "setup");
     obj.version = version;
     obj.id = id;
     const act: IObjectChanged = { type: ACTION.ObjectChanged, id: ho.id, object: [obj] };
