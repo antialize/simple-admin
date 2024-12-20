@@ -1,8 +1,6 @@
 use crate::{action_types::IAuthStatus, db::get_user_content, state::State};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use sqlx_type::query;
-use ts_rs::TS;
 
 pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> Result<IAuthStatus> {
     let Some(sid) = sid else {

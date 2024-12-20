@@ -14,7 +14,7 @@ use action_types::{
     DockerImageTag, IAction, IAuthStatus, IDockerImageTagsChargedImageTagPin, ILogin, IObject2,
     ISearchResObject, ObjectType,
 };
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use db::UserContent;
 use docker::DeploymentInfo;
 use msg::IMessage;
@@ -22,7 +22,7 @@ use neon::types::extract::{Boxed, Error, Json};
 use serde::Serialize;
 use sqlx_type::{query, query_as};
 use state::State;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use type_types::HOST_ID;
 
 #[neon::export(name = "cryptHash")]
@@ -1182,5 +1182,22 @@ async fn get_host_content_by_name(
     hostname: String,
 ) -> Result<Json<Option<IObject2<serde_json::Value>>>, Error> {
     let r = db::get_object_by_name_and_type(&state, hostname, HOST_ID).await?;
+    Ok(Json(r))
+}
+
+#[neon::export(name = "getRootVariables")]
+async fn _get_root_variables(
+    Boxed(state): Boxed<Arc<State>>,
+) -> Result<Json<HashMap<String, String>>, Error> {
+    let r = db::get_root_variables(&state).await?;
+    Ok(Json(r))
+}
+
+#[neon::export(name = "getHostVariables")]
+async fn _get_host_variables(
+    Boxed(state): Boxed<Arc<State>>,
+    id: f64,
+) -> Result<Json<Option<HashMap<String, String>>>, Error> {
+    let r = db::get_host_variables(&state, id as i64).await?;
     Ok(Json(r))
 }

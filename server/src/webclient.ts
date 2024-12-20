@@ -6,7 +6,6 @@ import * as express from "express";
 import helmet from "helmet";
 import * as WebSocket from "ws";
 import { config } from "./config";
-import { getRootVariables } from "./db";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import type { AuthInfo } from "./getAuth";
@@ -499,7 +498,7 @@ export class WebClient extends JobOwner {
                     crt: my_crt,
                 };
                 if (act.ssh_public_key != null && caps.includes("ssh")) {
-                    const { sshHostCaPub, sshHostCaKey } = await getRootVariables();
+                    const { sshHostCaPub, sshHostCaKey } = await serverRs.getRootVariables(rs);
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
                             const validityDays = 1;
