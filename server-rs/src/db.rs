@@ -1,6 +1,8 @@
 use crate::state::State;
 use anyhow::{Context, Result};
+use log::info;
 use serde::{Deserialize, Serialize};
+use sqlx::Executor;
 use sqlx_type::query;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -43,3 +45,204 @@ pub async fn get_user_content(state: &State, name: &str) -> Result<Option<UserCo
         None => Ok(None),
     }
 }
+
+pub async fn setup(state: &State) -> Result<i64> {
+    let mut con = state.db.acquire().await?;
+
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)",
+    ).await?;
+
+    let _ = con
+        .execute("ALTER TABLE `objects` ADD COLUMN `category` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `objects` ADD COLUMN `author` TEXT")
+        .await;
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS `id_version` ON `objects` (id, version)")
+        .await?;
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `messages` (`id` INTEGER PRIMARY KEY, `host` INTEGER, `type` TEXT, `subtype` TEXT, `message` TEXT, `url` TEXT, `time` INTEGER, `dismissed` INTEGER)",
+    ).await?;
+    // //await i("ALTER TABLE `messages` ADD COLUMN `dismissedTime` INTEGER");
+    con.execute("CREATE INDEX IF NOT EXISTS `messagesIdx` ON `messages` (dismissed, time)")
+        .await?;
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS `messagesIdx2` ON `messages` (dismissed, dismissedTime)",
+    )
+    .await?;
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `deployments` (`id` INTEGER, `host` INTEGER, `name` TEXT, `content` TEXT, `time` INTEGER, `type` INTEGER, `title` TEXT)",
+    ).await?;
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS `deployments_host_name` ON `deployments` (host, name)",
+    )
+    .await?;
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `installedPackages` (`id` INTEGER, `host` INTEGR, `name` TEXT)",
+    )
+    .await?;
+
+    // //await r('DROP TABLE `docker_images`');
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `docker_images` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT, `manifest` TEXT, `hash` TEXT, `user` INTEGER, `time` INTEGER)",
+    ).await?;
+    let _ = con
+        .execute("ALTER TABLE `docker_images` ADD COLUMN `pin` INTEGER")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_images` ADD COLUMN `labels` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_images` ADD COLUMN `removed` INTEGER")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_images` ADD COLUMN `used` INTEGER")
+        .await;
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)",
+    ).await?;
+
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `setup` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `postSetup` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `timeout` INTEGER DEFAULT 120")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `softTakeover` INTEGER DEFAULT 0")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `startMagic` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `stopTimeout` INTEGER DEFAULT 10")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `usePodman` INTEGER DEFAULT 0")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `userService` INTEGER DEFAULT 0")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `deployUser` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `serviceFile` TEXT")
+        .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_deployments` ADD COLUMN `description` TEXT")
+        .await;
+
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `docker_image_tag_pins` (`id` INTEGER PRIMARY KEY, `project` TEXT, `tag` TEXT)",
+    ).await?;
+    con.execute(
+         "CREATE UNIQUE INDEX IF NOT EXISTS `docker_image_tag_pins_u` ON `docker_image_tag_pins` (`project`, `tag`)",
+    ).await?;
+
+    con.execute("CREATE TABLE IF NOT EXISTS `kvp` (`key` TEXT PRIMARY KEY, `value` TEXT)")
+        .await?;
+
+    con.execute(
+         "CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY, `user` TEXT, `host` TEXT, `sid` TEXT NOT NULL, `pwd` INTEGER, `otp` INTEGER)",
+    ).await?;
+    con.execute("DELETE FROM `sessions` WHERE `user`='docker_client'")
+        .await?;
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)")
+        .await?;
+
+    // for ((name, value) in &[
+    //     ("host", hostId),
+    //     ("user", userId),
+    //     ("group", groupId),
+    //     ("file", fileId),
+    //     ("collection", collectionId),
+    //     ("ufwallow", ufwAllowId),
+    //     ("package", packageId),
+    // ]) {
+    //     await r("UPDATE `objects` SET `type`=?  WHERE `type`=?", [pair[1], pair[0]]);
+    // }
+
+    // for (const d of defaults) {
+    //     await r(
+    //         "REPLACE INTO `objects` (`id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`) VALUES (?, 1, ?, ?, ?, datetime('now'), 0, ?, ?)",
+    //         [d.id, d.type, d.name, JSON.stringify(d.content), d.category, d.comment],
+    //     );
+    //     const mv = await q("SELECT max(`version`) AS `version` FROM `objects` WHERE `id` = ?", [
+    //         d.id,
+    //     ]);
+    //     await r("UPDATE `objects` SET `newest`=(`version`=?)  WHERE `id`=?", [
+    //         mv.version,
+    //         d.id,
+    //     ]);
+    // }
+
+    // this.nextObjectId = Math.max(
+    //     (await q("SELECT max(`id`) as `id` FROM `objects`")).id + 1,
+    //     this.nextObjectId,
+    // );
+
+    let id = query!("SELECT max(`id`) as `id` FROM `objects`")
+        .fetch_optional(&state.db)
+        .await?;
+    let next_object_id = i64::max(
+        10000,
+        id.and_then(|v| v.id).map(|v| v + 1).unwrap_or_default(),
+    );
+    info!("Db inited next_object_id = {}", next_object_id);
+    Ok(next_object_id)
+}
+
+// #[cfg(test)]
+// mod tests {
+//     use std::str::FromStr;
+//     use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+//     use super::*;
+
+//     #[tokio::test]
+//     async fn db() -> Result<()> {
+//         let opt = SqliteConnectOptions::from_str("sqlite://../server/sysadmin.db")?
+//         .journal_mode(SqliteJournalMode::Wal);
+
+//         let db = sqlx::SqlitePool::connect_with(opt)
+//             .await
+//             .context("Unable to connect to sysadmin.db")?;
+
+//         println!("messages");
+//         query!("SELECT * FROM `messages`").fetch_all(&db).await.context("messages")?;
+//         println!("deployments");
+//         query!("SELECT * FROM `deployments`").fetch_all(&db).await.context("deployments")?;
+//         println!("docker_images");
+//         query!("SELECT * FROM `docker_images`").fetch_all(&db).await.context("docker_images")?;
+//         println!("docker_deployments");
+//         query!("SELECT * FROM `docker_deployments`").fetch_all(&db).await.context("docker_deployments")?;
+//         println!("docker_image_tag_pins");
+//         query!("SELECT * FROM `docker_image_tag_pins`").fetch_all(&db).await.context("docker_image_tag_pins")?;
+//         println!("kvp");
+//         query!("SELECT * FROM `kvp`").fetch_all(&db).await.context("kvp")?;
+//         println!("sessions");
+//         query!("SELECT * FROM `sessions`").fetch_all(&db).await.context("sessions")?;
+//         println!("objects");
+
+//         let rows =  query!("SELECT * FROM `objects`").fetch_all(&db).await.context("objects")?;
+//         let mut err = false;
+//         for row in rows {
+//             let v: Result<serde_json::Value, _> = serde_json::from_str(&row.content);
+//             if let Err(e) = v  {
+//                 println!("Invalid object content {}: {:?}", row.id, e);
+//                 err = true;
+//             }
+//         }
+//         if err {
+//             panic!();
+//         }
+//         Ok(())
+//     }
+// }

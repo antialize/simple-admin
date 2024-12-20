@@ -13,16 +13,17 @@ console.log("STARTING SERVER");
 
 async function setup() {
     instances.setRs(await serverRs.init());
-    instances.setMsg(new Msg());
-    instances.setDeployment(new Deployment());
-    instances.setDb(new DB());
-    instances.setModifiedFiles(new ModifiedFiles());
-
+    let nextObjectId;
     try {
-        await instances.db.init();
+        nextObjectId = await serverRs.setupDb(instances.rs);
     } catch (err) {
         errorHandler("db")(err);
+        process.exit(42);
     }
+    instances.setDb(new DB(nextObjectId));
+    instances.setMsg(new Msg());
+    instances.setDeployment(new Deployment());
+    instances.setModifiedFiles(new ModifiedFiles());
     instances.setWebClients(new WebClients());
     instances.webClients.startServer();
     instances.setHostClients(new HostClients());

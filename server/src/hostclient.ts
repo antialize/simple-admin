@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
+import { getHostContentByName, getRootVariables } from "./db";
 import { descript, errorHandler } from "./error";
 import { db, hostClients, msg, webClients } from "./instances";
 import { Job } from "./job";
@@ -192,7 +193,7 @@ export class HostClient extends JobOwner {
     }
 
     async validateAuth(obj: message.Auth) {
-        const res = await db.getHostContentByName(obj.hostname);
+        const res = await getHostContentByName(obj.hostname);
         if (
             res &&
             serverRs.cryptValidatePassword(
@@ -271,7 +272,7 @@ export class HostClient extends JobOwner {
         }
         try {
             const hostKey = await this.runShell("cat /etc/ssh/ssh_host_ed25519_key.pub");
-            const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
+            const { sshHostCaPub, sshHostCaKey } = await getRootVariables();
             if (sshHostCaKey != null && sshHostCaPub != null && this.hostname != null) {
                 const validityDays = 7;
                 const sshCrt = await serverRs.crtGenerateSshCrt(
