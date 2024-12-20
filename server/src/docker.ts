@@ -136,10 +136,10 @@ class Docker {
 
     async ensure_ca() {
         const r1 = await serverRs.getKvp(rs, "ca_key");
-        if (r1) this.ca_key = r1.value;
+        if (r1) this.ca_key = r1;
 
         const r2 = await serverRs.getKvp(rs, "ca_crt");
-        if (r2) this.ca_crt = r2.value;
+        if (r2) this.ca_crt = r2;
         if (!this.ca_key) {
             console.log("Generating ca key");
             this.ca_key = await serverRs.crtGenerateKey();
