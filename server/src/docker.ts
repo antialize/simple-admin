@@ -872,7 +872,7 @@ class Docker {
                         this.ca_crt,
                         my_srs,
                         ssl_subcerts,
-                        999
+                        999,
                     );
                     variables.ca_pem = serverRs.crtStrip(this.ca_crt);
                     variables.ssl_key = serverRs.crtStrip(my_key);

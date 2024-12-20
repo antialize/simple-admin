@@ -1,5 +1,5 @@
 use crate::state::State;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sqlx_type::query;
 
@@ -19,7 +19,7 @@ pub struct UserContent {
     #[serde(default)]
     pub sslname: Option<String>,
     #[serde(default)]
-    pub auth_days: Option<u32>,
+    pub auth_days: Option<String>,
     pub password: String,
     #[serde(rename = "otp_base32")]
     pub otp_base32: String,
@@ -34,9 +34,12 @@ pub async fn get_user_content(state: &State, name: &str) -> Result<Option<UserCo
         name
     )
     .fetch_optional(&state.db)
-    .await?;
+    .await
+    .context("Runing query in get_user_content")?;
     match row {
-        Some(row) => Ok(Some(serde_json::from_str(&row.content)?)),
+        Some(row) => Ok(Some(
+            serde_json::from_str(&row.content).context("Parsing user content")?,
+        )),
         None => Ok(None),
     }
 }

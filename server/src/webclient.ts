@@ -8,7 +8,7 @@ import * as WebSocket from "ws";
 import { config } from "./config";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
-import { type AuthInfo } from "./getAuth";
+import type { AuthInfo } from "./getAuth";
 import { db, deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
@@ -92,7 +92,9 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.Login: {
                 let session = this.auth.session;
-                const auth = session ? await serverRs.getAuth(rs, this.host, session) : serverRs.noAccess();
+                const auth = session
+                    ? await serverRs.getAuth(rs, this.host, session)
+                    : serverRs.noAccess();
                 let found = false;
                 let newOtp = false;
                 let otp = auth?.otp;
@@ -827,7 +829,8 @@ export class WebClients {
                 const cols = +u.query!.cols!;
                 const rows = +u.query!.rows!;
                 const session = u.query.session as string;
-                serverRs.getAuth(rs, address, session)
+                serverRs
+                    .getAuth(rs, address, session)
                     .then((a: any) => {
                         if (a.auth && server in hostClients.hostClients)
                             new ShellJob(hostClients.hostClients[server], ws, cols, rows);

@@ -61,7 +61,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             FROM `docker_images`
             LEFT JOIN `docker_deployments` ON `docker_images`.`hash` = `docker_deployments`.`hash`
             WHERE `removed` IS NULL
-            GROUP BY `docker_images`.`id`").fetch_all(&state.db).await?;
+            GROUP BY `docker_images`.`id`").fetch_all(&state.db).await.context("Running query in docker prune")?;
 
     for row in rows {
         let mut keep = row.pin.unwrap_or_default()
