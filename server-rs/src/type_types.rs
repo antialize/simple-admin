@@ -260,8 +260,8 @@ pub struct IVariables {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IObject<T> {
-    pub id: u64,
-    pub r#type: u64,
+    pub id: i64,
+    pub r#type: i64,
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
@@ -275,9 +275,9 @@ pub struct IObject<T> {
     pub content: T,
 }
 
-pub const TYPE_ID: u64 = 1;
-pub const HOST_ID: u64 = 2;
-pub const ROOT_ID: u64 = 3;
-pub const USER_ID: u64 = 4;
-pub const PACKAGE_ID: u64 = 10;
-pub const ROOT_INSTANCE_ID: u64 = 100;
+pub const TYPE_ID: i64 = 1;
+pub const HOST_ID: i64 = 2;
+pub const ROOT_ID: i64 = 3;
+pub const USER_ID: i64 = 4;
+pub const PACKAGE_ID: i64 = 10;
+pub const ROOT_INSTANCE_ID: i64 = 100;

@@ -1,8 +1,8 @@
-use crate::{action_types::IObject2, state::State};
+use crate::{action_types::IObject2, state::State, type_types::HOST_ID};
 use anyhow::{Context, Result};
 use log::info;
 use neon::object;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sqlx::Executor;
 use sqlx_type::query;
 
@@ -251,6 +251,37 @@ pub async fn change_object<T: Serialize + Clone>(
             ).execute(&state.db).await?;
     }
     Ok(IV { id, version })
+}
+
+pub async fn get_object_by_name_and_type<T: Clone + DeserializeOwned>(
+    state: &State,
+    name: String,
+    r#type: i64,
+) -> Result<Option<IObject2<T>>> {
+    let row = query!(
+        "SELECT `id`, `type`, `content`, `version`, `name`, `category`, `comment`,
+        strftime('%s', `time`) AS `time`, `author` FROM `objects`
+        WHERE `type` = ? AND `name`=? AND `newest`",
+        r#type,
+        name
+    )
+    .fetch_optional(&state.db)
+    .await?;
+    let res = match row {
+        Some(r) => Some(IObject2 {
+            id: r.id,
+            version: Some(r.version),
+            r#type: r.r#type.try_into()?,
+            name: r.name,
+            content: serde_json::from_str(&r.content)?,
+            category: r.category.unwrap_or_default(),
+            comment: r.comment,
+            time: Some(r.time.parse()?),
+            author: r.author,
+        }),
+        None => None,
+    };
+    Ok(res)
 }
 
 // #[cfg(test)]
