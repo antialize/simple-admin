@@ -29,6 +29,7 @@ import {
 import getOrInsert from "../../shared/getOrInsert";
 import nullCheck from "../../shared/nullCheck";
 import { config } from "./config";
+import { getHostVariables } from "./db";
 import type { HostClient } from "./hostclient";
 import { db, hostClients, rs, webClients } from "./instances";
 import { Job } from "./job";
@@ -134,26 +135,31 @@ class Docker {
     ca_crt: string | null = null;
 
     async ensure_ca() {
-        const r1 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_key'");
+        const r1 = await serverRs.getKvp(rs, "ca_key");
         if (r1) this.ca_key = r1.value;
 
-        const r2 = await db.get("SELECT `value` FROM `kvp` WHERE `key` = 'ca_crt'");
+        const r2 = await serverRs.getKvp(rs, "ca_crt");
         if (r2) this.ca_crt = r2.value;
         if (!this.ca_key) {
             console.log("Generating ca key");
             this.ca_key = await serverRs.crtGenerateKey();
-            await db.insert("REPLACE INTO kvp (key,value) VALUES (?, ?)", "ca_key", this.ca_key);
+            serverRs.setKvp(rs, "ca_key", this.ca_key);
         }
 
         if (!this.ca_crt) {
             console.log("Generating ca crt");
             this.ca_crt = await serverRs.crtGenerateCaCrt(this.ca_key);
-            await db.insert("REPLACE INTO kvp (key, value) VALUES (?,?)", "ca_crt", this.ca_crt);
+            serverRs.setKvp(rs, "ca_crt", this.ca_crt);
         }
     }
 
     constructor() {
-        setInterval(serverRs.dockerPrune(rs), 1000 * 60 * 60 * 12); // prune docker images every 12 houers
+        setInterval(
+            () => {
+                serverRs.dockerPrune(rs);
+            },
+            1000 * 60 * 60 * 12,
+        ); // prune docker images every 12 houers
     }
 
     getContainerState(host: number, container: string): string | undefined {
@@ -211,22 +217,7 @@ class Docker {
             const p = req.url.split("?")[0].split("/");
             // GET /docker/images/image
             if (p.length === 4 && p[0] === "" && p[1] === "docker" && p[2] === "images") {
-                const images: DockerImageTag[] = [];
-                const q =
-                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`";
-                for (const row of await db.all(q, p[3])) {
-                    images.push({
-                        id: row.id,
-                        image: row.project,
-                        hash: row.hash,
-                        tag: row.tag,
-                        user: row.user,
-                        time: row.time,
-                        pin: row.pin,
-                        labels: JSON.parse(row.labels || "{}"),
-                        removed: row.removed,
-                    });
-                }
+                const images = await serverRs.getImageTagsByProject(rs, p[3]);
                 res.header("Content-Type", "application/json; charset=utf-8")
                     .json({ images: images })
                     .end();
@@ -252,8 +243,7 @@ class Docker {
             for (const image of req.body.images) {
                 const match = re.exec(image);
                 if (!match) continue;
-
-                await db.run("UPDATE `docker_images` SET `used`=? WHERE `hash`=?", time, match[3]);
+                await serverRs.markImageUsed(rs, match[3], time);
             }
             res.status(200).end();
         } catch (e) {
@@ -326,13 +316,8 @@ class Docker {
 
         // GET 	/v2/<name>/manifests/<reference> Manifest Fetch the manifest identified by name and reference where reference can be a tag or digest. A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
         if (p.length === 5 && p[0] === "" && p[1] === "v2" && p[3] === "manifests") {
-            const row = await db.get(
-                "SELECT `manifest`, `hash` FROM `docker_images` WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
-                p[2],
-                p[4],
-                p[4],
-            );
-            if (!row) {
+            const manifest = await serverRs.getDockerImageManifest(rs, p[2], p[4]);
+            if (manifest == null) {
                 console.error("Docker get manifest: not found", {
                     project: p[2],
                     identifier: p[4],
@@ -340,9 +325,8 @@ class Docker {
                 res.status(404).end();
                 return;
             }
-            // console.log("Docker get manifest", {row: row['hash']});
             res.header("Content-Type", "application/vnd.docker.distribution.manifest.v2+json");
-            res.send(row.manifest).end();
+            res.send(manifest).end();
             return;
         }
 
@@ -540,15 +524,9 @@ class Docker {
             hash.update(content, "utf8");
             const h = `sha256:${hash.digest("hex")}`;
 
-            await db.run(
-                "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
-                p[2],
-                p[4],
-                h,
-            );
             const time = +new Date() / 1000;
-            const id = await db.insert(
-                "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`, `user`, `time`, `pin`, `labels`) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            const id = await serverRs.insertDockerImage(
+                rs,
                 p[2],
                 p[4],
                 content,
@@ -698,35 +676,6 @@ class Docker {
         res.status(404).end();
     }
 
-    async findImage(id: string) {
-        if (id.includes("@")) {
-            const p = id.split("@");
-            const image = p[0];
-            const reference = p[1];
-            let hash: string | null = null;
-            for (const row of await db.all(
-                "SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `hash`=? ORDER BY `time` DESC LIMIT 1",
-                image,
-                reference,
-            )) {
-                hash = row.hash;
-            }
-            return { image, hash };
-        }
-        const p = id.split(":");
-        const image = p[0];
-        const reference = p[1] || "latest";
-        let hash: string | null = null;
-        for (const row of await db.all(
-            "SELECT `hash`, `time` FROM `docker_images` WHERE `project`=? AND `tag`=? ORDER BY `time` DESC LIMIT 1",
-            image,
-            reference,
-        )) {
-            hash = row.hash;
-        }
-        return { image, hash };
-    }
-
     deployServiceJob(
         client: WebClient,
         host: HostClient,
@@ -811,7 +760,7 @@ class Docker {
                 return;
             }
 
-            const res = await db.getHostVariables(host.id);
+            const res = await getHostVariables(host.id);
             if (!res) {
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
@@ -872,7 +821,7 @@ class Docker {
                         this.ca_crt,
                         my_srs,
                         ssl_subcerts,
-                        999
+                        999,
                     );
                     variables.ca_pem = serverRs.crtStrip(this.ca_crt);
                     variables.ssl_key = serverRs.crtStrip(my_key);
@@ -898,7 +847,7 @@ class Docker {
 
             if (project != null) {
             } else if (imageId) {
-                const p = await this.findImage(imageId);
+                const p = await serverRs.findImage(rs, imageId);
                 if (!p.hash) {
                     client.sendMessage({
                         type: ACTION.DockerDeployDone,
@@ -927,14 +876,7 @@ class Docker {
             const now = (Date.now() / 1000) | 0;
             const session = crypto.randomBytes(64).toString("hex");
             try {
-                await db.run(
-                    "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-                    "docker_client",
-                    "",
-                    now,
-                    now,
-                    session,
-                );
+                await serverRs.insertSession(rs, "docker_client", "", now, now, session);
 
                 await this.deployServiceJob(
                     client,
@@ -973,44 +915,28 @@ class Docker {
                     description: description_str,
                 };
 
-                const oldDeploy = await db.get(
-                    "SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
+                const id2 = await serverRs.insertDockerDeployment(
+                    rs,
                     host.id,
                     project,
                     name,
+                    now,
+                    hash,
+                    user,
+                    description_str,
                 );
-                if (oldDeploy && !oldDeploy.endTime)
-                    await db.run(
-                        "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
-                        o.start,
-                        oldDeploy.id,
-                    );
-                o.id = await db.insert(
-                    "INSERT INTO `docker_deployments` (" +
-                        "`project`, `container`, `host`, `startTime`, `hash`, `user`, `description`) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    o.image,
-                    o.container,
-                    o.host,
-                    o.start,
-                    o.hash,
-                    o.user,
-                    o.description,
-                );
+                o.id = id2;
+
                 client.sendMessage({
                     type: ACTION.DockerDeployDone,
                     ref,
                     status: true,
                     message: "Success",
-                    id: o.id,
+                    id: id2,
                 });
                 await this.broadcastDeploymentChange(o);
             } finally {
-                await db.run(
-                    "DELETE FROM `sessions` WHERE `user`=? AND `sid`=?",
-                    "docker_client",
-                    session,
-                );
+                await serverRs.deleteSession(rs, session, "docker_client");
             }
         } catch (e) {
             client.sendMessage({
@@ -1024,10 +950,7 @@ class Docker {
     }
 
     async redeployService(client: WebClient, act: IServiceRedeployStart) {
-        const deploymentRow = await db.get(
-            "SELECT * FROM `docker_deployments` WHERE `id`=?",
-            act.deploymentId,
-        );
+        const deploymentRow = await serverRs.getDockerDeploymentById(rs, act.deploymentId);
         if (!deploymentRow) {
             client.sendMessage({
                 type: ACTION.DockerDeployDone,
@@ -1076,24 +999,9 @@ class Docker {
     }
 
     async getTagsByHash(hashes: string[]) {
-        const placeholders: string[] = [];
-        for (const _ of hashes) placeholders.push("?");
         const tagByHash: { [hash: string]: DockerImageTag } = {};
-        for (const row of await db.all(
-            `SELECT \`id\`, \`hash\`, \`time\`, \`project\`, \`user\`, \`tag\`, \`pin\`, \`labels\`, \`removed\` FROM \`docker_images\` WHERE \`hash\` IN (${placeholders.join(",")})`,
-            ...hashes,
-        )) {
-            tagByHash[row.hash] = {
-                id: row.id,
-                image: row.project,
-                hash: row.hash,
-                tag: row.tag,
-                user: row.user,
-                time: row.time,
-                pin: row.pin,
-                labels: JSON.parse(row.labels || "{}"),
-                removed: row.removed,
-            };
+        for (const v of await serverRs.getTagsByHash(rs, hashes)) {
+            tagByHash[v.hash] = v;
         }
         return tagByHash;
     }
@@ -1119,9 +1027,7 @@ class Docker {
         };
         try {
             const hashes: string[] = [];
-            for (const row of await db.all(
-                "SELECT * FROM `docker_deployments` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_deployments` GROUP BY `host`, `project`, `container`)",
-            )) {
+            for (const row of await serverRs.listDeployments(rs)) {
                 if (act.host && row.host !== act.host) continue;
                 if (act.image && row.project !== act.image) continue;
                 hashes.push(row.hash);
@@ -1162,26 +1068,12 @@ class Docker {
             pinnedImageTags: [],
         };
         try {
-            for (const row of await db.all(
-                "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id` IN (SELECT MAX(`id`) FROM `docker_images` GROUP BY `project`, `tag`) AND (`removed` > ? OR `removed` IS NULL)",
+            const [tags, pinned] = await serverRs.listImageTags(
+                rs,
                 +new Date() / 1000 - maxRemovedAge,
-            ))
-                res.tags.push({
-                    id: row.id,
-                    image: row.project,
-                    hash: row.hash,
-                    tag: row.tag,
-                    user: row.user,
-                    time: row.time,
-                    pin: row.pin,
-                    labels: JSON.parse(row.labels || "{}"),
-                    removed: row.removed,
-                });
-            for (const row of await db.all("SELECT `project`, `tag` FROM `docker_image_tag_pins`"))
-                nullCheck(res.pinnedImageTags).push({
-                    image: row.project,
-                    tag: row.tag,
-                });
+            );
+            res.tags = tags;
+            res.pinnedImageTags = pinned;
         } finally {
             client.sendMessage(res);
         }
@@ -1197,11 +1089,7 @@ class Docker {
         };
         try {
             const hashes: string[] = [];
-            for (const row of await db.all(
-                "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container` = ?",
-                act.host,
-                act.name,
-            )) {
+            for (const row of await serverRs.getDockerDeployments(rs, act.host, act.name)) {
                 hashes.push(row.hash);
                 res.deployments.push({
                     id: row.id,
@@ -1239,66 +1127,24 @@ class Docker {
             tag: act.tag,
         };
         try {
-            for (const row of await db.all(
-                "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?",
-                act.tag,
-                act.image,
-            ))
-                res.images.push({
-                    id: row.id,
-                    image: row.project,
-                    hash: row.hash,
-                    tag: row.tag,
-                    user: row.user,
-                    time: row.time,
-                    pin: row.pin,
-                    labels: JSON.parse(row.labels || "{}"),
-                    removed: row.removed,
-                });
+            res.images = await serverRs.listImageTagHistory(rs, act.image, act.tag);
         } finally {
             client.sendMessage(res);
         }
     }
 
     async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
-        await db.run("UPDATE `docker_images` SET pin=? WHERE `id`=?", act.pin ? 1 : 0, act.id);
+        const changed = await serverRs.imageSetPin(rs, act.id, act.pin);
         const res: IDockerImageTagsCharged = {
             type: ACTION.DockerListImageTagsChanged,
-            changed: [],
+            changed,
             removed: [],
         };
-
-        for (const row of await db.all(
-            "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?",
-            act.id,
-        ))
-            res.changed.push({
-                id: row.id,
-                image: row.project,
-                hash: row.hash,
-                tag: row.tag,
-                user: row.user,
-                time: row.time,
-                pin: row.pin,
-                labels: JSON.parse(row.labels || "{}"),
-                removed: row.removed,
-            });
         webClients.broadcast(res);
     }
 
     async imageTagSetPin(client: WebClient, act: IDockerImageTagSetPin) {
-        if (act.pin)
-            await db.run(
-                "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
-                act.image,
-                act.tag,
-            );
-        else
-            await db.run(
-                "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
-                act.image,
-                act.tag,
-            );
+        await serverRs.imageTagSetPin(rs, act.image, act.tag, act.pin);
         const res: IDockerImageTagsCharged = {
             type: ACTION.DockerListImageTagsChanged,
             changed: [],
@@ -1338,55 +1184,7 @@ class Docker {
     }
 
     async handleDeployment(o: DeploymentInfo) {
-        if (o.restore) {
-            await db.run(
-                "DELETE FROM docker_deployments` WHERE `id` > ? AND `host`=? AND `project`=? AND `container`=?",
-                o.restore,
-                o.host,
-                o.image,
-                o.container,
-            );
-            await db.run(
-                "UPDATE `docker_deployments` SET `endTime` = null WHERE `id`=?",
-                o.restore,
-            );
-            o.id = o.restore;
-        } else {
-            const oldDeploy = await db.get(
-                "SELECT `id`, `endTime` FROM `docker_deployments` WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
-                o.host,
-                o.image,
-                o.container,
-            );
-            if (oldDeploy && !oldDeploy.endTime)
-                await db.run(
-                    "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
-                    o.start,
-                    oldDeploy.id,
-                );
-            o.id = await db.insert(
-                "INSERT INTO `docker_deployments` (" +
-                    "`project`, `container`, `host`, `startTime`, `config`, `setup`, `hash`, `user`, `postSetup`, `timeout`, `softTakeover`, `startMagic`, `stopTimeout`, `usePodman`, `userService`, `deployUser`, `serviceFile`) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                o.image,
-                o.container,
-                o.host,
-                o.start,
-                o.config,
-                o.setup,
-                o.hash,
-                o.user,
-                o.postSetup,
-                o.timeout,
-                o.softTakeover,
-                o.startMagic,
-                o.stopTimeout,
-                o.usePodman,
-                o.userService,
-                o.deployUser,
-                o.serviceFile,
-            );
-        }
+        o.id = await serverRs.handleDeployment(rs, o);
         await this.broadcastDeploymentChange(o);
     }
 
@@ -1403,148 +1201,10 @@ class Docker {
         }
     }
 
-    async handleHostDockerContainers(host: HostClient, obj: IHostContainers) {
-        try {
-            if (!host.id) throw Error("Missing host id");
-            const containers = getOrInsert(this.hostContainers, host.id, () => new Map());
-            if (obj.full) containers.clear();
-            const images = this.hostImages.get(host.id);
-            if (!images) {
-                console.error("No images for host", host.id);
-                return;
-            }
-
-            const now = (Date.now() / 1000) | 0;
-
-            for (const id of obj.delete) {
-                const c = containers.get(id);
-                if (!c) continue;
-                containers.delete(id);
-                const container = c.name.substr(1); //For some reason there is a slash in the string??
-                const row = await db.get(
-                    "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
-                    container,
-                );
-                if (!row || !row.project) continue;
-                await db.run(
-                    "UPDATE `docker_deployments` SET `endTime`=? WHERE `id`=?",
-                    now,
-                    row.id,
-                );
-                await this.broadcastDeploymentChange({
-                    id: row.id,
-                    host: host.id,
-                    restore: null,
-                    image: row.project,
-                    container,
-                    hash: row.hash,
-                    user: row.user,
-                    config: row.config,
-                    setup: row.setup,
-                    postSetup: row.postSetup,
-                    timeout: null,
-                    start: row.start,
-                    end: now,
-                    deploymentTimeout: row.timeout,
-                    softTakeover: !!row.softTakeover,
-                    startMagic: row.startMagic,
-                    usePodman: !!row.usePodman,
-                    stopTimeout: row.stopTimeout,
-                    userService: !!row.userService,
-                    deployUser: row.deployUser,
-                    serviceFile: row.serviceFile,
-                    description: null,
-                });
-            }
-
-            for (const u of obj.update) {
-                containers.set(u.id, u);
-                const image = images.get(u.image);
-                if (!image) {
-                    //console.error("Could not find image for container")
-                    continue;
-                }
-                const container = u.name.substr(1); //For some reason there is a slash in the string??
-                const row = await db.get(
-                    "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
-                    host.id,
-                    container,
-                );
-                if (!row || !row.project) {
-                    //console.log("Could not find project for container", container, row);
-                    continue;
-                }
-                const project = row.project;
-
-                let deploymentInfo: DeploymentInfo | null = null;
-                let keep = false;
-                for (const [id, info] of this.delayedDeploymentInformations) {
-                    if (
-                        info.host !== host.id ||
-                        info.container !== container ||
-                        info.image !== project
-                    )
-                        continue;
-                    let match = false;
-                    for (const d of image.digests)
-                        if (info.hash === d || info.hash === d.split("@")[1]) match = true;
-                    if (match) {
-                        deploymentInfo = info;
-                        this.delayedDeploymentInformations.delete(id);
-                        break;
-                    }
-                }
-
-                if (deploymentInfo) {
-                    if (deploymentInfo.timeout) clearTimeout(deploymentInfo.timeout);
-                } else {
-                    for (const d of image.digests) {
-                        if (row.hash === d || row.hash === d.split("@")[1]) keep = true;
-                    }
-                    if (row.endTime) keep = false;
-
-                    deploymentInfo = {
-                        host: host.id,
-                        restore: null,
-                        image: project,
-                        container,
-                        hash: keep ? row.hash : image.digests[0].split("@")[1],
-                        user: keep ? row.user : null,
-                        config: keep ? row.config : null,
-                        setup: keep ? row.setup : null,
-                        postSetup: keep ? row.postSetup : null,
-                        timeout: null,
-                        start: keep ? row.startTime : now,
-                        end: null,
-                        id: keep ? row.id : null,
-                        deploymentTimeout: row.timeout,
-                        softTakeover: keep ? row.softTakeover : false,
-                        startMagic: keep ? row.startMagic : null,
-                        usePodman: keep ? !!row.usePodman : false,
-                        stopTimeout: row.stopTimeout,
-                        userService: keep ? !!row.userService : false,
-                        deployUser: keep ? row.deployUser : null,
-                        serviceFile: keep ? row.serviceFile : null,
-                        description: null,
-                    };
-                }
-                if (!keep) await this.handleDeployment(deploymentInfo);
-                else await this.broadcastDeploymentChange(deploymentInfo);
-            }
-        } catch (e) {
-            console.log(e);
-            console.log("Uncaught exception in handleHostDockerContainers", e);
-        }
-    }
-
     async forgetContainer(wc: WebClient, hostId: number, container: string) {
         const host = hostClients.hostClients[hostId];
         if (!host) return;
-        await db.run(
-            "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
-            hostId,
-            container,
-        );
+        await serverRs.forgetContainer(rs, hostId, container);
         const msg: IAction = {
             type: ACTION.DockerDeploymentsChanged,
             changed: [],

@@ -2,8 +2,9 @@ use crate::{db::get_user_content, state::State};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sqlx_type::query;
+use ts_rs::TS;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthStatus {
     pub message: Option<String>,
@@ -53,18 +54,20 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             Ok(Default::default())
         }
     } else {
-        if host.is_none() {
-            return Ok(Default::default());
-        }
         let row = query!(
             "SELECT `pwd`, `otp`, `user`, `host` FROM `sessions` WHERE `sid`=?",
             sid
         )
         .fetch_optional(&state.db)
-        .await?;
+        .await
+        .context("Runnig query in get_auth")?;
         let Some(row) = row else {
             return Ok(Default::default());
         };
+
+        if host.is_some() && row.host != host.unwrap() {
+            return Ok(Default::default());
+        }
 
         let user = row.user;
         if user == "docker_client" {
@@ -79,6 +82,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
                 docker_pull: pwd && otp,
                 docker_push: pwd && otp,
                 auth: pwd && otp,
+                user: Some(user),
                 pwd,
                 otp,
                 session: Some(sid.to_string()),
@@ -114,10 +118,13 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             return Ok(Default::default());
         };
 
+        let auth_days = content.auth_days.and_then(|v| v.parse::<u32>().ok());
         let pwd_expiration: i64 = if &user == "docker_client" {
             60 * 60
+        } else if let Some(auth_days) = auth_days {
+            auth_days as i64 * 60 * 60 * 24
         } else {
-            content.auth_days.map(|v| v as i64 * 24).unwrap_or(12) * 60 * 60 //Passwords time out after 12 hours
+            12 * 60 * 60 //Passwords time out after 12 hours
         };
 
         let otp_expiration: i64 = if &user == "docker_client" {
@@ -155,7 +162,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             docker_deploy: pwd && otp && (content.admin || content.docker_deploy),
             sslname: if pwd && otp { content.sslname } else { None },
             session: Some(sid.to_string()),
-            auth_days: content.auth_days,
+            auth_days,
             message: None,
         })
     }

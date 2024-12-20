@@ -1,5 +1,6 @@
-import { db, webClients } from "./instances";
+import { db, rs, webClients } from "./instances";
 import * as actions from "./shared/actions";
+const serverRs = require("simple_admin_server_rs");
 
 export class Msg {
     async emit(
@@ -10,15 +11,8 @@ export class Msg {
         url: string | null = null,
     ) {
         const time = +new Date() / 1000;
-        const id = await db.insert(
-            "INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`) VALUES (?, ?, ?, ?, ?,?, 0)",
-            host,
-            type,
-            subtype,
-            message,
-            url,
-            time,
-        );
+
+        const id = await serverRs.insertMessage(rs, host, type, message, subtype, url, time);
         if (!message) message = "";
         const act: actions.IAddMessage = {
             type: actions.ACTION.AddMessage,
@@ -40,11 +34,7 @@ export class Msg {
     async setDismissed(ids: number[], dismissed: boolean) {
         const time = dismissed ? +new Date() / 1000 : null;
 
-        await db.run(
-            `UPDATE \`messages\` SET \`dismissed\`=?, \`dismissedTime\`=? WHERE \`id\` IN (${ids.join(",")})`,
-            dismissed,
-            time,
-        );
+        await serverRs.setDismissed(rs, ids, dismissed, time);
 
         const act: actions.ISetMessagesDismissed = {
             type: actions.ACTION.SetMessagesDismissed,

@@ -1,7 +1,7 @@
 import * as Mustache from "mustache";
 import * as PriorityQueue from "priorityqueuejs";
 import { descript, errorHandler } from "./error";
-import { db, hostClients, webClients } from "./instances";
+import { db, hostClients, rs, webClients } from "./instances";
 import { DeployJob } from "./jobs/deployJob";
 import {
     ACTION,
@@ -44,6 +44,7 @@ import { collectionId, complexCollectionId, hostVariableId } from "./default";
 //Type only import
 import type { HostClient } from "./hostclient";
 import nullCheck from "./shared/nullCheck";
+const serverRs = require("simple_admin_server_rs");
 
 interface IDeployContent {
     script: string | null;
@@ -221,7 +222,7 @@ export class Deployment {
             };
 
             // Collect all objects
-            for (const r of await db.getAllObjectsFull()) {
+            for (const r of await serverRs.getAllObjectsFull(rs)) {
                 objects[r.id] = {
                     id: r.id,
                     name: r.name,
@@ -521,7 +522,7 @@ export class Deployment {
                         name: string;
                     };
                 } = {};
-                for (const row of await db.getDeployments(hostId)) {
+                for (const row of await serverRs.getDeployments(rs, hostId)) {
                     const c = JSON.parse(row.content) as IDeployContent;
                     if (!c.content) continue;
                     oldContent[row.name] = {
@@ -791,7 +792,7 @@ export class Deployment {
     async performDeploy() {
         const types: { [id: number]: IObject2<IType> } = {};
 
-        for (const r of await db.getAllObjectsFull())
+        for (const r of await serverRs.getAllObjectsFull(rs))
             if (r.type === typeId)
                 types[r.id] = {
                     id: r.id,
@@ -826,7 +827,7 @@ export class Deployment {
                 curHost = o.host;
                 this.addHeader(o.hostName, "=");
                 hostObjects = {};
-                for (const row of await db.getDeployments(curHost)) {
+                for (const row of await serverRs.getDeployments(rs, curHost)) {
                     const c = JSON.parse(row.content) as IDeployContent;
                     if (!c.content) continue;
                     if (!(row.type in hostObjects)) hostObjects[row.type] = {};
@@ -890,7 +891,8 @@ export class Deployment {
                             typeName: o2.typeName,
                             object: nullCheck(o2.id),
                         };
-                        await db.setDeployment(
+                        await serverRs.setDeployment(
+                            rs,
                             o2.host,
                             o2.name,
                             JSON.stringify(c),
@@ -945,7 +947,14 @@ export class Deployment {
                     typeName: o.typeName,
                     object: nullCheck(o.id),
                 };
-                await db.setDeployment(o.host, o.name, JSON.stringify(c), typeId, o.title);
+                await serverRs.setDeployment(
+                    rs,
+                    o.host,
+                    o.name,
+                    JSON.stringify(c),
+                    typeId,
+                    o.title,
+                );
             }
             this.setObjectStatus(
                 o.index,

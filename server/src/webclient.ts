@@ -6,9 +6,10 @@ import * as express from "express";
 import helmet from "helmet";
 import * as WebSocket from "ws";
 import { config } from "./config";
+import { changeObject, getRootVariables } from "./db";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
-import { type AuthInfo } from "./getAuth";
+import type { AuthInfo } from "./getAuth";
 import { db, deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
@@ -92,7 +93,9 @@ export class WebClient extends JobOwner {
                 break;
             case ACTION.Login: {
                 let session = this.auth.session;
-                const auth = session ? await serverRs.getAuth(rs, this.host, session) : serverRs.noAccess();
+                const auth = session
+                    ? await serverRs.getAuth(rs, this.host, session)
+                    : serverRs.noAccess();
                 let found = false;
                 let newOtp = false;
                 let otp = auth?.otp;
@@ -144,15 +147,11 @@ export class WebClient extends JobOwner {
                     if (otp && newOtp) {
                         const now = (Date.now() / 1000) | 0;
                         if (session) {
-                            await db.run(
-                                "UPDATE `sessions` SET `otp`=? WHERE `sid`=?",
-                                now,
-                                session,
-                            );
+                            await serverRs.setSessionOtp(rs, session, now);
                         } else {
                             session = crypto.randomBytes(64).toString("hex");
-                            await db.run(
-                                "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
+                            await serverRs.insertSession(
+                                rs,
                                 act.user,
                                 this.host,
                                 null,
@@ -181,28 +180,12 @@ export class WebClient extends JobOwner {
                 } else {
                     const now = (Date.now() / 1000) | 0;
                     if (session && newOtp) {
-                        await db.run(
-                            "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
-                            now,
-                            now,
-                            session,
-                        );
+                        await serverRs.setSessionPwdAndOtp(rs, session, now, now);
                     } else if (session) {
-                        const eff = await db.run(
-                            "UPDATE `sessions` SET `pwd`=? WHERE `sid`=?",
-                            now,
-                            session,
-                        );
+                        await serverRs.setSessionPwd(rs, session, now);
                     } else {
                         session = crypto.randomBytes(64).toString("hex");
-                        await db.run(
-                            "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-                            act.user,
-                            this.host,
-                            now,
-                            now,
-                            session,
-                        );
+                        await serverRs.insertSession(rs, act.user, this.host, now, now, session);
                     }
                     this.auth = await serverRs.getAuth(rs, this.host, session);
                     if (!this.auth.auth) throw Error("Internal auth error");
@@ -230,18 +213,8 @@ export class WebClient extends JobOwner {
                     act.forgetPwd,
                     act.forgetOtp,
                 );
-                if (act.forgetPwd)
-                    await db.run(
-                        "UPDATE `sessions` SET `pwd`=null WHERE `sid`=?",
-                        this.auth.session,
-                    );
-                if (act.forgetOtp) {
-                    await db.run(
-                        "UPDATE `sessions` SET `otp`=null WHERE `sid`=?",
-                        this.auth.session,
-                    );
-                    this.auth = serverRs.noAccess();
-                }
+                if (act.forgetPwd) await serverRs.setSessionPwd(rs, this.auth.session, null);
+                if (act.forgetOtp) await serverRs.setSessionOtp(rs, this.auth.session, null);
                 this.sendAuthStatus(this.auth.session);
                 break;
             case ACTION.FetchObject: {
@@ -249,7 +222,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                const rows = await db.getObjectByID(act.id);
+                const rows = await serverRs.getObjectById(rs, act.id);
                 const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
                 for (const row of rows) {
                     res.object.push({
@@ -276,18 +249,9 @@ export class WebClient extends JobOwner {
                 try {
                     const parts = act.path.split("/", 2);
                     if (parts.length !== 2) break;
-                    const typeRow = await db.get(
-                        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-                        typeId,
-                        parts[0],
-                    );
-                    if (!typeRow || !typeRow.id) break;
-                    const objectRow = await db.get(
-                        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=1",
-                        typeRow.id,
-                        parts[1],
-                    );
-                    if (objectRow) id = objectRow.id;
+                    const objectTypeId = await serverRs.find_object_id(rs, typeId, parts[0]);
+                    if (!objectTypeId) break;
+                    id = await serverRs.find_object_id(rs, objectTypeId, parts[1]);
                 } finally {
                     this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
                 }
@@ -303,10 +267,7 @@ export class WebClient extends JobOwner {
                     time: number;
                     author: string | null;
                 }[] = [];
-                for (const row of await db.all(
-                    "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-                    act.id,
-                )) {
+                for (const row of await serverRs.getObjectHistory(rs, act.id)) {
                     history.push({ version: row.version, time: row.time, author: row.author });
                 }
                 this.sendMessage({
@@ -369,7 +330,7 @@ export class WebClient extends JobOwner {
                     // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
                     if (!act.obj) throw Error("Missing object in action");
                     const c = act.obj.content;
-                    const typeRow = await db.getNewestObjectByID(act.obj.type);
+                    const typeRow = await serverRs.getNewestObjectByID(rs, act.obj.type);
                     const type = JSON.parse(typeRow.content) as IType;
                     for (const r of type.content || []) {
                         if (r.type !== TypePropType.password) continue;
@@ -388,7 +349,7 @@ export class WebClient extends JobOwner {
                         c.otp_url = otp_url;
                     }
 
-                    const { id, version } = await db.changeObject(
+                    const { id, version } = await changeObject(
                         act.id,
                         act.obj,
                         nullCheck(this.auth.user),
@@ -412,29 +373,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                const objects: {
-                    type: number;
-                    id: number;
-                    version: number;
-                    name: string;
-                    comment: string;
-                    content: string;
-                }[] = [];
-                for (const row of await db.all(
-                    "SELECT `id`, `version`, `type`, `name`, `content`, `comment` FROM `objects` WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`=1",
-                    act.pattern,
-                    act.pattern,
-                    act.pattern,
-                )) {
-                    objects.push({
-                        id: row.id,
-                        type: row.type,
-                        name: row.name,
-                        content: row.content,
-                        comment: row.comment,
-                        version: row.version,
-                    });
-                }
+                const objects = await serverRs.getSearchObjects(rs, act.pattern);
                 const res4: ISearchRes = {
                     type: ACTION.SearchRes,
                     ref: act.ref,
@@ -448,7 +387,7 @@ export class WebClient extends JobOwner {
                     this.connection.close(403);
                     return;
                 }
-                await db.resetServer(act.host);
+                await serverRs.resetServer(rs, act.host);
                 break;
             case ACTION.DeleteObject:
                 if (!this.auth.admin) {
@@ -456,7 +395,7 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 {
-                    const objects = await db.getAllObjectsFull();
+                    const objects = await serverRs.getAllObjectsFull(rs);
                     const conflicts: string[] = [];
                     for (const object of objects) {
                         const content = JSON.parse(object.content);
@@ -480,7 +419,7 @@ export class WebClient extends JobOwner {
                         this.sendMessage(res);
                     } else {
                         console.log("Web client delete object", { id: act.id });
-                        await db.changeObject(act.id, null, nullCheck(this.auth.user));
+                        await changeObject(act.id, null, nullCheck(this.auth.user));
                         const res2: IObjectChanged = {
                             type: ACTION.ObjectChanged,
                             id: act.id,
@@ -650,7 +589,7 @@ export class WebClient extends JobOwner {
                     crt: my_crt,
                 };
                 if (act.ssh_public_key != null && caps.includes("ssh")) {
-                    const { sshHostCaPub, sshHostCaKey } = await db.getRootVariables();
+                    const { sshHostCaPub, sshHostCaKey } = await getRootVariables();
                     if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
                         try {
                             const validityDays = 1;
@@ -690,7 +629,7 @@ export class WebClient extends JobOwner {
 }
 
 async function sendInitialState(c: WebClient) {
-    const rows = db.getAllObjectsFull();
+    const rows = serverRs.getAllObjectsFull(rs);
     const msgs = serverRs.msgGetResent(rs);
 
     const hostsUp: number[] = [];
@@ -759,10 +698,7 @@ export class WebClients {
 
     async countMessages(req: express.Request, res: express.Response) {
         let downHosts = 0;
-        for (const row of await db.all(
-            "SELECT `id`, `name`, `content` FROM `objects` WHERE `type` = ? AND `newest`=1",
-            hostId,
-        )) {
+        for (const row of await serverRs.getObjectContentByType(rs, hostId)) {
             if (hostClients.hostClients[row.id]?.auth || !row.content) continue;
             const content: Host = JSON.parse(row.content);
             if (content.messageOnDown) downHosts += 1;
@@ -779,11 +715,8 @@ export class WebClients {
             return;
         }
         const ans: { [key: string]: boolean } = {};
-        for (const row of await db.all(
-            "SELECT `id`, `name` FROM `objects` WHERE `type` = ? AND `newest`=1",
-            hostId,
-        )) {
-            ans[row.name] = hostClients.hostClients[row.id]?.auth || false;
+        for (const [id, name] of await serverRs.getIdNamePairsForType(rs, hostId)) {
+            ans[name] = hostClients.hostClients[id]?.auth || false;
         }
         res.header("Content-Type", "application/json; charset=utf-8").json(ans).end();
     }
@@ -827,7 +760,8 @@ export class WebClients {
                 const cols = +u.query!.cols!;
                 const rows = +u.query!.rows!;
                 const session = u.query.session as string;
-                serverRs.getAuth(rs, address, session)
+                serverRs
+                    .getAuth(rs, address, session)
                     .then((a: any) => {
                         if (a.auth && server in hostClients.hostClients)
                             new ShellJob(hostClients.hostClients[server], ws, cols, rows);
