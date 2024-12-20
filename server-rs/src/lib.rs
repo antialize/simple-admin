@@ -23,6 +23,7 @@ use serde::Serialize;
 use sqlx_type::{query, query_as};
 use state::State;
 use std::sync::Arc;
+use type_types::HOST_ID;
 
 #[neon::export(name = "cryptHash")]
 fn crypt_hash(key: String) -> Result<String, Error> {
@@ -1173,4 +1174,13 @@ async fn _change_object(
     Ok(Json(
         db::change_object(&state, id as i64, object.as_ref(), &author).await?,
     ))
+}
+
+#[neon::export(name = "getHostContentByName")]
+async fn get_host_content_by_name(
+    Boxed(state): Boxed<Arc<State>>,
+    hostname: String,
+) -> Result<Json<Option<IObject2<serde_json::Value>>>, Error> {
+    let r = db::get_object_by_name_and_type(&state, hostname, HOST_ID).await?;
+    Ok(Json(r))
 }

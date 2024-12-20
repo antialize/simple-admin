@@ -15,32 +15,6 @@ import Mustache = require("mustache");
 import { rs } from "./instances";
 const serverRs = require("simple_admin_server_rs");
 
-export async function getHostContentByName(hostname: string): Promise<{
-    id: number;
-    content: Host;
-    version: number;
-    type: number;
-    name: string;
-    category: string;
-    comment: string;
-    time: number;
-    author: string | null;
-} | null> {
-    const row = await serverRs.getObjectByNameAndType(rs, hostname, hostId);
-    if (row === null) return null;
-    return {
-        id: row.id,
-        content: JSON.parse(row.content),
-        version: row.version,
-        type: hostId,
-        name: hostname,
-        category: row.category,
-        comment: row.comment,
-        time: +row.time,
-        author: row.author,
-    };
-}
-
 export async function getRootVariables() {
     const rootRow = await serverRs.getObjectContentByIdAndType(rs, rootInstanceId, rootId);
     const variables: { [key: string]: string } = {};
