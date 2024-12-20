@@ -17,7 +17,10 @@ pub struct State {
 
 impl State {
     pub async fn new() -> Result<Arc<State>> {
-        SimpleLogger::new().with_level(LevelFilter::Info).init().unwrap();
+        SimpleLogger::new()
+            .with_level(LevelFilter::Info)
+            .init()
+            .unwrap();
 
         let config = read_config()?;
 
