@@ -8,6 +8,8 @@ import { WebClients } from "./webclient";
 const serverRs = require("simple_admin_server_rs");
 const exitHook = require("async-exit-hook");
 
+import { ACTION, IAction, type IGenerateKey } from "./shared/actions";
+
 console.log("STARTING SERVER");
 
 async function setup() {
