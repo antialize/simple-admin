@@ -14,7 +14,10 @@ use sqlx_type::query;
 use std::{sync::Arc, time::Duration};
 
 use crate::{
-    action_types::{IAction, IAuthStatus, IGenerateKey, IGenerateKeyRes, ILogin},
+    action_types::{
+        IAction, IAuthStatus, IGenerateKey, IGenerateKeyRes, ILogin, ISearch, ISearchRes,
+        ISearchResObject,
+    },
     crt,
     crypt::{self, random_fill},
     db,
@@ -317,6 +320,40 @@ impl WebClient {
         }
         Ok(())
     }
+
+    pub async fn handle_search(&self, state: &State, act: ISearch) -> Result<()> {
+        if !self.get_auth().await?.admin {
+            self.close(403).await?;
+            return Ok(());
+        };
+        let rows = query!(
+            "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
+            FROM `objects`
+            WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`",
+            act.pattern,
+            act.pattern,
+            act.pattern,
+        )
+        .fetch_all(&state.db)
+        .await?;
+        let mut objects = Vec::new();
+        for row in rows {
+            objects.push(ISearchResObject {
+                r#type: row.r#type.try_into()?,
+                id: row.id,
+                version: row.version,
+                name: row.name,
+                comment: row.comment,
+                content: row.content,
+            });
+        }
+        self.send_message(IAction::SearchRes(ISearchRes {
+            r#ref: act.r#ref,
+            objects,
+        }))
+        .await?;
+        Ok(())
+    }
 }
 
 #[neon::export(context, name = "webclientHandleGenerateKey")]
@@ -345,5 +382,20 @@ async fn _handle_login(
         channel: ch,
     };
     wc.handle_login(&state, act).await?;
+    Ok(())
+}
+
+#[neon::export(name = "handleSearch")]
+async fn _handle_search(
+    ch: Channel,
+    Boxed(state): Boxed<Arc<State>>,
+    obj: Root<JsObject>,
+    Json(act): Json<ISearch>,
+) -> Result<(), Error> {
+    let wc = WebClient {
+        obj: Arc::new(obj),
+        channel: ch,
+    };
+    wc.handle_search(&state, act).await?;
     Ok(())
 }
