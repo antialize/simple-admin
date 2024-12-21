@@ -353,35 +353,6 @@ async fn get_object_history(
     Ok(Json(res))
 }
 
-#[neon::export(name = "getSearchObjects")]
-async fn get_search_objects(
-    Boxed(state): Boxed<Arc<State>>,
-    pattern: String,
-) -> Result<Json<Vec<ISearchResObject>>, Error> {
-    let rows = query!(
-        "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
-        FROM `objects`
-        WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`",
-        pattern,
-        pattern,
-        pattern,
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(ISearchResObject {
-            r#type: row.r#type.try_into()?,
-            id: row.id,
-            version: row.version,
-            name: row.name,
-            comment: row.comment,
-            content: row.content,
-        });
-    }
-    Ok(Json(res))
-}
-
 #[neon::export(name = "getIdNamePairsForType")]
 async fn get_id_name_pairs_for_type(
     Boxed(state): Boxed<Arc<State>>,

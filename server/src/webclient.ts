@@ -276,17 +276,7 @@ export class WebClient extends JobOwner {
                 }
                 break;
             case ACTION.Search: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                const objects = await serverRs.getSearchObjects(rs, act.pattern);
-                const res4: ISearchRes = {
-                    type: ACTION.SearchRes,
-                    ref: act.ref,
-                    objects,
-                };
-                this.sendMessage(res4);
+                serverRs.webclientHandleSearch(rs, this, act);
                 break;
             }
             case ACTION.ResetServerState:
