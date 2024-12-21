@@ -82,6 +82,11 @@ export class WebClient extends JobOwner {
         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 
+    async getCaKeyCrt(): Promise<[string, string]> {
+        await docker.ensure_ca();
+        return [docker.ca_key!, docker.ca_crt!];
+    }
+
     async onMessage(str: string) {
         const act = JSON.parse(str) as IAction;
 
@@ -91,14 +96,7 @@ export class WebClient extends JobOwner {
                 this.sendAuthStatus(act.session || null);
                 break;
             case ACTION.Login: {
-                const [response, newAuth] = await serverRs.handleLogin(
-                    rs,
-                    this.auth,
-                    this.host,
-                    act,
-                );
-                this.sendMessage(response);
-                this.auth = newAuth;
+                await serverRs.webClientHandleLogin(rs, this, act);
                 break;
             }
             case ACTION.RequestInitialState:
@@ -472,52 +470,7 @@ export class WebClient extends JobOwner {
                 await modifiedFiles.resolve(this, act);
                 break;
             case ACTION.GenerateKey: {
-                if (!this.auth.sslname) {
-                    this.connection.close(403);
-                    return;
-                }
-
-                const [_uname, _uid, capsString] = this.auth.sslname.split(".");
-                const caps = (capsString || "").split("~");
-
-                await docker.ensure_ca();
-                const my_key = await serverRs.crtGenerateKey();
-                const my_srs = await serverRs.crtGenerateSrs(my_key, `${this.auth.sslname}.user`);
-                const my_crt = await serverRs.crtGenerateCrt(
-                    docker.ca_key!,
-                    docker.ca_crt!,
-                    my_srs,
-                    [],
-                    this.auth.authDays || 1,
-                );
-                const res2: IGenerateKeyRes = {
-                    type: ACTION.GenerateKeyRes,
-                    ref: act.ref,
-                    ca_pem: docker.ca_crt!,
-                    key: my_key,
-                    crt: my_crt,
-                };
-                if (act.ssh_public_key != null && caps.includes("ssh")) {
-                    const { sshHostCaPub, sshHostCaKey } = await serverRs.getRootVariables(rs);
-                    if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
-                        try {
-                            const validityDays = 1;
-                            const sshCrt = await serverRs.crtGenerateSshCrt(
-                                `${this.auth.user} sadmin user`,
-                                this.auth.user,
-                                sshHostCaKey,
-                                act.ssh_public_key,
-                                validityDays,
-                                "user",
-                            );
-                            res2.ssh_host_ca = sshHostCaPub;
-                            res2.ssh_crt = sshCrt;
-                        } catch (e) {
-                            errorHandler("ACTION.GenerateKey", this)(e);
-                        }
-                    }
-                }
-                this.sendMessage(res2);
+                await serverRs.webclientHandleGenerateKey(rs, this, act);
                 break;
             }
             default:

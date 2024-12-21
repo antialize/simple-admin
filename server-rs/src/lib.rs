@@ -1152,18 +1152,6 @@ async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<(), Error> {
     Ok(())
 }
 
-#[neon::export(name = "handleLogin")]
-async fn _handle_login(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(auth): Json<IAuthStatus>,
-    host: String,
-    Json(act): Json<ILogin>,
-) -> Result<Json<(IAction, IAuthStatus)>, Error> {
-    Ok(Json(
-        webclient::handle_login(&state, auth.session, host, act).await?,
-    ))
-}
-
 #[neon::export(name = "changeObject")]
 async fn _change_object(
     Boxed(state): Boxed<Arc<State>>,
