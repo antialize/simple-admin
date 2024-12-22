@@ -1129,17 +1129,6 @@ class Docker {
         }
     }
 
-    async forgetContainer(wc: WebClient, hostId: number, container: string) {
-        const host = hostClients.hostClients[hostId];
-        if (!host) return;
-        await serverRs.forgetContainer(rs, hostId, container);
-        const msg: IAction = {
-            type: ACTION.DockerDeploymentsChanged,
-            changed: [],
-            removed: [{ host: hostId, name: container }],
-        };
-        webClients.broadcast(msg);
-    }
 
     handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
         if (!host.id) throw Error("Missing host id");

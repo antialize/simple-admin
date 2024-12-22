@@ -193,13 +193,6 @@ export class WebClient extends JobOwner {
                 }
                 await docker.listDeploymentHistory(this, act);
                 break;
-            case ACTION.DockerContainerForget:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.forgetContainer(this, act.host, act.container);
-                break;
             case ACTION.ModifiedFilesScan:
                 if (!this.auth.admin) {
                     this.connection.close(403);

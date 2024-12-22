@@ -533,23 +533,6 @@ async fn insert_docker_deployment(
     Ok(id as f64)
 }
 
-#[neon::export(name = "forgetContainer")]
-async fn forget_container(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    container: String,
-) -> Result<(), Error> {
-    let host = host as i64;
-    query!(
-        "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
-        host,
-        container
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
-}
-
 #[allow(non_snake_case)]
 #[derive(Serialize)]
 struct DockerDeployment {

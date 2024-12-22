@@ -16,13 +16,14 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     action_types::{
-        DeploymentStatus, DockerImageTag, IAction, IAlert, IAuthStatus, IDeployObject,
-        IDeploymentObject, IDockerImageTagsCharged, IDockerImageTagsChargedImageTagPin,
-        IDockerListImageByHashRes, IDockerListImageTagHistoryRes, IDockerListImageTagsRes,
-        IDockerListImageTagsResTag, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
-        IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction,
-        IObject2, IObjectChanged, IObjectDigest, ISearchRes, ISearchResObject, ISetInitialState,
-        ISetMessagesDismissed, ISetPageAction, ISource, ObjectRow, ObjectType,
+        DeploymentStatus, DockerImageTag, DockerImageTagRow, IAction, IAlert, IAuthStatus,
+        IDeploymentObject, IDockerDeploymentsChanged, IDockerDeploymentsChangedRemoved,
+        IDockerImageTagsCharged, IDockerImageTagsChargedImageTagPin, IDockerListImageByHashRes,
+        IDockerListImageTagHistoryRes, IDockerListImageTagsRes, IDockerListImageTagsResTag,
+        IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes, IGetObjectHistoryResHistory,
+        IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction, IObject2, IObjectChanged,
+        IObjectDigest, ISearchRes, ISearchResObject, ISetInitialState, ISetMessagesDismissed,
+        ISetPageAction, ISource, ObjectRow, ObjectType,
     },
     crt,
     crypt::{self, random_fill},
@@ -966,6 +967,29 @@ impl WebClient {
                         images,
                         image: act.image,
                         tag: act.tag,
+                    },
+                ))
+                .await?;
+            }
+            IAction::DockerContainerForget(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                query!(
+                    "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
+                    act.host,
+                    act.container
+                )
+                .execute(&state.db)
+                .await?;
+                self.broadcast_message(IAction::DockerDeploymentsChanged(
+                    IDockerDeploymentsChanged {
+                        changed: Default::default(),
+                        removed: vec![IDockerDeploymentsChangedRemoved {
+                            host: act.host,
+                            name: act.container,
+                        }],
                     },
                 ))
                 .await?;
