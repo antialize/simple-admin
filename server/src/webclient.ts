@@ -98,67 +98,6 @@ export class WebClient extends JobOwner {
                 }
                 await sendInitialState(this);
                 break;
-            case ACTION.FetchObject: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                const rows = await serverRs.getObjectById(rs, act.id);
-                const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
-                for (const row of rows) {
-                    res.object.push({
-                        id: act.id,
-                        version: row.version,
-                        type: row.type,
-                        name: row.name,
-                        content: JSON.parse(row.content),
-                        category: row.category,
-                        comment: row.comment,
-                        time: row.time,
-                        author: row.author,
-                    });
-                }
-                this.sendMessage(res);
-                break;
-            }
-            case ACTION.GetObjectId: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                let id = null;
-                try {
-                    const parts = act.path.split("/", 2);
-                    if (parts.length !== 2) break;
-                    const objectTypeId = await serverRs.find_object_id(rs, typeId, parts[0]);
-                    if (!objectTypeId) break;
-                    id = await serverRs.find_object_id(rs, objectTypeId, parts[1]);
-                } finally {
-                    this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
-                }
-                break;
-            }
-            case ACTION.GetObjectHistory: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                const history: {
-                    version: number;
-                    time: number;
-                    author: string | null;
-                }[] = [];
-                for (const row of await serverRs.getObjectHistory(rs, act.id)) {
-                    history.push({ version: row.version, time: row.time, author: row.author });
-                }
-                this.sendMessage({
-                    type: ACTION.GetObjectHistoryRes,
-                    ref: act.ref,
-                    history,
-                    id: act.id,
-                });
-                break;
-            }
             case ACTION.StartLog:
                 if (!this.auth.admin) {
                     this.connection.close(403);

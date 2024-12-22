@@ -15,14 +15,16 @@ use std::{sync::Arc, time::Duration};
 
 use crate::{
     action_types::{
-        IAction, IAuthStatus, IGenerateKey, IGenerateKeyRes, ILogin, ISearch, ISearchRes,
-        ISearchResObject,
+        IAction, IAuthStatus, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
+        IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IObject2,
+        IObjectChanged, ISearch, ISearchRes, ISearchResObject,
     },
     crt,
     crypt::{self, random_fill},
     db,
     get_auth::get_auth,
     state::State,
+    type_types::TYPE_ID,
 };
 
 struct WebClient {
@@ -309,6 +311,31 @@ impl WebClient {
         Ok(())
     }
 
+    async fn get_object_id_inner(
+        &self,
+        state: &State,
+        act: &IGetObjectId,
+    ) -> Result<i64, anyhow::Error> {
+        let (type_name, object_name) = act.path.split_once("/").context("Missing /")?;
+        let type_id = query!(
+            "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`",
+            TYPE_ID,
+            type_name
+        )
+        .fetch_one(&state.db)
+        .await?
+        .id;
+        let object_id = query!(
+            "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`",
+            type_id,
+            object_name
+        )
+        .fetch_one(&state.db)
+        .await?
+        .id;
+        Ok(object_id)
+    }
+
     pub async fn handle_message(&self, state: &State, act: IAction) -> Result<()> {
         match act {
             IAction::RequestAuthStatus(act) => {
@@ -337,11 +364,7 @@ impl WebClient {
                 let session = auth.session.context("Missing session")?;
                 info!(
                     "logout host:{}, user: {:?}, session: {:?}, forgetPwd: {}, forgetOtp: {}",
-                    host,
-                    auth.user,
-                    session,
-                    act.forget_pwd,
-                    act.forget_otp,
+                    host, auth.user, session, act.forget_pwd, act.forget_otp,
                 );
                 if act.forget_pwd {
                     query!("UPDATE `sessions` SET `pwd`=NULL WHERE `sid`=?", session)
@@ -356,6 +379,82 @@ impl WebClient {
                 let auth = get_auth(state, Some(&host), Some(&session)).await?;
                 self.set_auth(auth.clone()).await?;
                 self.send_message(IAction::AuthStatus(auth)).await?;
+            }
+            IAction::FetchObject(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let rows = query!(
+                    "SELECT `id`, `version`, `type`, `name`, `content`, `category`, `comment`,
+                    strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
+                    act.id
+                )
+                .fetch_all(&state.db)
+                .await?;
+                let mut object = Vec::new();
+                for row in rows {
+                    object.push(IObject2 {
+                        id: act.id,
+                        version: Some(row.version),
+                        r#type: row.r#type.try_into()?,
+                        name: row.name,
+                        content: serde_json::from_str(&row.content)?,
+                        category: row.category.unwrap_or_default(),
+                        comment: row.comment,
+                        time: Some(row.time.parse()?),
+                        author: row.author,
+                    });
+                }
+                self.send_message(IAction::ObjectChanged(IObjectChanged {
+                    id: act.id,
+                    object,
+                }))
+                .await?;
+            }
+            IAction::GetObjectId(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let id = match self.get_object_id_inner(state, &act).await {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        error!("Failure in getObjectId {:?}", e);
+                        None
+                    }
+                };
+                self.send_message(IAction::GetObjectIdRes(IGetObjectIdRes {
+                    r#ref: act.r#ref,
+                    id,
+                }))
+                .await?;
+            }
+            IAction::GetObjectHistory(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let rows = query!(
+                    "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
+                    act.id
+                )
+                .fetch_all(&state.db)
+                .await?;
+                let mut history: Vec<_> = Vec::new();
+                for row in rows {
+                    history.push(IGetObjectHistoryResHistory {
+                        version: row.version,
+                        time: row.time.parse()?,
+                        author: row.author,
+                    });
+                }
+                self.send_message(IAction::GetObjectHistoryRes(IGetObjectHistoryRes {
+                    r#ref: act.r#ref,
+                    id: act.id,
+                    history,
+                }))
+                .await?;
             }
             IAction::Search(act) => {
                 if !self.get_auth().await?.admin {

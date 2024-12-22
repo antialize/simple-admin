@@ -153,7 +153,6 @@ async fn init() -> Result<Boxed<Arc<State>>, Error> {
     Ok(Boxed(State::new().await?))
 }
 
-
 #[neon::export(name = "insertSession")]
 async fn insert_session(
     Boxed(state): Boxed<Arc<State>>,
@@ -294,53 +293,6 @@ async fn get_deployed_file_like(
     Ok(Json(res))
 }
 
-#[neon::export(name = "findObjectId")]
-async fn find_object_id(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(r#type): Json<ObjectType>,
-    name: String,
-) -> Result<Option<f64>, Error> {
-    let r#type: i64 = r#type.into();
-    let res = query!(
-        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`",
-        r#type,
-        name
-    )
-    .fetch_optional(&state.db)
-    .await?;
-    Ok(res.map(|row| row.id as f64))
-}
-
-#[derive(Serialize)]
-struct History {
-    version: f64,
-    time: f64,
-    author: Option<String>,
-}
-
-#[neon::export(name = "getObjectHistory")]
-async fn get_object_history(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<Vec<History>>, Error> {
-    let id = id as i64;
-    let rows = query!(
-        "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-        id
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(History {
-            version: row.version as f64,
-            time: row.time.parse()?,
-            author: row.author,
-        })
-    }
-    Ok(Json(res))
-}
-
 #[neon::export(name = "getIdNamePairsForType")]
 async fn get_id_name_pairs_for_type(
     Boxed(state): Boxed<Arc<State>>,
@@ -368,36 +320,6 @@ struct FullObject {
     comment: String,
     time: i64,
     author: Option<String>,
-}
-
-#[neon::export(name = "getObjectById")]
-async fn get_object_by_id(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<Vec<FullObject>>, Error> {
-    let id = id as i64;
-    let rows = query!(
-        "SELECT `id`, `version`, `type`, `name`, `content`, `category`, `comment`,
-        strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-        id
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for r in rows {
-        res.push(FullObject {
-            id: r.id,
-            version: r.version,
-            r#type: r.r#type.try_into()?,
-            name: r.name,
-            content: r.content,
-            category: r.category,
-            comment: r.comment,
-            time: r.time.parse()?,
-            author: r.author,
-        });
-    }
-    Ok(Json(res))
 }
 
 #[neon::export(name = "getNewestObjectByID")]

@@ -515,7 +515,7 @@ pub struct IGetObjectId {
 #[serde(rename_all = "camelCase")]
 pub struct IGetObjectIdRes {
     pub r#ref: Ref,
-    pub id: i64,
+    pub id: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
