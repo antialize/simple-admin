@@ -3,7 +3,9 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     action_types::{IObject2, ObjectType},
     state::State,
-    type_types::{IContainsAndDepends, IHost, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID},
+    type_types::{
+        IHost, ISudoOnContainsAndDepends, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID,
+    },
 };
 use anyhow::{Context, Result};
 use log::info;
@@ -238,7 +240,7 @@ pub async fn change_object<T: Serialize + Clone>(
         query!("UPDATE `objects` SET `newest`=false WHERE `id` = ?", id)
             .execute(&state.db)
             .await?;
-        (id, version)
+        (id, version + 1)
     };
     if let Some(object) = object {
         let content = serde_json::to_string(&object.content)?;
@@ -395,7 +397,7 @@ pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap
         };
         match o.r#type {
             ObjectType::Id(COLLECTION_ID) | ObjectType::Id(COMPLEX_COLLECTION_ID) => {
-                let cc: IContainsAndDepends = serde_json::from_value(o.content)?;
+                let cc: ISudoOnContainsAndDepends = serde_json::from_value(o.content)?;
                 if let Some(v) = cc.depends {
                     for v in v {
                         if let Some(v) = v {

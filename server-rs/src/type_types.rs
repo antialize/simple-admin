@@ -5,7 +5,9 @@ use serde::{de, ser::SerializeMap, Deserialize, Serialize, Serializer};
 pub struct IBoolTypeProp {
     pub title: String,
     pub name: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub default: bool,
     pub variable: String,
 }
@@ -15,10 +17,14 @@ pub struct IBoolTypeProp {
 pub struct ITextTypeProp {
     pub title: String,
     pub name: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub default: String,
+    #[serde(default)]
     pub template: bool,
-    pub variable: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variable: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deploy_title: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -30,6 +36,7 @@ pub struct ITextTypeProp {
 pub struct IPasswordTypeProp {
     pub title: String,
     pub name: String,
+    #[serde(default)]
     pub description: String,
 }
 
@@ -40,9 +47,12 @@ pub struct IDocumentTypeProp {
     pub name: String,
     pub lang_name: String,
     pub lang: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub template: bool,
-    pub variable: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variable: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,10 +60,13 @@ pub struct IDocumentTypeProp {
 pub struct IChoiceTypeProp {
     pub title: String,
     pub name: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub default: String,
     pub choices: Vec<String>,
-    pub variable: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variable: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -61,7 +74,9 @@ pub struct IChoiceTypeProp {
 pub struct INumberTypeProp {
     pub title: String,
     pub name: String,
+    #[serde(default)]
     pub description: String,
+    #[serde(default)]
     pub default: i64,
 }
 
@@ -245,11 +260,13 @@ pub struct IHost {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct IContainsAndDepends {
+pub struct ISudoOnContainsAndDepends {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub contains: Option<Vec<i64>>,
+    pub contains: Option<Vec<Option<i64>>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub depends: Option<Vec<i64>>,
+    pub depends: Option<Vec<Option<i64>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sudo_on: Option<Vec<Option<i64>>>,
 }
 
 // export interface IContains {

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
 
+use crate::page_types::IPage;
+
 fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     Ok(match serde_json::Value::deserialize(d)? {
         serde_json::Value::Null => false,
@@ -118,7 +120,7 @@ pub struct IObjectChanged {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISetPageAction {
-    pub page: serde_json::Value, // TODO(jakobt) IPage
+    pub page: IPage,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]

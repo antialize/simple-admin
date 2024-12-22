@@ -127,99 +127,6 @@ export class WebClient extends JobOwner {
                 }
                 await msg.setDismissed(act.ids, act.dismissed);
                 break;
-            case ACTION.SaveObject:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                {
-                    // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
-                    if (!act.obj) throw Error("Missing object in action");
-                    const c = act.obj.content;
-                    const typeRow = await serverRs.getNewestObjectByID(rs, act.obj.type);
-                    const type = JSON.parse(typeRow.content) as IType;
-                    for (const r of type.content || []) {
-                        if (r.type !== TypePropType.password) continue;
-                        if (
-                            !(r.name in c) ||
-                            c[r.name].startsWith("$6$") ||
-                            c[r.name].startsWith("$y$")
-                        )
-                            continue;
-                        c[r.name] = serverRs.cryptHash(c[r.name]);
-                    }
-
-                    if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {
-                        const [otp_base32, otp_url] = serverRs.cryptGenerateOtpSecret(act.obj.name);
-                        c.otp_base32 = otp_base32;
-                        c.otp_url = otp_url;
-                    }
-
-                    const { id, version } = await serverRs.changeObject(
-                        rs,
-                        act.id,
-                        act.obj,
-                        nullCheck(this.auth.user),
-                    );
-                    act.obj.version = version;
-                    const res2: IObjectChanged = {
-                        type: ACTION.ObjectChanged,
-                        id: id,
-                        object: [act.obj],
-                    };
-                    webClients.broadcast(res2);
-                    const res3: ISetPageAction = {
-                        type: ACTION.SetPage,
-                        page: { type: PAGE_TYPE.Object, objectType: act.obj.type, id, version },
-                    };
-                    this.sendMessage(res3);
-                }
-                break;
-            case ACTION.DeleteObject:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                {
-                    const objects = await serverRs.getAllObjectsFull(rs);
-                    const conflicts: string[] = [];
-                    for (const object of objects) {
-                        const content = JSON.parse(object.content);
-                        if (!content) continue;
-                        if (object.type === act.id)
-                            conflicts.push(`* ${object.name} (${object.type}) type`);
-                        for (const val of ["sudoOn", "depends", "contains"]) {
-                            if (!(val in content)) continue;
-                            for (const id of content[val] as number[]) {
-                                if (id !== act.id) continue;
-                                conflicts.push(`* ${object.name} (${object.type}) ${val}`);
-                            }
-                        }
-                    }
-                    if (conflicts.length > 0) {
-                        const res: IAlert = {
-                            type: ACTION.Alert,
-                            title: "Cannot delete object",
-                            message: `The object can not be delete as it is in use by:\n${conflicts.join("\n")}`,
-                        };
-                        this.sendMessage(res);
-                    } else {
-                        console.log("Web client delete object", { id: act.id });
-                        await serverRs.changeObject(rs, act.id, null, nullCheck(this.auth.user));
-                        const res2: IObjectChanged = {
-                            type: ACTION.ObjectChanged,
-                            id: act.id,
-                            object: [],
-                        };
-                        webClients.broadcast(res2);
-                        const res3: ISetPageAction = {
-                            type: ACTION.SetPage,
-                            page: { type: PAGE_TYPE.Dashbord },
-                        };
-                        this.sendMessage(res3);
-                    }
-                    break;
-                }
             case ACTION.DeployObject:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -363,6 +270,10 @@ export class WebClient extends JobOwner {
                 this.onClose();
             }
         });
+    }
+
+    broadcastMessage(obj: IAction) {
+        webClients.broadcast(obj);
     }
 }
 

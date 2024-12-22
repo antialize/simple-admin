@@ -6,6 +6,7 @@ mod db;
 mod docker;
 mod get_auth;
 mod msg;
+mod page_types;
 mod state;
 mod type_types;
 mod webclient;
@@ -38,11 +39,6 @@ fn crypt_validate_password(provided: String, hash: String) -> Result<bool, Error
 #[neon::export(name = "cryptValidateOtp")]
 fn crypt_validate_otp(token: String, base32_secret: String) -> Result<bool, Error> {
     Ok(crypt::validate_otp(&token, &base32_secret)?)
-}
-
-#[neon::export(name = "cryptGenerateOtpSecret")]
-fn crypt_generate_otp_secret(name: String) -> Result<Json<(String, String)>, Error> {
-    Ok(Json(crypt::generate_otp_secret(name)?))
 }
 
 #[neon::export(name = "dbGetUserContent")]

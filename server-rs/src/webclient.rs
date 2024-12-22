@@ -15,17 +15,18 @@ use std::{sync::Arc, time::Duration};
 
 use crate::{
     action_types::{
-        IAction, IAuthStatus, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
+        IAction, IAlert, IAuthStatus, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
         IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction,
-        IObject2, IObjectChanged, ISearch, ISearchRes, ISearchResObject,
+        IObject2, IObjectChanged, ISearchRes, ISearchResObject, ISetPageAction,
     },
     crt,
     crypt::{self, random_fill},
-    db,
+    db::{self, IV},
     get_auth::get_auth,
     msg,
+    page_types::{IObjectPage, IPage},
     state::State,
-    type_types::TYPE_ID,
+    type_types::{ISudoOnContainsAndDepends, IType, ITypeProp, TYPE_ID, USER_ID},
 };
 
 struct WebClient {
@@ -40,6 +41,21 @@ impl WebClient {
             .try_send(move |mut cx| {
                 let h = obj.to_inner(&mut cx);
                 let mut m = h.method(&mut cx, "sendMessage")?;
+                m.this(h)?;
+                m.arg_with(|cx| Json(msg).try_into_js(cx))?;
+                m.call()?;
+                Ok(())
+            })?
+            .await?;
+        Ok(())
+    }
+
+    async fn broadcast_message(&self, msg: IAction) -> Result<()> {
+        let obj = self.obj.clone();
+        self.channel
+            .try_send(move |mut cx| {
+                let h = obj.to_inner(&mut cx);
+                let mut m = h.method(&mut cx, "broadcastMessage")?;
                 m.this(h)?;
                 m.arg_with(|cx| Json(msg).try_into_js(cx))?;
                 m.call()?;
@@ -512,6 +528,126 @@ impl WebClient {
             }
             IAction::GenerateKey(act) => {
                 self.handle_generate_key(state, act).await?;
+            }
+            IAction::SaveObject(act) => {
+                let auth = self.get_auth().await?;
+                if !auth.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let mut obj = act.obj.context("Missing object in action")?;
+                let object_type: i64 = obj.r#type.into();
+                let serde_json::Value::Object(ref mut content) = obj.content else {
+                    bail!("Content is not object")
+                };
+                let type_row = query!(
+                    "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`",
+                    object_type
+                )
+                .fetch_one(&state.db)
+                .await?;
+                let type_content: IType = serde_json::from_str(&type_row.content)?;
+                if let Some(tcs) = &type_content.content {
+                    for r in tcs {
+                        let ITypeProp::Password(r) = r else { continue };
+                        let Some(serde_json::Value::String(ref mut v)) = content.get_mut(&r.name)
+                        else {
+                            continue;
+                        };
+                        // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
+                        if v.starts_with("$6$") || v.starts_with("$y$") {
+                            continue;
+                        }
+                        *v = crypt::hash(&v)?;
+                    }
+                }
+                if object_type == USER_ID
+                    && (!content.contains_key("otp_base32") || !content.contains_key("otp_url"))
+                {
+                    let (otp_base32, otp_url) = crypt::generate_otp_secret(obj.name.clone())?;
+                    content.insert("otp_base32".to_string(), otp_base32.into());
+                    content.insert("otp_url".to_string(), otp_url.into());
+                }
+                let IV { id, version } = db::change_object(
+                    &state,
+                    act.id,
+                    Some(&obj),
+                    &auth.user.context("Missing user")?,
+                )
+                .await?;
+                obj.version = Some(version);
+                self.broadcast_message(IAction::ObjectChanged(IObjectChanged {
+                    id,
+                    object: vec![obj],
+                }))
+                .await?;
+                self.send_message(IAction::SetPage(ISetPageAction {
+                    page: IPage::Object(IObjectPage {
+                        object_type,
+                        id: Some(id),
+                        version: Some(version),
+                    }),
+                }))
+                .await?;
+            }
+            IAction::DeleteObject(act) => {
+                let auth = self.get_auth().await?;
+                if !auth.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let rows = query!(
+                    "SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest` ORDER BY `id`"
+                )
+                .fetch_all(&state.db)
+                .await?;
+                let mut conflicts = Vec::new();
+                for r in rows {
+                    if r.r#type == act.id {
+                        conflicts.push(format!("* {} ({}) type", r.name, r.r#type));
+                    }
+                    let content: ISudoOnContainsAndDepends = serde_json::from_str(&r.content)?;
+                    for (n, v) in [
+                        ("sudo_on", content.sudo_on),
+                        ("depends", content.depends),
+                        ("contains", content.contains),
+                    ] {
+                        let Some(v) = v else { continue };
+                        for id in v {
+                            if id == Some(act.id) {
+                                conflicts.push(format!("* {} ({}) {}", r.name, r.r#type, n));
+                            }
+                        }
+                    }
+                }
+                if !conflicts.is_empty() {
+                    self.send_message(IAction::Alert(IAlert {
+                        title: "Cannot delete object".into(),
+                        message: format!(
+                            "The object can not be delete as it is in use by:\n{}",
+                            conflicts.join("\n")
+                        ),
+                    }))
+                    .await?;
+                } else {
+                    info!("Web client delete object id={}", act.id);
+                    db::change_object::<serde_json::Value>(
+                        &state,
+                        act.id,
+                        None,
+                        &auth.user.context("Missing user")?,
+                    )
+                    .await?;
+                    self.broadcast_message(IAction::ObjectChanged(IObjectChanged {
+                        id: act.id,
+                        object: vec![],
+                    }))
+                    .await?;
+                    self.send_message(IAction::SetPage(ISetPageAction {
+                        page: IPage::Dashbord,
+                    }))
+                    .await?;
+                }
             }
             _ => {
                 warn!("Unhandled message {:?}", act)
