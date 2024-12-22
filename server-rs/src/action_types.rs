@@ -1,5 +1,6 @@
 use anyhow::bail;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use ts_rs::TS;
 
@@ -16,7 +17,8 @@ fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Err
     })
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[repr(u8)]
 pub enum DeploymentStatus {
     Done = 0,
     BuildingTree = 1,
@@ -26,7 +28,8 @@ pub enum DeploymentStatus {
     Deploying = 5,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[repr(u8)]
 pub enum DeploymentObjectStatus {
     Normal = 0,
     Deplying = 1,
@@ -34,7 +37,8 @@ pub enum DeploymentObjectStatus {
     Failure = 3,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[repr(u8)]
 pub enum DeploymentObjectAction {
     Add = 0,
     Modify = 1,
@@ -578,6 +582,18 @@ pub struct IDockerListImageTags {
     pub r#ref: Ref,
 }
 
+pub struct DockerImageTagRow {
+    pub id: i64,
+    pub hash: String,
+    pub time: f64,
+    pub project: String,
+    pub user: String,
+    pub tag: String,
+    pub pin: bool,
+    pub labels: Option<String>,
+    pub removed: Option<f64>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct DockerImageTag {
@@ -593,6 +609,24 @@ pub struct DockerImageTag {
     pub removed: Option<f64>,
     #[serde(default)]
     pub pinned_image_tag: bool,
+}
+
+impl TryFrom<DockerImageTagRow> for DockerImageTag {
+    type Error = anyhow::Error;
+    fn try_from(row: DockerImageTagRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            image: row.project,
+            tag: row.tag,
+            hash: row.hash,
+            time: row.time,
+            user: row.user,
+            pin: row.pin,
+            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
+            removed: row.removed,
+            pinned_image_tag: false,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -839,7 +873,7 @@ pub enum IAction {
     DockerDeploymentsChanged(IDockerDeploymentsChanged),
     #[serde(rename = "DockerImageSetPin")]
     DockerImageSetPin(IDockerImageSetPin),
-    #[serde(rename = "DockerImageTagsCharged")]
+    #[serde(rename = "DockerListImageTagsChanged")]
     DockerImageTagsCharged(IDockerImageTagsCharged),
     #[serde(rename = "DockerImageTagSetPin")]
     DockerImageTagSetPin(IDockerImageTagSetPin),

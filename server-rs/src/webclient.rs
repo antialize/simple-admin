@@ -7,7 +7,7 @@ use neon::{
     result::ResultExt,
     types::{
         extract::{Boxed, Error, Json},
-        JsArray, JsFuture, JsObject, JsPromise, JsString
+        JsArray, JsFuture, JsObject, JsPromise, JsString,
     },
 };
 use serde::Deserialize;
@@ -28,6 +28,7 @@ use crate::{
     crt,
     crypt::{self, random_fill},
     db::{self, IV},
+    docker::{deploy_service, list_deployment_history, list_deployments, redploy_service, Docker},
     get_auth::get_auth,
     msg,
     page_types::{IObjectPage, IPage},
@@ -36,50 +37,70 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-struct DeploymmentInfo {
-    objects: Vec<IDeploymentObject>,
-    status: DeploymentStatus,
-    message: Option<String>,
-    logs: Vec<String>,
+pub struct DeploymentInfo {
+    pub objects: Vec<IDeploymentObject>,
+    pub status: DeploymentStatus,
+    pub message: Option<String>,
+    pub log: Vec<String>,
 }
 
-struct WebClient {
-    obj: Arc<Root<JsObject>>,
+pub struct WebClient {
+    pub obj: Arc<Root<JsObject>>,
     channel: Channel,
 }
 
 impl WebClient {
-    async fn send_message(&self, msg: IAction) -> Result<()> {
+    pub async fn get_docker(&self) -> Result<Docker> {
+        let obj = self.obj.clone();
+        let c2 = self.channel.clone();
+
+        let d = self
+            .channel
+            .try_send(move |mut cx| {
+                let h = obj.to_inner(&mut cx);
+                let mut m = h.method(&mut cx, "get_docker")?;
+                m.this(h)?;
+                let docker: Root<JsObject> = m.call()?;
+                Ok(Docker {
+                    obj: Arc::new(docker),
+                    channel: c2,
+                })
+            })?
+            .await?;
+        Ok(d)
+    }
+
+    pub async fn send_message(&self, msg: IAction) -> Result<()> {
         let obj = self.obj.clone();
         self.channel
             .try_send(move |mut cx| {
                 let h = obj.to_inner(&mut cx);
                 let mut m = h.method(&mut cx, "sendMessage")?;
                 m.this(h)?;
-                m.arg_with(|cx| Json(msg).try_into_js(cx))?;
-                m.call()?;
+                m.arg(Json(msg))?;
+                m.exec()?;
                 Ok(())
             })?
             .await?;
         Ok(())
     }
 
-    async fn broadcast_message(&self, msg: IAction) -> Result<()> {
+    pub async fn broadcast_message(&self, msg: IAction) -> Result<()> {
         let obj = self.obj.clone();
         self.channel
             .try_send(move |mut cx| {
                 let h = obj.to_inner(&mut cx);
                 let mut m = h.method(&mut cx, "broadcastMessage")?;
                 m.this(h)?;
-                m.arg_with(|cx| Json(msg).try_into_js(cx))?;
-                m.call()?;
+                m.arg(Json(msg))?;
+                m.exec()?;
                 Ok(())
             })?
             .await?;
         Ok(())
     }
 
-    async fn get_auth(&self) -> Result<IAuthStatus> {
+    pub async fn get_auth(&self) -> Result<IAuthStatus> {
         let obj = self.obj.clone();
         let auth = self
             .channel
@@ -163,7 +184,7 @@ impl WebClient {
         Ok(v)
     }
 
-    async fn get_ca_key_crt(&self) -> Result<(String, String)> {
+    pub async fn get_ca_key_crt(&self) -> Result<(String, String)> {
         let obj = self.obj.clone();
         let res: JsFuture<(String, String)> = self
             .channel
@@ -993,6 +1014,34 @@ impl WebClient {
                     },
                 ))
                 .await?;
+            }
+            IAction::ServiceDeployStart(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                deploy_service(state, self, act).await?;
+            }
+            IAction::ServiceRedeployStart(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                redploy_service(state, self, act).await?;
+            }
+            IAction::DockerListDeployments(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                list_deployments(state, self, act).await?;
+            }
+            IAction::DockerListDeploymentHistory(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                list_deployment_history(state, self, act).await?;
             }
             _ => {
                 warn!("Unhandled message {:?}", act)

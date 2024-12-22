@@ -102,6 +102,10 @@ export class WebClient extends JobOwner {
         }
     }
 
+    get_docker() {
+        return docker;
+    }
+
     async onMessage(str: string) {
         const act = JSON.parse(str) as IAction;
 
@@ -164,34 +168,6 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 await deployment.toggleObject(act.index, act.enabled);
-                break;
-            case ACTION.ServiceDeployStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.deployService(this, act);
-                break;
-            case ACTION.ServiceRedeployStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.redeployService(this, act);
-                break;
-            case ACTION.DockerListDeployments:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listDeployments(this, act);
-                break;
-            case ACTION.DockerListDeploymentHistory:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listDeploymentHistory(this, act);
                 break;
             case ACTION.ModifiedFilesScan:
                 if (!this.auth.admin) {

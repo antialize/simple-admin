@@ -297,6 +297,8 @@ pub struct ServiceDescription {
     pub name: String,
     pub service_type: ServiceType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_linger: Option<bool>,
