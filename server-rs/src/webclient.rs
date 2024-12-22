@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use log::{error, info};
+use log::{error, info, warn};
 use neon::{
     event::Channel,
     handle::{Handle, Root},
@@ -309,93 +309,77 @@ impl WebClient {
         Ok(())
     }
 
-    pub async fn handle_login(&self, state: &State, act: ILogin) -> Result<()> {
-        if let Err(e) = self.handle_login_inner(state, act).await {
-            error!("Error in handle_login: {:?}", e);
-            self.send_message(IAction::AuthStatus(IAuthStatus {
-                message: Some("Internal error".to_string()),
-                ..Default::default()
-            }))
-            .await?
+    pub async fn handle_message(&self, state: &State, act: IAction) -> Result<()> {
+        match act {
+            IAction::Login(act) => {
+                if let Err(e) = self.handle_login_inner(state, act).await {
+                    error!("Error in handle_login: {:?}", e);
+                    self.send_message(IAction::AuthStatus(IAuthStatus {
+                        message: Some("Internal error".to_string()),
+                        ..Default::default()
+                    }))
+                    .await?
+                }
+            }
+            IAction::Search(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let rows = query!(
+                    "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
+                    FROM `objects`
+                    WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`",
+                    act.pattern,
+                    act.pattern,
+                    act.pattern,
+                )
+                .fetch_all(&state.db)
+                .await?;
+                let mut objects = Vec::new();
+                for row in rows {
+                    objects.push(ISearchResObject {
+                        r#type: row.r#type.try_into()?,
+                        id: row.id,
+                        version: row.version,
+                        name: row.name,
+                        comment: row.comment,
+                        content: row.content,
+                    });
+                }
+                self.send_message(IAction::SearchRes(ISearchRes {
+                    r#ref: act.r#ref,
+                    objects,
+                }))
+                .await?;
+            }
+            IAction::GenerateKey(act) => {
+                self.handle_generate_key(state, act).await?;
+            }
+            _ => {
+                warn!("Unhandled message {:?}", act)
+            }
         }
         Ok(())
     }
+}
 
-    pub async fn handle_search(&self, state: &State, act: ISearch) -> Result<()> {
-        if !self.get_auth().await?.admin {
-            self.close(403).await?;
-            return Ok(());
-        };
-        let rows = query!(
-            "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
-            FROM `objects`
-            WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`",
-            act.pattern,
-            act.pattern,
-            act.pattern,
-        )
-        .fetch_all(&state.db)
-        .await?;
-        let mut objects = Vec::new();
-        for row in rows {
-            objects.push(ISearchResObject {
-                r#type: row.r#type.try_into()?,
-                id: row.id,
-                version: row.version,
-                name: row.name,
-                comment: row.comment,
-                content: row.content,
-            });
+#[neon::export(context, name = "webclientHandleMessage")]
+async fn handle_message(
+    ch: Channel,
+    Boxed(state): Boxed<Arc<State>>,
+    obj: Root<JsObject>,
+    Json(act): Json<IAction>,
+) -> Result<(), Error> {
+    let wc = WebClient {
+        obj: Arc::new(obj),
+        channel: ch,
+    };
+    match wc.handle_message(&state, act).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            error!("Error in handle_message: {:?}", e);
+            Err(e.into())
         }
-        self.send_message(IAction::SearchRes(ISearchRes {
-            r#ref: act.r#ref,
-            objects,
-        }))
-        .await?;
-        Ok(())
     }
-}
-
-#[neon::export(context, name = "webclientHandleGenerateKey")]
-async fn _handle_generate_key(
-    ch: Channel,
-    Boxed(state): Boxed<Arc<State>>,
-    obj: Root<JsObject>,
-    Json(act): Json<IGenerateKey>,
-) -> Result<(), Error> {
-    let wc = WebClient {
-        obj: Arc::new(obj),
-        channel: ch,
-    };
-    Ok(wc.handle_generate_key(&state, act).await?)
-}
-
-#[neon::export(name = "webClientHandleLogin")]
-async fn _handle_login(
-    ch: Channel,
-    Boxed(state): Boxed<Arc<State>>,
-    obj: Root<JsObject>,
-    Json(act): Json<ILogin>,
-) -> Result<(), Error> {
-    let wc = WebClient {
-        obj: Arc::new(obj),
-        channel: ch,
-    };
-    wc.handle_login(&state, act).await?;
-    Ok(())
-}
-
-#[neon::export(name = "handleSearch")]
-async fn _handle_search(
-    ch: Channel,
-    Boxed(state): Boxed<Arc<State>>,
-    obj: Root<JsObject>,
-    Json(act): Json<ISearch>,
-) -> Result<(), Error> {
-    let wc = WebClient {
-        obj: Arc::new(obj),
-        channel: ch,
-    };
-    wc.handle_search(&state, act).await?;
-    Ok(())
 }

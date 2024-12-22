@@ -95,10 +95,6 @@ export class WebClient extends JobOwner {
                 console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
                 this.sendAuthStatus(act.session || null);
                 break;
-            case ACTION.Login: {
-                await serverRs.webClientHandleLogin(rs, this, act);
-                break;
-            }
             case ACTION.RequestInitialState:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -275,10 +271,6 @@ export class WebClient extends JobOwner {
                     this.sendMessage(res3);
                 }
                 break;
-            case ACTION.Search: {
-                serverRs.webclientHandleSearch(rs, this, act);
-                break;
-            }
             case ACTION.ResetServerState:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -459,12 +451,9 @@ export class WebClient extends JobOwner {
                 }
                 await modifiedFiles.resolve(this, act);
                 break;
-            case ACTION.GenerateKey: {
-                await serverRs.webclientHandleGenerateKey(rs, this, act);
-                break;
-            }
             default:
-                console.warn("Web client unknown message", { act });
+                await serverRs.webclientHandleMessage(rs, this, act);
+                break;
         }
     }
 
