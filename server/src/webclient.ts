@@ -120,13 +120,6 @@ export class WebClient extends JobOwner {
                 }
                 if (act.id in this.logJobs) this.logJobs[act.id].kill();
                 break;
-            case ACTION.SetMessagesDismissed:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await msg.setDismissed(act.ids, act.dismissed);
-                break;
             case ACTION.DeployObject:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -185,47 +178,12 @@ export class WebClient extends JobOwner {
                 }
                 await docker.listDeployments(this, act);
                 break;
-            case ACTION.DockerListImageByHash:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listImageByHash(this, act);
-                break;
-            case ACTION.DockerListImageTags:
-                if (!this.auth.dockerPull) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listImageTags(this, act);
-                break;
-            case ACTION.DockerImageSetPin:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.imageSetPin(this, act);
-                break;
-            case ACTION.DockerImageTagSetPin:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.imageTagSetPin(this, act);
-                break;
             case ACTION.DockerListDeploymentHistory:
                 if (!this.auth.dockerPush) {
                     this.connection.close(403);
                     return;
                 }
                 await docker.listDeploymentHistory(this, act);
-                break;
-            case ACTION.DockerListImageTagHistory:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listImageTagHistory(this, act);
                 break;
             case ACTION.DockerContainerForget:
                 if (!this.auth.dockerPush) {

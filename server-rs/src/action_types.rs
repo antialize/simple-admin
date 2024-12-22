@@ -811,7 +811,7 @@ pub enum IAction {
     #[serde(rename = "DockerImageSetPin")]
     DockerImageSetPin(IDockerImageSetPin),
     #[serde(rename = "DockerImageTagsCharged")]
-    IDockerImageTagsCharged(IDockerImageTagsCharged),
+    DockerImageTagsCharged(IDockerImageTagsCharged),
     #[serde(rename = "DockerImageTagSetPin")]
     DockerImageTagSetPin(IDockerImageTagSetPin),
     #[serde(rename = "DockerListDeploymentHistory")]

@@ -30,19 +30,4 @@ export class Msg {
         };
         webClients.broadcast(act);
     }
-
-    async setDismissed(ids: number[], dismissed: boolean) {
-        const time = dismissed ? +new Date() / 1000 : null;
-
-        await serverRs.setDismissed(rs, ids, dismissed, time);
-
-        const act: actions.ISetMessagesDismissed = {
-            type: actions.ACTION.SetMessagesDismissed,
-            ids: ids,
-            dismissed: dismissed,
-            source: "server",
-        };
-
-        webClients.broadcast(act);
-    }
 }

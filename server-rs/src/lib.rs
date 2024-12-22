@@ -212,24 +212,6 @@ async fn insert_message(
     Ok(id as f64)
 }
 
-#[neon::export(name = "setDismissed")]
-async fn set_dismissed(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(ids): Json<Vec<i64>>,
-    dismissed: bool,
-    time: Option<f64>,
-) -> Result<(), Error> {
-    query!(
-        "UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN (_LIST_)",
-        dismissed,
-        time,
-        ids
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
-}
-
 #[neon::export(name = "getObjectsContent")]
 async fn get_objects_content(
     Boxed(state): Boxed<Arc<State>>,
@@ -717,71 +699,6 @@ async fn set_deployment(
     Ok(())
 }
 
-#[neon::export(name = "imageSetPin")]
-async fn image_set_pin(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-    pin: bool,
-) -> Result<Json<Vec<DockerImageTag>>, Error> {
-    let id = id as i64;
-    query!("UPDATE `docker_images` SET pin=? WHERE `id`=?", pin, id)
-        .execute(&state.db)
-        .await?;
-
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`,
-        `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?",
-        id
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-
-    Ok(Json(res))
-}
-
-#[neon::export(name = "imageTagSetPin")]
-async fn image_tag_set_pin(
-    Boxed(state): Boxed<Arc<State>>,
-    image: String,
-    tag: String,
-    pin: bool,
-) -> Result<(), Error> {
-    if pin {
-        query!(
-            "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
-            image,
-            tag
-        )
-        .execute(&state.db)
-        .await?;
-    } else {
-        query!(
-            "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
-            image,
-            tag
-        )
-        .execute(&state.db)
-        .await?;
-    }
-    Ok(())
-}
-
 #[neon::export(name = "handleDeployment")]
 async fn handle_depoyment_(
     Boxed(state): Boxed<Arc<State>>,
@@ -853,49 +770,6 @@ async fn get_image_tags_by_project(
     Ok(Json(res))
 }
 
-#[neon::export(name = "listImageTags")]
-async fn list_image_tags(
-    Boxed(state): Boxed<Arc<State>>,
-    time: f64,
-) -> Result<Json<(Vec<DockerImageTag>, Vec<IDockerImageTagsChargedImageTagPin>)>, Error> {
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed`
-        FROM `docker_images`
-        WHERE `id` IN (
-            SELECT MAX(`d`.`id`) FROM `docker_images` AS `d` GROUP BY `d`.`project`, `d`.`tag`
-        ) AND (`removed` > ? OR `removed` IS NULL)",
-        time
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-
-    let rows = query!("SELECT `project`, `tag` FROM `docker_image_tag_pins`")
-        .map(|r| IDockerImageTagsChargedImageTagPin {
-            image: r.project,
-            tag: r.tag,
-            pin: true,
-        })
-        .fetch_all(&state.db)
-        .await?;
-    Ok(Json((res, rows)))
-}
-
 #[derive(Serialize)]
 struct ImageHash {
     image: String,
@@ -937,39 +811,6 @@ async fn find_image(Boxed(state): Boxed<Arc<State>>, id: String) -> Result<Json<
             hash,
         }))
     }
-}
-
-#[neon::export(name = "listImageTagHistory")]
-async fn list_image_tag_history(
-    Boxed(state): Boxed<Arc<State>>,
-    image: String,
-    tag: String,
-) -> Result<Json<Vec<DockerImageTag>>, Error> {
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`,
-        `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?",
-        tag,
-        image
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-    Ok(Json(res))
 }
 
 #[neon::export(name = "getDockerImageManifest")]

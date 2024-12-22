@@ -11,13 +11,16 @@ use neon::{
     },
 };
 use sqlx_type::query;
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     action_types::{
-        IAction, IAlert, IAuthStatus, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
-        IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction,
-        IObject2, IObjectChanged, ISearchRes, ISearchResObject, ISetPageAction,
+        DockerImageTag, IAction, IAlert, IAuthStatus, IDockerImageTagsCharged,
+        IDockerImageTagsChargedImageTagPin, IDockerListImageByHashRes,
+        IDockerListImageTagHistoryRes, IDockerListImageTagsRes, IDockerListImageTagsResTag,
+        IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes, IGetObjectHistoryResHistory,
+        IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction, IObject2, IObjectChanged,
+        ISearchRes, ISearchResObject, ISetMessagesDismissed, ISetPageAction, ISource,
     },
     crt,
     crypt::{self, random_fill},
@@ -485,6 +488,36 @@ impl WebClient {
                 }))
                 .await?;
             }
+            IAction::SetMessagesDismissed(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let time = if act.dismissed {
+                    Some(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .context("Bad unix time")?
+                            .as_secs_f64(),
+                    )
+                } else {
+                    None
+                };
+                query!(
+                    "UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN (_LIST_)",
+                    act.dismissed,
+                    time,
+                    act.ids
+                )
+                .execute(&state.db)
+                .await?;
+                self.broadcast_message(IAction::SetMessagesDismissed(ISetMessagesDismissed {
+                    source: ISource::Server,
+                    dismissed: act.dismissed,
+                    ids: act.ids,
+                }))
+                .await?;
+            }
             IAction::ResetServerState(act) => {
                 if !self.get_auth().await?.admin {
                     self.close(403).await?;
@@ -648,6 +681,204 @@ impl WebClient {
                     }))
                     .await?;
                 }
+            }
+            IAction::DockerListImageByHash(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let rows = query!(
+                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`,
+                    `labels`, `removed` FROM `docker_images` WHERE `hash` IN (_LIST_)",
+                    &act.hash
+                )
+                .fetch_all(&state.db)
+                .await?;
+                let mut tags = HashMap::new();
+                for row in rows {
+                    tags.insert(
+                        row.hash.clone(),
+                        DockerImageTag {
+                            id: row.id,
+                            image: row.project,
+                            tag: row.tag,
+                            hash: row.hash,
+                            time: row.time,
+                            user: row.user,
+                            pin: row.pin,
+                            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
+                            removed: row.removed,
+                            pinned_image_tag: false,
+                        },
+                    );
+                }
+                self.send_message(IAction::DockerListImageByHashRes(
+                    IDockerListImageByHashRes {
+                        r#ref: act.r#ref,
+                        tags,
+                    },
+                ))
+                .await?;
+            }
+            IAction::DockerListImageTags(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .context("Bad unix time")?
+                    .as_secs_f64();
+                let time = now - 14.0 * 24.0 * 60.0 * 60.0;
+                let rows = match query_as!(
+                    DockerImageTagRow,
+                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed`
+                    FROM `docker_images`
+                    WHERE `id` IN (
+                        SELECT MAX(`d`.`id`) FROM `docker_images` AS `d` GROUP BY `d`.`project`, `d`.`tag`
+                    ) AND (`removed` > ? OR `removed` IS NULL)",
+                    time
+                )
+                .fetch_all(&state.db)
+                .await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("ERROR IN QUERY {:?}", e);
+                        return Err(e.into())
+                    }
+                };
+                let mut tags = Vec::new();
+                for row in rows {
+                    tags.push(row.try_into().context("Mapping row")?);
+                }
+                let pinned_image_tags = query_as!(
+                    IDockerListImageTagsResTag,
+                    "SELECT `project` as `image`, `tag` FROM `docker_image_tag_pins`"
+                )
+                .fetch_all(&state.db)
+                .await?;
+                self.send_message(IAction::DockerListImageTagsRes(IDockerListImageTagsRes {
+                    r#ref: act.r#ref,
+                    tags,
+                    pinned_image_tags: Some(pinned_image_tags),
+                }))
+                .await
+                .context("In send message")?;
+            }
+            IAction::DockerImageSetPin(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+
+                query!(
+                    "UPDATE `docker_images` SET pin=? WHERE `id`=?",
+                    act.pin,
+                    act.id
+                )
+                .execute(&state.db)
+                .await?;
+
+                let rows = query!(
+                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`,
+                    `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?",
+                    act.id
+                )
+                .fetch_all(&state.db)
+                .await?;
+
+                let mut changed = Vec::new();
+                for row in rows {
+                    changed.push(DockerImageTag {
+                        id: row.id,
+                        image: row.project,
+                        tag: row.tag,
+                        hash: row.hash,
+                        time: row.time,
+                        user: row.user,
+                        pin: row.pin,
+                        labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
+                        removed: row.removed,
+                        pinned_image_tag: false,
+                    });
+                }
+                self.broadcast_message(IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+                    changed,
+                    removed: Default::default(),
+                    image_tag_pin_changed: Default::default(),
+                }))
+                .await?;
+            }
+            IAction::DockerImageTagSetPin(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if act.pin {
+                    query!(
+                        "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
+                        act.image,
+                        act.tag
+                    )
+                    .execute(&state.db)
+                    .await?;
+                } else {
+                    query!(
+                        "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
+                        act.image,
+                        act.tag
+                    )
+                    .execute(&state.db)
+                    .await?;
+                }
+                self.broadcast_message(IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+                    changed: Default::default(),
+                    removed: Default::default(),
+                    image_tag_pin_changed: Some(vec![IDockerImageTagsChargedImageTagPin {
+                        image: act.image,
+                        tag: act.tag,
+                        pin: act.pin,
+                    }]),
+                }))
+                .await?;
+            }
+            IAction::DockerListImageTagHistory(act) => {
+                if !self.get_auth().await?.docker_push {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let rows = query!(
+                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`,
+                    `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?",
+                    act.tag,
+                    act.image
+                )
+                .fetch_all(&state.db)
+                .await?;
+                let mut images = Vec::new();
+                for row in rows {
+                    images.push(DockerImageTag {
+                        id: row.id,
+                        image: row.project,
+                        tag: row.tag,
+                        hash: row.hash,
+                        time: row.time,
+                        user: row.user,
+                        pin: row.pin,
+                        labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
+                        removed: row.removed,
+                        pinned_image_tag: false,
+                    });
+                }
+                self.send_message(IAction::DockerListImageTagHistoryRes(
+                    IDockerListImageTagHistoryRes {
+                        r#ref: act.r#ref,
+                        images,
+                        image: act.image,
+                        tag: act.tag,
+                    },
+                ))
+                .await?;
             }
             _ => {
                 warn!("Unhandled message {:?}", act)

@@ -1004,18 +1004,6 @@ class Docker {
         return tagByHash;
     }
 
-    async listImageByHash(client: WebClient, act: IDockerListImageByHash) {
-        const res: IDockerListImageByHashRes = {
-            type: ACTION.DockerListImageByHashRes,
-            ref: act.ref,
-            tags: {},
-        };
-        try {
-            res.tags = await this.getTagsByHash(act.hash);
-        } finally {
-            client.sendMessage(res);
-        }
-    }
 
     async listDeployments(client: WebClient, act: IDockerListDeployments) {
         const res: IDockerListDeploymentsRes = {
@@ -1054,28 +1042,6 @@ class Docker {
         }
     }
 
-    async listImageTags(
-        client: WebClient,
-        act: IDockerListImageTags,
-        maxRemovedAge: number = 14 * 24 * 60 * 60,
-    ) {
-        const res: IDockerListImageTagsRes = {
-            type: ACTION.DockerListImageTagsRes,
-            ref: act.ref,
-            tags: [],
-            pinnedImageTags: [],
-        };
-        try {
-            const [tags, pinned] = await serverRs.listImageTags(
-                rs,
-                +new Date() / 1000 - maxRemovedAge,
-            );
-            res.tags = tags;
-            res.pinnedImageTags = pinned;
-        } finally {
-            client.sendMessage(res);
-        }
-    }
 
     async listDeploymentHistory(client: WebClient, act: IDockerListDeploymentHistory) {
         const res: IDockerListDeploymentHistoryRes = {
@@ -1114,42 +1080,6 @@ class Docker {
         } finally {
             client.sendMessage(res);
         }
-    }
-
-    async listImageTagHistory(client: WebClient, act: IDockerListImageTagHistory) {
-        const res: IDockerListImageTagHistoryRes = {
-            type: ACTION.DockerListImageTagHistoryRes,
-            ref: act.ref,
-            images: [],
-            image: act.image,
-            tag: act.tag,
-        };
-        try {
-            res.images = await serverRs.listImageTagHistory(rs, act.image, act.tag);
-        } finally {
-            client.sendMessage(res);
-        }
-    }
-
-    async imageSetPin(client: WebClient, act: IDockerImageSetPin) {
-        const changed = await serverRs.imageSetPin(rs, act.id, act.pin);
-        const res: IDockerImageTagsCharged = {
-            type: ACTION.DockerListImageTagsChanged,
-            changed,
-            removed: [],
-        };
-        webClients.broadcast(res);
-    }
-
-    async imageTagSetPin(client: WebClient, act: IDockerImageTagSetPin) {
-        await serverRs.imageTagSetPin(rs, act.image, act.tag, act.pin);
-        const res: IDockerImageTagsCharged = {
-            type: ACTION.DockerListImageTagsChanged,
-            changed: [],
-            removed: [],
-            imageTagPinChanged: [{ image: act.image, tag: act.tag, pin: act.pin }],
-        };
-        webClients.broadcast(res);
     }
 
     async broadcastDeploymentChange(o: DeploymentInfo) {
