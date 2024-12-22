@@ -16,13 +16,14 @@ use std::{sync::Arc, time::Duration};
 use crate::{
     action_types::{
         IAction, IAuthStatus, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
-        IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IObject2,
-        IObjectChanged, ISearch, ISearchRes, ISearchResObject,
+        IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction,
+        IObject2, IObjectChanged, ISearch, ISearchRes, ISearchResObject,
     },
     crt,
     crypt::{self, random_fill},
     db,
     get_auth::get_auth,
+    msg,
     state::State,
     type_types::TYPE_ID,
 };
@@ -455,6 +456,27 @@ impl WebClient {
                     history,
                 }))
                 .await?;
+            }
+            IAction::MessageTextReq(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let t = msg::get_full_text(&state, act.id).await?;
+                self.send_message(IAction::MessageTextRep(IMessageTextRepAction {
+                    id: act.id,
+                    message: t.unwrap_or_else(|| "missing".to_string()),
+                }))
+                .await?;
+            }
+            IAction::ResetServerState(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                query!("DELETE FROM `deployments` WHERE `host`=?", act.host)
+                    .execute(&state.db)
+                    .await?;
             }
             IAction::Search(act) => {
                 if !self.get_auth().await?.admin {

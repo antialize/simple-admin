@@ -127,20 +127,6 @@ export class WebClient extends JobOwner {
                 }
                 await msg.setDismissed(act.ids, act.dismissed);
                 break;
-            case ACTION.MessageTextReq:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                {
-                    const msg = await serverRs.msgGetFullText(rs, act.id);
-                    this.sendMessage({
-                        type: ACTION.MessageTextRep,
-                        id: act.id,
-                        message: msg ? msg : "missing",
-                    });
-                }
-                break;
             case ACTION.SaveObject:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -188,13 +174,6 @@ export class WebClient extends JobOwner {
                     };
                     this.sendMessage(res3);
                 }
-                break;
-            case ACTION.ResetServerState:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await serverRs.resetServer(rs, act.host);
                 break;
             case ACTION.DeleteObject:
                 if (!this.auth.admin) {

@@ -74,14 +74,6 @@ async fn msg_get_resent(Boxed(state): Boxed<Arc<State>>) -> Result<Json<Vec<IMes
     Ok(Json(msg::get_resent(&state).await?))
 }
 
-#[neon::export(name = "msgGetFullText")]
-async fn msg_get_full_text(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Option<String>, Error> {
-    Ok(msg::get_full_text(&state, id as i64).await?)
-}
-
 #[neon::export(name = "msgGetCount")]
 async fn msg_get_count(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
     Ok(msg::get_count(&state).await? as f64)
@@ -462,15 +454,6 @@ async fn get_object_content_by_type(
     .fetch_all(&state.db)
     .await?;
     Ok(Json(r))
-}
-
-#[neon::export(name = "resetServer")]
-async fn reset_server(Boxed(state): Boxed<Arc<State>>, host: f64) -> Result<(), Error> {
-    let host = host as i64;
-    query!("DELETE FROM `deployments` WHERE `host`=?", host)
-        .execute(&state.db)
-        .await?;
-    Ok(())
 }
 
 #[neon::export(name = "getObjectContentByIdAndType")]
