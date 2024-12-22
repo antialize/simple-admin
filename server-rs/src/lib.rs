@@ -153,18 +153,6 @@ async fn init() -> Result<Boxed<Arc<State>>, Error> {
     Ok(Boxed(State::new().await?))
 }
 
-#[neon::export(name = "setSessionPwd")]
-async fn set_session_pwd(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    pwd: Option<f64>,
-) -> Result<(), Error> {
-    let pwd = pwd.map(|v| v as i64);
-    query!("UPDATE `sessions` SET `pwd`=? WHERE `sid`=?", pwd, sid)
-        .execute(&state.db)
-        .await?;
-    Ok(())
-}
 
 #[neon::export(name = "insertSession")]
 async fn insert_session(

@@ -311,6 +311,12 @@ impl WebClient {
 
     pub async fn handle_message(&self, state: &State, act: IAction) -> Result<()> {
         match act {
+            IAction::RequestAuthStatus(act) => {
+                let host = self.get_host().await?;
+                let auth = get_auth(state, Some(&host), act.session.as_deref()).await?;
+                self.set_auth(auth.clone()).await?;
+                self.send_message(IAction::AuthStatus(auth)).await?;
+            }
             IAction::Login(act) => {
                 if let Err(e) = self.handle_login_inner(state, act).await {
                     error!("Error in handle_login: {:?}", e);
@@ -320,6 +326,36 @@ impl WebClient {
                     }))
                     .await?
                 }
+            }
+            IAction::Logout(act) => {
+                let host = self.get_host().await?;
+                let auth = self.get_auth().await?;
+                if !self.get_auth().await?.auth {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                let session = auth.session.context("Missing session")?;
+                info!(
+                    "logout host:{}, user: {:?}, session: {:?}, forgetPwd: {}, forgetOtp: {}",
+                    host,
+                    auth.user,
+                    session,
+                    act.forget_pwd,
+                    act.forget_otp,
+                );
+                if act.forget_pwd {
+                    query!("UPDATE `sessions` SET `pwd`=NULL WHERE `sid`=?", session)
+                        .execute(&state.db)
+                        .await?;
+                }
+                if act.forget_otp {
+                    query!("UPDATE `sessions` SET `otp`=NULL WHERE `sid`=?", session)
+                        .execute(&state.db)
+                        .await?;
+                }
+                let auth = get_auth(state, Some(&host), Some(&session)).await?;
+                self.set_auth(auth.clone()).await?;
+                self.send_message(IAction::AuthStatus(auth)).await?;
             }
             IAction::Search(act) => {
                 if !self.get_auth().await?.admin {

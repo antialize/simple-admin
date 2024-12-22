@@ -91,33 +91,12 @@ export class WebClient extends JobOwner {
         const act = JSON.parse(str) as IAction;
 
         switch (act.type) {
-            case ACTION.RequestAuthStatus:
-                console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
-                this.sendAuthStatus(act.session || null);
-                break;
             case ACTION.RequestInitialState:
                 if (!this.auth.admin) {
                     this.connection.close(403);
                     return;
                 }
                 await sendInitialState(this);
-                break;
-            case ACTION.Logout:
-                if (!this.auth.auth) {
-                    this.connection.close(403);
-                    return;
-                }
-                console.log(
-                    "logout",
-                    this.host,
-                    this.auth.user,
-                    this.auth.session,
-                    act.forgetPwd,
-                    act.forgetOtp,
-                );
-                if (act.forgetPwd) await serverRs.setSessionPwd(rs, this.auth.session, null);
-                if (act.forgetOtp) await serverRs.setSessionOtp(rs, this.auth.session, null);
-                this.sendAuthStatus(this.auth.session);
                 break;
             case ACTION.FetchObject: {
                 if (!this.auth.admin) {
