@@ -11,14 +11,10 @@ mod state;
 mod type_types;
 mod webclient;
 
-use action_types::{
-    DockerImageTag, IAction, IAuthStatus, IDockerImageTagsChargedImageTagPin, ILogin, IObject2,
-    ISearchResObject, ObjectType,
-};
+use action_types::{DockerImageTag, IAuthStatus, IObject2, ObjectType};
 use anyhow::anyhow;
 use db::UserContent;
 use docker::DeploymentInfo;
-use msg::IMessage;
 use neon::types::extract::{Boxed, Error, Json};
 use serde::Serialize;
 use sqlx_type::{query, query_as};
@@ -63,11 +59,6 @@ async fn get_auth(
 #[neon::export(name = "noAccess")]
 fn no_access() -> Json<IAuthStatus> {
     Json(Default::default())
-}
-
-#[neon::export(name = "msgGetResent")]
-async fn msg_get_resent(Boxed(state): Boxed<Arc<State>>) -> Result<Json<Vec<IMessage>>, Error> {
-    Ok(Json(msg::get_resent(&state).await?))
 }
 
 #[neon::export(name = "msgGetCount")]

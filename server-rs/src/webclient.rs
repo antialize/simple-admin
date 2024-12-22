@@ -10,17 +10,19 @@ use neon::{
         JsArray, JsFuture, JsObject, JsPromise, JsString
     },
 };
-use sqlx_type::query;
+use serde::Deserialize;
+use sqlx_type::{query, query_as};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     action_types::{
-        DockerImageTag, IAction, IAlert, IAuthStatus, IDockerImageTagsCharged,
-        IDockerImageTagsChargedImageTagPin, IDockerListImageByHashRes,
-        IDockerListImageTagHistoryRes, IDockerListImageTagsRes, IDockerListImageTagsResTag,
-        IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes, IGetObjectHistoryResHistory,
-        IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction, IObject2, IObjectChanged,
-        ISearchRes, ISearchResObject, ISetMessagesDismissed, ISetPageAction, ISource,
+        DeploymentStatus, DockerImageTag, IAction, IAlert, IAuthStatus, IDeployObject,
+        IDeploymentObject, IDockerImageTagsCharged, IDockerImageTagsChargedImageTagPin,
+        IDockerListImageByHashRes, IDockerListImageTagHistoryRes, IDockerListImageTagsRes,
+        IDockerListImageTagsResTag, IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes,
+        IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction,
+        IObject2, IObjectChanged, IObjectDigest, ISearchRes, ISearchResObject, ISetInitialState,
+        ISetMessagesDismissed, ISetPageAction, ISource, ObjectRow, ObjectType,
     },
     crt,
     crypt::{self, random_fill},
@@ -31,6 +33,14 @@ use crate::{
     state::State,
     type_types::{ISudoOnContainsAndDepends, IType, ITypeProp, TYPE_ID, USER_ID},
 };
+
+#[derive(Deserialize)]
+struct DeploymmentInfo {
+    objects: Vec<IDeploymentObject>,
+    status: DeploymentStatus,
+    message: Option<String>,
+    logs: Vec<String>,
+}
 
 struct WebClient {
     obj: Arc<Root<JsObject>>,
@@ -119,7 +129,37 @@ impl WebClient {
                 Ok(())
             })?
             .await?;
-        todo!()
+        Ok(())
+    }
+
+    pub async fn get_hosts_up(&self) -> Result<Vec<i64>> {
+        let obj = self.obj.clone();
+        let v = self
+            .channel
+            .try_send(move |mut cx| {
+                let h = obj.to_inner(&mut cx);
+                let mut m = h.method(&mut cx, "get_hosts_up")?;
+                m.this(h)?;
+                let Json(v) = m.call()?;
+                Ok(v)
+            })?
+            .await?;
+        Ok(v)
+    }
+
+    pub async fn get_deployment_info(&self) -> Result<DeploymentInfo> {
+        let obj = self.obj.clone();
+        let v = self
+            .channel
+            .try_send(move |mut cx| {
+                let h = obj.to_inner(&mut cx);
+                let mut m = h.method(&mut cx, "get_deployment_info")?;
+                m.this(h)?;
+                let Json(v) = m.call()?;
+                Ok(v)
+            })?
+            .await?;
+        Ok(v)
     }
 
     async fn get_ca_key_crt(&self) -> Result<(String, String)> {
@@ -358,6 +398,65 @@ impl WebClient {
 
     pub async fn handle_message(&self, state: &State, act: IAction) -> Result<()> {
         match act {
+            IAction::RequestInitialState(_) => {
+                let rows = query_as!(ObjectRow,
+                    "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`,
+                    strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest` ORDER BY `id`"
+                )
+                .fetch_all(&state.db)
+                .await.context("RequestInitialState query")?;
+
+                let hosts_up = self.get_hosts_up().await.context("get_hosts_up")?;
+
+                let messages = msg::get_resent(&state).await.context("msg::get_resent")?;
+                let mut types = HashMap::new();
+                let mut used_by = Vec::new();
+                let mut object_names_and_ids: HashMap<_, Vec<_>> = HashMap::new();
+                let di = self
+                    .get_deployment_info()
+                    .await
+                    .context("get_deployment_info")?;
+                for row in rows {
+                    let object: IObject2<serde_json::Value> = row.try_into().context("IObject2")?;
+                    if object.r#type == ObjectType::Id(TYPE_ID) {
+                        types.insert(object.id, object.clone());
+                    }
+                    object_names_and_ids
+                        .entry(object.r#type.clone())
+                        .or_default()
+                        .push(IObjectDigest {
+                            r#type: object.r#type.clone(),
+                            id: object.id,
+                            name: object.name.clone(),
+                            category: object.category.clone(),
+                            comment: object.comment.clone(),
+                        });
+                    let c: ISudoOnContainsAndDepends = serde_json::from_value(object.content)
+                        .context("parsing ISudoOnContainsAndDepends")?;
+                    for v in [c.depends, c.contains, c.sudo_on] {
+                        if let Some(v) = v {
+                            for v in v {
+                                if let Some(v) = v {
+                                    used_by.push((v, object.id));
+                                }
+                            }
+                        }
+                    }
+                }
+                self.send_message(IAction::SetInitialState(ISetInitialState {
+                    messages,
+                    hosts_up,
+                    types,
+                    used_by,
+                    object_names_and_ids,
+                    deployment_objects: di.objects,
+                    deployment_status: di.status,
+                    deployment_message: di.message.unwrap_or_default(),
+                    deployment_log: di.log,
+                }))
+                .await
+                .context("send_message")?;
+            }
             IAction::RequestAuthStatus(act) => {
                 let host = self.get_host().await?;
                 let auth = get_auth(state, Some(&host), act.session.as_deref()).await?;
@@ -405,7 +504,8 @@ impl WebClient {
                     self.close(403).await?;
                     return Ok(());
                 };
-                let rows = query!(
+                let rows = query_as!(
+                    ObjectRow,
                     "SELECT `id`, `version`, `type`, `name`, `content`, `category`, `comment`,
                     strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
                     act.id
@@ -414,17 +514,7 @@ impl WebClient {
                 .await?;
                 let mut object = Vec::new();
                 for row in rows {
-                    object.push(IObject2 {
-                        id: act.id,
-                        version: Some(row.version),
-                        r#type: row.r#type.try_into()?,
-                        name: row.name,
-                        content: serde_json::from_str(&row.content)?,
-                        category: row.category.unwrap_or_default(),
-                        comment: row.comment,
-                        time: Some(row.time.parse()?),
-                        author: row.author,
-                    });
+                    object.push(row.try_into()?);
                 }
                 self.send_message(IAction::ObjectChanged(IObjectChanged {
                     id: act.id,

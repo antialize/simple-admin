@@ -1,21 +1,6 @@
-use crate::state::State;
+use crate::{action_types::IMessage, state::State};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use sqlx_type::query;
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct IMessage {
-    pub id: i64,
-    pub host: Option<i64>,
-    pub r#type: Option<String>,
-    pub subtype: Option<String>,
-    pub message: String,
-    pub full_message: bool,
-    pub time: f64,
-    pub url: Option<String>,
-    pub dismissed: bool,
-}
 
 pub async fn get_resent(state: &State) -> Result<Vec<IMessage>> {
     let now = std::time::SystemTime::now()
@@ -32,7 +17,7 @@ pub async fn get_resent(state: &State) -> Result<Vec<IMessage>> {
                 IMessage {
                     id: row.id,
                     host: row.host,
-                    r#type: row.r#type,
+                    r#type: row.r#type.unwrap_or_else(|| "missing".to_string()),
                     subtype: row.subtype,
                     message,
                     full_message,

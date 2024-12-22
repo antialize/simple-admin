@@ -87,17 +87,25 @@ export class WebClient extends JobOwner {
         return [docker.ca_key!, docker.ca_crt!];
     }
 
+    get_hosts_up(): number[] {
+        const hostsUp: number[] = [];
+        for (const id in hostClients.hostClients) hostsUp.push(+id);
+        return hostsUp;
+    }
+
+    get_deployment_info() {
+        return {
+            log: deployment.log,
+            objects: deployment.getView(),
+            status: deployment.status,
+            message: deployment.message
+        }
+    }
+
     async onMessage(str: string) {
         const act = JSON.parse(str) as IAction;
 
         switch (act.type) {
-            case ACTION.RequestInitialState:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await sendInitialState(this);
-                break;
             case ACTION.StartLog:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -235,61 +243,6 @@ export class WebClient extends JobOwner {
     }
 }
 
-async function sendInitialState(c: WebClient) {
-    const rows = serverRs.getAllObjectsFull(rs);
-    const msgs = serverRs.msgGetResent(rs);
-
-    const hostsUp: number[] = [];
-    for (const id in hostClients.hostClients) hostsUp.push(+id);
-
-    const action: ISetInitialState = {
-        type: ACTION.SetInitialState,
-        objectNamesAndIds: {},
-        messages: await msgs,
-        deploymentObjects: deployment.getView(),
-        deploymentStatus: deployment.status,
-        deploymentMessage: deployment.message || "",
-        deploymentLog: deployment.log,
-        hostsUp,
-        types: {},
-        usedBy: [],
-    };
-    for (const row of await rows) {
-        const content = JSON.parse(row.content);
-        if (row.type === typeId) {
-            action.types[row.id] = {
-                id: row.id,
-                type: row.type,
-                name: row.name,
-                category: row.category,
-                content: content as IType,
-                version: row.version,
-                comment: row.comment,
-                time: row.time,
-                author: row.author,
-            };
-        }
-        if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({
-            type: row.type,
-            id: row.id,
-            name: row.name,
-            category: row.category,
-            comment: row.comment,
-        });
-        for (const o of getReferences(content)) {
-            action.usedBy.push([o, row.id]);
-        }
-    }
-
-    const m: { [key: string]: number } = {};
-    for (const id in action) {
-        const x = JSON.stringify((action as any)[id]);
-        if (x) m[id] = x.length;
-    }
-    console.log("Send initial state", m);
-    c.sendMessage(action);
-}
 
 export class WebClients {
     httpApp = express();

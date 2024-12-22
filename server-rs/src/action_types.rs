@@ -1,5 +1,5 @@
 use anyhow::bail;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
 use ts_rs::TS;
 
@@ -48,7 +48,7 @@ pub struct IObjectDigest {
     pub name: String,
     pub comment: String,
     pub id: i64,
-    pub r#type: i64,
+    pub r#type: ObjectType,
     pub category: String,
 }
 
@@ -83,6 +83,18 @@ pub struct IDeploymentObject {
     pub deployment_order: i64,
 }
 
+pub struct ObjectRow {
+    pub id: i64,
+    pub r#type: i64,
+    pub name: String,
+    pub category: Option<String>,
+    pub content: String,
+    pub version: i64,
+    pub comment: String,
+    pub author: Option<String>,
+    pub time: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IObject2<T: Clone> {
@@ -95,6 +107,23 @@ pub struct IObject2<T: Clone> {
     pub comment: String,
     pub author: Option<String>,
     pub time: Option<f64>,
+}
+
+impl<T: Clone + DeserializeOwned> TryFrom<ObjectRow> for IObject2<T> {
+    type Error = anyhow::Error;
+    fn try_from(row: ObjectRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            version: Some(row.version),
+            r#type: row.r#type.try_into()?,
+            name: row.name,
+            content: serde_json::from_str(&row.content)?,
+            category: row.category.unwrap_or_default(),
+            comment: row.comment,
+            time: Some(row.time.parse()?),
+            author: row.author,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -140,7 +169,7 @@ pub struct IMessage {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISetInitialState {
-    pub object_names_and_ids: HashMap<String, Vec<IObjectDigest>>,
+    pub object_names_and_ids: HashMap<ObjectType, Vec<IObjectDigest>>,
     pub messages: Vec<IMessage>,
     pub deployment_objects: Vec<IDeploymentObject>,
     pub deployment_status: DeploymentStatus,
@@ -226,14 +255,14 @@ pub struct ISearch {
     pub pattern: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FixedObjectType {
     Root,
     Type,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
 #[serde(untagged)]
 pub enum ObjectType {
     Id(i64),
