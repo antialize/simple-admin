@@ -3,7 +3,7 @@ import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
 import { getHostContentByName, getRootVariables } from "./db";
 import { descript, errorHandler } from "./error";
-import { db, hostClients, msg, webClients } from "./instances";
+import { rs, hostClients, msg, webClients } from "./instances";
 import { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import type * as message from "./messages";
@@ -193,7 +193,7 @@ export class HostClient extends JobOwner {
     }
 
     async validateAuth(obj: message.Auth) {
-        const res = await getHostContentByName(obj.hostname);
+        const res = await serverRs.getHostContentByName(rs, obj.hostname);
         if (
             res &&
             serverRs.cryptValidatePassword(

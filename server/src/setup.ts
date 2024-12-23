@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import type { Request, Response } from "express";
 import { config } from "./config";
-import { changeObject, getHostContentByName } from "./db";
-import { db } from "./instances";
+import { changeObject } from "./db";
+import { rs } from "./instances";
 import { webClients } from "./instances";
 import { ACTION, type IObjectChanged } from "./shared/actions";
 import type { IObject2 } from "./shared/state";
@@ -16,7 +16,7 @@ export default async (req: Request, res: Response) => {
         res.status(405).send('#!/bin/bash\necho "Missing hostname"\n');
         return;
     }
-    const ho = await getHostContentByName(host);
+    const ho = await serverRs.getHostContentByName(rs, host);
     if (!ho || !ho.content || (ho.content as any).password !== token) {
         res.status(406).send('#!/bin/bash\necho "Invalid"\n');
         return;
