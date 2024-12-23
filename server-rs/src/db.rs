@@ -99,6 +99,10 @@ pub async fn setup(state: &State) -> Result<i64> {
     let _ = con
         .execute("ALTER TABLE `docker_images` ADD COLUMN `used` INTEGER")
         .await;
+
+    con.execute("CREATE INDEX IF NOT EXISTS `docker_images_hash` ON `docker_images` (`hash`)")
+        .await?;
+
     con.execute(
         "CREATE TABLE IF NOT EXISTS `docker_deployments` (`id` INTEGER PRIMARY KEY, `project` TEXT, `container` TEXT, `host` INTEGER, `startTime` INTEGER, `endTime` INTEGER, `config` TEXT, `hash` TEXT, `user` INTEGER)",
     ).await?;
