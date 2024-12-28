@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
 import { descript, errorHandler } from "./error";
-import { hostClients, msg, rs, webClients } from "./instances";
+import { hostClients, rs, webClients } from "./instances";
 import { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import type * as message from "./messages";
@@ -29,6 +29,7 @@ export class HostClient extends JobOwner {
     closeHandled = false;
     certificateTimer: ReturnType<typeof setTimeout> | null = null;
     authTimer: ReturnType<typeof setTimeout> | null = null;
+    rsPart: any = null;
 
     constructor(socket: tls.TLSSocket) {
         super();
@@ -39,6 +40,7 @@ export class HostClient extends JobOwner {
             console.warn("Client socket error", { hostname: this.hostname, error: err });
         });
         this.authTimer = setTimeout(() => this.onAuthTimeout(), 10000);
+        this.rsPart = serverRs.constructHostClientRsPart(rs, this);
     }
 
     runShell(commandLine: string): Promise<string> {
@@ -176,7 +178,7 @@ export class HostClient extends JobOwner {
         }
 
         if (this.id == null) throw Error("Missing host id");
-
+        serverRs.killHostClient(rs, this.rsPart);
         console.log("Client disconnected", { hostname: this.hostname });
 
         if (this.id in hostClients.hostClients) delete hostClients.hostClients[this.id];
@@ -259,6 +261,7 @@ export class HostClient extends JobOwner {
             default: {
                 const id = obj.id;
                 if (id in this.jobs) this.jobs[id].handleMessage(obj);
+                else serverRs.handleClientMessage(rs, self, obj);
             }
         }
     }
@@ -324,6 +327,16 @@ export class HostClient extends JobOwner {
 
 export class HostClients {
     hostClients: { [id: number]: HostClient } = {};
+
+    getRsById(id: number) {
+        let hc = this.hostClients[id];
+        if (!hc) {
+            return null;
+        } else {
+            return hc.rsPart;
+        }
+    }
+
     start() {
         const privateKey = fs.readFileSync("domain.key", "utf8");
         const certificate = fs.readFileSync("chained.pem", "utf8");

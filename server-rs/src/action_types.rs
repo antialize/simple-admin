@@ -824,7 +824,7 @@ pub struct IModifiedFilesChanged {
     pub scanning: bool,
     pub full: bool,
     pub changed: Vec<ModifiedFile>,
-    pub removed: Vec<f64>,
+    pub removed: Vec<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]

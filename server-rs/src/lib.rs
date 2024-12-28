@@ -1,10 +1,13 @@
 mod action_types;
+mod client_message;
 mod config;
 mod crt;
 mod crypt;
 mod db;
 mod docker;
 mod get_auth;
+mod hostclient;
+mod modified_files;
 mod msg;
 mod page_types;
 mod service_description;
@@ -14,8 +17,14 @@ mod webclient;
 
 use action_types::{DockerImageTag, DockerImageTagRow, IAuthStatus, IObject2, ObjectType};
 use anyhow::anyhow;
-use db::UserContent;
-use neon::types::extract::{Boxed, Error, Json};
+use neon::{
+    event::Channel,
+    handle::Root,
+    types::{
+        extract::{Boxed, Error, Json},
+        JsObject,
+    },
+};
 use serde::Serialize;
 use sqlx_type::{query, query_as};
 use state::State;
@@ -30,19 +39,6 @@ fn crypt_hash(key: String) -> Result<String, Error> {
 #[neon::export(name = "cryptValidatePassword")]
 fn crypt_validate_password(provided: String, hash: String) -> Result<bool, Error> {
     Ok(crypt::validate_password(&provided, &hash)?)
-}
-
-#[neon::export(name = "cryptValidateOtp")]
-fn crypt_validate_otp(token: String, base32_secret: String) -> Result<bool, Error> {
-    Ok(crypt::validate_otp(&token, &base32_secret)?)
-}
-
-#[neon::export(name = "dbGetUserContent")]
-async fn db_get_user_content(
-    Boxed(state): Boxed<Arc<State>>,
-    name: String,
-) -> Result<Json<Option<UserContent>>, Error> {
-    Ok(Json(db::get_user_content(&state, &name).await?))
 }
 
 #[neon::export(name = "getAuth")]
@@ -76,22 +72,6 @@ async fn crt_generate_ca_crt(key: String) -> Result<String, Error> {
     Ok(crt::generate_ca_crt(&key).await?)
 }
 
-#[neon::export(name = "crtGenerateSrs")]
-async fn crt_generate_srs(key: String, cn: String) -> Result<String, Error> {
-    Ok(crt::generate_srs(&key, &cn).await?)
-}
-
-#[neon::export(name = "crtGenerateCrt")]
-async fn crt_generate_crt(
-    ca_key: String,
-    ca_crt: String,
-    srs: String,
-    Json(subcerts): Json<Vec<String>>,
-    timout_days: f64,
-) -> Result<String, Error> {
-    Ok(crt::generate_crt(&ca_key, &ca_crt, &srs, &subcerts, timout_days as u32).await?)
-}
-
 #[neon::export(name = "crtGenerateSshCrt")]
 async fn crt_generate_ssh_crt(
     key_id: String,
@@ -117,97 +97,18 @@ async fn crt_generate_ssh_crt(
     .await?)
 }
 
-#[neon::export(name = "crtStrip")]
-fn crt_strip(crt: String) -> Result<String, Error> {
-    Ok(crt::strip(&crt).to_string())
-}
-
 #[neon::export(name = "dockerPrune")]
 async fn docker_prune(Boxed(state): Boxed<Arc<State>>) -> () {
     docker::prune(&state).await
 }
 
 #[neon::export]
-async fn init() -> Result<Boxed<Arc<State>>, Error> {
-    Ok(Boxed(State::new().await?))
-}
-
-#[neon::export(name = "insertMessage")]
-async fn insert_message(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    r#type: String,
-    message: String,
-    subtype: Option<String>,
-    url: Option<String>,
-    time: f64,
-) -> Result<f64, Error> {
-    let host = host as i64;
-    let id = query!(
-        "INSERT INTO messages (`host`,`type`,`subtype`,`message`,`url`, `time`, `dismissed`)
-        VALUES (?, ?, ?, ?, ?,?, false)",
-        host,
-        r#type,
-        subtype,
-        message,
-        url,
-        time
-    )
-    .execute(&state.db)
-    .await?
-    .last_insert_rowid();
-    Ok(id as f64)
-}
-
-#[neon::export(name = "getObjectsContent")]
-async fn get_objects_content(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(ids): Json<Vec<i64>>,
-) -> Result<Json<Vec<(f64, String)>>, Error> {
-    let res = query!(
-        "SELECT `id`, `content` FROM `objects` WHERE `newest` AND `id` in (_LIST_)",
-        ids
-    )
-    .map(|row| (row.id as f64, row.content))
-    .fetch_all(&state.db)
-    .await?;
-    Ok(Json(res))
-}
-
-const FILE_ID: i64 = 6;
-const CRON_ID: i64 = 10240;
-const SYSTEMD_SERVICE_ID: i64 = 10240;
-
-#[derive(Serialize)]
-struct DeployedContent {
-    name: String,
-    content: String,
-    r#type: f64,
-    title: String,
-    host: f64,
-}
-
-#[neon::export(name = "getDeployedFileLike")]
-async fn get_deployed_file_like(
-    Boxed(state): Boxed<Arc<State>>,
-) -> Result<Json<Vec<DeployedContent>>, Error> {
-    let res = query!(
-        "SELECT `name`, `content`, `type`, `title`, `host`
-            FROM `deployments` WHERE `type` in (?, ?, ?)",
-        FILE_ID,
-        CRON_ID,
-        SYSTEMD_SERVICE_ID
-    )
-    .map(|r| DeployedContent {
-        name: r.name,
-        content: r.content,
-        r#type: r.r#type as f64,
-        title: r.title,
-        host: r.host as f64,
-    })
-    .fetch_all(&state.db)
-    .await?;
-    Ok(Json(res))
+async fn init(
+    ch: Channel,
+    instances: Root<JsObject>,
+    docker: Root<JsObject>,
+) -> Result<Boxed<Arc<State>>, Error> {
+    Ok(Boxed(State::new(ch, instances, docker).await?))
 }
 
 #[neon::export(name = "getIdNamePairsForType")]
@@ -237,66 +138,6 @@ struct FullObject {
     comment: String,
     time: i64,
     author: Option<String>,
-}
-
-#[neon::export(name = "getNewestObjectByID")]
-async fn get_newest_object_by_id(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<FullObject>, Error> {
-    let id = id as i64;
-    let r = query!(
-        "SELECT `id`, `version`, `type`, `name`, `content`, `category`, `comment`,
-        strftime('%s', `time`) AS `time`, `author` FROM `objects`
-        WHERE `id`=? AND `newest`",
-        id
-    )
-    .fetch_one(&state.db)
-    .await?;
-    Ok(Json(FullObject {
-        id: r.id,
-        version: r.version,
-        r#type: r.r#type.try_into()?,
-        name: r.name,
-        content: r.content,
-        category: r.category,
-        comment: r.comment,
-        time: r.time.parse()?,
-        author: r.author,
-    }))
-}
-
-#[neon::export(name = "getObjectByNameAndType")]
-async fn get_object_by_name_and_type(
-    Boxed(state): Boxed<Arc<State>>,
-    name: String,
-    r#type: f64,
-) -> Result<Json<Option<FullObject>>, Error> {
-    let r#type = r#type as i64;
-    let row = query!(
-        "SELECT `id`, `type`, `content`, `version`, `name`, `category`, `comment`,
-        strftime('%s', `time`) AS `time`, `author` FROM `objects`
-        WHERE `type` = ? AND `name`=? AND `newest`",
-        r#type,
-        name
-    )
-    .fetch_optional(&state.db)
-    .await?;
-    let res = match row {
-        Some(r) => Some(FullObject {
-            id: r.id,
-            version: r.version,
-            r#type: r.r#type.try_into()?,
-            name: r.name,
-            content: r.content,
-            category: r.category,
-            comment: r.comment,
-            time: r.time.parse()?,
-            author: r.author,
-        }),
-        None => None,
-    };
-    Ok(Json(res))
 }
 
 #[neon::export(name = "getAllObjectsFull")]
@@ -377,25 +218,6 @@ async fn get_object_content_by_type(
         t
     )
     .fetch_all(&state.db)
-    .await?;
-    Ok(Json(r))
-}
-
-#[neon::export(name = "getObjectContentByIdAndType")]
-async fn get_object_content_by_id_and_type(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-    Json(r#type): Json<ObjectType>,
-) -> Result<Json<ObjectContent>, Error> {
-    let id = id as i64;
-    let t: i64 = r#type.into();
-    let r = query_as!(
-        ObjectContent,
-        "SELECT `id`, `name`, `content` FROM `objects` WHERE `id`=? AND `newest` AND `type`=?",
-        id,
-        t
-    )
-    .fetch_one(&state.db)
     .await?;
     Ok(Json(r))
 }
@@ -570,14 +392,5 @@ async fn _get_root_variables(
     Boxed(state): Boxed<Arc<State>>,
 ) -> Result<Json<HashMap<String, String>>, Error> {
     let r = db::get_root_variables(&state).await?;
-    Ok(Json(r))
-}
-
-#[neon::export(name = "getHostVariables")]
-async fn _get_host_variables(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<Option<HashMap<String, String>>>, Error> {
-    let r = db::get_host_variables(&state, id as i64).await?;
     Ok(Json(r))
 }

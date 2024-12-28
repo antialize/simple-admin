@@ -1,4 +1,8 @@
-use crate::{action_types::IMessage, state::State};
+use crate::{
+    action_types::{IAction, IAddMessage, IMessage},
+    state::State,
+    webclient,
+};
 use anyhow::{Context, Result};
 use sqlx_type::query;
 
@@ -39,4 +43,46 @@ pub async fn get_full_text(state: &State, id: i64) -> Result<Option<String>> {
 pub async fn get_count(state: &State) -> Result<i64> {
     let row = query!("SELECT count(*) as `count` FROM `messages` WHERE NOT `dismissed` AND `message` IS NOT NULL").fetch_one(&state.db).await.context("Query failed in get_count")?;
     Ok(row.count)
+}
+
+pub async fn emit(state: &State, host: i64, r#type: String, mut message: String) -> Result<()> {
+    let time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .context("Bad unix time")?
+        .as_secs_f64();
+
+    let id = query!(
+        "INSERT INTO messages (`host`,`type`,`message`, `time`, `dismissed`)
+        VALUES (?, ?, ?, ?, false)",
+        host,
+        r#type,
+        message,
+        time
+    )
+    .execute(&state.db)
+    .await?
+    .last_insert_rowid();
+
+    let full_message = message.len() < 1000;
+    message.truncate(1000);
+
+    webclient::broadcast(
+        state,
+        IAction::AddMessage(IAddMessage {
+            message: IMessage {
+                id,
+                host: Some(host),
+                r#type,
+                message,
+                full_message,
+                subtype: None,
+                time,
+                url: None,
+                dismissed: false,
+            },
+        }),
+    )
+    .await?;
+
+    Ok(())
 }

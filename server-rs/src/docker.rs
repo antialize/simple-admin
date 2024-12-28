@@ -8,7 +8,7 @@ use crate::{
     crt, crypt, db,
     service_description::{ServiceDescription, Subcert},
     state::State,
-    webclient::WebClient,
+    webclient::{self, WebClient},
 };
 use anyhow::{bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
@@ -167,6 +167,13 @@ pub struct Docker {
 }
 
 impl Docker {
+    pub fn get(state: &State) -> Docker {
+        Docker {
+            obj: state.docker.clone(),
+            channel: state.ch.clone(),
+        }
+    }
+
     pub async fn get_container_state(
         &self,
         host: i64,
@@ -307,7 +314,7 @@ async fn deploy_server_inner2(
     do_template: bool,
 ) -> Result<(), anyhow::Error> {
     info!("service deploy start ref: {:?}", r#ref);
-    let docker = client.get_docker().await.context("get_docker")?;
+    let docker = Docker::get(state);
     let auth = client.get_auth().await.context("get_auth")?;
     let user = auth.user.context("Missing user")?;
     let mut variables: HashMap<_, _> = db::get_host_variables(state, host_id)
@@ -585,7 +592,7 @@ async fn deploy_server_inner3(
         }))
         .await?;
 
-    let state = docker.get_container_state(host_id, name.clone()).await?;
+    let container_state = docker.get_container_state(host_id, name.clone()).await?;
 
     let o = DockerDeployment {
         id: id,
@@ -597,21 +604,21 @@ async fn deploy_server_inner3(
         start: now as f64,
         end: None,
         host: host_id,
-        state: state,
+        state: container_state,
         config: "".to_string(), // TODO
         timeout: 0.0,           // TODO
         use_podman: false,
         service: true,
     };
 
-    client
-        .broadcast_message(IAction::DockerDeploymentsChanged(
-            IDockerDeploymentsChanged {
-                changed: vec![o],
-                removed: vec![],
-            },
-        ))
-        .await?;
+    webclient::broadcast(
+        state,
+        IAction::DockerDeploymentsChanged(IDockerDeploymentsChanged {
+            changed: vec![o],
+            removed: vec![],
+        }),
+    )
+    .await?;
 
     Ok(())
 }
@@ -676,9 +683,7 @@ pub async fn deploy_service(
 ) -> Result<()> {
     let host_id = match act.host {
         crate::action_types::HostEnum::Id(v) => v,
-        crate::action_types::HostEnum::Name(n) => client
-            .get_docker()
-            .await?
+        crate::action_types::HostEnum::Name(n) => Docker::get(state)
             .get_host_id(n)
             .await?
             .context("Could not find host")?,
@@ -766,7 +771,7 @@ pub async fn list_deployments(
     .fetch_all(&state.db)
     .await
     .context("Running main query")?;
-    let docker = client.get_docker().await.context("Getting docker")?;
+    let docker = Docker::get(state);
     let mut deployments = Vec::new();
     for row in rows {
         if let Some(host) = act.host {
@@ -805,7 +810,7 @@ pub async fn list_deployment_history(
 ) -> Result<()> {
     let rows = query_as!(
         DockerDeploymentRow,
-        "SELECT 
+        "SELECT
         `docker_deployments`.`id`, `docker_deployments`.`hash`, `docker_deployments`.`host`, 
         `docker_deployments`.`project`, `docker_deployments`.`container`,
         `docker_deployments`.`startTime`, `docker_deployments`.`endTime`,
@@ -828,7 +833,7 @@ pub async fn list_deployment_history(
     )
     .fetch_all(&state.db)
     .await?;
-    let docker = client.get_docker().await?;
+    let docker = Docker::get(state);
     let mut deployments = Vec::new();
     for row in rows {
         deployments.push(docker.row_to_deployment(row).await?);
