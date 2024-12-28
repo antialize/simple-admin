@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     client_daemon::{self, SERVICE_ORDER},
-    persist_daemon,
+    client_message, persist_daemon,
     service_control::DaemonControlMessage,
     service_description::{Bind, ServiceMetrics, ServiceType},
     tokio_passfd::MyAsFd,
@@ -409,10 +409,10 @@ impl<'a> RemoteLogTarget<'a> {
             }
             RemoteLogTarget::Backend { id, client } => {
                 client
-                    .send_message(client_daemon::ClientMessage::Data(
-                        client_daemon::DataMessage {
+                    .send_message(client_message::ClientMessage::Data(
+                        client_message::DataMessage {
                             id: *id,
-                            source: Some(client_daemon::DataSource::Stdout),
+                            source: Some(client_message::DataSource::Stdout),
                             data: base64::engine::general_purpose::STANDARD
                                 .encode(data)
                                 .into(),
@@ -452,10 +452,10 @@ impl<'a> RemoteLogTarget<'a> {
             }
             RemoteLogTarget::Backend { id, client } => {
                 client
-                    .send_message(client_daemon::ClientMessage::Data(
-                        client_daemon::DataMessage {
+                    .send_message(client_message::ClientMessage::Data(
+                        client_message::DataMessage {
                             id: *id,
-                            source: Some(client_daemon::DataSource::Stderr),
+                            source: Some(client_message::DataSource::Stderr),
                             data: base64::engine::general_purpose::STANDARD
                                 .encode(data)
                                 .into(),
