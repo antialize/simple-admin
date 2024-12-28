@@ -19,6 +19,8 @@ use upgrade::{Setup, Upgrade};
 mod client_daemon;
 #[cfg(feature = "daemon")]
 mod client_daemon_service;
+#[cfg(feature = "daemon")]
+mod client_message;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;

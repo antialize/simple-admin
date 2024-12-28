@@ -17,7 +17,7 @@ use base64::Engine;
 use bytes::BytesMut;
 use log::{debug, error, info, warn};
 use reqwest::Url;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::{
@@ -37,6 +37,11 @@ use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
 
 use crate::{
     client_daemon_service::RemoteLogTarget,
+    client_message::{
+        ClientMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
+        RunInstantMessage, RunInstantStdinOutputType, RunScriptMessage, RunScriptOutType,
+        RunScriptStdinType, SuccessMessage,
+    },
     connection::Config,
     persist_daemon,
     service_control::DaemonControlMessage,
@@ -66,145 +71,6 @@ pub struct ClientDaemon {
     /// Verbosity of messages to display
     #[clap(long, default_value = "info")]
     log_level: log::LevelFilter,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum RunInstantStdinOutputType {
-    Text,
-    Base64,
-    Json,
-    #[serde(rename = "utf-8")]
-    Utf8,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum RunInstantStdinType {
-    None,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RunInstantMessage {
-    id: u64,
-    name: String,
-    interperter: String,
-    content: String,
-    args: Vec<String>,
-    output_type: RunInstantStdinOutputType,
-    stdin_type: RunInstantStdinType,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum RunScriptStdinType {
-    None,
-    Binary,
-    GivenJson,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum RunScriptOutType {
-    None,
-    Binary,
-    Text,
-    BlockedJson,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RunScriptMessage {
-    id: u64,
-    name: String,
-    interperter: String,
-    content: String,
-    args: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    input_json: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stdin_type: Option<RunScriptStdinType>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stdout_type: Option<RunScriptOutType>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stderr_type: Option<RunScriptOutType>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-pub enum DataSource {
-    Stdin,
-    Stdout,
-    Stderr,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DataMessage {
-    pub id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source: Option<DataSource>,
-    pub data: serde_json::Value,
-    pub eof: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum FailureType {
-    Script,
-    UnknownTask,
-    Exception,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct FailureMessage {
-    id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    failure_type: Option<FailureType>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    code: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stdout: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stderr: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    message: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SuccessMessage {
-    id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    code: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    data: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeployServiceMessage {
-    id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    image: Option<String>,
-    description: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    docker_auth: Option<String>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    extra_env: HashMap<String, String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    user: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum ClientMessage {
-    Auth { hostname: String, password: String },
-    RunInstant(RunInstantMessage),
-    RunScript(RunScriptMessage),
-    Ping { id: u64 },
-    Pong { id: u64 },
-    Failure(FailureMessage),
-    Success(SuccessMessage),
-    Kill { id: u64 },
-    Data(DataMessage),
-    DeployService(DeployServiceMessage),
 }
 
 pub type PersistMessageSender =
