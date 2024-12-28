@@ -28,9 +28,9 @@ use crate::{
     crt,
     crypt::{self, random_fill},
     db::{self, IV},
-    docker::{deploy_service, list_deployment_history, list_deployments, redploy_service, Docker},
+    docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     get_auth::get_auth,
-    msg,
+    modified_files, msg,
     page_types::{IObjectPage, IPage},
     state::State,
     type_types::{ISudoOnContainsAndDepends, IType, ITypeProp, TYPE_ID, USER_ID},
@@ -50,47 +50,12 @@ pub struct WebClient {
 }
 
 impl WebClient {
-    pub async fn get_docker(&self) -> Result<Docker> {
-        let obj = self.obj.clone();
-        let c2 = self.channel.clone();
-
-        let d = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "get_docker")?;
-                m.this(h)?;
-                let docker: Root<JsObject> = m.call()?;
-                Ok(Docker {
-                    obj: Arc::new(docker),
-                    channel: c2,
-                })
-            })?
-            .await?;
-        Ok(d)
-    }
-
     pub async fn send_message(&self, msg: IAction) -> Result<()> {
         let obj = self.obj.clone();
         self.channel
             .try_send(move |mut cx| {
                 let h = obj.to_inner(&mut cx);
                 let mut m = h.method(&mut cx, "sendMessage")?;
-                m.this(h)?;
-                m.arg(Json(msg))?;
-                m.exec()?;
-                Ok(())
-            })?
-            .await?;
-        Ok(())
-    }
-
-    pub async fn broadcast_message(&self, msg: IAction) -> Result<()> {
-        let obj = self.obj.clone();
-        self.channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "broadcastMessage")?;
                 m.this(h)?;
                 m.arg(Json(msg))?;
                 m.exec()?;
@@ -623,11 +588,14 @@ impl WebClient {
                 )
                 .execute(&state.db)
                 .await?;
-                self.broadcast_message(IAction::SetMessagesDismissed(ISetMessagesDismissed {
-                    source: ISource::Server,
-                    dismissed: act.dismissed,
-                    ids: act.ids,
-                }))
+                broadcast(
+                    state,
+                    IAction::SetMessagesDismissed(ISetMessagesDismissed {
+                        source: ISource::Server,
+                        dismissed: act.dismissed,
+                        ids: act.ids,
+                    }),
+                )
                 .await?;
             }
             IAction::ResetServerState(act) => {
@@ -721,10 +689,13 @@ impl WebClient {
                 )
                 .await?;
                 obj.version = Some(version);
-                self.broadcast_message(IAction::ObjectChanged(IObjectChanged {
-                    id,
-                    object: vec![obj],
-                }))
+                broadcast(
+                    state,
+                    IAction::ObjectChanged(IObjectChanged {
+                        id,
+                        object: vec![obj],
+                    }),
+                )
                 .await?;
                 self.send_message(IAction::SetPage(ISetPageAction {
                     page: IPage::Object(IObjectPage {
@@ -783,10 +754,13 @@ impl WebClient {
                         &auth.user.context("Missing user")?,
                     )
                     .await?;
-                    self.broadcast_message(IAction::ObjectChanged(IObjectChanged {
-                        id: act.id,
-                        object: vec![],
-                    }))
+                    broadcast(
+                        state,
+                        IAction::ObjectChanged(IObjectChanged {
+                            id: act.id,
+                            object: vec![],
+                        }),
+                    )
                     .await?;
                     self.send_message(IAction::SetPage(ISetPageAction {
                         page: IPage::Dashbord,
@@ -914,11 +888,14 @@ impl WebClient {
                         pinned_image_tag: false,
                     });
                 }
-                self.broadcast_message(IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
-                    changed,
-                    removed: Default::default(),
-                    image_tag_pin_changed: Default::default(),
-                }))
+                broadcast(
+                    state,
+                    IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+                        changed,
+                        removed: Default::default(),
+                        image_tag_pin_changed: Default::default(),
+                    }),
+                )
                 .await?;
             }
             IAction::DockerImageTagSetPin(act) => {
@@ -943,15 +920,18 @@ impl WebClient {
                     .execute(&state.db)
                     .await?;
                 }
-                self.broadcast_message(IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
-                    changed: Default::default(),
-                    removed: Default::default(),
-                    image_tag_pin_changed: Some(vec![IDockerImageTagsChargedImageTagPin {
-                        image: act.image,
-                        tag: act.tag,
-                        pin: act.pin,
-                    }]),
-                }))
+                broadcast(
+                    state,
+                    IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+                        changed: Default::default(),
+                        removed: Default::default(),
+                        image_tag_pin_changed: Some(vec![IDockerImageTagsChargedImageTagPin {
+                            image: act.image,
+                            tag: act.tag,
+                            pin: act.pin,
+                        }]),
+                    }),
+                )
                 .await?;
             }
             IAction::DockerListImageTagHistory(act) => {
@@ -1004,15 +984,16 @@ impl WebClient {
                 )
                 .execute(&state.db)
                 .await?;
-                self.broadcast_message(IAction::DockerDeploymentsChanged(
-                    IDockerDeploymentsChanged {
+                broadcast(
+                    state,
+                    IAction::DockerDeploymentsChanged(IDockerDeploymentsChanged {
                         changed: Default::default(),
                         removed: vec![IDockerDeploymentsChangedRemoved {
                             host: act.host,
                             name: act.container,
                         }],
-                    },
-                ))
+                    }),
+                )
                 .await?;
             }
             IAction::ServiceDeployStart(act) => {
@@ -1043,6 +1024,27 @@ impl WebClient {
                 };
                 list_deployment_history(state, self, act).await?;
             }
+            IAction::ModifiedFilesScan(_) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                modified_files::scan(state).await?;
+            }
+            IAction::ModifiedFilesList(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                modified_files::list(state, self, act).await?;
+            }
+            IAction::ModifiedFilesResolve(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                modified_files::resolve(state, self, act).await?;
+            }
             _ => {
                 warn!("Unhandled message {:?}", act)
             }
@@ -1069,4 +1071,21 @@ async fn handle_message(
             Err(e.into())
         }
     }
+}
+
+pub async fn broadcast(state: &State, msg: IAction) -> Result<()> {
+    let instances = state.instances.clone();
+    state
+        .ch
+        .try_send(move |mut cx| {
+            let h = instances.to_inner(&mut cx);
+            let wc: Handle<JsObject> = h.prop(&mut cx, "webClients").get()?;
+            let mut m = wc.method(&mut cx, "broadcast")?;
+            m.this(wc)?;
+            m.arg(Json(msg))?;
+            m.exec()?;
+            Ok(())
+        })?
+        .await?;
+    Ok(())
 }

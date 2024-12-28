@@ -1403,6 +1403,7 @@ dependencies = [
  "sqlx-type",
  "tempfile",
  "tokio",
+ "tokio-tasks",
  "totp-rs",
  "ts-rs",
 ]
@@ -1916,6 +1917,18 @@ checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
 dependencies = [
  "futures-core",
  "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-tasks"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4947e2e6d3ed46f6dd16f7eefa25b7b0090f3945da6b2774f2652780cf5a5f6"
+dependencies = [
+ "futures-util",
+ "lazy_static",
+ "log 0.4.22",
  "tokio",
 ]
 

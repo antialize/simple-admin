@@ -26,5 +26,6 @@ sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "chrono"] }
 sqlx-type = "0.4.6"
 tempfile = "3"
 tokio = {version = "1", features = ["process", "rt", "macros"]}
+tokio-tasks = "0.2.1"
 totp-rs= {version="5", features = ["otpauth"]}
 ts-rs = {version="10", features = ["serde-compat", "chrono-impl", "serde-json-impl"]}

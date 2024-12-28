@@ -9,7 +9,7 @@ import { config } from "./config";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import type { AuthInfo } from "./getAuth";
-import { deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
+import { deployment, hostClients, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import { LogJob } from "./jobs/logJob";
@@ -168,27 +168,6 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 await deployment.toggleObject(act.index, act.enabled);
-                break;
-            case ACTION.ModifiedFilesScan:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await modifiedFiles.scan(this, act);
-                break;
-            case ACTION.ModifiedFilesList:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await modifiedFiles.list(this, act);
-                break;
-            case ACTION.ModifiedFilesResolve:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await modifiedFiles.resolve(this, act);
                 break;
             default:
                 await serverRs.webclientHandleMessage(rs, this, act);
