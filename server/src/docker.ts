@@ -649,62 +649,6 @@ class Docker {
         res.status(404).end();
     }
 
-    deployServiceJob(
-        client: WebClient,
-        hostId: number,
-        description: string,
-        docker_auth: string,
-        image: string | null,
-        extra_env: { [key: string]: string },
-        ref: Ref,
-        user: string,
-    ): Promise<void> {
-        let host: HostClient = hostClients.hostClients[hostId];
-        return new Promise((accept, reject) => {
-            class ServiceDeployJob extends Job {
-                stdoutPart = "";
-                stderrPart = "";
-
-                constructor() {
-                    super(host, null, host);
-                    const msg: message.DeployService = {
-                        type: "deploy_service",
-                        id: this.id,
-                        description,
-                        extra_env,
-                        docker_auth,
-                        image: image || undefined,
-                        user,
-                    };
-                    host.sendMessage(msg);
-                    this.running = true;
-                }
-
-                handleMessage(obj: message.Incomming) {
-                    super.handleMessage(obj);
-                    switch (obj.type) {
-                        case "data":
-                            if (obj.source === "stdout" || obj.source === "stderr")
-                                client.sendMessage({
-                                    type: ACTION.DockerDeployLog,
-                                    ref,
-                                    message: Buffer.from(obj.data, "base64").toString("binary"),
-                                });
-                            break;
-                        case "success":
-                            if (obj.code === 0) accept();
-                            else reject();
-                            break;
-                        case "failure":
-                            reject();
-                            break;
-                    }
-                }
-            }
-            new ServiceDeployJob();
-        });
-    }
-
     nextId() : number {
         return this.idc++;
     }

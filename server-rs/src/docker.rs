@@ -1,11 +1,14 @@
 use crate::{
     action_types::{
-        DockerDeployment, DockerImageTag, DockerImageTagRow, IAction, IDockerDeployDone,
-        IDockerDeploymentsChanged, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes,
-        IDockerListDeployments, IDockerListDeploymentsRes, IServiceDeployStart,
-        IServiceRedeployStart, Ref,
+        DockerDeployment, DockerImageTag, DockerImageTagRow, IAction, IAddDeploymentLog,
+        IDockerDeployDone, IDockerDeploymentsChanged, IDockerListDeploymentHistory,
+        IDockerListDeploymentHistoryRes, IDockerListDeployments, IDockerListDeploymentsRes,
+        IServiceDeployStart, IServiceRedeployStart, Ref,
     },
-    crt, crypt, db,
+    client_message::{
+        ClientMessage, DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage,
+    },
+    crt, crypt, db, hostclient,
     service_description::{ServiceDescription, Subcert},
     state::State,
     webclient::{self, WebClient},
@@ -15,13 +18,7 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use futures::future::join_all;
 use log::{error, info, warn};
 use mustache::Data;
-use neon::{
-    event::Channel,
-    handle::{Handle, Root},
-    object::Object,
-    result::ResultExt,
-    types::{extract::Json, JsObject, JsPromise},
-};
+use neon::{event::Channel, handle::Root, object::Object, types::JsObject};
 use serde::{Deserialize, Serialize};
 use sqlx_type::{query, query_as};
 use std::{
@@ -223,45 +220,6 @@ impl Docker {
             })?
             .await?;
         Ok(res)
-    }
-    pub async fn deploy_server_job(
-        &self,
-        client: &WebClient,
-        host_id: i64,
-        description: String,
-        docker_auth: String,
-        image: Option<String>,
-        extra_env: HashMap<String, String>,
-        r#ref: Ref,
-        user: String,
-    ) -> Result<()> {
-        let obj = self.obj.clone();
-        let client = client.obj.clone();
-        let f = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let client = client.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "deployServiceJob")?;
-                m.this(h)?;
-                m.arg(client)?;
-                m.arg(host_id as f64)?;
-                m.arg(description)?;
-                m.arg(docker_auth)?;
-                m.arg(image)?;
-                m.arg(Json(extra_env))?;
-                m.arg(Json(r#ref))?;
-                m.arg(user)?;
-                let p: Handle<JsPromise> = m.call()?;
-                let f = p.to_future(&mut cx, |mut cx, result| {
-                    result.or_throw(&mut cx)?;
-                    Ok(())
-                })?;
-                Ok(f)
-            })?
-            .await?;
-        f.await?;
-        Ok(())
     }
 
     async fn row_to_deployment(&self, row: DockerDeploymentRow) -> Result<DockerDeployment> {
@@ -530,19 +488,49 @@ async fn deploy_server_inner3(
 
     let image_info: DockerImageTag = row.try_into().context("Building DockerImageTag")?;
 
-    docker
-        .deploy_server_job(
-            client,
-            host_id,
-            description_str.clone(),
-            BASE64_STANDARD.encode(format!("docker_client:{}", session)),
-            image,
+    let Some(host) = hostclient::get_host_client_by_id(state, host_id).await? else {
+        bail!("Host not up");
+    };
+
+    let mut jh = host
+        .start_job(ClientMessage::DeployService(DeployServiceMessage {
+            id: host.next_job_id(),
+            description: description_str.clone(),
             extra_env,
-            r#ref.clone(),
-            user.clone(),
-        )
-        .await
-        .context("In deploy_server_job")?;
+            image,
+            docker_auth: Some(BASE64_STANDARD.encode(format!("docker_client:{}", session))),
+            user: Some(user.clone()),
+        }))
+        .await?;
+    loop {
+        match jh.next_message().await? {
+            Some(ClientMessage::Data(DataMessage { data, .. })) => {
+                client
+                    .send_message(IAction::AddDeploymentLog(IAddDeploymentLog {
+                        bytes: data.to_string(), //TODO Buffer.from(obj.data, "base64").toString("binary")
+                    }))
+                    .await?;
+            }
+            Some(ClientMessage::Success(SuccessMessage { code, .. })) => {
+                jh.done();
+                if code == Some(0) {
+                    break;
+                }
+                bail!("Failed with code {:?}", code);
+            }
+            Some(ClientMessage::Failure(FailureMessage { .. })) => {
+                jh.done();
+                bail!("Failed")
+            }
+            Some(_) => {
+                bail!("Got unexpected message");
+            }
+            None => {
+                bail!("Host went away");
+            }
+        }
+    }
+
     let id = docker.next_id().await?;
 
     let old_deployment = query!(
