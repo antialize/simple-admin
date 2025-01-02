@@ -2367,10 +2367,17 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 port,
                 path,
             }) => {
-                let body = reqwest::get(format!("http://127.0.0.1:{}{}", port, path))
-                    .await?
-                    .text()
-                    .await?;
+                let response = reqwest::get(format!("http://127.0.0.1:{}{}", port, path)).await?;
+                if !response.status().is_success() {
+                    error!(
+                        "Failure to get status from {} {}: {}",
+                        job,
+                        instance,
+                        response.status()
+                    );
+                    return Ok(None);
+                }
+                let body = response.text().await?;
                 (body, instance, job)
             }
             None => return Ok(None),
