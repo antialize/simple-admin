@@ -32,6 +32,7 @@ use sqlx_type::{query, query_as};
 use state::State;
 use std::{collections::HashMap, sync::Arc};
 use type_types::HOST_ID;
+mod cmpref;
 
 #[neon::export(name = "cryptHash")]
 fn crypt_hash(key: String) -> Result<String, Error> {
