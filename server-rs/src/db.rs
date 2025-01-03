@@ -4,7 +4,7 @@ use crate::{
     action_types::{IObject2, ObjectType},
     state::State,
     type_types::{
-        IHost, ISudoOnContainsAndDepends, IVariables, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID,
+        IContainsIter, IDependsIter, IVariablesIter, ValueMap, HOST_ID, ROOT_ID, ROOT_INSTANCE_ID,
     },
 };
 use anyhow::{Context, Result};
@@ -352,21 +352,16 @@ pub async fn get_newest_object_by_id<T: Clone + DeserializeOwned>(
 }
 
 pub async fn get_root_variables(state: &State) -> Result<HashMap<String, String>> {
-    let root_object = get_object_by_id_and_type::<IVariables>(state, ROOT_INSTANCE_ID, ROOT_ID)
+    let root_object = get_object_by_id_and_type::<ValueMap>(state, ROOT_INSTANCE_ID, ROOT_ID)
         .await
-        .context("Getting root")?;
+        .context("Getting root")?
+        .context("Missing root object")?;
     let mut variables = HashMap::new();
-    if let Some(o) = root_object {
-        if let Some(vs) = o.content.variables {
-            for v in vs {
-                variables.insert(v.key, v.value);
-            }
-        }
-        if let Some(vs) = o.content.secrets {
-            for v in vs {
-                variables.insert(v.key, v.value);
-            }
-        }
+    for (k, v) in root_object.content.variables_iter() {
+        variables.insert(k.to_string(), v.to_string());
+    }
+    for (k, v) in root_object.content.secrets_iter() {
+        variables.insert(k.to_string(), v.to_string());
     }
     Ok(variables)
 }
@@ -376,20 +371,19 @@ const COMPLEX_COLLECTION_ID: i64 = 8;
 const HOST_VARIABLE_ID: i64 = 10840;
 
 pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap<String, String>>> {
-    let host = get_object_by_id_and_type::<IHost>(state, id, HOST_ID)
+    let host = get_object_by_id_and_type::<ValueMap>(state, id, HOST_ID)
         .await
         .with_context(|| format!("Getting host {}", id))?;
     let Some(host) = host else { return Ok(None) };
     let mut variables = get_root_variables(state).await?;
     variables.insert("nodename".to_string(), host.name);
     let mut visited = HashSet::new();
-
-    let mut to_visit = host.content.contains.clone().unwrap_or_default();
+    let mut to_visit: Vec<_> = host.content.contains_iter().collect();
     while let Some(id) = to_visit.pop() {
         if !visited.insert(id) {
             continue;
         }
-        let Some(o) = get_newest_object_by_id(state, id)
+        let Some(o) = get_newest_object_by_id::<ValueMap>(state, id)
             .await
             .with_context(|| format!("Getting object {}", id))?
         else {
@@ -397,47 +391,29 @@ pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap
         };
         match o.r#type {
             ObjectType::Id(COLLECTION_ID) | ObjectType::Id(COMPLEX_COLLECTION_ID) => {
-                let cc: ISudoOnContainsAndDepends = serde_json::from_value(o.content)?;
-                if let Some(v) = cc.depends {
-                    for v in v {
-                        if let Some(v) = v {
-                            to_visit.push(v);
-                        }
-                    }
+                for v in o.content.depends_iter() {
+                    to_visit.push(v);
                 }
-                if let Some(v) = cc.contains {
-                    for v in v {
-                        if let Some(v) = v {
-                            to_visit.push(v);
-                        }
-                    }
+                for v in o.content.contains_iter() {
+                    to_visit.push(v);
                 }
             }
             ObjectType::Id(HOST_VARIABLE_ID) => {
-                let vars: IVariables = serde_json::from_value(o.content)?;
-                if let Some(vs) = vars.variables.clone() {
-                    for v in vs {
-                        variables.insert(v.key, v.value);
-                    }
+                for (key, value) in o.content.variables_iter() {
+                    variables.insert(key.to_string(), value.to_string());
                 }
-                if let Some(vs) = vars.secrets.clone() {
-                    for v in vs {
-                        variables.insert(v.key, v.value);
-                    }
+                for (key, value) in o.content.secrets_iter() {
+                    variables.insert(key.to_string(), value.to_string());
                 }
             }
             _ => (),
         }
     }
-    if let Some(vs) = host.content.variables {
-        for v in vs {
-            variables.insert(v.key, v.value);
-        }
+    for (key, value) in host.content.variables_iter() {
+        variables.insert(key.to_string(), value.to_string());
     }
-    if let Some(vs) = host.content.secrets {
-        for v in vs {
-            variables.insert(v.key, v.value);
-        }
+    for (key, value) in host.content.secrets_iter() {
+        variables.insert(key.to_string(), value.to_string());
     }
     Ok(Some(variables))
 }
