@@ -1,4 +1,5 @@
 mod action_types;
+mod arena;
 mod client_message;
 mod config;
 mod crt;
