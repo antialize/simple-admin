@@ -9,6 +9,7 @@ mod get_auth;
 mod hostclient;
 mod modified_files;
 mod msg;
+mod ocell;
 mod page_types;
 mod service_description;
 mod state;
