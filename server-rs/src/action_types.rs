@@ -4,7 +4,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use ts_rs::TS;
 
-use crate::page_types::IPage;
+use crate::{page_types::IPage, type_types::ValueMap};
 
 fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     Ok(match serde_json::Value::deserialize(d)? {
@@ -17,7 +17,7 @@ fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Err
     })
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, PartialEq, Eq, TS)]
 #[repr(u8)]
 pub enum DeploymentStatus {
     Done = 0,
@@ -59,16 +59,16 @@ pub struct IObjectDigest {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IDeploymentTrigger {
-    type_id: i64,
-    script: String,
-    content: HashMap<String, serde_json::Value>,
-    title: String,
+    pub type_id: i64,
+    pub script: String,
+    pub content: ValueMap,
+    pub title: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IDeploymentObject {
-    pub index: i64,
+    pub index: usize,
     pub host: i64,
     pub host_name: String,
     pub title: String,
@@ -78,10 +78,10 @@ pub struct IDeploymentObject {
     pub action: DeploymentObjectAction,
     pub script: String,
     pub prev_script: Option<String>,
-    pub next_content: Option<HashMap<String, serde_json::Value>>,
-    pub prev_content: Option<HashMap<String, serde_json::Value>>,
+    pub next_content: Option<ValueMap>,
+    pub prev_content: Option<ValueMap>,
     pub id: Option<i64>,
-    pub type_id: Option<i64>,
+    pub type_id: i64,
     pub type_name: String,
     pub triggers: Vec<IDeploymentTrigger>,
     pub deployment_order: i64,
@@ -133,7 +133,7 @@ impl<T: Clone + DeserializeOwned> TryFrom<ObjectRow> for IObject2<T> {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(untagged)]
 pub enum Ref {
-    Number(f64),
+    Number(i64),
     String(String),
 }
 
@@ -179,7 +179,7 @@ pub struct ISetInitialState {
     pub deployment_status: DeploymentStatus,
     pub deployment_message: String,
     pub deployment_log: Vec<String>,
-    pub types: HashMap<i64, IObject2<serde_json::Value>>, // TODO(jakobt) IType
+    pub types: HashMap<i64, IObject2<ValueMap>>, // TODO(jakobt) IType
     pub hosts_up: Vec<i64>,
     pub used_by: Vec<(i64, i64)>,
 }
@@ -327,7 +327,7 @@ pub struct IHostUp {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IDeployObject {
-    pub id: i64,
+    pub id: Option<i64>,
     pub redeploy: bool,
 }
 
@@ -373,7 +373,7 @@ pub struct IAddDeploymentLog {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISetDeploymentObjectStatus {
-    pub index: i64,
+    pub index: usize,
     pub status: DeploymentObjectStatus,
 }
 
@@ -387,7 +387,7 @@ pub enum ISource {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IToggleDeploymentObject {
-    pub index: Option<i64>,
+    pub index: Option<usize>,
     pub enabled: bool,
     pub source: ISource,
 }

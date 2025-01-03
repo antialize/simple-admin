@@ -18,7 +18,7 @@ log = "0.4"
 mustache = "0.9.0"
 neon = {version="1.1.0-alpha.1", features = ["tokio-rt-multi-thread", "serde"]}
 serde = {version="1", features = ["derive"]}
-serde_json = {version = "1", features = ["float_roundtrip"]}
+serde_json = {version = "1", features = ["float_roundtrip", "preserve_order"]}
 serde_repr = "0.1.19"
 serde_yaml = "0.9.34"
 simple_logger = "5"

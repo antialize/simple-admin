@@ -1,4 +1,6 @@
 use serde::{de, ser::SerializeMap, Deserialize, Serialize, Serializer};
+use serde_json::Value;
+pub type ValueMap = serde_json::Map<String, Value>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -9,12 +11,14 @@ pub struct IBoolTypeProp {
     pub description: String,
     #[serde(default)]
     pub default: bool,
-    pub variable: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variable: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ITextTypeProp {
+    #[serde(default)]
     pub title: String,
     pub name: String,
     #[serde(default)]
@@ -43,12 +47,13 @@ pub struct IPasswordTypeProp {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct IDocumentTypeProp {
+    #[serde(default)]
     pub title: String,
     pub name: String,
-    #[serde(default)]
-    pub lang_name: String,
-    #[serde(default)]
-    pub lang: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
@@ -90,7 +95,7 @@ pub struct ITypeContentTypeProp {
 
 // This should be integer tagged
 // see https://stackoverflow.com/questions/65575385/deserialization-of-json-with-serde-by-a-numerical-value-as-type-identifier/65576570#65576570
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ITypeProp {
     None,
     Bool(IBoolTypeProp),
@@ -100,6 +105,7 @@ pub enum ITypeProp {
     Choice(IChoiceTypeProp),
     TypeContent(ITypeContentTypeProp),
     Number(INumberTypeProp),
+    Monitor,
 }
 
 impl Serialize for ITypeProp {
@@ -141,6 +147,9 @@ impl Serialize for ITypeProp {
                 s.serialize_entry("type", &7)?;
                 t.serialize(FlatMapSerializer(&mut s))?;
             }
+            ITypeProp::Monitor => {
+                s.serialize_entry("type", &8)?;
+            }
         }
         s.end()
     }
@@ -154,6 +163,10 @@ impl<'de> serde::Deserialize<'de> for ITypeProp {
         use serde::de::Error;
         use serde_json::Value;
         let value = Value::deserialize(d)?;
+        // Work around old objects with empty content
+        if value.as_object().map(|v| v.is_empty()).unwrap_or_default() {
+            return Ok(ITypeProp::None);
+        }
         Ok(
             match value
                 .get("type")
@@ -178,13 +191,14 @@ impl<'de> serde::Deserialize<'de> for ITypeProp {
                 7 => ITypeProp::Number(
                     INumberTypeProp::deserialize(value).map_err(D::Error::custom)?,
                 ),
+                8 => ITypeProp::Monitor,
                 type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
             },
         )
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum KindType {
     Host,
@@ -195,9 +209,11 @@ pub enum KindType {
     Type,
     Trigger,
     Hostvar,
+    Docker,
+    Monitor, // Deprecated
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct IType {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -227,6 +243,7 @@ pub struct IType {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name_variable: Option<String>,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct IVariable {
@@ -260,43 +277,154 @@ pub struct IHost {
     pub use_podman: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ISudoOnContainsAndDepends {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub contains: Option<Vec<Option<i64>>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub depends: Option<Vec<Option<i64>>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sudo_on: Option<Vec<Option<i64>>>,
+pub trait IContainsIter {
+    type Iter<'a>: Iterator<Item = i64>
+    where
+        Self: 'a;
+    fn contains_iter(&self) -> Self::Iter<'_>;
 }
 
-// export interface IContains {
-//     contains: number[];
-// }
+pub trait IDependsIter {
+    type Iter<'a>: Iterator<Item = i64>
+    where
+        Self: 'a;
+    fn depends_iter(&self) -> Self::Iter<'_>;
+}
 
-// export interface ISudoOn {
-//     sudoOn: number[];
-// }
+pub trait ISudoOnIter {
+    type Iter<'a>: Iterator<Item = i64>
+    where
+        Self: 'a;
+    fn sudo_on_iter(&self) -> Self::Iter<'_>;
+}
 
-// export interface ITrigger {
-//     id: number;
-//     values: Record<string, any>;
-// }
+pub struct I64Extractor<'a>(std::slice::Iter<'a, serde_json::Value>);
 
-// export interface ITriggers {
-//     triggers: ITrigger[];
-// }
+impl Iterator for I64Extractor<'_> {
+    type Item = i64;
+    fn next(&mut self) -> Option<Self::Item> {
+        for v in self.0.by_ref() {
+            if let Some(v) = v.as_i64() {
+                return Some(v);
+            }
+        }
+        None
+    }
+}
 
-// export interface IDepends {
-//     depends: number[];
-// }
+impl IContainsIter for ValueMap {
+    type Iter<'a> = I64Extractor<'a>;
+    fn contains_iter(&self) -> I64Extractor<'_> {
+        if let Some(serde_json::Value::Array(v)) = self.get("contains") {
+            I64Extractor(v.iter())
+        } else {
+            I64Extractor([].iter())
+        }
+    }
+}
 
-// export interface Host extends IVariables, IContains {
-//     messageOnDown?: boolean;
-//     debPackages?: boolean;
-//     usePodman?: boolean;
-// }
+impl IDependsIter for ValueMap {
+    type Iter<'a> = I64Extractor<'a>;
+    fn depends_iter(&self) -> I64Extractor<'_> {
+        if let Some(serde_json::Value::Array(v)) = self.get("depends") {
+            I64Extractor(v.iter())
+        } else {
+            I64Extractor([].iter())
+        }
+    }
+}
+
+impl ISudoOnIter for ValueMap {
+    type Iter<'a> = I64Extractor<'a>;
+    fn sudo_on_iter(&self) -> I64Extractor<'_> {
+        if let Some(serde_json::Value::Array(v)) = self.get("sudo_on") {
+            I64Extractor(v.iter())
+        } else {
+            I64Extractor([].iter())
+        }
+    }
+}
+
+pub struct VariableExtractor<'a>(std::slice::Iter<'a, serde_json::Value>);
+impl<'a> Iterator for VariableExtractor<'a> {
+    type Item = (&'a str, &'a str);
+    fn next(&mut self) -> Option<Self::Item> {
+        for v in self.0.by_ref() {
+            if let serde_json::Value::Object(o) = v {
+                if let (Some(serde_json::Value::String(k)), Some(serde_json::Value::String(v))) =
+                    (o.get("key"), o.get("value"))
+                {
+                    return Some((k.as_str(), v.as_str()));
+                }
+            }
+        }
+        None
+    }
+}
+
+pub trait IVariablesIter {
+    type Iter<'a>: Iterator<Item = (&'a str, &'a str)>
+    where
+        Self: 'a;
+    fn variables_iter(&self) -> Self::Iter<'_>;
+    fn secrets_iter(&self) -> Self::Iter<'_>;
+}
+
+impl IVariablesIter for ValueMap {
+    type Iter<'a> = VariableExtractor<'a>;
+
+    fn variables_iter(&self) -> Self::Iter<'_> {
+        if let Some(serde_json::Value::Array(v)) = self.get("variables") {
+            VariableExtractor(v.iter())
+        } else {
+            VariableExtractor([].iter())
+        }
+    }
+
+    fn secrets_iter(&self) -> Self::Iter<'_> {
+        if let Some(serde_json::Value::Array(v)) = self.get("secrets") {
+            VariableExtractor(v.iter())
+        } else {
+            VariableExtractor([].iter())
+        }
+    }
+}
+
+pub trait ITriggersIter {
+    type Iter<'a>: Iterator<Item = (i64, &'a ValueMap)>
+    where
+        Self: 'a;
+    fn triggers_iter(&self) -> Self::Iter<'_>;
+}
+
+pub struct TriggersExtractor<'a>(std::slice::Iter<'a, serde_json::Value>);
+impl<'a> Iterator for TriggersExtractor<'a> {
+    type Item = (i64, &'a ValueMap);
+    fn next(&mut self) -> Option<Self::Item> {
+        for v in self.0.by_ref() {
+            if let serde_json::Value::Object(o) = v {
+                if let (Some(serde_json::Value::Number(k)), Some(serde_json::Value::Object(v))) =
+                    (o.get("id"), o.get("values"))
+                {
+                    return Some((k.as_i64().unwrap_or_default(), v));
+                }
+            }
+        }
+        None
+    }
+}
+
+impl ITriggersIter for ValueMap {
+    type Iter<'a> = TriggersExtractor<'a>;
+
+    fn triggers_iter(&self) -> Self::Iter<'_> {
+        if let Some(serde_json::Value::Array(v)) = self.get("triggers") {
+            TriggersExtractor(v.iter())
+        } else {
+            TriggersExtractor([].iter())
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IObject<T> {
@@ -319,5 +447,8 @@ pub const TYPE_ID: i64 = 1;
 pub const HOST_ID: i64 = 2;
 pub const ROOT_ID: i64 = 3;
 pub const USER_ID: i64 = 4;
+pub const COLLECTION_ID: i64 = 7;
+pub const COMPLEX_COLLECTION_ID: i64 = 8;
+pub const HOST_VARIABLE_ID: i64 = 10840;
 pub const PACKAGE_ID: i64 = 10;
 pub const ROOT_INSTANCE_ID: i64 = 100;

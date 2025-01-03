@@ -33,7 +33,9 @@ use crate::{
     modified_files, msg,
     page_types::{IObjectPage, IPage},
     state::State,
-    type_types::{ISudoOnContainsAndDepends, IType, ITypeProp, TYPE_ID, USER_ID},
+    type_types::{
+        IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, TYPE_ID, USER_ID,
+    },
 };
 
 #[derive(Deserialize)]
@@ -404,31 +406,23 @@ impl WebClient {
                     .await
                     .context("get_deployment_info")?;
                 for row in rows {
-                    let object: IObject2<serde_json::Value> = row.try_into().context("IObject2")?;
+                    let object: IObject2<ValueMap> = row.try_into().context("IObject2")?;
                     if object.r#type == ObjectType::Id(TYPE_ID) {
                         types.insert(object.id, object.clone());
                     }
                     object_names_and_ids
-                        .entry(object.r#type.clone())
+                        .entry(object.r#type)
                         .or_default()
                         .push(IObjectDigest {
-                            r#type: object.r#type.clone(),
+                            r#type: object.r#type,
                             id: object.id,
                             name: object.name.clone(),
                             category: object.category.clone(),
                             comment: object.comment.clone(),
                         });
-                    let c: ISudoOnContainsAndDepends = serde_json::from_value(object.content)
-                        .context("parsing ISudoOnContainsAndDepends")?;
-                    for v in [c.depends, c.contains, c.sudo_on] {
-                        if let Some(v) = v {
-                            for v in v {
-                                if let Some(v) = v {
-                                    used_by.push((v, object.id));
-                                }
-                            }
-                        }
-                    }
+                    used_by.extend(object.content.depends_iter().map(|v| (v, object.id)));
+                    used_by.extend(object.content.contains_iter().map(|v| (v, object.id)));
+                    used_by.extend(object.content.sudo_on_iter().map(|v| (v, object.id)))
                 }
                 self.send_message(IAction::SetInitialState(ISetInitialState {
                     messages,
@@ -722,15 +716,15 @@ impl WebClient {
                     if r.r#type == act.id {
                         conflicts.push(format!("* {} ({}) type", r.name, r.r#type));
                     }
-                    let content: ISudoOnContainsAndDepends = serde_json::from_str(&r.content)?;
+                    let content: ValueMap = serde_json::from_str(&r.content)?;
+
                     for (n, v) in [
-                        ("sudo_on", content.sudo_on),
-                        ("depends", content.depends),
-                        ("contains", content.contains),
+                        ("sudo_on", content.sudo_on_iter()),
+                        ("depends", content.depends_iter()),
+                        ("contains", content.contains_iter()),
                     ] {
-                        let Some(v) = v else { continue };
                         for id in v {
-                            if id == Some(act.id) {
+                            if id == act.id {
                                 conflicts.push(format!("* {} ({}) {}", r.name, r.r#type, n));
                             }
                         }
