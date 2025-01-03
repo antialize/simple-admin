@@ -9,7 +9,7 @@ import { config } from "./config";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import type { AuthInfo } from "./getAuth";
-import { deployment, hostClients, rs, webClients } from "./instances";
+import { hostClients, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import { LogJob } from "./jobs/logJob";
@@ -88,15 +88,6 @@ export class WebClient extends JobOwner {
         return hostsUp;
     }
 
-    get_deployment_info() {
-        return {
-            log: deployment.log,
-            objects: deployment.getView(),
-            status: deployment.status,
-            message: deployment.message
-        }
-    }
-
     get_docker() {
         return docker;
     }
@@ -126,43 +117,6 @@ export class WebClient extends JobOwner {
                     return;
                 }
                 if (act.id in this.logJobs) this.logJobs[act.id].kill();
-                break;
-            case ACTION.DeployObject:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                deployment
-                    .deployObject(act.id, act.redeploy)
-                    .catch(errorHandler("Deployment::deployObject", this));
-                break;
-            case ACTION.CancelDeployment:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                deployment.cancel();
-                break;
-            case ACTION.StartDeployment:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await deployment.start().catch(errorHandler("Deployment::start", this));
-                break;
-            case ACTION.StopDeployment:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await deployment.stop();
-                break;
-            case ACTION.ToggleDeploymentObject:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await deployment.toggleObject(act.index, act.enabled);
                 break;
             default:
                 await serverRs.webclientHandleMessage(rs, this, act);

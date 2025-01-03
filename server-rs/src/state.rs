@@ -1,4 +1,5 @@
 use crate::config::{read_config, Config};
+use crate::deployment::Deployment;
 use crate::docker::{docker_prune, Docker};
 use crate::modified_files::{modified_files_scan, ModifiedFiles};
 use anyhow::{Context, Result};
