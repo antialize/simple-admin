@@ -226,13 +226,13 @@ impl WebClient {
         }
 
         if !found {
-            let content = db::get_user_content(&state, &act.user).await?;
+            let content = db::get_user_content(state, &act.user).await?;
             if let Some(content) = content {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 pwd = crypt::validate_password(&act.pwd, &content.password)?;
                 if let Some(otp_token) = &act.otp {
                     if !otp_token.is_empty() {
-                        otp = crypt::validate_otp(&otp_token, &content.otp_base32)?;
+                        otp = crypt::validate_otp(otp_token, &content.otp_base32)?;
                         new_otp = true;
                     }
                 }
@@ -248,7 +248,7 @@ impl WebClient {
         if !found {
             self.set_auth(IAuthStatus::default()).await?;
             self.send_message(IAction::AuthStatus(IAuthStatus {
-                session: session,
+                session,
                 user: Some(act.user),
                 message: Some("Invalid user name".to_string()),
                 ..Default::default()
@@ -285,9 +285,9 @@ impl WebClient {
             })
             .await?;
             self.send_message(IAction::AuthStatus(IAuthStatus {
-                session: session,
+                session,
                 user: Some(act.user),
-                otp: otp,
+                otp,
                 message: Some("Invalid password or one time password".to_string()),
                 ..Default::default()
             }))
@@ -325,7 +325,7 @@ impl WebClient {
                 .await?;
                 session = Some(sid)
             }
-            let auth = get_auth(&state, Some(&host), session.as_deref()).await?;
+            let auth = get_auth(state, Some(&host), session.as_deref()).await?;
             if !auth.auth {
                 bail!("Internal auth error");
             }
@@ -527,7 +527,7 @@ impl WebClient {
                     self.close(403).await?;
                     return Ok(());
                 };
-                let t = msg::get_full_text(&state, act.id).await?;
+                let t = msg::get_full_text(state, act.id).await?;
                 self.send_message(IAction::MessageTextRep(IMessageTextRepAction {
                     id: act.id,
                     message: t.unwrap_or_else(|| "missing".to_string()),
@@ -640,7 +640,7 @@ impl WebClient {
                         if v.starts_with("$6$") || v.starts_with("$y$") {
                             continue;
                         }
-                        *v = crypt::hash(&v)?;
+                        *v = crypt::hash(v)?;
                     }
                 }
                 if object_type == USER_ID
@@ -651,7 +651,7 @@ impl WebClient {
                     content.insert("otp_url".to_string(), otp_url.into());
                 }
                 let IV { id, version } = db::change_object(
-                    &state,
+                    state,
                     act.id,
                     Some(&obj),
                     &auth.user.context("Missing user")?,
@@ -717,7 +717,7 @@ impl WebClient {
                 } else {
                     info!("Web client delete object id={}", act.id);
                     db::change_object::<serde_json::Value>(
-                        &state,
+                        state,
                         act.id,
                         None,
                         &auth.user.context("Missing user")?,

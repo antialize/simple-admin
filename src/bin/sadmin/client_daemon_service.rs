@@ -381,7 +381,7 @@ pub enum RemoteLogTarget<'a> {
     },
 }
 
-impl<'a> RemoteLogTarget<'a> {
+impl RemoteLogTarget<'_> {
     pub async fn stdout(&mut self, data: &[u8]) -> Result<()> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
