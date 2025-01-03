@@ -1,4 +1,4 @@
-import { db, rs, webClients } from "./instances";
+import { rs, webClients } from "./instances";
 import * as actions from "./shared/actions";
 const serverRs = require("simple_admin_server_rs");
 
@@ -28,21 +28,6 @@ export class Msg {
                 dismissed: false,
             },
         };
-        webClients.broadcast(act);
-    }
-
-    async setDismissed(ids: number[], dismissed: boolean) {
-        const time = dismissed ? +new Date() / 1000 : null;
-
-        await serverRs.setDismissed(rs, ids, dismissed, time);
-
-        const act: actions.ISetMessagesDismissed = {
-            type: actions.ACTION.SetMessagesDismissed,
-            ids: ids,
-            dismissed: dismissed,
-            source: "server",
-        };
-
         webClients.broadcast(act);
     }
 }

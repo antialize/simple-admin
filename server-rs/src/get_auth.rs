@@ -1,33 +1,8 @@
-use crate::{db::get_user_content, state::State};
+use crate::{action_types::IAuthStatus, db::get_user_content, state::State};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use sqlx_type::query;
-use ts_rs::TS;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthStatus {
-    pub message: Option<String>,
-    pub auth: bool,
-    pub user: Option<String>,
-    pub pwd: bool,
-    pub otp: bool,
-    pub admin: bool,
-    #[serde(default)]
-    pub docker_pull: bool,
-    #[serde(default)]
-    pub docker_push: bool,
-    #[serde(default)]
-    pub docker_deploy: bool,
-    #[serde(default)]
-    pub session: Option<String>,
-    #[serde(default)]
-    pub sslname: Option<String>,
-    #[serde(default)]
-    pub auth_days: Option<u32>,
-}
-
-pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> Result<AuthStatus> {
+pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> Result<IAuthStatus> {
     let Some(sid) = sid else {
         return Ok(Default::default());
     };
@@ -40,7 +15,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             .map(|v| v.split(',').any(|v| v == sid))
             .unwrap_or_default()
         {
-            Ok(AuthStatus {
+            Ok(IAuthStatus {
                 auth: true,
                 user: Some(user.to_string()),
                 pwd: true,
@@ -78,7 +53,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
                 .as_secs() as i64;
             let pwd = row.pwd.map(|v| v + 60 * 60 > now).unwrap_or_default();
             let otp = row.otp.map(|v| v + 60 * 60 > now).unwrap_or_default();
-            return Ok(AuthStatus {
+            return Ok(IAuthStatus {
                 docker_pull: pwd && otp,
                 docker_push: pwd && otp,
                 auth: pwd && otp,
@@ -98,7 +73,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
                         .as_secs() as i64;
                     let pwd = row.pwd.map(|v| v + 60 * 60 > now).unwrap_or_default();
                     let otp = row.otp.map(|v| v + 60 * 60 > now).unwrap_or_default();
-                    return Ok(AuthStatus {
+                    return Ok(IAuthStatus {
                         docker_pull: true,
                         docker_push: true,
                         docker_deploy: true,
@@ -147,7 +122,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             .map(|v| v + i64::max(otp_expiration, pwd_expiration) > now)
             .unwrap_or_default();
 
-        Ok(AuthStatus {
+        Ok(IAuthStatus {
             auth: pwd && otp,
             user: Some(user),
             pwd,

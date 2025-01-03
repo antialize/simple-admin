@@ -1,7 +1,10 @@
 use anyhow::bail;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use ts_rs::TS;
+
+use crate::page_types::IPage;
 
 fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     Ok(match serde_json::Value::deserialize(d)? {
@@ -14,7 +17,8 @@ fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Err
     })
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[repr(u8)]
 pub enum DeploymentStatus {
     Done = 0,
     BuildingTree = 1,
@@ -24,7 +28,8 @@ pub enum DeploymentStatus {
     Deploying = 5,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[repr(u8)]
 pub enum DeploymentObjectStatus {
     Normal = 0,
     Deplying = 1,
@@ -32,7 +37,8 @@ pub enum DeploymentObjectStatus {
     Failure = 3,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+#[repr(u8)]
 pub enum DeploymentObjectAction {
     Add = 0,
     Modify = 1,
@@ -46,7 +52,7 @@ pub struct IObjectDigest {
     pub name: String,
     pub comment: String,
     pub id: i64,
-    pub r#type: i64,
+    pub r#type: ObjectType,
     pub category: String,
 }
 
@@ -81,6 +87,18 @@ pub struct IDeploymentObject {
     pub deployment_order: i64,
 }
 
+pub struct ObjectRow {
+    pub id: i64,
+    pub r#type: i64,
+    pub name: String,
+    pub category: Option<String>,
+    pub content: String,
+    pub version: i64,
+    pub comment: String,
+    pub author: Option<String>,
+    pub time: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IObject2<T: Clone> {
@@ -93,6 +111,23 @@ pub struct IObject2<T: Clone> {
     pub comment: String,
     pub author: Option<String>,
     pub time: Option<f64>,
+}
+
+impl<T: Clone + DeserializeOwned> TryFrom<ObjectRow> for IObject2<T> {
+    type Error = anyhow::Error;
+    fn try_from(row: ObjectRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            version: Some(row.version),
+            r#type: row.r#type.try_into()?,
+            name: row.name,
+            content: serde_json::from_str(&row.content)?,
+            category: row.category.unwrap_or_default(),
+            comment: row.comment,
+            time: Some(row.time.parse()?),
+            author: row.author,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -118,7 +153,7 @@ pub struct IObjectChanged {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISetPageAction {
-    pub page: serde_json::Value, // TODO(jakobt) IPage
+    pub page: IPage,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -138,7 +173,7 @@ pub struct IMessage {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISetInitialState {
-    pub object_names_and_ids: HashMap<String, Vec<IObjectDigest>>,
+    pub object_names_and_ids: HashMap<ObjectType, Vec<IObjectDigest>>,
     pub messages: Vec<IMessage>,
     pub deployment_objects: Vec<IDeploymentObject>,
     pub deployment_status: DeploymentStatus,
@@ -224,14 +259,14 @@ pub struct ISearch {
     pub pattern: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, Eq, PartialEq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FixedObjectType {
     Root,
     Type,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
 #[serde(untagged)]
 pub enum ObjectType {
     Id(i64),
@@ -381,7 +416,7 @@ pub struct IRequestAuthStatus {
     pub session: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IAuthStatus {
     pub message: Option<String>,
@@ -390,9 +425,18 @@ pub struct IAuthStatus {
     pub pwd: bool,
     pub otp: bool,
     pub admin: bool,
+    #[serde(default)]
     pub docker_pull: bool,
+    #[serde(default)]
     pub docker_push: bool,
+    #[serde(default)]
+    pub docker_deploy: bool,
+    #[serde(default)]
     pub session: Option<String>,
+    #[serde(default)]
+    pub sslname: Option<String>,
+    #[serde(default)]
+    pub auth_days: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -400,7 +444,7 @@ pub struct IAuthStatus {
 pub struct ILogin {
     pub user: String,
     pub pwd: String,
-    pub otp: String,
+    pub otp: Option<String>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
@@ -506,7 +550,7 @@ pub struct IGetObjectId {
 #[serde(rename_all = "camelCase")]
 pub struct IGetObjectIdRes {
     pub r#ref: Ref,
-    pub id: i64,
+    pub id: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -538,6 +582,18 @@ pub struct IDockerListImageTags {
     pub r#ref: Ref,
 }
 
+pub struct DockerImageTagRow {
+    pub id: i64,
+    pub hash: String,
+    pub time: f64,
+    pub project: String,
+    pub user: String,
+    pub tag: String,
+    pub pin: bool,
+    pub labels: Option<String>,
+    pub removed: Option<f64>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct DockerImageTag {
@@ -553,6 +609,24 @@ pub struct DockerImageTag {
     pub removed: Option<f64>,
     #[serde(default)]
     pub pinned_image_tag: bool,
+}
+
+impl TryFrom<DockerImageTagRow> for DockerImageTag {
+    type Error = anyhow::Error;
+    fn try_from(row: DockerImageTagRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            image: row.project,
+            tag: row.tag,
+            hash: row.hash,
+            time: row.time,
+            user: row.user,
+            pin: row.pin,
+            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
+            removed: row.removed,
+            pinned_image_tag: false,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -799,8 +873,8 @@ pub enum IAction {
     DockerDeploymentsChanged(IDockerDeploymentsChanged),
     #[serde(rename = "DockerImageSetPin")]
     DockerImageSetPin(IDockerImageSetPin),
-    #[serde(rename = "DockerImageTagsCharged")]
-    IDockerImageTagsCharged(IDockerImageTagsCharged),
+    #[serde(rename = "DockerListImageTagsChanged")]
+    DockerImageTagsCharged(IDockerImageTagsCharged),
     #[serde(rename = "DockerImageTagSetPin")]
     DockerImageTagSetPin(IDockerImageTagSetPin),
     #[serde(rename = "DockerListDeploymentHistory")]

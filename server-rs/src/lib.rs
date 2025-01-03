@@ -6,22 +6,21 @@ mod db;
 mod docker;
 mod get_auth;
 mod msg;
+mod page_types;
+mod service_description;
 mod state;
 mod type_types;
+mod webclient;
 
-use action_types::{
-    DockerImageTag, IDockerImageTagsChargedImageTagPin, IObject2, ISearchResObject, ObjectType,
-};
-use anyhow::{anyhow, Context};
+use action_types::{DockerImageTag, DockerImageTagRow, IAuthStatus, IObject2, ObjectType};
+use anyhow::anyhow;
 use db::UserContent;
-use docker::DeploymentInfo;
-use get_auth::AuthStatus;
-use msg::IMessage;
 use neon::types::extract::{Boxed, Error, Json};
 use serde::Serialize;
 use sqlx_type::{query, query_as};
 use state::State;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
+use type_types::HOST_ID;
 
 #[neon::export(name = "cryptHash")]
 fn crypt_hash(key: String) -> Result<String, Error> {
@@ -38,11 +37,6 @@ fn crypt_validate_otp(token: String, base32_secret: String) -> Result<bool, Erro
     Ok(crypt::validate_otp(&token, &base32_secret)?)
 }
 
-#[neon::export(name = "cryptGenerateOtpSecret")]
-fn crypt_generate_otp_secret(name: String) -> Result<Json<(String, String)>, Error> {
-    Ok(Json(crypt::generate_otp_secret(name)?))
-}
-
 #[neon::export(name = "dbGetUserContent")]
 async fn db_get_user_content(
     Boxed(state): Boxed<Arc<State>>,
@@ -56,28 +50,15 @@ async fn get_auth(
     Boxed(state): Boxed<Arc<State>>,
     host: Option<String>,
     sid: Option<String>,
-) -> Result<Json<AuthStatus>, Error> {
+) -> Result<Json<IAuthStatus>, Error> {
     Ok(Json(
         get_auth::get_auth(&state, host.as_deref(), sid.as_deref()).await?,
     ))
 }
 
 #[neon::export(name = "noAccess")]
-fn no_access() -> Json<AuthStatus> {
+fn no_access() -> Json<IAuthStatus> {
     Json(Default::default())
-}
-
-#[neon::export(name = "msgGetResent")]
-async fn msg_get_resent(Boxed(state): Boxed<Arc<State>>) -> Result<Json<Vec<IMessage>>, Error> {
-    Ok(Json(msg::get_resent(&state).await?))
-}
-
-#[neon::export(name = "msgGetFullText")]
-async fn msg_get_full_text(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Option<String>, Error> {
-    Ok(msg::get_full_text(&state, id as i64).await?)
 }
 
 #[neon::export(name = "msgGetCount")]
@@ -151,96 +132,6 @@ async fn init() -> Result<Boxed<Arc<State>>, Error> {
     Ok(Boxed(State::new().await?))
 }
 
-#[neon::export(name = "setSessionOtp")]
-async fn set_session_otp(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    otp: Option<f64>,
-) -> Result<(), Error> {
-    let otp = otp.map(|v| v as i64);
-    query!("UPDATE `sessions` SET `otp`=? WHERE `sid`=?", otp, sid)
-        .execute(&state.db)
-        .await?;
-    Ok(())
-}
-
-#[neon::export(name = "setSessionPwd")]
-async fn set_session_pwd(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    pwd: Option<f64>,
-) -> Result<(), Error> {
-    let pwd = pwd.map(|v| v as i64);
-    query!("UPDATE `sessions` SET `pwd`=? WHERE `sid`=?", pwd, sid)
-        .execute(&state.db)
-        .await?;
-    Ok(())
-}
-
-#[neon::export(name = "setSessionPwdAndOtp")]
-async fn set_session_pwd_and_otp(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    pwd: Option<f64>,
-    otp: Option<f64>,
-) -> Result<(), Error> {
-    let otp = otp.map(|v| v as i64);
-    let pwd = pwd.map(|v| v as i64);
-    query!(
-        "UPDATE `sessions` SET `pwd`=?, `otp`=? WHERE `sid`=?",
-        pwd,
-        otp,
-        sid
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
-}
-
-#[neon::export(name = "insertSession")]
-async fn insert_session(
-    Boxed(state): Boxed<Arc<State>>,
-    user: String,
-    host: String,
-    pwd: Option<f64>,
-    otp: Option<f64>,
-    sid: String,
-) -> Result<(), Error> {
-    let otp = otp.map(|v| v as i64);
-    let pwd = pwd.map(|v| v as i64);
-
-    let row = query!(
-        "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`) VALUES (?, ?, ?, ?, ?)",
-        user,
-        host,
-        pwd,
-        otp,
-        sid
-    )
-    .execute(&state.db)
-    .await?;
-    if row.rows_affected() == 0 {
-        Err(anyhow!("Unable to insert session"))?
-    }
-    Ok(())
-}
-
-#[neon::export(name = "deleteSession")]
-async fn delete_session(
-    Boxed(state): Boxed<Arc<State>>,
-    sid: String,
-    user: String,
-) -> Result<(), Error> {
-    query!(
-        "DELETE FROM `sessions` WHERE `user`=? AND `sid`=?",
-        user,
-        sid
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
-}
-
 #[neon::export(name = "insertMessage")]
 async fn insert_message(
     Boxed(state): Boxed<Arc<State>>,
@@ -266,24 +157,6 @@ async fn insert_message(
     .await?
     .last_insert_rowid();
     Ok(id as f64)
-}
-
-#[neon::export(name = "setDismissed")]
-async fn set_dismissed(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(ids): Json<Vec<i64>>,
-    dismissed: bool,
-    time: Option<f64>,
-) -> Result<(), Error> {
-    query!(
-        "UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN (_LIST_)",
-        dismissed,
-        time,
-        ids
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
 }
 
 #[neon::export(name = "getObjectsContent")]
@@ -337,82 +210,6 @@ async fn get_deployed_file_like(
     Ok(Json(res))
 }
 
-#[neon::export(name = "findObjectId")]
-async fn find_object_id(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(r#type): Json<ObjectType>,
-    name: String,
-) -> Result<Option<f64>, Error> {
-    let r#type: i64 = r#type.into();
-    let res = query!(
-        "SELECT `id` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`",
-        r#type,
-        name
-    )
-    .fetch_optional(&state.db)
-    .await?;
-    Ok(res.map(|row| row.id as f64))
-}
-
-#[derive(Serialize)]
-struct History {
-    version: f64,
-    time: f64,
-    author: Option<String>,
-}
-
-#[neon::export(name = "getObjectHistory")]
-async fn get_object_history(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<Vec<History>>, Error> {
-    let id = id as i64;
-    let rows = query!(
-        "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-        id
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(History {
-            version: row.version as f64,
-            time: row.time.parse()?,
-            author: row.author,
-        })
-    }
-    Ok(Json(res))
-}
-
-#[neon::export(name = "getSearchObjects")]
-async fn get_search_objects(
-    Boxed(state): Boxed<Arc<State>>,
-    pattern: String,
-) -> Result<Json<Vec<ISearchResObject>>, Error> {
-    let rows = query!(
-        "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
-        FROM `objects`
-        WHERE (`name` LIKE ? OR `content` LIKE ? OR `comment` LIKE ?) AND `newest`",
-        pattern,
-        pattern,
-        pattern,
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(ISearchResObject {
-            r#type: row.r#type.try_into()?,
-            id: row.id,
-            version: row.version,
-            name: row.name,
-            comment: row.comment,
-            content: row.content,
-        });
-    }
-    Ok(Json(res))
-}
-
 #[neon::export(name = "getIdNamePairsForType")]
 async fn get_id_name_pairs_for_type(
     Boxed(state): Boxed<Arc<State>>,
@@ -440,36 +237,6 @@ struct FullObject {
     comment: String,
     time: i64,
     author: Option<String>,
-}
-
-#[neon::export(name = "getObjectById")]
-async fn get_object_by_id(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<Vec<FullObject>>, Error> {
-    let id = id as i64;
-    let rows = query!(
-        "SELECT `id`, `version`, `type`, `name`, `content`, `category`, `comment`,
-        strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-        id
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for r in rows {
-        res.push(FullObject {
-            id: r.id,
-            version: r.version,
-            r#type: r.r#type.try_into()?,
-            name: r.name,
-            content: r.content,
-            category: r.category,
-            comment: r.comment,
-            time: r.time.parse()?,
-            author: r.author,
-        });
-    }
-    Ok(Json(res))
 }
 
 #[neon::export(name = "getNewestObjectByID")]
@@ -614,15 +381,6 @@ async fn get_object_content_by_type(
     Ok(Json(r))
 }
 
-#[neon::export(name = "resetServer")]
-async fn reset_server(Boxed(state): Boxed<Arc<State>>, host: f64) -> Result<(), Error> {
-    let host = host as i64;
-    query!("DELETE FROM `deployments` WHERE `host`=?", host)
-        .execute(&state.db)
-        .await?;
-    Ok(())
-}
-
 #[neon::export(name = "getObjectContentByIdAndType")]
 async fn get_object_content_by_id_and_type(
     Boxed(state): Boxed<Arc<State>>,
@@ -640,56 +398,6 @@ async fn get_object_content_by_id_and_type(
     .fetch_one(&state.db)
     .await?;
     Ok(Json(r))
-}
-
-#[derive(Serialize)]
-struct IV {
-    id: i64,
-    version: i64,
-}
-
-#[neon::export(name = "insertObject")]
-async fn insert_object(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-    version: f64,
-    Json(object): Json<IObject2<serde_json::Value>>,
-    author: String,
-) -> Result<Json<IV>, Error> {
-    let id = id as i64;
-    let version = version as i64;
-    let content = serde_json::to_string(&object.content)?;
-    let r#type: i64 = object.r#type.into();
-    query!("INSERT INTO `objects` (
-        `id`, `version`, `type`, `name`, `content`, `time`, `newest`, `category`, `comment`, `author`)
-        VALUES (?, ?, ?, ?, ?, datetime('now'), true, ?, ?, ?)",
-        id, version,
-        r#type,
-        object.name,
-        content,
-        object.category,
-        object.comment,
-        author
-    ).execute(&state.db).await?;
-    Ok(Json(IV { id, version }))
-}
-
-#[neon::export(name = "getMaxVersionAndUnsetNewest")]
-async fn get_max_version_and_unset_newest(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<f64, Error> {
-    let id = id as i64;
-    let row = query!(
-        "SELECT max(`version`) as `version` FROM `objects` WHERE `id` = ?",
-        id
-    )
-    .fetch_one(&state.db)
-    .await?;
-    query!("UPDATE `objects` SET `newest`=false WHERE `id` = ?", id)
-        .execute(&state.db)
-        .await?;
-    Ok(row.version.context("Unable to find row")? as f64)
 }
 
 #[neon::export(name = "insertDockerImage")]
@@ -727,153 +435,6 @@ async fn insert_docker_image(
     .await?
     .last_insert_rowid();
     Ok(id as f64)
-}
-
-#[neon::export(name = "insertDockerDeployment")]
-async fn insert_docker_deployment(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    project: String,
-    name: String,
-    start: f64,
-    hash: String,
-    user: String,
-    description: String,
-) -> Result<f64, Error> {
-    let host = host as i64;
-    let start = start as i64;
-    let old_deployment = query!(
-        "SELECT `id`, `endTime` FROM `docker_deployments`
-        WHERE `host`=? AND `project`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
-        host,
-        project,
-        name,
-    )
-    .fetch_optional(&state.db)
-    .await?;
-
-    if let Some(old_deployment) = old_deployment {
-        if old_deployment.endTime.is_none() {
-            query!(
-                "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
-                start,
-                old_deployment.id,
-            )
-            .execute(&state.db)
-            .await?;
-        }
-    }
-    let id = query!(
-        "INSERT INTO `docker_deployments` (
-        `project`, `container`, `host`, `startTime`, `hash`, `user`, `description`)
-        VALUES (?, ?, ?, ?, ?, ?, ?)",
-        project,
-        name,
-        host,
-        start,
-        hash,
-        user,
-        description,
-    )
-    .execute(&state.db)
-    .await?
-    .last_insert_rowid();
-    Ok(id as f64)
-}
-
-#[neon::export(name = "forgetContainer")]
-async fn forget_container(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    container: String,
-) -> Result<(), Error> {
-    let host = host as i64;
-    query!(
-        "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
-        host,
-        container
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
-}
-
-#[allow(non_snake_case)]
-#[derive(Serialize)]
-struct DockerDeployment {
-    id: i64,
-    project: String,
-    container: String,
-    host: i64,
-    startTime: i64,
-    endTime: Option<i64>,
-    config: Option<String>,
-    hash: String,
-    user: Option<String>,
-    setup: Option<String>,
-    postSetup: Option<String>,
-    timeout: Option<i64>,
-    softTakeover: bool,
-    startMagic: Option<String>,
-    stopTimeout: i64,
-    usePodman: bool,
-    userService: bool,
-    deployUser: Option<String>,
-    serviceFile: Option<String>,
-    description: Option<String>,
-}
-
-#[neon::export(name = "getDockerDeployment")]
-async fn get_docker_deployment(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    container: String,
-) -> Result<Json<Option<DockerDeployment>>, Error> {
-    let host = host as i64;
-    let res = query_as!(
-        DockerDeployment,
-        "SELECT * FROM `docker_deployments`
-        WHERE `host`=? AND `container`=? ORDER BY `startTime` DESC LIMIT 1",
-        host,
-        container
-    )
-    .fetch_optional(&state.db)
-    .await?;
-    Ok(Json(res))
-}
-
-#[neon::export(name = "getDockerDeploymentById")]
-async fn get_docker_deployment_by_id(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-) -> Result<Json<Option<DockerDeployment>>, Error> {
-    let id = id as i64;
-    let res = query_as!(
-        DockerDeployment,
-        "SELECT * FROM `docker_deployments` WHERE `id`=?",
-        id
-    )
-    .fetch_optional(&state.db)
-    .await?;
-    Ok(Json(res))
-}
-
-#[neon::export(name = "getDockerDeployments")]
-async fn get_docker_deployments(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    container: String,
-) -> Result<Json<Vec<DockerDeployment>>, Error> {
-    let host = host as i64;
-    let res = query_as!(
-        DockerDeployment,
-        "SELECT * FROM `docker_deployments` WHERE `host`=? AND `container`=?",
-        host,
-        container
-    )
-    .fetch_all(&state.db)
-    .await?;
-    Ok(Json(res))
 }
 
 #[derive(Serialize)]
@@ -938,117 +499,13 @@ async fn set_deployment(
     Ok(())
 }
 
-#[neon::export(name = "imageSetPin")]
-async fn image_set_pin(
-    Boxed(state): Boxed<Arc<State>>,
-    id: f64,
-    pin: bool,
-) -> Result<Json<Vec<DockerImageTag>>, Error> {
-    let id = id as i64;
-    query!("UPDATE `docker_images` SET pin=? WHERE `id`=?", pin, id)
-        .execute(&state.db)
-        .await?;
-
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`,
-        `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?",
-        id
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-
-    Ok(Json(res))
-}
-
-#[neon::export(name = "imageTagSetPin")]
-async fn image_tag_set_pin(
-    Boxed(state): Boxed<Arc<State>>,
-    image: String,
-    tag: String,
-    pin: bool,
-) -> Result<(), Error> {
-    if pin {
-        query!(
-            "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
-            image,
-            tag
-        )
-        .execute(&state.db)
-        .await?;
-    } else {
-        query!(
-            "DELETE FROM `docker_image_tag_pins` WHERE `project`=? AND `tag`=?",
-            image,
-            tag
-        )
-        .execute(&state.db)
-        .await?;
-    }
-    Ok(())
-}
-
-#[neon::export(name = "handleDeployment")]
-async fn handle_depoyment_(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(o): Json<DeploymentInfo>,
-) -> Result<f64, Error> {
-    let id = docker::handle_deployment(&state, o).await?;
-    Ok(id as f64)
-}
-
-#[neon::export(name = "getTagsByHash")]
-async fn get_tags_by_hash(
-    Boxed(state): Boxed<Arc<State>>,
-    Json(hashes): Json<Vec<String>>,
-) -> Result<Json<Vec<DockerImageTag>>, Error> {
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`,
-        `labels`, `removed` FROM `docker_images` WHERE `hash` IN (_LIST_)",
-        &hashes
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-    Ok(Json(res))
-}
-
 #[neon::export(name = "getImageTagsByProject")]
 async fn get_image_tags_by_project(
     Boxed(state): Boxed<Arc<State>>,
     project: String,
 ) -> Result<Json<Vec<DockerImageTag>>, Error> {
-    let rows = query!(
+    let rows = query_as!(
+        DockerImageTagRow,
         "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`,
         `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`",
         project
@@ -1058,137 +515,7 @@ async fn get_image_tags_by_project(
 
     let mut res = Vec::new();
     for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-    Ok(Json(res))
-}
-
-#[neon::export(name = "listImageTags")]
-async fn list_image_tags(
-    Boxed(state): Boxed<Arc<State>>,
-    time: f64,
-) -> Result<Json<(Vec<DockerImageTag>, Vec<IDockerImageTagsChargedImageTagPin>)>, Error> {
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed`
-        FROM `docker_images`
-        WHERE `id` IN (
-            SELECT MAX(`d`.`id`) FROM `docker_images` AS `d` GROUP BY `d`.`project`, `d`.`tag`
-        ) AND (`removed` > ? OR `removed` IS NULL)",
-        time
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
-    }
-
-    let rows = query!("SELECT `project`, `tag` FROM `docker_image_tag_pins`")
-        .map(|r| IDockerImageTagsChargedImageTagPin {
-            image: r.project,
-            tag: r.tag,
-            pin: true,
-        })
-        .fetch_all(&state.db)
-        .await?;
-    Ok(Json((res, rows)))
-}
-
-#[derive(Serialize)]
-struct ImageHash {
-    image: String,
-    hash: Option<String>,
-}
-
-#[neon::export(name = "findImage")]
-async fn find_image(Boxed(state): Boxed<Arc<State>>, id: String) -> Result<Json<ImageHash>, Error> {
-    if let Some((image, reference)) = id.split_once('@') {
-        let hash = query!(
-            "SELECT `hash`, `time` FROM `docker_images`
-            WHERE `project`=? AND `hash`=? ORDER BY `time` DESC LIMIT 1",
-            image,
-            reference
-        )
-        .fetch_optional(&state.db)
-        .await?
-        .map(|v| v.hash);
-
-        Ok(Json(ImageHash {
-            image: image.to_string(),
-            hash,
-        }))
-    } else {
-        let (image, reference) = id.split_once(":").unwrap_or((&id, "latest"));
-
-        let hash = query!(
-            "SELECT `hash`, `time` FROM `docker_images`
-            WHERE `project`=? AND `tag`=? ORDER BY `time` DESC LIMIT 1",
-            image,
-            reference
-        )
-        .fetch_optional(&state.db)
-        .await?
-        .map(|v| v.hash);
-
-        Ok(Json(ImageHash {
-            image: image.to_string(),
-            hash,
-        }))
-    }
-}
-
-#[neon::export(name = "listImageTagHistory")]
-async fn list_image_tag_history(
-    Boxed(state): Boxed<Arc<State>>,
-    image: String,
-    tag: String,
-) -> Result<Json<Vec<DockerImageTag>>, Error> {
-    let rows = query!(
-        "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`,
-        `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?",
-        tag,
-        image
-    )
-    .fetch_all(&state.db)
-    .await?;
-
-    let mut res = Vec::new();
-    for row in rows {
-        res.push(DockerImageTag {
-            id: row.id,
-            image: row.project,
-            tag: row.tag,
-            hash: row.hash,
-            time: row.time,
-            user: row.user,
-            pin: row.pin,
-            labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
-            pinned_image_tag: false,
-        });
+        res.push(row.try_into()?);
     }
     Ok(Json(res))
 }
@@ -1211,24 +538,46 @@ async fn get_docker_image_manifest(
     .await?)
 }
 
-#[neon::export(name = "listDeployments")]
-async fn list_deployments(
-    Boxed(state): Boxed<Arc<State>>,
-) -> Result<Json<Vec<DockerDeployment>>, Error> {
-    let res = query_as!(
-        DockerDeployment,
-        "SELECT * FROM `docker_deployments`
-        WHERE `id` IN (
-            SELECT MAX(`d`.`id`) FROM `docker_deployments` as `d`
-            GROUP BY `d`.`host`, `d`.`project`, `d`.`container`)"
-    )
-    .fetch_all(&state.db)
-    .await?;
-    Ok(Json(res))
+#[neon::export(name = "setupDb")]
+async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<(), Error> {
+    db::setup(&state).await?;
+    Ok(())
 }
 
-#[neon::export(name = "setupDb")]
-async fn setup_db(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
-    let next_id = db::setup(&state).await?;
-    Ok(next_id as f64)
+#[neon::export(name = "changeObject")]
+async fn _change_object(
+    Boxed(state): Boxed<Arc<State>>,
+    id: f64,
+    Json(object): Json<Option<IObject2<serde_json::Value>>>,
+    author: String,
+) -> Result<Json<db::IV>, Error> {
+    Ok(Json(
+        db::change_object(&state, id as i64, object.as_ref(), &author).await?,
+    ))
+}
+
+#[neon::export(name = "getHostContentByName")]
+async fn get_host_content_by_name(
+    Boxed(state): Boxed<Arc<State>>,
+    hostname: String,
+) -> Result<Json<Option<IObject2<serde_json::Value>>>, Error> {
+    let r = db::get_object_by_name_and_type(&state, hostname, HOST_ID).await?;
+    Ok(Json(r))
+}
+
+#[neon::export(name = "getRootVariables")]
+async fn _get_root_variables(
+    Boxed(state): Boxed<Arc<State>>,
+) -> Result<Json<HashMap<String, String>>, Error> {
+    let r = db::get_root_variables(&state).await?;
+    Ok(Json(r))
+}
+
+#[neon::export(name = "getHostVariables")]
+async fn _get_host_variables(
+    Boxed(state): Boxed<Arc<State>>,
+    id: f64,
+) -> Result<Json<Option<HashMap<String, String>>>, Error> {
+    let r = db::get_host_variables(&state, id as i64).await?;
+    Ok(Json(r))
 }

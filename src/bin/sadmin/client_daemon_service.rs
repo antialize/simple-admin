@@ -1194,6 +1194,7 @@ impl Service {
                     start_magic: Default::default(),
                     stop_signal: Default::default(),
                     metrics: Default::default(),
+                    project: Default::default(),
                 },
                 extra_env: Default::default(),
                 instance_id: 0,

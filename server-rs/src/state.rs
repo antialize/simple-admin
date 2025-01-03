@@ -7,17 +7,22 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use sqlx::ConnectOptions;
 use sqlx::SqlitePool;
 use std::str::FromStr;
+use std::sync::atomic::AtomicI64;
 use std::sync::Arc;
 use std::time::Duration;
 
 pub struct State {
     pub db: SqlitePool,
     pub config: Config,
+    pub next_object_id: AtomicI64,
 }
 
 impl State {
     pub async fn new() -> Result<Arc<State>> {
-        SimpleLogger::new().with_level(LevelFilter::Info).init().unwrap();
+        SimpleLogger::new()
+            .with_level(LevelFilter::Info)
+            .init()
+            .unwrap();
 
         let config = read_config()?;
 
@@ -29,7 +34,11 @@ impl State {
         let db = sqlx::SqlitePool::connect_with(opt)
             .await
             .context("Unable to connect to sysadmin.db")?;
-        Ok(Arc::new(State { db, config }))
+        Ok(Arc::new(State {
+            db,
+            config,
+            next_object_id: Default::default(),
+        }))
     }
 }
 

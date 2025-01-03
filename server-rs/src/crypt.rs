@@ -27,6 +27,14 @@ extern "C" {
 
 const CRYPT_DATA_SIZE: usize = 384 + 384 + 512 + 767 + 1 + 30720 + 128;
 
+pub fn random_fill(buf: &mut [u8]) -> Result<()> {
+    let r = unsafe { getrandom(buf.as_mut_ptr() as *mut c_void, buf.len(), 0) };
+    if r != buf.len() as isize {
+        Err(std::io::Error::last_os_error()).context("getrandom failed")?;
+    }
+    Ok(())
+}
+
 pub fn hash(key: &str) -> Result<String> {
     let key = CString::new(key)?;
     unsafe {

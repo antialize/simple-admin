@@ -6,11 +6,10 @@ import * as express from "express";
 import helmet from "helmet";
 import * as WebSocket from "ws";
 import { config } from "./config";
-import { changeObject, getRootVariables } from "./db";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import type { AuthInfo } from "./getAuth";
-import { db, deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
+import { deployment, hostClients, modifiedFiles, msg, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import { LogJob } from "./jobs/logJob";
@@ -83,201 +82,34 @@ export class WebClient extends JobOwner {
         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 
+    async getCaKeyCrt(): Promise<[string, string]> {
+        await docker.ensure_ca();
+        return [docker.ca_key!, docker.ca_crt!];
+    }
+
+    get_hosts_up(): number[] {
+        const hostsUp: number[] = [];
+        for (const id in hostClients.hostClients) hostsUp.push(+id);
+        return hostsUp;
+    }
+
+    get_deployment_info() {
+        return {
+            log: deployment.log,
+            objects: deployment.getView(),
+            status: deployment.status,
+            message: deployment.message
+        }
+    }
+
+    get_docker() {
+        return docker;
+    }
+
     async onMessage(str: string) {
         const act = JSON.parse(str) as IAction;
 
         switch (act.type) {
-            case ACTION.RequestAuthStatus:
-                console.log("AuthStatus", this.host, this.auth.session, this.auth.user);
-                this.sendAuthStatus(act.session || null);
-                break;
-            case ACTION.Login: {
-                let session = this.auth.session;
-                const auth = session
-                    ? await serverRs.getAuth(rs, this.host, session)
-                    : serverRs.noAccess();
-                let found = false;
-                let newOtp = false;
-                let otp = auth?.otp;
-                let pwd = auth?.pwd;
-
-                if (config.users) {
-                    for (const u of config.users) {
-                        if (u.name === act.user) {
-                            found = true;
-                            if (u.password === act.pwd) {
-                                otp = true;
-                                pwd = true;
-                                newOtp = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!found) {
-                    try {
-                        const content = await serverRs.dbGetUserContent(rs, act.user);
-                        if (content) {
-                            found = true;
-                            await sleep(1000);
-                            pwd = serverRs.cryptValidatePassword(act.pwd, content.password);
-                            if (act.otp) {
-                                otp = serverRs.cryptValidateOtp(act.otp, content.otp_base32);
-                                newOtp = true;
-                            }
-                        }
-                    } catch (e) {}
-                }
-                if (!found) {
-                    this.sendMessage({
-                        type: ACTION.AuthStatus,
-                        pwd: false,
-                        otp: false,
-                        session: session,
-                        user: act.user,
-                        auth: false,
-                        admin: false,
-                        dockerPull: false,
-                        dockerPush: false,
-                        message: "Invalid user name",
-                    });
-                    this.auth = serverRs.noAccess();
-                } else if (!pwd || !otp) {
-                    if (otp && newOtp) {
-                        const now = (Date.now() / 1000) | 0;
-                        if (session) {
-                            await serverRs.setSessionOtp(rs, session, now);
-                        } else {
-                            session = crypto.randomBytes(64).toString("hex");
-                            await serverRs.insertSession(
-                                rs,
-                                act.user,
-                                this.host,
-                                null,
-                                now,
-                                session,
-                            );
-                        }
-                    }
-                    this.sendMessage({
-                        type: ACTION.AuthStatus,
-                        pwd: false,
-                        otp,
-                        session: session,
-                        user: act.user,
-                        auth: false,
-                        admin: false,
-                        dockerPull: false,
-                        dockerPush: false,
-                        message: "Invalid password or one time password",
-                    });
-                    this.auth = {
-                        ...serverRs.noAccess(),
-                        session,
-                        otp,
-                    };
-                } else {
-                    const now = (Date.now() / 1000) | 0;
-                    if (session && newOtp) {
-                        await serverRs.setSessionPwdAndOtp(rs, session, now, now);
-                    } else if (session) {
-                        await serverRs.setSessionPwd(rs, session, now);
-                    } else {
-                        session = crypto.randomBytes(64).toString("hex");
-                        await serverRs.insertSession(rs, act.user, this.host, now, now, session);
-                    }
-                    this.auth = await serverRs.getAuth(rs, this.host, session);
-                    if (!this.auth.auth) throw Error("Internal auth error");
-                    this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
-                }
-                break;
-            }
-            case ACTION.RequestInitialState:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await sendInitialState(this);
-                break;
-            case ACTION.Logout:
-                if (!this.auth.auth) {
-                    this.connection.close(403);
-                    return;
-                }
-                console.log(
-                    "logout",
-                    this.host,
-                    this.auth.user,
-                    this.auth.session,
-                    act.forgetPwd,
-                    act.forgetOtp,
-                );
-                if (act.forgetPwd) await serverRs.setSessionPwd(rs, this.auth.session, null);
-                if (act.forgetOtp) await serverRs.setSessionOtp(rs, this.auth.session, null);
-                this.sendAuthStatus(this.auth.session);
-                break;
-            case ACTION.FetchObject: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                const rows = await serverRs.getObjectById(rs, act.id);
-                const res: IObjectChanged = { type: ACTION.ObjectChanged, id: act.id, object: [] };
-                for (const row of rows) {
-                    res.object.push({
-                        id: act.id,
-                        version: row.version,
-                        type: row.type,
-                        name: row.name,
-                        content: JSON.parse(row.content),
-                        category: row.category,
-                        comment: row.comment,
-                        time: row.time,
-                        author: row.author,
-                    });
-                }
-                this.sendMessage(res);
-                break;
-            }
-            case ACTION.GetObjectId: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                let id = null;
-                try {
-                    const parts = act.path.split("/", 2);
-                    if (parts.length !== 2) break;
-                    const objectTypeId = await serverRs.find_object_id(rs, typeId, parts[0]);
-                    if (!objectTypeId) break;
-                    id = await serverRs.find_object_id(rs, objectTypeId, parts[1]);
-                } finally {
-                    this.sendMessage({ type: ACTION.GetObjectIdRes, ref: act.ref, id });
-                }
-                break;
-            }
-            case ACTION.GetObjectHistory: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                const history: {
-                    version: number;
-                    time: number;
-                    author: string | null;
-                }[] = [];
-                for (const row of await serverRs.getObjectHistory(rs, act.id)) {
-                    history.push({ version: row.version, time: row.time, author: row.author });
-                }
-                this.sendMessage({
-                    type: ACTION.GetObjectHistoryRes,
-                    ref: act.ref,
-                    history,
-                    id: act.id,
-                });
-                break;
-            }
             case ACTION.StartLog:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -300,140 +132,6 @@ export class WebClient extends JobOwner {
                 }
                 if (act.id in this.logJobs) this.logJobs[act.id].kill();
                 break;
-            case ACTION.SetMessagesDismissed:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await msg.setDismissed(act.ids, act.dismissed);
-                break;
-            case ACTION.MessageTextReq:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                {
-                    const msg = await serverRs.msgGetFullText(rs, act.id);
-                    this.sendMessage({
-                        type: ACTION.MessageTextRep,
-                        id: act.id,
-                        message: msg ? msg : "missing",
-                    });
-                }
-                break;
-            case ACTION.SaveObject:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                {
-                    // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
-                    if (!act.obj) throw Error("Missing object in action");
-                    const c = act.obj.content;
-                    const typeRow = await serverRs.getNewestObjectByID(rs, act.obj.type);
-                    const type = JSON.parse(typeRow.content) as IType;
-                    for (const r of type.content || []) {
-                        if (r.type !== TypePropType.password) continue;
-                        if (
-                            !(r.name in c) ||
-                            c[r.name].startsWith("$6$") ||
-                            c[r.name].startsWith("$y$")
-                        )
-                            continue;
-                        c[r.name] = serverRs.cryptHash(c[r.name]);
-                    }
-
-                    if (act.obj.type === userId && (!c.otp_base32 || !c.otp_url)) {
-                        const [otp_base32, otp_url] = serverRs.cryptGenerateOtpSecret(act.obj.name);
-                        c.otp_base32 = otp_base32;
-                        c.otp_url = otp_url;
-                    }
-
-                    const { id, version } = await changeObject(
-                        act.id,
-                        act.obj,
-                        nullCheck(this.auth.user),
-                    );
-                    act.obj.version = version;
-                    const res2: IObjectChanged = {
-                        type: ACTION.ObjectChanged,
-                        id: id,
-                        object: [act.obj],
-                    };
-                    webClients.broadcast(res2);
-                    const res3: ISetPageAction = {
-                        type: ACTION.SetPage,
-                        page: { type: PAGE_TYPE.Object, objectType: act.obj.type, id, version },
-                    };
-                    this.sendMessage(res3);
-                }
-                break;
-            case ACTION.Search: {
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                const objects = await serverRs.getSearchObjects(rs, act.pattern);
-                const res4: ISearchRes = {
-                    type: ACTION.SearchRes,
-                    ref: act.ref,
-                    objects,
-                };
-                this.sendMessage(res4);
-                break;
-            }
-            case ACTION.ResetServerState:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                await serverRs.resetServer(rs, act.host);
-                break;
-            case ACTION.DeleteObject:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                {
-                    const objects = await serverRs.getAllObjectsFull(rs);
-                    const conflicts: string[] = [];
-                    for (const object of objects) {
-                        const content = JSON.parse(object.content);
-                        if (!content) continue;
-                        if (object.type === act.id)
-                            conflicts.push(`* ${object.name} (${object.type}) type`);
-                        for (const val of ["sudoOn", "depends", "contains"]) {
-                            if (!(val in content)) continue;
-                            for (const id of content[val] as number[]) {
-                                if (id !== act.id) continue;
-                                conflicts.push(`* ${object.name} (${object.type}) ${val}`);
-                            }
-                        }
-                    }
-                    if (conflicts.length > 0) {
-                        const res: IAlert = {
-                            type: ACTION.Alert,
-                            title: "Cannot delete object",
-                            message: `The object can not be delete as it is in use by:\n${conflicts.join("\n")}`,
-                        };
-                        this.sendMessage(res);
-                    } else {
-                        console.log("Web client delete object", { id: act.id });
-                        await changeObject(act.id, null, nullCheck(this.auth.user));
-                        const res2: IObjectChanged = {
-                            type: ACTION.ObjectChanged,
-                            id: act.id,
-                            object: [],
-                        };
-                        webClients.broadcast(res2);
-                        const res3: ISetPageAction = {
-                            type: ACTION.SetPage,
-                            page: { type: PAGE_TYPE.Dashbord },
-                        };
-                        this.sendMessage(res3);
-                    }
-                    break;
-                }
             case ACTION.DeployObject:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -471,76 +169,6 @@ export class WebClient extends JobOwner {
                 }
                 await deployment.toggleObject(act.index, act.enabled);
                 break;
-            case ACTION.ServiceDeployStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.deployService(this, act);
-                break;
-            case ACTION.ServiceRedeployStart:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.redeployService(this, act);
-                break;
-            case ACTION.DockerListDeployments:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listDeployments(this, act);
-                break;
-            case ACTION.DockerListImageByHash:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listImageByHash(this, act);
-                break;
-            case ACTION.DockerListImageTags:
-                if (!this.auth.dockerPull) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listImageTags(this, act);
-                break;
-            case ACTION.DockerImageSetPin:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.imageSetPin(this, act);
-                break;
-            case ACTION.DockerImageTagSetPin:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.imageTagSetPin(this, act);
-                break;
-            case ACTION.DockerListDeploymentHistory:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listDeploymentHistory(this, act);
-                break;
-            case ACTION.DockerListImageTagHistory:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.listImageTagHistory(this, act);
-                break;
-            case ACTION.DockerContainerForget:
-                if (!this.auth.dockerPush) {
-                    this.connection.close(403);
-                    return;
-                }
-                await docker.forgetContainer(this, act.host, act.container);
-                break;
             case ACTION.ModifiedFilesScan:
                 if (!this.auth.admin) {
                     this.connection.close(403);
@@ -562,57 +190,9 @@ export class WebClient extends JobOwner {
                 }
                 await modifiedFiles.resolve(this, act);
                 break;
-            case ACTION.GenerateKey: {
-                if (!this.auth.sslname) {
-                    this.connection.close(403);
-                    return;
-                }
-
-                const [_uname, _uid, capsString] = this.auth.sslname.split(".");
-                const caps = (capsString || "").split("~");
-
-                await docker.ensure_ca();
-                const my_key = await serverRs.crtGenerateKey();
-                const my_srs = await serverRs.crtGenerateSrs(my_key, `${this.auth.sslname}.user`);
-                const my_crt = await serverRs.crtGenerateCrt(
-                    docker.ca_key!,
-                    docker.ca_crt!,
-                    my_srs,
-                    [],
-                    this.auth.authDays || 1,
-                );
-                const res2: IGenerateKeyRes = {
-                    type: ACTION.GenerateKeyRes,
-                    ref: act.ref,
-                    ca_pem: docker.ca_crt!,
-                    key: my_key,
-                    crt: my_crt,
-                };
-                if (act.ssh_public_key != null && caps.includes("ssh")) {
-                    const { sshHostCaPub, sshHostCaKey } = await getRootVariables();
-                    if (sshHostCaKey != null && sshHostCaPub != null && this.auth.user != null) {
-                        try {
-                            const validityDays = 1;
-                            const sshCrt = await serverRs.crtGenerateSshCrt(
-                                `${this.auth.user} sadmin user`,
-                                this.auth.user,
-                                sshHostCaKey,
-                                act.ssh_public_key,
-                                validityDays,
-                                "user",
-                            );
-                            res2.ssh_host_ca = sshHostCaPub;
-                            res2.ssh_crt = sshCrt;
-                        } catch (e) {
-                            errorHandler("ACTION.GenerateKey", this)(e);
-                        }
-                    }
-                }
-                this.sendMessage(res2);
-                break;
-            }
             default:
-                console.warn("Web client unknown message", { act });
+                await serverRs.webclientHandleMessage(rs, this, act);
+                break;
         }
     }
 
@@ -626,63 +206,12 @@ export class WebClient extends JobOwner {
             }
         });
     }
+
+    broadcastMessage(obj: IAction) {
+        webClients.broadcast(obj);
+    }
 }
 
-async function sendInitialState(c: WebClient) {
-    const rows = serverRs.getAllObjectsFull(rs);
-    const msgs = serverRs.msgGetResent(rs);
-
-    const hostsUp: number[] = [];
-    for (const id in hostClients.hostClients) hostsUp.push(+id);
-
-    const action: ISetInitialState = {
-        type: ACTION.SetInitialState,
-        objectNamesAndIds: {},
-        messages: await msgs,
-        deploymentObjects: deployment.getView(),
-        deploymentStatus: deployment.status,
-        deploymentMessage: deployment.message || "",
-        deploymentLog: deployment.log,
-        hostsUp,
-        types: {},
-        usedBy: [],
-    };
-    for (const row of await rows) {
-        const content = JSON.parse(row.content);
-        if (row.type === typeId) {
-            action.types[row.id] = {
-                id: row.id,
-                type: row.type,
-                name: row.name,
-                category: row.category,
-                content: content as IType,
-                version: row.version,
-                comment: row.comment,
-                time: row.time,
-                author: row.author,
-            };
-        }
-        if (!(row.type in action.objectNamesAndIds)) action.objectNamesAndIds[row.type] = [];
-        action.objectNamesAndIds[row.type].push({
-            type: row.type,
-            id: row.id,
-            name: row.name,
-            category: row.category,
-            comment: row.comment,
-        });
-        for (const o of getReferences(content)) {
-            action.usedBy.push([o, row.id]);
-        }
-    }
-
-    const m: { [key: string]: number } = {};
-    for (const id in action) {
-        const x = JSON.stringify((action as any)[id]);
-        if (x) m[id] = x.length;
-    }
-    console.log("Send initial state", m);
-    c.sendMessage(action);
-}
 
 export class WebClients {
     httpApp = express();

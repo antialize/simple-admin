@@ -1,9 +1,8 @@
 import * as fs from "node:fs";
 import * as tls from "node:tls";
 import { ACTION, type IHostDown, type IHostUp } from "../../shared/actions";
-import { getHostContentByName, getRootVariables } from "./db";
 import { descript, errorHandler } from "./error";
-import { rs, hostClients, msg, webClients } from "./instances";
+import { hostClients, msg, rs, webClients } from "./instances";
 import { Job } from "./job";
 import { JobOwner } from "./jobowner";
 import type * as message from "./messages";
@@ -272,7 +271,7 @@ export class HostClient extends JobOwner {
         }
         try {
             const hostKey = await this.runShell("cat /etc/ssh/ssh_host_ed25519_key.pub");
-            const { sshHostCaPub, sshHostCaKey } = await getRootVariables();
+            const { sshHostCaPub, sshHostCaKey } = await serverRs.getRootVariables(rs);
             if (sshHostCaKey != null && sshHostCaPub != null && this.hostname != null) {
                 const validityDays = 7;
                 const sshCrt = await serverRs.crtGenerateSshCrt(
