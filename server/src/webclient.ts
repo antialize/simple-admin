@@ -82,11 +82,6 @@ export class WebClient extends JobOwner {
         this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
     }
 
-    async getCaKeyCrt(): Promise<[string, string]> {
-        await docker.ensure_ca();
-        return [docker.ca_key!, docker.ca_crt!];
-    }
-
     get_hosts_up(): number[] {
         const hostsUp: number[] = [];
         for (const id in hostClients.hostClients) hostsUp.push(+id);

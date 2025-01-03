@@ -1,4 +1,5 @@
 use crate::config::{read_config, Config};
+use crate::docker::{docker_prune, Docker};
 use crate::modified_files::{modified_files_scan, ModifiedFiles};
 use anyhow::{Context, Result};
 use log::LevelFilter;
@@ -19,17 +20,14 @@ pub struct State {
     pub config: Config,
     pub next_object_id: AtomicI64,
     pub modified_files: Mutex<ModifiedFiles>,
+    pub deployment: Mutex<Deployment>,
     pub ch: Channel,
     pub instances: Arc<Root<JsObject>>,
-    pub docker: Arc<Root<JsObject>>,
+    pub docker: Docker,
 }
 
 impl State {
-    pub async fn new(
-        ch: Channel,
-        instances: Root<JsObject>,
-        docker: Root<JsObject>,
-    ) -> Result<Arc<State>> {
+    pub async fn new(ch: Channel, instances: Root<JsObject>) -> Result<Arc<State>> {
         SimpleLogger::new()
             .with_level(LevelFilter::Info)
             .init()
@@ -45,17 +43,23 @@ impl State {
         let db = sqlx::SqlitePool::connect_with(opt)
             .await
             .context("Unable to connect to sysadmin.db")?;
+
+        let docker = Docker::new(&db).await?;
+
         let state = Arc::new(State {
             db,
             config,
             next_object_id: Default::default(),
             modified_files: Default::default(),
+            deployment: Default::default(),
             ch,
             instances: Arc::new(instances),
-            docker: Arc::new(docker),
+            docker,
         });
 
         tokio::spawn(modified_files_scan(state.clone()));
+        tokio::spawn(docker_prune(state.clone()));
+
         Ok(state)
     }
 }

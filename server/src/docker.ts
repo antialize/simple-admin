@@ -62,88 +62,9 @@ class Upload {
 
 const HASH_PATTERN = /^sha256:[0-9A-Fa-f]{64}$/;
 
-interface IHostContainer {
-    id: string;
-    name: string;
-    image: string;
-    state: string;
-    created: number;
-}
-
-interface IHostContainerState {
-    type: "docker_container_state";
-    id: string;
-    state: string;
-}
-
-interface IHostContainers {
-    type: "docker_containers";
-    full: boolean;
-    update: IHostContainer[];
-    delete: string[];
-}
-
-interface IHostImage {
-    id: string;
-    digests: string[];
-    tags: string[];
-    created: number;
-}
-
-interface IHostImages {
-    type: "docker_images";
-    full: boolean;
-    update: IHostImage[];
-    delete: string[];
-}
-
 class Docker {
     activeUploads = new Map<string, Upload>();
-    hostImages = new Map<number, Map<string, IHostImage>>();
-    hostContainers = new Map<number, Map<string, IHostContainer>>();
 
-    idc = 0;
-
-    ca_key: string | null = null;
-    ca_crt: string | null = null;
-
-    async ensure_ca() {
-        const r1 = await serverRs.getKvp(rs, "ca_key");
-        if (r1) this.ca_key = r1;
-
-        const r2 = await serverRs.getKvp(rs, "ca_crt");
-        if (r2) this.ca_crt = r2;
-        if (!this.ca_key) {
-            console.log("Generating ca key");
-            this.ca_key = await serverRs.crtGenerateKey();
-            serverRs.setKvp(rs, "ca_key", this.ca_key);
-        }
-
-        if (!this.ca_crt) {
-            console.log("Generating ca crt");
-            this.ca_crt = await serverRs.crtGenerateCaCrt(this.ca_key);
-            serverRs.setKvp(rs, "ca_crt", this.ca_crt);
-        }
-    }
-
-    constructor() {
-        setInterval(
-            () => {
-                serverRs.dockerPrune(rs);
-            },
-            1000 * 60 * 60 * 12,
-        ); // prune docker images every 12 houers
-    }
-
-    getContainerState(host: number, container: string): string | undefined {
-        const i = this.hostContainers.get(host);
-        if (!i) return undefined;
-        for (const [id, v] of i) {
-            if (v.name !== `/${container}`) continue;
-            return v.state;
-        }
-        return undefined;
-    }
 
     async checkAuth(req: express.Request, res: express.Response, push: boolean) {
         if (req.headers.authorization) {
@@ -647,39 +568,6 @@ class Docker {
         // DELETE /v2/<name>/blobs/<digest> Blob Delete the blob identified by name and digest
         console.log("Docker unhandled delete", { url: req.url });
         res.status(404).end();
-    }
-
-    nextId() : number {
-        return this.idc++;
-    }
-
-    getHostId(hostIdentifier: string) : number | null {
-        for (const id in hostClients.hostClients) {
-            const cl = hostClients.hostClients[id];
-            if (cl.hostname === hostIdentifier) return cl.id;
-        }
-        return null;
-    }
-
-    handleHostDockerContainerState(host: HostClient, obj: IHostContainerState) {
-        if (!host.id) throw Error("Missing host id");
-
-        const containers = this.hostContainers.get(host.id);
-        if (!containers) return;
-        const o = containers.get(obj.id);
-        if (!o) return;
-        o.state = obj.state;
-    }
-
-    handleHostDockerImages(host: HostClient, obj: IHostImages) {
-        if (!host.id) throw Error("Missing host id");
-
-        const images = getOrInsert(this.hostImages, host.id, () => new Map());
-        if (obj.full) images.clear();
-
-        for (const id of obj.delete) images.delete(id);
-
-        for (const u of obj.update) images.set(u.id, u);
     }
 }
 
