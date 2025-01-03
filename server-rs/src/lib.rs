@@ -10,6 +10,7 @@ mod get_auth;
 mod hostclient;
 mod modified_files;
 mod msg;
+mod mustache;
 mod ocell;
 mod ordered_json;
 mod page_types;
