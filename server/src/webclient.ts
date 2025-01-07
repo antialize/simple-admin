@@ -12,7 +12,6 @@ import type { AuthInfo } from "./getAuth";
 import { hostClients, rs, webClients } from "./instances";
 import type { Job } from "./job";
 import { JobOwner } from "./jobowner";
-import { LogJob } from "./jobs/logJob";
 import { ShellJob } from "./jobs/shellJob";
 import setup from "./setup";
 import {
@@ -55,7 +54,6 @@ function sleep(ms: number): Promise<void> {
 export class WebClient extends JobOwner {
     connection: WebSocket;
     auth: AuthInfo;
-    logJobs: { [id: number]: Job } = {};
     host: string;
 
     constructor(socket: WebSocket, host: string) {
@@ -77,11 +75,6 @@ export class WebClient extends JobOwner {
         webClients.webclients.delete(this);
     }
 
-    async sendAuthStatus(sid: string | null) {
-        this.auth = await serverRs.getAuth(rs, this.host, sid);
-        this.sendMessage({ type: ACTION.AuthStatus, message: null, ...this.auth });
-    }
-
     get_hosts_up(): number[] {
         const hostsUp: number[] = [];
         for (const id in hostClients.hostClients) hostsUp.push(+id);
@@ -94,34 +87,7 @@ export class WebClient extends JobOwner {
 
     async onMessage(str: string) {
         const act = JSON.parse(str) as IAction;
-
-        switch (act.type) {
-            case ACTION.StartLog:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                if (act.host in hostClients.hostClients) {
-                    new LogJob(
-                        hostClients.hostClients[act.host],
-                        this,
-                        act.id,
-                        act.logtype,
-                        act.unit,
-                    );
-                }
-                break;
-            case ACTION.EndLog:
-                if (!this.auth.admin) {
-                    this.connection.close(403);
-                    return;
-                }
-                if (act.id in this.logJobs) this.logJobs[act.id].kill();
-                break;
-            default:
-                await serverRs.webclientHandleMessage(rs, this, act);
-                break;
-        }
+        await serverRs.webclientHandleMessage(rs, this, act);
     }
 
     sendMessage(obj: IAction) {
