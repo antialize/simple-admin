@@ -179,20 +179,21 @@ export class WebClients {
                 const wc = new WebClient(ws, address);
                 this.webclients.add(wc);
             } else if (u.pathname === "/terminal") {
-                const server = +u.query!.server!;
-                const cols = +u.query!.cols!;
-                const rows = +u.query!.rows!;
-                const session = u.query.session as string;
-                serverRs
-                    .getAuth(rs, address, session)
-                    .then((a: any) => {
-                        if (a.auth && server in hostClients.hostClients)
-                            new ShellJob(hostClients.hostClients[server], ws, cols, rows);
-                        else ws.close();
-                    })
-                    .catch(() => {
-                        ws.close();
-                    });
+                // const server = +u.query!.server!;
+                // const cols = +u.query!.cols!;
+                // const rows = +u.query!.rows!;
+                // const session = u.query.session as string;
+                // serverRs
+                //     .getAuth(rs, address, session)
+                //     .then((a: any) => {
+                //         if (a.auth && server in hostClients.hostClients)
+                //             new ShellJob(hostClients.hostClients[server], ws, cols, rows);
+                //         else ws.close();
+                //     })
+                //     .catch(() => {
+                //         ws.close();
+                //     });
+                ws.close();
             } else {
                 ws.close();
             }
