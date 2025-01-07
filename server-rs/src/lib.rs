@@ -22,7 +22,6 @@ mod variabels;
 mod webclient;
 
 use action_types::{DockerImageTag, DockerImageTagRow, IAuthStatus, IObject2, ObjectType};
-use anyhow::anyhow;
 use neon::{
     event::Channel,
     handle::Root,
@@ -34,18 +33,13 @@ use neon::{
 use serde::Serialize;
 use sqlx_type::{query, query_as};
 use state::State;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use type_types::HOST_ID;
 mod cmpref;
 
 #[neon::export(name = "cryptHash")]
 fn crypt_hash(key: String) -> Result<String, Error> {
     Ok(crypt::hash(&key)?)
-}
-
-#[neon::export(name = "cryptValidatePassword")]
-fn crypt_validate_password(provided: String, hash: String) -> Result<bool, Error> {
-    Ok(crypt::validate_password(&provided, &hash)?)
 }
 
 #[neon::export(name = "getAuth")]
@@ -67,31 +61,6 @@ fn no_access() -> Json<IAuthStatus> {
 #[neon::export(name = "msgGetCount")]
 async fn msg_get_count(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
     Ok(msg::get_count(&state).await? as f64)
-}
-
-#[neon::export(name = "crtGenerateSshCrt")]
-async fn crt_generate_ssh_crt(
-    key_id: String,
-    principal: String,
-    ca_private_key: String,
-    client_public_key: String,
-    validity_days: f64,
-    r#type: String,
-) -> Result<String, Error> {
-    let t = match r#type.as_str() {
-        "host" => crt::Type::Host,
-        "user" => crt::Type::User,
-        _ => Err(anyhow!("Invalid type"))?,
-    };
-    Ok(crt::generate_ssh_crt(
-        &key_id,
-        &principal,
-        &ca_private_key,
-        &client_public_key,
-        validity_days as u32,
-        t,
-    )
-    .await?)
 }
 
 #[neon::export]
@@ -254,13 +223,5 @@ async fn get_host_content_by_name(
     hostname: String,
 ) -> Result<Json<Option<IObject2<serde_json::Value>>>, Error> {
     let r = db::get_object_by_name_and_type(&state, hostname, HOST_ID).await?;
-    Ok(Json(r))
-}
-
-#[neon::export(name = "getRootVariables")]
-async fn _get_root_variables(
-    Boxed(state): Boxed<Arc<State>>,
-) -> Result<Json<HashMap<String, String>>, Error> {
-    let r = db::get_root_variables(&state).await?;
     Ok(Json(r))
 }

@@ -131,21 +131,6 @@ impl WebClient {
         Ok(())
     }
 
-    pub async fn get_hosts_up(&self) -> Result<Vec<i64>> {
-        let obj = self.obj.clone();
-        let v = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "get_hosts_up")?;
-                m.this(h)?;
-                let Json(v) = m.call()?;
-                Ok(v)
-            })?
-            .await?;
-        Ok(v)
-    }
-
     async fn handle_generate_key(&self, state: &State, act: IGenerateKey) -> Result<()> {
         let auth = self.get_auth().await?;
         let Some(sslname) = auth.sslname else {
@@ -365,7 +350,7 @@ impl WebClient {
                 .fetch_all(&state.db)
                 .await.context("RequestInitialState query")?;
 
-                let hosts_up = self.get_hosts_up().await.context("get_hosts_up")?;
+                let hosts_up: Vec<_> = state.host_clients.lock().unwrap().keys().cloned().collect();
 
                 let messages = msg::get_resent(state).await.context("msg::get_resent")?;
                 let mut types = HashMap::new();

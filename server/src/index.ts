@@ -1,5 +1,4 @@
 import { errorHandler } from "./error";
-import { HostClients } from "./hostclient";
 import * as instances from "./instances";
 import { WebClients } from "./webclient";
 
@@ -17,8 +16,6 @@ async function setup() {
     }
     instances.setWebClients(new WebClients());
     instances.webClients.startServer();
-    instances.setHostClients(new HostClients());
-    instances.hostClients.start();
 }
 
 setup();

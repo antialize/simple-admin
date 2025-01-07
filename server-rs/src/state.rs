@@ -1,6 +1,7 @@
 use crate::config::{read_config, Config};
 use crate::deployment::Deployment;
 use crate::docker::{docker_prune, Docker};
+use crate::hostclient::{run_host_server, HostClient};
 use crate::modified_files::{modified_files_scan, ModifiedFiles};
 use anyhow::{Context, Result};
 use log::LevelFilter;
@@ -11,6 +12,7 @@ use simple_logger::SimpleLogger;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use sqlx::ConnectOptions;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Mutex};
@@ -25,6 +27,7 @@ pub struct State {
     pub ch: Channel,
     pub instances: Arc<Root<JsObject>>,
     pub docker: Docker,
+    pub host_clients: Mutex<HashMap<i64, Arc<HostClient>>>,
 }
 
 impl State {
@@ -56,10 +59,12 @@ impl State {
             ch,
             instances: Arc::new(instances),
             docker,
+            host_clients: Default::default(),
         });
 
         tokio::spawn(modified_files_scan(state.clone()));
         tokio::spawn(docker_prune(state.clone()));
+        tokio::spawn(run_host_server(state.clone()));
 
         Ok(state)
     }

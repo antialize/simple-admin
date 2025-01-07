@@ -1,4 +1,3 @@
-use crate::hostclient;
 use crate::{
     action_types::{
         DockerDeployment, DockerImageTag, DockerImageTagRow, IAction, IAddDeploymentLog,
@@ -463,12 +462,12 @@ async fn deploy_server_inner3(
 
     let image_info: DockerImageTag = row.try_into().context("Building DockerImageTag")?;
 
-    let Some(host) = hostclient::get_host_client_by_id(state, host_id).await? else {
+    let Some(host) = state.host_clients.lock().unwrap().get(&host_id).cloned() else {
         bail!("Host not up");
     };
 
     let mut jh = host
-        .start_job(ClientMessage::DeployService(DeployServiceMessage {
+        .start_job(&ClientMessage::DeployService(DeployServiceMessage {
             id: host.next_job_id(),
             description: description_str.to_string(),
             extra_env,
@@ -644,13 +643,14 @@ pub async fn deploy_service(
 ) -> Result<()> {
     let host_id = match act.host {
         crate::action_types::HostEnum::Id(v) => v,
-        crate::action_types::HostEnum::Name(n) => {
-            hostclient::get_host_client_by_name(state, n)
-                .await?
-                .context("no such host")?
-                .id()
-                .await?
-        }
+        crate::action_types::HostEnum::Name(n) => state
+            .host_clients
+            .lock()
+            .unwrap()
+            .values()
+            .find(|v| v.hostname() == &n)
+            .map(|v| v.id())
+            .context("no such host")?,
     };
     if let Err(e) = deploy_server_inner2(
         state,

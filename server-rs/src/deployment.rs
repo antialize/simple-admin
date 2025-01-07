@@ -1255,7 +1255,7 @@ async fn deploy_single(
     content: Value,
 ) -> Result<()> {
     let mut jh = host_client
-        .start_job(crate::client_message::ClientMessage::RunScript(
+        .start_job(&crate::client_message::ClientMessage::RunScript(
             RunScriptMessage {
                 id: host_client.next_job_id(),
                 name: "deploy.py".to_string(),
@@ -1461,8 +1461,12 @@ async fn perform_deploy(state: &State) -> Result<()> {
             continue;
         }
 
-        let Some(host_client) =
-            crate::hostclient::get_host_client_by_id(state, object.host).await?
+        let Some(host_client) = state
+            .host_clients
+            .lock()
+            .unwrap()
+            .get(&object.host)
+            .cloned()
         else {
             bad_host = true;
             mut_deployment(state, |deployment| {

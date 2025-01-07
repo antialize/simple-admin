@@ -8,7 +8,7 @@ use crate::{
         RunScriptStdinType, SuccessMessage,
     },
     db::{change_object, IV},
-    hostclient::{get_host_client_by_id, HostClient},
+    hostclient::HostClient,
     msg,
     state::State,
     webclient::{self, WebClient},
@@ -204,7 +204,7 @@ pub async fn scan_inner(state: &State) -> Result<()> {
 
     for (host_id, objs) in &objects {
         let paths: Vec<_> = objs.iter().map(|v| v.path.clone()).collect();
-        let Some(host) = get_host_client_by_id(state, *host_id).await? else {
+        let Some(host) = state.host_clients.lock().unwrap().get(host_id).cloned() else {
             bail!("Host {} not up", host_id)
         };
         futures.push(run_host_scan_job(*host_id, host, paths));
@@ -341,7 +341,7 @@ pub async fn resolve(state: &State, client: &WebClient, act: IModifiedFilesResol
 
     match act.action {
         crate::action_types::IModifiedFilesResolveAction::Redeploy => {
-            let Some(host) = get_host_client_by_id(state, f.host).await? else {
+            let Some(host) = state.host_clients.lock().unwrap().get(&f.host).cloned() else {
                 bail!("Host is not up");
             };
 
@@ -353,7 +353,7 @@ f.write(o['content'])
 ";
 
             let mut jh = host
-                .start_job(ClientMessage::RunScript(RunScriptMessage {
+                .start_job(&ClientMessage::RunScript(RunScriptMessage {
                     id: host.next_job_id(),
                     name: "revert.py".to_string(),
                     interperter: "/usr/bin/python3".to_string(),
@@ -517,7 +517,7 @@ for path in sys.argv[1:]:
 sys.stdout.write(json.dumps(ans))
 sys.stdout.flush()";
     let mut jh = host
-        .start_job(ClientMessage::RunScript(RunScriptMessage {
+        .start_job(&ClientMessage::RunScript(RunScriptMessage {
             id: host.next_job_id(),
             name: "read_files.py".to_string(),
             interperter: "/usr/bin/python3".to_string(),

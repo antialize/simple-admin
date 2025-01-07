@@ -9,10 +9,7 @@ import { config } from "./config";
 import { docker } from "./docker";
 import { errorHandler } from "./error";
 import type { AuthInfo } from "./getAuth";
-import { hostClients, rs, webClients } from "./instances";
-import type { Job } from "./job";
-import { JobOwner } from "./jobowner";
-import { ShellJob } from "./jobs/shellJob";
+import { rs, webClients } from "./instances";
 import setup from "./setup";
 import {
     ACTION,
@@ -51,13 +48,12 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export class WebClient extends JobOwner {
+export class WebClient {
     connection: WebSocket;
     auth: AuthInfo;
     host: string;
 
     constructor(socket: WebSocket, host: string) {
-        super();
         this.auth = serverRs.noAccess();
         this.connection = socket;
         this.host = host;
@@ -71,14 +67,7 @@ export class WebClient extends JobOwner {
     }
 
     onClose() {
-        this.kill();
         webClients.webclients.delete(this);
-    }
-
-    get_hosts_up(): number[] {
-        const hostsUp: number[] = [];
-        for (const id in hostClients.hostClients) hostsUp.push(+id);
-        return hostsUp;
     }
 
     get_docker() {
@@ -122,7 +111,8 @@ export class WebClients {
     async countMessages(req: express.Request, res: express.Response) {
         let downHosts = 0;
         for (const row of await serverRs.getObjectContentByType(rs, hostId)) {
-            if (hostClients.hostClients[row.id]?.auth || !row.content) continue;
+            // hostClients.hostClients[row.id]?.auth || TODO (jakobt) disabled for now
+            if (!row.content) continue;
             const content: Host = JSON.parse(row.content);
             if (content.messageOnDown) downHosts += 1;
         }
@@ -139,7 +129,8 @@ export class WebClients {
         }
         const ans: { [key: string]: boolean } = {};
         for (const [id, name] of await serverRs.getIdNamePairsForType(rs, hostId)) {
-            ans[name] = hostClients.hostClients[id]?.auth || false;
+            // TODO(jakobt) disabled for now
+            //ans[name] = hostClients.hostClients[id]?.auth || false;
         }
         res.header("Content-Type", "application/json; charset=utf-8").json(ans).end();
     }
