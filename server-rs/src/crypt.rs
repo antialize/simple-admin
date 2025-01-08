@@ -64,6 +64,19 @@ pub fn hash(key: &str) -> Result<String> {
     }
 }
 
+pub fn cost_time_compare(l: &[u8], r: &[u8]) -> bool {
+    if l.len() != r.len() {
+        return false;
+    }
+    // Based on netbsd consttime_memequal.c
+    // https://github.com/intel/linux-sgx/blob/main/sdk/tlibc/string/consttime_memequal.c
+    let mut sum: u32 = 0;
+    for (lv, rv) in l.iter().zip(r) {
+        sum |= (lv ^ rv) as u32;
+    }
+    (1 & (sum.wrapping_sub(1) >> 8)) != 0
+}
+
 pub fn validate_password(provided: &str, hash: &str) -> Result<bool> {
     let provided = CString::new(provided)?;
     let chash = CString::new(hash)?;
@@ -82,14 +95,10 @@ pub fn validate_password(provided: &str, hash: &str) -> Result<bool> {
         if l != hash.len() {
             bail!("Wrong hash size");
         }
-        // Based on netbsd consttime_memequal.c
-        // https://github.com/intel/linux-sgx/blob/main/sdk/tlibc/string/consttime_memequal.c
-        let mut sum = 0;
-        for i in 0..l {
-            sum |= *chash.as_ptr().add(i) ^ *res.add(i);
-        }
-        let sum = sum as u32;
-        Ok((1 & (sum.wrapping_sub(1) >> 8)) != 0)
+        Ok(cost_time_compare(
+            std::slice::from_raw_parts(res as *const u8, l),
+            hash.as_bytes(),
+        ))
     }
 }
 
@@ -153,5 +162,12 @@ mod tests {
             "591527"
         );
         Ok(())
+    }
+
+    #[test]
+    fn cost_time_compare_test() {
+        assert!(cost_time_compare(b"test1", b"test1"));
+        assert!(!cost_time_compare(b"test1", b"tEst1"));
+        assert!(!cost_time_compare(b"test1", b"test"));
     }
 }
