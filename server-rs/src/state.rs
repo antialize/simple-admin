@@ -1,4 +1,5 @@
 use crate::config::{read_config, Config};
+use crate::deployment::Deployment;
 use crate::docker::{docker_prune, Docker};
 use crate::modified_files::{modified_files_scan, ModifiedFiles};
 use anyhow::{Context, Result};
@@ -20,6 +21,7 @@ pub struct State {
     pub config: Config,
     pub next_object_id: AtomicI64,
     pub modified_files: Mutex<ModifiedFiles>,
+    pub deployment: Mutex<Deployment>,
     pub ch: Channel,
     pub instances: Arc<Root<JsObject>>,
     pub docker: Docker,
@@ -50,7 +52,7 @@ impl State {
             config,
             next_object_id: Default::default(),
             modified_files: Default::default(),
-
+            deployment: Default::default(),
             ch,
             instances: Arc::new(instances),
             docker,

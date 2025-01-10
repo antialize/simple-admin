@@ -5,6 +5,7 @@ mod config;
 mod crt;
 mod crypt;
 mod db;
+mod deployment;
 mod docker;
 mod get_auth;
 mod hostclient;
@@ -17,6 +18,7 @@ mod page_types;
 mod service_description;
 mod state;
 mod type_types;
+mod variabels;
 mod webclient;
 
 use action_types::{DockerImageTag, DockerImageTagRow, IAuthStatus, IObject2, ObjectType};
@@ -113,46 +115,6 @@ async fn get_id_name_pairs_for_type(
     Ok(Json(res))
 }
 
-#[derive(Serialize)]
-struct FullObject {
-    id: i64,
-    version: i64,
-    r#type: ObjectType,
-    name: String,
-    content: String,
-    category: Option<String>,
-    comment: String,
-    time: i64,
-    author: Option<String>,
-}
-
-#[neon::export(name = "getAllObjectsFull")]
-async fn get_all_objects_full(
-    Boxed(state): Boxed<Arc<State>>,
-) -> Result<Json<Vec<FullObject>>, Error> {
-    let rows = query!(
-        "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`,
-        strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest` ORDER BY `id`"
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let mut res = Vec::new();
-    for r in rows {
-        res.push(FullObject {
-            id: r.id,
-            version: r.version,
-            r#type: r.r#type.try_into()?,
-            name: r.name,
-            content: r.content,
-            category: r.category,
-            comment: r.comment,
-            time: r.time.parse()?,
-            author: r.author,
-        });
-    }
-    Ok(Json(res))
-}
-
 #[neon::export(name = "markImageUsed")]
 async fn mark_image_used(
     Boxed(state): Boxed<Arc<State>>,
@@ -227,68 +189,6 @@ async fn insert_docker_image(
     .await?
     .last_insert_rowid();
     Ok(id as f64)
-}
-
-#[derive(Serialize)]
-struct Deployment {
-    name: Option<String>,
-    content: String,
-    r#type: i64,
-    title: String,
-}
-
-#[neon::export(name = "getDeployments")]
-async fn get_deployments(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-) -> Result<Json<Vec<Deployment>>, Error> {
-    let host = host as i64;
-    let res = query_as!(
-        Deployment,
-        "SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?",
-        host
-    )
-    .fetch_all(&state.db)
-    .await?;
-    Ok(Json(res))
-}
-
-#[neon::export(name = "setDeployment")]
-async fn set_deployment(
-    Boxed(state): Boxed<Arc<State>>,
-    host: f64,
-    name: String,
-    content: Option<String>,
-    r#type: f64,
-    title: String,
-) -> Result<(), Error> {
-    let host = host as i64;
-    let r#type = r#type as i64;
-    if let Some(content) = content {
-        if !content.is_empty() {
-            query!(
-                "REPLACE INTO `deployments`
-                (`host`, `name`, `content`, `time`, `type`, `title`)
-                VALUES (?, ?, ?, datetime('now'), ?, ?)",
-                host,
-                name,
-                content,
-                r#type,
-                title
-            )
-            .execute(&state.db)
-            .await?;
-            return Ok(());
-        }
-    }
-    query!(
-        "DELETE FROM `deployments` WHERE `host`=? AND `name`=?",
-        host,
-        name
-    )
-    .execute(&state.db)
-    .await?;
-    Ok(())
 }
 
 #[neon::export(name = "getImageTagsByProject")]

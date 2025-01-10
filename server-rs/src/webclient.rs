@@ -4,21 +4,19 @@ use neon::{
     event::Channel,
     handle::{Handle, Root},
     object::Object,
-    result::ResultExt,
     types::{
         extract::{Boxed, Error, Json},
-        JsArray, JsFuture, JsObject, JsPromise, JsString,
+        JsObject,
     },
 };
-use serde::Deserialize;
 use sqlx_type::{query, query_as};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     action_types::{
-        DeploymentStatus, DockerImageTag, DockerImageTagRow, IAction, IAlert, IAuthStatus,
-        IDeploymentObject, IDockerDeploymentsChanged, IDockerDeploymentsChangedRemoved,
-        IDockerImageTagsCharged, IDockerImageTagsChargedImageTagPin, IDockerListImageByHashRes,
+        DockerImageTag, DockerImageTagRow, IAction, IAlert, IAuthStatus, IDockerDeploymentsChanged,
+        IDockerDeploymentsChangedRemoved, IDockerImageTagsCharged,
+        IDockerImageTagsChargedImageTagPin, IDockerListImageByHashRes,
         IDockerListImageTagHistoryRes, IDockerListImageTagsRes, IDockerListImageTagsResTag,
         IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes, IGetObjectHistoryResHistory,
         IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction, IObject2, IObjectChanged,
@@ -28,6 +26,7 @@ use crate::{
     crt,
     crypt::{self, random_fill},
     db::{self, IV},
+    deployment,
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     get_auth::get_auth,
     modified_files, msg,
@@ -38,12 +37,23 @@ use crate::{
     },
 };
 
-#[derive(Deserialize)]
-pub struct DeploymentInfo {
-    pub objects: Vec<IDeploymentObject>,
-    pub status: DeploymentStatus,
-    pub message: Option<String>,
-    pub log: Vec<String>,
+pub async fn alert_error(
+    state: &State,
+    err: anyhow::Error,
+    place: &str,
+    webclient: Option<&WebClient>,
+) -> Result<()> {
+    error!("An error occoured in {}: {:?}", place, err);
+    let act = IAction::Alert(IAlert {
+        message: format!("An error occoured in {}: {:?}", place, err),
+        title: format!("Error in {}", place),
+    });
+    if let Some(webclient) = webclient {
+        webclient.send_message(act).await?;
+    } else {
+        broadcast(state, act).await?;
+    }
+    Ok(())
 }
 
 pub struct WebClient {
@@ -128,21 +138,6 @@ impl WebClient {
             .try_send(move |mut cx| {
                 let h = obj.to_inner(&mut cx);
                 let mut m = h.method(&mut cx, "get_hosts_up")?;
-                m.this(h)?;
-                let Json(v) = m.call()?;
-                Ok(v)
-            })?
-            .await?;
-        Ok(v)
-    }
-
-    pub async fn get_deployment_info(&self) -> Result<DeploymentInfo> {
-        let obj = self.obj.clone();
-        let v = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "get_deployment_info")?;
                 m.this(h)?;
                 let Json(v) = m.call()?;
                 Ok(v)
@@ -372,14 +367,21 @@ impl WebClient {
 
                 let hosts_up = self.get_hosts_up().await.context("get_hosts_up")?;
 
-                let messages = msg::get_resent(&state).await.context("msg::get_resent")?;
+                let messages = msg::get_resent(state).await.context("msg::get_resent")?;
                 let mut types = HashMap::new();
                 let mut used_by = Vec::new();
                 let mut object_names_and_ids: HashMap<_, Vec<_>> = HashMap::new();
-                let di = self
-                    .get_deployment_info()
-                    .await
-                    .context("get_deployment_info")?;
+
+                let (deployment_objects, deployment_status, deployment_message, deployment_log) = {
+                    let deployment = state.deployment.lock().unwrap();
+                    (
+                        deployment.deployment_objects.clone(),
+                        deployment.status.clone(),
+                        deployment.message.clone(),
+                        deployment.log.clone(),
+                    )
+                };
+
                 for row in rows {
                     let object: IObject2<ValueMap> = row.try_into().context("IObject2")?;
                     if object.r#type == ObjectType::Id(TYPE_ID) {
@@ -405,10 +407,10 @@ impl WebClient {
                     types,
                     used_by,
                     object_names_and_ids,
-                    deployment_objects: di.objects,
-                    deployment_status: di.status,
-                    deployment_message: di.message.unwrap_or_default(),
-                    deployment_log: di.log,
+                    deployment_objects,
+                    deployment_status,
+                    deployment_message,
+                    deployment_log,
                 }))
                 .await
                 .context("send_message")?;
@@ -1013,6 +1015,46 @@ impl WebClient {
                     return Ok(());
                 };
                 modified_files::resolve(state, self, act).await?;
+            }
+            IAction::DeployObject(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                // TODO is there a magic no object id
+                if let Err(e) = deployment::deploy_object(state, act.id, act.redeploy).await {
+                    alert_error(state, e, "Deployment::deployObject", Some(self)).await?;
+                }
+            }
+            IAction::CancelDeployment(_) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                deployment::cancel(state).await?;
+            }
+            IAction::StartDeployment(_) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if let Err(e) = deployment::start(state).await {
+                    alert_error(state, e, "Deployment::start", Some(self)).await?;
+                }
+            }
+            IAction::StopDeployment(_) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                deployment::stop(state).await?
+            }
+            IAction::ToggleDeploymentObject(act) => {
+                if !self.get_auth().await?.admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                deployment::toggle_object(state, act.index, act.enabled).await?;
             }
             _ => {
                 warn!("Unhandled message {:?}", act)

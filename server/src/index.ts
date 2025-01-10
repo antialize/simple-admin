@@ -1,4 +1,3 @@
-import { Deployment } from "./deployment";
 import { errorHandler } from "./error";
 import { HostClients } from "./hostclient";
 import * as instances from "./instances";
@@ -16,7 +15,6 @@ async function setup() {
         errorHandler("db")(err);
         process.exit(42);
     }
-    instances.setDeployment(new Deployment());
     instances.setWebClients(new WebClients());
     instances.webClients.startServer();
     instances.setHostClients(new HostClients());
