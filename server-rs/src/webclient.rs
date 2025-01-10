@@ -71,7 +71,7 @@ pub async fn alert_error(
     if let Some(webclient) = webclient {
         webclient.send_message(act).await?;
     } else {
-        broadcast(state, act).await?;
+        broadcast(state, act)?;
     }
     Ok(())
 }
@@ -535,8 +535,7 @@ impl WebClient {
                         dismissed: act.dismissed,
                         ids: act.ids,
                     }),
-                )
-                .await?;
+                )?;
             }
             IAction::ResetServerState(act) => {
                 if !self.get_auth().admin {
@@ -635,8 +634,7 @@ impl WebClient {
                         id,
                         object: vec![obj],
                     }),
-                )
-                .await?;
+                )?;
                 self.send_message(IAction::SetPage(ISetPageAction {
                     page: IPage::Object(IObjectPage {
                         object_type,
@@ -700,8 +698,7 @@ impl WebClient {
                             id: act.id,
                             object: vec![],
                         }),
-                    )
-                    .await?;
+                    )?;
                     self.send_message(IAction::SetPage(ISetPageAction {
                         page: IPage::Dashbord,
                     }))
@@ -835,8 +832,7 @@ impl WebClient {
                         removed: Default::default(),
                         image_tag_pin_changed: Default::default(),
                     }),
-                )
-                .await?;
+                )?;
             }
             IAction::DockerImageTagSetPin(act) => {
                 if !self.get_auth().docker_push {
@@ -871,8 +867,7 @@ impl WebClient {
                             pin: act.pin,
                         }]),
                     }),
-                )
-                .await?;
+                )?;
             }
             IAction::DockerListImageTagHistory(act) => {
                 if !self.get_auth().docker_push {
@@ -933,8 +928,7 @@ impl WebClient {
                             name: act.container,
                         }],
                     }),
-                )
-                .await?;
+                )?;
             }
             IAction::ServiceDeployStart(act) => {
                 if !self.get_auth().docker_push {
@@ -1090,7 +1084,7 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
     Ok(())
 }
 
-pub async fn broadcast(state: &State, msg: IAction) -> Result<()> {
+pub fn broadcast(state: &State, msg: IAction) -> Result<()> {
     let msg = Arc::new(serde_json::to_string(&msg)?);
     for c in &*state.web_clients.lock().unwrap() {
         let c = (**c).clone();

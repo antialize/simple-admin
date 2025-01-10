@@ -588,8 +588,7 @@ async fn deploy_server_inner3(
             changed: vec![o],
             removed: vec![],
         }),
-    )
-    .await?;
+    )?;
 
     Ok(())
 }

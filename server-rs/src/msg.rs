@@ -81,8 +81,7 @@ pub async fn emit(state: &State, host: i64, r#type: String, mut message: String)
                 dismissed: false,
             },
         }),
-    )
-    .await?;
+    )?;
 
     Ok(())
 }

@@ -180,7 +180,7 @@ async fn mut_deployment<T>(
         (deployment.take_actions(), res)
     };
     for action in actions {
-        webclient::broadcast(state, action).await?;
+        webclient::broadcast(state, action)?;
     }
     Ok(res)
 }
@@ -1660,7 +1660,7 @@ pub async fn stop(state: &State) -> Result<()> {
     };
     //TODO we should wait for the current action to finish
     for action in actions {
-        webclient::broadcast(state, action).await?;
+        webclient::broadcast(state, action)?;
     }
     Ok(())
 }
@@ -1677,7 +1677,7 @@ pub async fn cancel(state: &State) -> Result<()> {
         deployment.take_actions()
     };
     for action in actions {
-        webclient::broadcast(state, action).await?;
+        webclient::broadcast(state, action)?;
     }
     Ok(())
 }
@@ -1707,7 +1707,6 @@ pub async fn toggle_object(state: &State, index: Option<usize>, enabled: bool) -
             enabled,
             source: ISource::Server,
         }),
-    )
-    .await?;
+    )?;
     Ok(())
 }

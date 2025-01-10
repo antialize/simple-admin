@@ -106,7 +106,7 @@ async fn broadcast_changes(state: &State) -> Result<()> {
             removed,
         })
     };
-    webclient::broadcast(state, msg).await?;
+    webclient::broadcast(state, msg)?;
     Ok(())
 }
 
@@ -446,8 +446,7 @@ f.write(o['content'])
                     id,
                     object: vec![obj],
                 }),
-            )
-            .await?;
+            )?;
         }
     }
 

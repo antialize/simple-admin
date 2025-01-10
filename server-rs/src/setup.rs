@@ -57,8 +57,7 @@ pub async fn setup(
             id,
             object: vec![ho],
         }),
-    )
-    .await?;
+    )?;
 
     let script = format!(
         r#"#!/bin/bash

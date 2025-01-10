@@ -426,7 +426,7 @@ async fn handle_host_client(
         c.run_token.cancel();
     }
 
-    webclient::broadcast(&state, IAction::HostUp(IHostUp { id })).await?;
+    webclient::broadcast(&state, IAction::HostUp(IHostUp { id }))?;
 
     if let Err(e) = hc.clone().handle_messages(state.clone(), reader, buf).await {
         error!("Error handeling host client messages: {:?}", e);

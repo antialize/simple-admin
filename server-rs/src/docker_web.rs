@@ -779,7 +779,6 @@ async fn put_manifest(
             image_tag_pin_changed: None,
         }),
     )
-    .await
     .to_api_error("Broadcast failed")?;
 
     Ok((
