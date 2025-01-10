@@ -17,6 +17,7 @@ mod ocell;
 mod ordered_json;
 mod page_types;
 mod service_description;
+mod setup;
 mod state;
 mod type_types;
 mod variabels;

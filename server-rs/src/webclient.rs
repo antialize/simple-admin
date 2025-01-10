@@ -34,6 +34,7 @@ use crate::{
     get_auth::get_auth,
     modified_files, msg,
     page_types::{IObjectPage, IPage},
+    setup,
     state::State,
     type_types::{
         IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, HOST_ID, TYPE_ID,
@@ -1189,6 +1190,7 @@ pub async fn run_web_clients(state: Arc<State>) -> Result<()> {
             get(docker_web::images_handler),
         )
         .route("/usedImages", post(docker_web::used_images))
+	.route("/setup.sh", get(setup::setup))
         .nest("/v2/", docker_web::docker_api_routes()?)
         .layer(axum::middleware::from_fn(request_logger))
         .with_state(state.clone());
