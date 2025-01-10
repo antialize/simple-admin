@@ -36,6 +36,7 @@ use crate::{
     page_types::{IObjectPage, IPage},
     setup,
     state::State,
+    terminal,
     type_types::{
         IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, HOST_ID, TYPE_ID,
         USER_ID,
@@ -1182,6 +1183,7 @@ pub async fn run_web_clients(state: Arc<State>) -> Result<()> {
     use axum::routing::{any, get, post};
     let app = Router::new()
         .route("/sysadmin", any(sysadmin_handler))
+        .route("/terminal", any(terminal::handler))
         .route("/status", get(status_handler))
         .route("/metrics", get(metrics_handler))
         .route("/messages", get(messages_handler))

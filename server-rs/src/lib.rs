@@ -19,11 +19,11 @@ mod page_types;
 mod service_description;
 mod setup;
 mod state;
+mod terminal;
 mod type_types;
 mod variabels;
 mod web_util;
 mod webclient;
-
 use action_types::{DockerImageTag, DockerImageTagRow, IAuthStatus, IObject2, ObjectType};
 use neon::{
     event::Channel,
