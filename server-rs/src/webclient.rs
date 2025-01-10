@@ -151,31 +151,6 @@ impl WebClient {
         Ok(v)
     }
 
-    pub async fn get_ca_key_crt(&self) -> Result<(String, String)> {
-        let obj = self.obj.clone();
-        let res: JsFuture<(String, String)> = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "getCaKeyCrt")?;
-                m.this(h)?;
-                let p: Handle<JsPromise> = m.call()?;
-                let f = p.to_future(&mut cx, |mut cx, result| {
-                    let value = result.or_throw(&mut cx)?;
-                    let value: Handle<JsArray> = value.downcast_or_throw(&mut cx)?;
-                    let a: Handle<JsString> = value.prop(&mut cx, 0).get()?;
-                    let b: Handle<JsString> = value.prop(&mut cx, 1).get()?;
-                    let a = a.value(&mut cx);
-                    let b = b.value(&mut cx);
-                    Ok((a, b))
-                })?;
-                Ok(f)
-            })?
-            .await?;
-        let res = res.await?;
-        Ok(res)
-    }
-
     async fn handle_generate_key(&self, state: &State, act: IGenerateKey) -> Result<()> {
         let auth = self.get_auth().await?;
         let Some(sslname) = auth.sslname else {
@@ -185,21 +160,21 @@ impl WebClient {
         let (_uname, rem) = sslname.split_once(".").context("Missing . in sslname")?;
         let (_uid, caps_string) = rem.split_once(".").unwrap_or_default();
         let has_ssh_caps = caps_string.split("~").any(|v| v == "ssh");
-        let (ca_key, ca_crt) = self.get_ca_key_crt().await?;
+        let ca_key = &state.docker.ca_key;
+        let ca_crt = &state.docker.ca_crt;
         let key = crt::generate_key().await?;
         let srs = crt::generate_srs(&key, &format!("{}.user", sslname)).await?;
-        let crt =
-            crt::generate_crt(&ca_key, &ca_crt, &srs, &[], auth.auth_days.unwrap_or(1)).await?;
+        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth.auth_days.unwrap_or(1)).await?;
         let mut res = IGenerateKeyRes {
             r#ref: act.r#ref,
-            ca_pem: ca_crt,
+            ca_pem: ca_crt.clone(),
             key,
             crt,
             ssh_crt: None,
             ssh_host_ca: None,
         };
         if let (Some(ssh_public_key), true) = (act.ssh_public_key, has_ssh_caps) {
-            let root_variabels = db::get_root_variables(&state).await?;
+            let root_variabels = db::get_root_variables(state).await?;
 
             if let (Some(ssh_host_ca_pub), Some(ssh_host_ca_key), Some(user)) = (
                 root_variabels.get("sshHostCaPub"),
@@ -210,7 +185,7 @@ impl WebClient {
                     crt::generate_ssh_crt(
                         &format!("{} sadmin user", user),
                         &user,
-                        &ssh_host_ca_key,
+                        ssh_host_ca_key,
                         &ssh_public_key,
                         1,
                         crt::Type::User,
@@ -228,7 +203,7 @@ impl WebClient {
         let mut session = self.get_auth().await?.session;
         let host: String = self.get_host().await?;
         let auth = if let Some(session) = &session {
-            get_auth(&state, Some(&host), Some(&session)).await?
+            get_auth(state, Some(&host), Some(session)).await?
         } else {
             Default::default()
         };

@@ -67,16 +67,6 @@ async fn msg_get_count(Boxed(state): Boxed<Arc<State>>) -> Result<f64, Error> {
     Ok(msg::get_count(&state).await? as f64)
 }
 
-#[neon::export(name = "crtGenerateKey")]
-async fn crt_generate_key() -> Result<String, Error> {
-    Ok(crt::generate_key().await?)
-}
-
-#[neon::export(name = "crtGenerateCaCrt")]
-async fn crt_generate_ca_crt(key: String) -> Result<String, Error> {
-    Ok(crt::generate_ca_crt(&key).await?)
-}
-
 #[neon::export(name = "crtGenerateSshCrt")]
 async fn crt_generate_ssh_crt(
     key_id: String,
@@ -102,18 +92,9 @@ async fn crt_generate_ssh_crt(
     .await?)
 }
 
-#[neon::export(name = "dockerPrune")]
-async fn docker_prune(Boxed(state): Boxed<Arc<State>>) -> () {
-    docker::prune(&state).await
-}
-
 #[neon::export]
-async fn init(
-    ch: Channel,
-    instances: Root<JsObject>,
-    docker: Root<JsObject>,
-) -> Result<Boxed<Arc<State>>, Error> {
-    Ok(Boxed(State::new(ch, instances, docker).await?))
+async fn init(ch: Channel, instances: Root<JsObject>) -> Result<Boxed<Arc<State>>, Error> {
+    Ok(Boxed(State::new(ch, instances).await?))
 }
 
 #[neon::export(name = "getIdNamePairsForType")]
@@ -170,22 +151,6 @@ async fn get_all_objects_full(
         });
     }
     Ok(Json(res))
-}
-
-#[neon::export(name = "getKvp")]
-async fn get_kvp(Boxed(state): Boxed<Arc<State>>, key: String) -> Result<Option<String>, Error> {
-    let r = query!("SELECT `value` FROM `kvp` WHERE `key` = ?", key)
-        .fetch_optional(&state.db)
-        .await?;
-    Ok(r.map(|r| r.value))
-}
-
-#[neon::export(name = "setKvp")]
-async fn set_kvp(Boxed(state): Boxed<Arc<State>>, key: String, value: String) -> Result<(), Error> {
-    query!("REPLACE INTO kvp (`key`, `value`) VALUES (?,?)", key, value)
-        .execute(&state.db)
-        .await?;
-    Ok(())
 }
 
 #[neon::export(name = "markImageUsed")]

@@ -59,7 +59,7 @@ impl HostClient {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    pub async fn send_message(self: &Self, msg: ClientMessage) -> Result<()> {
+    pub async fn send_message(&self, msg: ClientMessage) -> Result<()> {
         let obj = self.js_host_client.clone();
         self.channel
             .try_send(move |mut cx| {
@@ -72,6 +72,19 @@ impl HostClient {
             })?
             .await?;
         Ok(())
+    }
+
+    pub async fn id(&self) -> Result<i64> {
+        let obj = self.js_host_client.clone();
+        let id = self
+            .channel
+            .try_send(move |mut cx| {
+                let h = obj.to_inner(&mut cx);
+                let id: f64 = h.prop(&mut cx, "id").get()?;
+                Ok(id as i64)
+            })?
+            .await?;
+        Ok(id)
     }
 
     pub async fn start_job(self: &Arc<Self>, msg: ClientMessage) -> Result<JobHandle> {
@@ -177,6 +190,26 @@ pub async fn get_host_client_by_id(state: &State, id: i64) -> Result<Option<Arc<
             let mut m = hcs.method(&mut cx, "getRsById")?;
             m.this(hcs)?;
             m.arg(id as f64)?;
+            let hc: Option<Boxed<Arc<HostClient>>> = m.call()?;
+            Ok(hc.map(|Boxed(v)| v))
+        })?
+        .await?;
+    Ok(hc)
+}
+
+pub async fn get_host_client_by_name(
+    state: &State,
+    name: String,
+) -> Result<Option<Arc<HostClient>>> {
+    let instances = state.instances.clone();
+    let hc = state
+        .ch
+        .try_send(move |mut cx| {
+            let h = instances.to_inner(&mut cx);
+            let hcs: Handle<JsObject> = h.prop(&mut cx, "hostClients").get()?;
+            let mut m = hcs.method(&mut cx, "getRsByName")?;
+            m.this(hcs)?;
+            m.arg(name)?;
             let hc: Option<Boxed<Arc<HostClient>>> = m.call()?;
             Ok(hc.map(|Boxed(v)| v))
         })?

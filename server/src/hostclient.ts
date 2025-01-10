@@ -337,6 +337,17 @@ export class HostClients {
         }
     }
 
+
+    getRsByName(name: String) : HostClient | null {
+        for (const id in this.hostClients) {
+            const c = this.hostClients[id];
+            if (c.hostname == name) {
+                return c;
+            }
+        }
+        return null;
+    }
+
     start() {
         const privateKey = fs.readFileSync("domain.key", "utf8");
         const certificate = fs.readFileSync("chained.pem", "utf8");

@@ -1,3 +1,4 @@
+use crate::hostclient;
 use crate::{
     action_types::{
         DockerDeployment, DockerImageTag, DockerImageTagRow, IAction, IAddDeploymentLog,
@@ -8,7 +9,7 @@ use crate::{
     client_message::{
         ClientMessage, DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage,
     },
-    crt, crypt, db, hostclient,
+    crt, crypt, db,
     service_description::{ServiceDescription, Subcert},
     state::State,
     webclient::{self, WebClient},
@@ -18,30 +19,34 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use futures::future::join_all;
 use log::{error, info, warn};
 use mustache::Data;
-use neon::{event::Channel, handle::Root, object::Object, types::JsObject};
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use sqlx_type::{query, query_as};
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{atomic::AtomicI64, Arc},
+    time::Duration,
 };
 
-const DOCKER_BLOBS_PATH: &str = "/var/simpleadmin_docker_blobs/";
+pub const DOCKER_BLOBS_PATH: &str = "/var/simpleadmin_docker_blobs/";
 
 #[derive(Deserialize)]
-struct ManifestConfig {
-    digest: String,
+pub struct ManifestConfig {
+    pub digest: String,
 }
 
 #[derive(Deserialize)]
-struct ManifestLayer {
-    digest: String,
+#[serde(rename_all = "camelCase")]
+pub struct ManifestLayer {
+    pub digest: String,
+    pub size: u64,
+    pub media_type: String,
 }
 
 #[derive(Deserialize)]
-struct Manifest {
-    config: ManifestConfig,
-    layers: Vec<ManifestLayer>,
+pub struct Manifest {
+    pub config: ManifestConfig,
+    pub layers: Vec<ManifestLayer>,
 }
 
 async fn prune_inner(state: &State) -> Result<()> {
@@ -95,8 +100,7 @@ async fn prune_inner(state: &State) -> Result<()> {
                 && 2.0 * (row.end.unwrap() - row.start.unwrap()) as f64 + grace
                     > now - row.start.unwrap() as f64)
             || (row.used.is_some()
-                && 2.0 * (row.used.unwrap() as f64 - row.time) + grace
-                    > now - row.used.unwrap() as f64)
+                && 2.0 * (row.used.unwrap() - row.time) + grace > now - row.used.unwrap())
             || row.time + grace > now;
 
         let manifest: Manifest =
@@ -152,113 +156,103 @@ async fn prune_inner(state: &State) -> Result<()> {
     Ok(())
 }
 
-pub async fn prune(state: &State) {
-    if let Err(e) = prune_inner(state).await {
-        error!("Error pruning docker blobs: {:?}", e);
+pub async fn docker_prune(state: Arc<State>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(60 * 60 * 12)).await;
+        // prune docker images every 12 houers
+        if let Err(e) = prune_inner(&state).await {
+            error!("Error pruning docker blobs: {:?}", e);
+        }
     }
 }
 
 pub struct Docker {
-    pub obj: Arc<Root<JsObject>>,
-    pub channel: Channel,
+    idc: AtomicI64,
+    pub ca_key: String,
+    pub ca_crt: String,
 }
 
 impl Docker {
-    pub fn get(state: &State) -> Docker {
-        Docker {
-            obj: state.docker.clone(),
-            channel: state.ch.clone(),
-        }
-    }
-
-    pub async fn get_container_state(
-        &self,
-        host: i64,
-        container: String,
-    ) -> Result<Option<String>> {
-        let obj = self.obj.clone();
-        let res = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "getContainerState")?;
-                m.this(h)?;
-                m.arg(host as f64)?;
-                m.arg(container)?;
-                Ok(m.call()?)
-            })?
+    pub async fn new(db: &SqlitePool) -> Result<Docker> {
+        let r = query!("SELECT `value` FROM `kvp` WHERE `key` = ?", "ca_key")
+            .fetch_optional(db)
             .await?;
-        Ok(res)
-    }
-
-    pub async fn next_id(&self) -> Result<i64> {
-        let obj = self.obj.clone();
-        let res = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "nextId")?;
-                m.this(h)?;
-                let v: f64 = m.call()?;
-                Ok(v as i64)
-            })?
-            .await?;
-        Ok(res)
-    }
-
-    pub async fn get_host_id(&self, name: String) -> Result<Option<i64>> {
-        let obj = self.obj.clone();
-        let res = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "getHostId")?;
-                m.this(h)?;
-                m.arg(name)?;
-                let v: Option<f64> = m.call()?;
-                Ok(v.map(|v| v as i64))
-            })?
-            .await?;
-        Ok(res)
-    }
-
-    async fn row_to_deployment(&self, row: DockerDeploymentRow) -> Result<DockerDeployment> {
-        let itr = DockerImageTagRow {
-            id: row.image_id,
-            hash: row.hash.clone(),
-            time: row.image_time,
-            user: row.image_user,
-            tag: row.image_tag,
-            pin: row.image_pin,
-            labels: row.image_labels,
-            project: row.image_project,
-            removed: row.image_removed,
-        };
-        let state = if row.endTime.is_some() {
-            self.get_container_state(row.host, row.container.clone())
-                .await?
+        let ca_key = if let Some(r) = r {
+            r.value
         } else {
-            None
+            info!("Generating ca key");
+            let key = crt::generate_key().await?;
+            query!(
+                "REPLACE INTO kvp (`key`, `value`) VALUES (?,?)",
+                "ca_key",
+                key
+            )
+            .execute(db)
+            .await?;
+            key
         };
-        Ok(DockerDeployment {
-            id: row.id,
-            image: row.project,
-            hash: Some(row.hash), // TODO
-            name: row.container.clone(),
-            host: row.host,
-            start: row.startTime as f64,        //TODO
-            end: row.endTime.map(|v| v as f64), // TODO
-            user: row.user.unwrap_or_default(),
-            state: state,
-            config: row.config.unwrap_or_default(), //TODO
-            timeout: row.timeout.map(|v| v as f64).unwrap_or_default(), // TODO
-            use_podman: row.usePodman,
-            service: row.service,
-            image_info: Some(itr.try_into()?),
+
+        let r = query!("SELECT `value` FROM `kvp` WHERE `key` = ?", "ca_crt")
+            .fetch_optional(db)
+            .await?;
+        let ca_crt = if let Some(r) = r {
+            r.value
+        } else {
+            info!("Generating ca crnt");
+            let crt = crt::generate_ca_crt(&ca_key).await?;
+            query!(
+                "REPLACE INTO kvp (`key`, `value`) VALUES (?,?)",
+                "ca_crt",
+                crt
+            )
+            .execute(db)
+            .await?;
+            crt
+        };
+
+        Ok(Docker {
+            idc: Default::default(),
+            ca_crt,
+            ca_key,
         })
+    }
+
+    pub fn next_id(&self) -> i64 {
+        self.idc.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 }
 
+fn row_to_deployment(row: DockerDeploymentRow) -> Result<DockerDeployment> {
+    let itr = DockerImageTagRow {
+        id: row.image_id,
+        hash: row.hash.clone(),
+        time: row.image_time,
+        user: row.image_user,
+        tag: row.image_tag,
+        pin: row.image_pin,
+        labels: row.image_labels,
+        project: row.image_project,
+        removed: row.image_removed,
+    };
+    Ok(DockerDeployment {
+        id: row.id,
+        image: row.project,
+        hash: Some(row.hash), // TODO
+        name: row.container.clone(),
+        host: row.host,
+        start: row.startTime as f64,        //TODO
+        end: row.endTime.map(|v| v as f64), // TODO
+        user: row.user.unwrap_or_default(),
+        state: None,
+        config: row.config.unwrap_or_default(), //TODO
+        timeout: row.timeout.map(|v| v as f64).unwrap_or_default(), // TODO
+        use_podman: row.usePodman,
+        service: row.service,
+        image_info: Some(itr.try_into()?),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn deploy_server_inner2(
     state: &State,
     client: &WebClient,
@@ -272,7 +266,6 @@ async fn deploy_server_inner2(
     do_template: bool,
 ) -> Result<(), anyhow::Error> {
     info!("service deploy start ref: {:?}", r#ref);
-    let docker = Docker::get(state);
     let auth = client.get_auth().await.context("get_auth")?;
     let user = auth.user.context("Missing user")?;
     let mut variables: HashMap<_, _> = db::get_host_variables(state, host_id)
@@ -286,7 +279,7 @@ async fn deploy_server_inner2(
         crypt::random_fill(&mut buf)?;
         variables.insert(
             format!("token_{}", i),
-            Data::String(BASE64_STANDARD.encode(&buf)),
+            Data::String(BASE64_STANDARD.encode(buf)),
         );
     }
     let mut extra_env = HashMap::new();
@@ -311,7 +304,8 @@ async fn deploy_server_inner2(
         if let (Some(ssl_service), Some(ssl_identity)) =
             (description.ssl_service, description.ssl_identity)
         {
-            let (ca_key, ca_crt) = client.get_ca_key_crt().await.context("get_ca_key_crt")?;
+            let ca_key = &state.docker.ca_key;
+            let ca_crt = &state.docker.ca_crt;
             let my_key = crt::generate_key().await.context("generate_key")?;
             let my_srs = crt::generate_srs(&my_key, &format!("{}.{}", ssl_identity, ssl_service))
                 .await
@@ -322,12 +316,12 @@ async fn deploy_server_inner2(
                 Some(Subcert::More(vec)) => vec,
                 None => Vec::new(),
             };
-            let my_crt = crt::generate_crt(&ca_key, &ca_crt, &my_srs, &ssl_subcerts, 999)
+            let my_crt = crt::generate_crt(ca_key, ca_crt, &my_srs, &ssl_subcerts, 999)
                 .await
                 .context("generate_crt")?;
             variables.insert(
                 "ca_pem".to_string(),
-                Data::String(crt::strip(&ca_crt).to_string()),
+                Data::String(crt::strip(ca_crt).to_string()),
             );
             variables.insert(
                 "ssl_key".to_string(),
@@ -337,7 +331,7 @@ async fn deploy_server_inner2(
                 "ssl_pem".to_string(),
                 Data::String(crt::strip(&my_crt).to_string()),
             );
-            extra_env.insert("CA_PEM".to_string(), crt::strip(&ca_crt).to_string());
+            extra_env.insert("CA_PEM".to_string(), crt::strip(ca_crt).to_string());
             let service_uc = ssl_service.to_uppercase();
             extra_env.insert(
                 format!("{}_KEY", service_uc),
@@ -416,7 +410,7 @@ async fn deploy_server_inner2(
     extra_env.insert("DOCKER_HASH".to_string(), hash.to_string());
     let mut buf = [0; 64];
     crypt::random_fill(&mut buf)?;
-    let session = hex::encode(&buf);
+    let session = hex::encode(buf);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .context("Bad unix time")?
@@ -437,7 +431,6 @@ async fn deploy_server_inner2(
         client,
         r#ref,
         host_id,
-        docker,
         user,
         extra_env,
         description_str,
@@ -460,12 +453,12 @@ async fn deploy_server_inner2(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn deploy_server_inner3(
     state: &State,
     client: &WebClient,
     r#ref: Ref,
     host_id: i64,
-    docker: Docker,
     user: String,
     extra_env: HashMap<String, String>,
     description_str: String,
@@ -531,7 +524,7 @@ async fn deploy_server_inner3(
         }
     }
 
-    let id = docker.next_id().await?;
+    let id = state.docker.next_id();
 
     let old_deployment = query!(
         "SELECT `id`, `endTime` FROM `docker_deployments`
@@ -573,17 +566,15 @@ async fn deploy_server_inner3(
     .last_insert_rowid();
     client
         .send_message(IAction::DockerDeployDone(IDockerDeployDone {
-            r#ref: r#ref,
+            r#ref,
             status: true,
             message: Some("Success".into()),
             id: Some(id2),
         }))
         .await?;
 
-    let container_state = docker.get_container_state(host_id, name.clone()).await?;
-
     let o = DockerDeployment {
-        id: id,
+        id,
         image: project.clone(),
         image_info: Some(image_info),
         hash: Some(hash),
@@ -592,7 +583,7 @@ async fn deploy_server_inner3(
         start: now as f64,
         end: None,
         host: host_id,
-        state: container_state,
+        state: None,
         config: "".to_string(), // TODO
         timeout: 0.0,           // TODO
         use_podman: false,
@@ -654,7 +645,7 @@ pub async fn redploy_service(
         error!("Service redeployment failed: {:?}", e);
         client
             .send_message(IAction::DockerDeployDone(IDockerDeployDone {
-                r#ref: r#ref,
+                r#ref,
                 status: false,
                 message: Some(format!("Deployment failed {}", e)),
                 id: None,
@@ -671,10 +662,13 @@ pub async fn deploy_service(
 ) -> Result<()> {
     let host_id = match act.host {
         crate::action_types::HostEnum::Id(v) => v,
-        crate::action_types::HostEnum::Name(n) => Docker::get(state)
-            .get_host_id(n)
-            .await?
-            .context("Could not find host")?,
+        crate::action_types::HostEnum::Name(n) => {
+            hostclient::get_host_client_by_name(state, n)
+                .await?
+                .context("no such host")?
+                .id()
+                .await?
+        }
     };
     if let Err(e) = deploy_server_inner2(
         state,
@@ -735,7 +729,7 @@ pub async fn list_deployments(
 ) -> Result<()> {
     let rows = query_as!(
         DockerDeploymentRow,
-        "SELECT 
+        "SELECT
         `docker_deployments`.`id`, `docker_deployments`.`hash`, `docker_deployments`.`host`, 
         `docker_deployments`.`project`, `docker_deployments`.`container`,
         `docker_deployments`.`startTime`, `docker_deployments`.`endTime`,
@@ -759,7 +753,6 @@ pub async fn list_deployments(
     .fetch_all(&state.db)
     .await
     .context("Running main query")?;
-    let docker = Docker::get(state);
     let mut deployments = Vec::new();
     for row in rows {
         if let Some(host) = act.host {
@@ -772,12 +765,7 @@ pub async fn list_deployments(
                 continue;
             }
         }
-        deployments.push(
-            docker
-                .row_to_deployment(row)
-                .await
-                .context("In row_to_deployment")?,
-        );
+        deployments.push(row_to_deployment(row).context("In row_to_deployment")?);
     }
 
     client
@@ -821,10 +809,9 @@ pub async fn list_deployment_history(
     )
     .fetch_all(&state.db)
     .await?;
-    let docker = Docker::get(state);
     let mut deployments = Vec::new();
     for row in rows {
-        deployments.push(docker.row_to_deployment(row).await?);
+        deployments.push(row_to_deployment(row)?);
     }
     client
         .send_message(IAction::DockerListDeploymentHistoryRes(
