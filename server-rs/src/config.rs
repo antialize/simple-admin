@@ -17,6 +17,7 @@ pub struct Config {
     pub hostname: String,
     #[serde(default)]
     pub used_images_token: Option<String>,
+    #[serde(default)]
     pub status_token: Option<String>,
 }
 
