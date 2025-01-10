@@ -18,11 +18,11 @@ use anyhow::{bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use futures::future::join_all;
 use log::{error, info, warn};
-use mustache::Data;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use sqlx_type::{query, query_as};
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     sync::{atomic::AtomicI64, Arc},
     time::Duration,
@@ -268,35 +268,30 @@ async fn deploy_server_inner2(
     info!("service deploy start ref: {:?}", r#ref);
     let auth = client.get_auth().await.context("get_auth")?;
     let user = auth.user.context("Missing user")?;
-    let mut variables: HashMap<_, _> = db::get_host_variables(state, host_id)
+    let host_variables = db::get_host_variables(state, host_id)
         .await?
-        .context("Could not find root or host")?
-        .into_iter()
-        .map(|(k, v)| (k, Data::String(v)))
+        .context("Could not find root or host")?;
+
+    let mut variables: HashMap<_, _> = host_variables
+        .iter()
+        .map(|(k, v)| (k.as_str().into(), v.as_str().into()))
         .collect();
     for i in 0..10 {
         let mut buf = [0; 24];
         crypt::random_fill(&mut buf)?;
         variables.insert(
-            format!("token_{}", i),
-            Data::String(BASE64_STANDARD.encode(buf)),
+            format!("token_{}", i).into(),
+            BASE64_STANDARD.encode(buf).into(),
         );
     }
     let mut extra_env = HashMap::new();
     if description_template.contains("ssl_service") {
-        variables.insert("ca_pem".to_string(), Data::String("TEMP".to_string()));
-        variables.insert("ssl_key".to_string(), Data::String("TEMP".to_string()));
-        variables.insert("ssl_pem".to_string(), Data::String("TEMP".to_string()));
-        let data = mustache::Data::Map(std::mem::take(&mut variables));
-        let template = mustache::compile_str(&description_template)
-            .context("Unable to compile description template")?;
-        let description_str = template
-            .render_data_to_string(&data)
-            .context("Unable to render description template")?;
-        let mustache::Data::Map(mut data) = data else {
-            panic!("I just put it there");
-        };
-        std::mem::swap(&mut data, &mut variables);
+        variables.insert("ca_pem".into(), "TEMP".into());
+        variables.insert("ssl_key".into(), "TEMP".into());
+        variables.insert("ssl_pem".into(), "TEMP".into());
+        let description_str =
+            crate::mustache::render(&description_template, None, &variables, true)
+                .context("Unable to render description template 1")?;
         let description: ServiceDescription =
             serde_yaml::from_str(&description_str).with_context(|| {
                 format!("Deserializing service description 1 '{}'", description_str)
@@ -319,18 +314,9 @@ async fn deploy_server_inner2(
             let my_crt = crt::generate_crt(ca_key, ca_crt, &my_srs, &ssl_subcerts, 999)
                 .await
                 .context("generate_crt")?;
-            variables.insert(
-                "ca_pem".to_string(),
-                Data::String(crt::strip(ca_crt).to_string()),
-            );
-            variables.insert(
-                "ssl_key".to_string(),
-                Data::String(crt::strip(&my_key).to_string()),
-            );
-            variables.insert(
-                "ssl_pem".to_string(),
-                Data::String(crt::strip(&my_crt).to_string()),
-            );
+            variables.insert("ca_pem".into(), crt::strip(ca_crt).to_string().into());
+            variables.insert("ssl_key".into(), crt::strip(&my_key).to_string().into());
+            variables.insert("ssl_pem".into(), crt::strip(&my_crt).to_string().into());
             extra_env.insert("CA_PEM".to_string(), crt::strip(ca_crt).to_string());
             let service_uc = ssl_service.to_uppercase();
             extra_env.insert(
@@ -348,14 +334,10 @@ async fn deploy_server_inner2(
         }
     }
     let description_str = if do_template {
-        let template = mustache::compile_str(&description_template)
-            .context("Unable to compile description template")?;
-        let data = mustache::Data::Map(std::mem::take(&mut variables));
-        template
-            .render_data_to_string(&data)
-            .context("Unable to render description template")?
+        crate::mustache::render(&description_template, None, &variables, true)
+            .context("Unable to render description template 2")?
     } else {
-        description_template
+        description_template.into()
     };
     let description: ServiceDescription = serde_yaml::from_str(&description_str)
         .with_context(|| format!("Deserializing service description 2 '{}'", description_str))?;
@@ -461,7 +443,7 @@ async fn deploy_server_inner3(
     host_id: i64,
     user: String,
     extra_env: HashMap<String, String>,
-    description_str: String,
+    description_str: Cow<'_, str>,
     name: String,
     project: String,
     image: Option<String>,
@@ -488,7 +470,7 @@ async fn deploy_server_inner3(
     let mut jh = host
         .start_job(ClientMessage::DeployService(DeployServiceMessage {
             id: host.next_job_id(),
-            description: description_str.clone(),
+            description: description_str.to_string(),
             extra_env,
             image,
             docker_auth: Some(BASE64_STANDARD.encode(format!("docker_client:{}", session))),
@@ -684,7 +666,7 @@ pub async fn deploy_service(
     )
     .await
     {
-        error!("Service deployment failed: {}", e);
+        error!("Service deployment failed: {:?}", e);
         client
             .send_message(IAction::DockerDeployDone(IDockerDeployDone {
                 r#ref: act.r#ref,
