@@ -2,6 +2,7 @@ use crate::cmpref::CmpRef;
 use crate::config::{read_config, Config};
 use crate::deployment::Deployment;
 use crate::docker::{docker_prune, Docker};
+use crate::docker_web;
 use crate::hostclient::{run_host_server, HostClient};
 use crate::modified_files::{modified_files_scan, ModifiedFiles};
 use crate::webclient::{run_web_clients, WebClient};
@@ -19,6 +20,7 @@ use std::str::FromStr;
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use uuid::Uuid;
 
 pub struct State {
     pub db: SqlitePool,
@@ -29,6 +31,7 @@ pub struct State {
     pub docker: Docker,
     pub host_clients: Mutex<HashMap<i64, Arc<HostClient>>>,
     pub web_clients: Mutex<HashSet<CmpRef<Arc<WebClient>>>>,
+    pub docker_uploads: Mutex<HashMap<Uuid, Arc<docker_web::Upload>>>,
 }
 
 impl State {
@@ -60,8 +63,10 @@ impl State {
             docker,
             host_clients: Default::default(),
             web_clients: Default::default(),
+            docker_uploads: Default::default(),
         });
 
+        docker_web::init_upload().await?;
         tokio::spawn(modified_files_scan(state.clone()));
         tokio::spawn(docker_prune(state.clone()));
         tokio::spawn(run_host_server(state.clone()));

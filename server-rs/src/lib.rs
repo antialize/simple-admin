@@ -7,6 +7,7 @@ mod crypt;
 mod db;
 mod deployment;
 mod docker;
+mod docker_web;
 mod get_auth;
 mod hostclient;
 mod modified_files;

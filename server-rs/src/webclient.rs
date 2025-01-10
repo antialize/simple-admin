@@ -30,6 +30,7 @@ use crate::{
     db::{self, IV},
     deployment,
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
+    docker_web,
     get_auth::get_auth,
     modified_files, msg,
     page_types::{IObjectPage, IPage},
@@ -1177,12 +1178,18 @@ async fn messages_handler(
 pub async fn run_web_clients(state: Arc<State>) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 8182));
 
-    use axum::routing::{any, get};
+    use axum::routing::{any, get, post};
     let app = Router::new()
         .route("/sysadmin", any(sysadmin_handler))
         .route("/status", get(status_handler))
         .route("/metrics", get(metrics_handler))
         .route("/messages", get(messages_handler))
+        .route(
+            "/docker/images/{project}",
+            get(docker_web::images_handler),
+        )
+        .route("/usedImages", post(docker_web::used_images))
+        .nest("/v2/", docker_web::docker_api_routes()?)
         .layer(axum::middleware::from_fn(request_logger))
         .with_state(state.clone());
 
