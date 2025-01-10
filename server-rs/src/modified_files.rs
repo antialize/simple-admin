@@ -19,6 +19,7 @@ use log::{error, info};
 use serde::Deserialize;
 use sqlx_type::query;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio_tasks::{cancelable, RunToken};
 
 const FILE_ID: i64 = 6;
 const CRON_ID: i64 = 10240;
@@ -556,12 +557,30 @@ sys.stdout.flush()";
     Ok(out)
 }
 
-pub async fn modified_files_scan(state: Arc<State>) -> Result<()> {
-    tokio::time::sleep(Duration::from_secs(2 * 60)).await;
-    loop {
-        if let Err(e) = scan(&state).await {
-            error!("Error in modified_files.scan {:?}", e);
-        }
-        tokio::time::sleep(Duration::from_secs(60 * 60 * 12)).await;
+pub async fn modified_files_scan(state: Arc<State>, run_token: RunToken) -> Result<()> {
+    if cancelable(&run_token, tokio::time::sleep(Duration::from_secs(2 * 60)))
+        .await
+        .is_err()
+    {
+        return Ok(());
     }
+    loop {
+        match cancelable(&run_token, scan(&state)).await {
+            Ok(Ok(())) => (),
+            Ok(Err(e)) => {
+                error!("Error in modified_files.scan {:?}", e);
+            }
+            Err(_) => break,
+        }
+        if cancelable(
+            &run_token,
+            tokio::time::sleep(Duration::from_secs(60 * 60 * 12)),
+        )
+        .await
+        .is_err()
+        {
+            break;
+        }
+    }
+    Ok(())
 }

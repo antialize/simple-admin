@@ -26,6 +26,7 @@ use std::{
     sync::{atomic::AtomicI64, Arc},
     time::Duration,
 };
+use tokio_tasks::{cancelable, RunToken};
 
 pub const DOCKER_BLOBS_PATH: &str = "/var/simpleadmin_docker_blobs/";
 
@@ -155,14 +156,24 @@ async fn prune_inner(state: &State) -> Result<()> {
     Ok(())
 }
 
-pub async fn docker_prune(state: Arc<State>) {
+pub async fn docker_prune(state: Arc<State>, run_token: RunToken) -> Result<()> {
     loop {
-        tokio::time::sleep(Duration::from_secs(60 * 60 * 12)).await;
+        if cancelable(
+            &run_token,
+            tokio::time::sleep(Duration::from_secs(60 * 60 * 12)),
+        )
+        .await
+        .is_err()
+        {
+            break;
+        }
+        // TODO(jakobt) make prune_inner cancable
         // prune docker images every 12 houers
         if let Err(e) = prune_inner(&state).await {
             error!("Error pruning docker blobs: {:?}", e);
         }
     }
+    Ok(())
 }
 
 pub struct Docker {

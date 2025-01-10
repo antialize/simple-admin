@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 use tokio::net::TcpListener;
+use tokio_tasks::{cancelable, RunToken, TaskBuilder};
 
 use crate::{
     action_types::{
@@ -44,7 +45,7 @@ use crate::{
     web_util::{request_logger, ClientIp, WebError},
 };
 use axum::{
-    extract::State as WState,
+    extract::{ws::CloseFrame, State as WState},
     response::{IntoResponse, Response},
 };
 use axum::{
@@ -79,17 +80,13 @@ pub struct WebClient {
     sink: TMutex<SplitSink<WebSocket, Message>>,
     remote: String,
     auth: Mutex<IAuthStatus>,
-    // pub obj: Arc<Root<JsObject>>,
-    // channel: Channel,
+    run_token: RunToken
 }
 
 impl WebClient {
     pub async fn send_message_str(&self, msg: &str) -> Result<()> {
-        // TODO check run_token
-        let mut sink = self.sink.lock().await;
-        // TODO Add timeout
-        sink.send(Message::Text(msg.into())).await?;
-        // TODO terminate connection on error
+        let mut sink = cancelable(&self.run_token, self.sink.lock()).await?;
+        cancelable(&self.run_token, tokio::time::timeout(Duration::from_secs(60),sink.send(Message::Text(msg.into())))).await???;
         Ok(())
     }
 
@@ -106,21 +103,16 @@ impl WebClient {
         *self.auth.lock().unwrap() = auth;
     }
 
-    async fn close(&self, _code: u16) -> Result<()> {
-        // let obj = self.obj.clone();
-        // self.channel
-        //     .try_send(move |mut cx| {
-        //         let h = obj.to_inner(&mut cx);
-        //         let c: Handle<JsObject> = h.prop(&mut cx, "connection").get()?;
-        //         let mut m = c.method(&mut cx, "close")?;
-        //         m.this(c)?;
-        //         m.arg(code)?;
-        //         m.exec()?;
-        //         Ok(())
-        //     })?
-        //     .await?;
-        // Ok(())
-        todo!()
+    async fn close(&self, code: u16) -> Result<()> {
+        if let Ok(Ok(mut sink)) = cancelable(&self.run_token,tokio::time::timeout(Duration::from_secs(10), self.sink.lock())).await {
+            let _ = cancelable(&self.run_token, tokio::time::timeout(Duration::from_secs(10),sink.send(Message::Close(Some(CloseFrame{
+                code,
+                reason: "".into(),
+            }))))).await;
+            let _ = sink.close().await;
+        }
+        self.run_token.cancel();
+        Ok(())
     }
 
     async fn handle_generate_key(&self, state: &State, act: IGenerateKey) -> Result<()> {
@@ -330,7 +322,7 @@ impl WebClient {
         Ok(object_id)
     }
 
-    pub async fn handle_message(&self, state: &State, act: IAction) -> Result<()> {
+    pub async fn handle_message(&self, state: &State, _rt: RunToken, act: IAction) -> Result<()> {
         match act {
             IAction::RequestInitialState(_) => {
                 if !self.get_auth().auth {
@@ -1046,8 +1038,14 @@ impl WebClient {
         mut source: SplitStream<WebSocket>,
     ) -> Result<()> {
         // TODO we should timeout none authed clients quite quickly
-        while let Some(msg) = source.next().await {
-            match msg? {
+        loop {
+            let msg = match cancelable(&self.run_token, source.next()).await {
+                Ok(Some(Ok(v))) => v,
+                Ok(Some(Err(e))) => Err(e).context("Failure to read client message")?,
+                Ok(None) => break,
+                Err(_) => break
+            };
+            match msg {
                 Message::Text(utf8_bytes) => {
                     let Ok(act) = serde_json::from_str(utf8_bytes.as_str()) else {
                         warn!("Invalid message from client {}", self.remote);
@@ -1056,11 +1054,11 @@ impl WebClient {
                     let act: IAction = act;
                     let s = self.clone();
                     let state = state.clone();
-                    // Todo push the task creation into handle message
-                    tokio::spawn(async move {
-                        if let Err(e) = s.handle_message(&state, act).await {
-                            error!("Error handeling message from {}: {:?}", s.remote, e);
-                        }
+
+                    TaskBuilder::new("handle_message")
+                        .shutdown_order(0)
+                        .create(|rt| async move {
+                        s.handle_message(&state, rt, act).await.with_context(|| format!("Error handeling message from {}", s.remote))
                     });
                 }
                 _ => (), // TODO Should we respond to ping?
@@ -1072,10 +1070,12 @@ impl WebClient {
 
 async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: String) -> Result<()> {
     let (sink, source) = websocket.split();
+    let run_token = RunToken::new();
     let webclient = Arc::new(WebClient {
         remote,
         sink: TMutex::new(sink),
         auth: Default::default(),
+        run_token
     });
     state
         .web_clients
@@ -1084,7 +1084,7 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
         .insert(CmpRef(webclient.clone()));
 
     webclient.handle_messages(&state, source).await?;
-
+    info!("Web client disconnected {}", webclient.remote);
     state.web_clients.lock().unwrap().remove(&CmpRef(webclient));
 
     Ok(())
@@ -1177,7 +1177,7 @@ async fn messages_handler(
     }))
 }
 
-pub async fn run_web_clients(state: Arc<State>) -> Result<()> {
+pub async fn run_web_clients(state: Arc<State>, run_token: RunToken) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 8182));
 
     use axum::routing::{any, get, post};
@@ -1204,6 +1204,7 @@ pub async fn run_web_clients(state: Arc<State>) -> Result<()> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .with_graceful_shutdown(async move { run_token.cancelled().await })
     .await?;
 
     info!("Web server stopped");

@@ -21,6 +21,7 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
+use tokio_tasks::{cancelable, RunToken, TaskBuilder};
 
 use crate::{
     action_types::{IAction, IHostDown, IHostUp},
@@ -68,6 +69,7 @@ pub struct HostClient {
     writer: TMutex<tokio::io::WriteHalf<TlsStream<TcpStream>>>,
     job_sinks: Mutex<HashMap<u64, UnboundedSender<ClientMessage>>>,
     next_job_id: AtomicU64,
+    run_token: RunToken,
 }
 
 impl HostClient {
@@ -87,18 +89,25 @@ impl HostClient {
     pub async fn send_message(&self, msg: &ClientMessage) -> Result<()> {
         let mut msg = serde_json::to_vec(msg)?;
         msg.push(0x1e);
-        // TODO use cancelation token
-        let mut writer = self.writer.lock().await;
-        // TODO use cancelation token
-        match tokio::time::timeout(Duration::from_secs(60), writer.write_all(&msg)).await {
-            Ok(Ok(())) => (),
-            Ok(Err(e)) => {
-                // TODO set cancelation token
+        let mut writer = cancelable(&self.run_token, self.writer.lock()).await?;
+
+        match cancelable(
+            &self.run_token,
+            tokio::time::timeout(Duration::from_secs(60), writer.write_all(&msg)),
+        )
+        .await
+        {
+            Ok(Ok(Ok(()))) => (),
+            Ok(Ok(Err(e))) => {
+                self.run_token.cancel();
                 bail!("Failure sending message to {}: {:?}", self.hostname, e);
             }
-            Err(_) => {
-                // TODO set cancelation token
+            Ok(Err(_)) => {
+                self.run_token.cancel();
                 bail!("Timeout sending message to {}", self.hostname)
+            }
+            Err(_) => {
+                bail!("Host client aborted");
             }
         }
         Ok(())
@@ -152,6 +161,7 @@ impl HostClient {
             let ping_timeout_fut = tokio::time::sleep_until(ping_time);
             let pong_timeout_fut = tokio::time::sleep_until(pong_time);
             let sign_timeout_fut = tokio::time::sleep_until(sign_time);
+            let cancelled = self.run_token.cancelled();
             tokio::select! {
                 r = read_fut => {
                     let r = r?;
@@ -213,6 +223,9 @@ impl HostClient {
                             error!("An error occurred in host ssh certificate generation for {}: {:?}", s.hostname, e);
                         }
                     });
+                }
+                () = cancelled => {
+                    break
                 }
             }
         }
@@ -365,6 +378,7 @@ async fn auth_client(
 
 async fn handle_host_client(
     state: Arc<State>,
+    run_token: RunToken,
     stream: TcpStream,
     peer_address: SocketAddr,
     acceptor: TlsAcceptor,
@@ -377,21 +391,25 @@ async fn handle_host_client(
     info!("Client connected {:?}", peer_address);
     let (mut reader, writer) = tokio::io::split(stream);
     let mut buf = BytesMut::with_capacity(1024 * 128);
-    let (id, hostname) = match tokio::time::timeout(
-        Duration::from_secs(2),
-        auth_client(&state, &mut reader, &mut buf),
+    let (id, hostname) = match cancelable(
+        &run_token,
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            auth_client(&state, &mut reader, &mut buf),
+        ),
     )
     .await
     {
-        Ok(Ok(id)) => id,
-        Ok(Err(e)) => {
+        Ok(Ok(Ok(id))) => id,
+        Ok(Ok(Err(e))) => {
             warn!("Client auth error for {:?}: {:?}", peer_address, e);
             return Ok(());
         }
-        Err(_) => {
+        Ok(Err(_)) => {
             warn!("Client auth timeout for {:?}", peer_address);
             return Ok(());
         }
+        Err(_) => return Ok(()),
     };
     info!("Client authorized {:?} {} ({})", peer_address, hostname, id);
 
@@ -402,9 +420,10 @@ async fn handle_host_client(
         writer: TMutex::new(writer),
         job_sinks: Default::default(),
         next_job_id: Default::default(),
+        run_token: run_token.clone(),
     });
-    if let Some(_) = state.host_clients.lock().unwrap().insert(id, hc.clone()) {
-        // TODO kill old host client
+    if let Some(c) = state.host_clients.lock().unwrap().insert(id, hc.clone()) {
+        c.run_token.cancel();
     }
 
     webclient::broadcast(&state, IAction::HostUp(IHostUp { id })).await?;
@@ -419,22 +438,24 @@ async fn handle_host_client(
         }
     }
 
-    webclient::broadcast(&state, IAction::HostDown(IHostDown { id })).await?;
+    webclient::broadcast(&state, IAction::HostDown(IHostDown { id }))?;
 
     info!("Client disconnected {:?}", peer_address);
     Ok(())
 }
 
 fn load_acceptor() -> Result<TlsAcceptor> {
-    let certs = CertificateDer::pem_file_iter("chained.pem")?.collect::<Result<Vec<_>, _>>()?;
-    let key = PrivateKeyDer::from_pem_file("domain.key")?;
+    let certs = CertificateDer::pem_file_iter("chained.pem")
+        .context("Unable to load chained.pem")?
+        .collect::<Result<Vec<_>, _>>()?;
+    let key = PrivateKeyDer::from_pem_file("domain.key").context("Unable to load domain.key")?;
     let config = rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(certs, key)?;
     Ok(TlsAcceptor::from(Arc::new(config)))
 }
 
-pub async fn run_host_server(state: Arc<State>) -> Result<()> {
+pub async fn run_host_server(state: Arc<State>, run_token: RunToken) -> Result<()> {
     let mut acceptor = load_acceptor()?;
     let listener = TcpListener::bind("0.0.0.0:8888").await?;
     const RELOAD_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
@@ -444,20 +465,24 @@ pub async fn run_host_server(state: Arc<State>) -> Result<()> {
     loop {
         let accept_fut = listener.accept();
         let reload_fut = tokio::time::sleep_until(reload_time);
+        let cancelled = run_token.cancelled();
         tokio::select! {
             accept_res = accept_fut => {
                 let (stream, peer_address) = accept_res?;
-                tokio::spawn(
-                    handle_host_client(state.clone(), stream, peer_address, acceptor.clone())
-                );
+                TaskBuilder::new(format!("host_client_{:?}", peer_address))
+                    .shutdown_order(2)
+                    .create(|rt|handle_host_client(state.clone(), rt, stream, peer_address, acceptor.clone()));
             }
             () = reload_fut => {
                 info!("Updating host-server ssl cert");
                 acceptor = load_acceptor()?;
                 reload_time += RELOAD_INTERVAL;
             }
+            () = cancelled => {
+                break
+            }
         }
     }
-    // info!("Host server stopped");
-    // Ok(())
+    info!("Host server stopped");
+    Ok(())
 }

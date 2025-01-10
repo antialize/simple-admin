@@ -3,9 +3,6 @@ name = "simple_admin_server_rs"
 version = "0.1.1"
 edition = "2021"
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
 anyhow = "1"
 axum = {version = "0.8", features = ["ws"]}
@@ -17,7 +14,6 @@ futures = "0.3"
 hex = "0.4.3"
 libc = "0.2"
 log = "0.4"
-neon = {version="1.1.0-alpha.1", features = ["tokio-rt-multi-thread", "serde"]}
 rustls = "0.23.20"
 serde = {version="1", features = ["derive"]}
 serde_json = {version = "1", features = ["float_roundtrip", "preserve_order"]}
@@ -28,7 +24,7 @@ simple_logger = "5"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "chrono"] }
 sqlx-type = "0.4.6"
 tempfile = "3"
-tokio = {version = "1", features = ["process", "rt", "macros", "io-util"]}
+tokio = {version = "1", features = ["process", "rt", "macros", "io-util", "rt-multi-thread", "signal"]}
 tokio-rustls = "0.26.1"
 tokio-tasks = "0.2.1"
 tokio-util = {version = "0.7.13", features = ["io"]}

@@ -10,7 +10,7 @@ use crate::{
 use anyhow::{Context, Result};
 use log::info;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sqlx::Executor;
+use sqlx::{Executor, SqlitePool};
 use sqlx_type::query;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,8 +54,8 @@ pub async fn get_user_content(state: &State, name: &str) -> Result<Option<UserCo
     }
 }
 
-pub async fn setup(state: &State) -> Result<()> {
-    let mut con = state.db.acquire().await?;
+pub async fn setup(db: &SqlitePool) -> Result<i64> {
+    let mut con = db.acquire().await?;
 
     con.execute(
         "CREATE TABLE IF NOT EXISTS `objects` (`id` INTEGER, `version` INTEGER, `type` INTEGER, `name` TEXT, `content` TEXT, `comment` TEXT, `time` INTEGER, `newest` INTEGER)",
@@ -197,17 +197,14 @@ pub async fn setup(state: &State) -> Result<()> {
     // }
 
     let id = query!("SELECT max(`id`) as `id` FROM `objects`")
-        .fetch_optional(&state.db)
+        .fetch_optional(db)
         .await?;
     let next_object_id = i64::max(
         10000,
         id.and_then(|v| v.id).map(|v| v + 1).unwrap_or_default(),
     );
     info!("Db inited next_object_id = {}", next_object_id);
-    state
-        .next_object_id
-        .store(next_object_id, std::sync::atomic::Ordering::SeqCst);
-    Ok(())
+    Ok(next_object_id)
 }
 
 #[derive(Serialize)]
