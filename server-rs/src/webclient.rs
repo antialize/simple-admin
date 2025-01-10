@@ -1,16 +1,18 @@
 use anyhow::{bail, Context, Result};
-use log::{error, info, warn};
-use neon::{
-    event::Channel,
-    handle::{Handle, Root},
-    object::Object,
-    types::{
-        extract::{Boxed, Error, Json},
-        JsObject,
-    },
+use futures::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
 };
+use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use sqlx_type::{query, query_as};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use tokio::net::TcpListener;
 
 use crate::{
     action_types::{
@@ -23,8 +25,8 @@ use crate::{
         IObjectDigest, ISearchRes, ISearchResObject, ISetInitialState, ISetMessagesDismissed,
         ISetPageAction, ISource, ObjectRow, ObjectType,
     },
-    crt,
-    crypt::{self, random_fill},
+    cmpref::CmpRef,
+    crt, crypt,
     db::{self, IV},
     deployment,
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
@@ -33,9 +35,23 @@ use crate::{
     page_types::{IObjectPage, IPage},
     state::State,
     type_types::{
-        IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, TYPE_ID, USER_ID,
+        IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, HOST_ID, TYPE_ID,
+        USER_ID,
     },
+    web_util::{request_logger, ClientIp, WebError},
 };
+use axum::{
+    extract::State as WState,
+    response::{IntoResponse, Response},
+};
+use axum::{
+    extract::{
+        ws::{Message, WebSocket},
+        Query, WebSocketUpgrade,
+    },
+    Json, Router,
+};
+use tokio::sync::Mutex as TMutex;
 
 pub async fn alert_error(
     state: &State,
@@ -57,82 +73,55 @@ pub async fn alert_error(
 }
 
 pub struct WebClient {
-    pub obj: Arc<Root<JsObject>>,
-    channel: Channel,
+    sink: TMutex<SplitSink<WebSocket, Message>>,
+    remote: String,
+    auth: Mutex<IAuthStatus>,
+    // pub obj: Arc<Root<JsObject>>,
+    // channel: Channel,
 }
 
 impl WebClient {
+    pub async fn send_message_str(&self, msg: &str) -> Result<()> {
+        // TODO check run_token
+        let mut sink = self.sink.lock().await;
+        // TODO Add timeout
+        sink.send(Message::Text(msg.into())).await?;
+        // TODO terminate connection on error
+        Ok(())
+    }
+
     pub async fn send_message(&self, msg: IAction) -> Result<()> {
-        let obj = self.obj.clone();
-        self.channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let mut m = h.method(&mut cx, "sendMessage")?;
-                m.this(h)?;
-                m.arg(Json(msg))?;
-                m.exec()?;
-                Ok(())
-            })?
-            .await?;
-        Ok(())
+        let msg = serde_json::to_string(&msg)?;
+        self.send_message_str(&msg).await
     }
 
-    pub async fn get_auth(&self) -> Result<IAuthStatus> {
-        let obj = self.obj.clone();
-        let auth = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let Json(auth): Json<IAuthStatus> = h.prop(&mut cx, "auth").get()?;
-                Ok(auth)
-            })?
-            .await?;
-        Ok(auth)
+    pub fn get_auth(&self) -> IAuthStatus {
+        self.auth.lock().unwrap().clone()
     }
 
-    async fn set_auth(&self, auth: IAuthStatus) -> Result<()> {
-        let obj = self.obj.clone();
-        self.channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                h.prop(&mut cx, "auth").set(Json(auth))?;
-                Ok(())
-            })?
-            .await?;
-        Ok(())
+    fn set_auth(&self, auth: IAuthStatus) -> () {
+        *self.auth.lock().unwrap() = auth;
     }
 
-    async fn get_host(&self) -> Result<String> {
-        let obj = self.obj.clone();
-        let host = self
-            .channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let h = h.prop(&mut cx, "host").get()?;
-                Ok(h)
-            })?
-            .await?;
-        Ok(host)
-    }
-
-    async fn close(&self, code: u16) -> Result<()> {
-        let obj = self.obj.clone();
-        self.channel
-            .try_send(move |mut cx| {
-                let h = obj.to_inner(&mut cx);
-                let c: Handle<JsObject> = h.prop(&mut cx, "connection").get()?;
-                let mut m = c.method(&mut cx, "close")?;
-                m.this(c)?;
-                m.arg(code)?;
-                m.exec()?;
-                Ok(())
-            })?
-            .await?;
-        Ok(())
+    async fn close(&self, _code: u16) -> Result<()> {
+        // let obj = self.obj.clone();
+        // self.channel
+        //     .try_send(move |mut cx| {
+        //         let h = obj.to_inner(&mut cx);
+        //         let c: Handle<JsObject> = h.prop(&mut cx, "connection").get()?;
+        //         let mut m = c.method(&mut cx, "close")?;
+        //         m.this(c)?;
+        //         m.arg(code)?;
+        //         m.exec()?;
+        //         Ok(())
+        //     })?
+        //     .await?;
+        // Ok(())
+        todo!()
     }
 
     async fn handle_generate_key(&self, state: &State, act: IGenerateKey) -> Result<()> {
-        let auth = self.get_auth().await?;
+        let auth = self.get_auth();
         let Some(sslname) = auth.sslname else {
             self.close(403).await?;
             return Ok(());
@@ -180,10 +169,9 @@ impl WebClient {
     }
 
     pub async fn handle_login_inner(&self, state: &State, act: ILogin) -> Result<()> {
-        let mut session = self.get_auth().await?.session;
-        let host: String = self.get_host().await?;
+        let mut session = self.get_auth().session;
         let auth = if let Some(session) = &session {
-            get_auth(state, Some(&host), Some(session)).await?
+            get_auth(state, Some(&self.remote), Some(session)).await?
         } else {
             Default::default()
         };
@@ -226,7 +214,7 @@ impl WebClient {
             .as_secs() as i64;
 
         if !found {
-            self.set_auth(IAuthStatus::default()).await?;
+            self.set_auth(IAuthStatus::default());
             self.send_message(IAction::AuthStatus(IAuthStatus {
                 session,
                 user: Some(act.user),
@@ -242,13 +230,13 @@ impl WebClient {
                         .await?;
                 } else {
                     let mut buf = [0; 64];
-                    random_fill(&mut buf)?;
+                    crypt::random_fill(&mut buf)?;
                     let sid = hex::encode(buf);
                     query!(
                         "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`)
                         VALUES (?, ?, ?, ?, ?)",
                         act.user,
-                        host,
+                        self.remote,
                         None::<i64>,
                         now,
                         sid
@@ -262,8 +250,7 @@ impl WebClient {
                 session: session.clone(),
                 otp,
                 ..Default::default()
-            })
-            .await?;
+            });
             self.send_message(IAction::AuthStatus(IAuthStatus {
                 session,
                 user: Some(act.user),
@@ -290,13 +277,13 @@ impl WebClient {
                 }
             } else {
                 let mut buf = [0; 64];
-                random_fill(&mut buf)?;
+                crypt::random_fill(&mut buf)?;
                 let sid = hex::encode(buf);
                 query!(
                     "INSERT INTO `sessions` (`user`,`host`,`pwd`,`otp`, `sid`)
                     VALUES (?, ?, ?, ?, ?)",
                     act.user,
-                    host,
+                    self.remote,
                     now,
                     now,
                     sid,
@@ -305,11 +292,11 @@ impl WebClient {
                 .await?;
                 session = Some(sid)
             }
-            let auth = get_auth(state, Some(&host), session.as_deref()).await?;
+            let auth = get_auth(state, Some(&self.remote), session.as_deref()).await?;
             if !auth.auth {
                 bail!("Internal auth error");
             }
-            self.set_auth(auth.clone()).await?;
+            self.set_auth(auth.clone());
             self.send_message(IAction::AuthStatus(auth)).await?;
         }
         Ok(())
@@ -343,6 +330,10 @@ impl WebClient {
     pub async fn handle_message(&self, state: &State, act: IAction) -> Result<()> {
         match act {
             IAction::RequestInitialState(_) => {
+                if !self.get_auth().auth {
+                    self.close(403).await?;
+                    return Ok(());
+                };
                 let rows = query_as!(ObjectRow,
                     "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`,
                     strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest` ORDER BY `id`"
@@ -401,9 +392,8 @@ impl WebClient {
                 .context("send_message")?;
             }
             IAction::RequestAuthStatus(act) => {
-                let host = self.get_host().await?;
-                let auth = get_auth(state, Some(&host), act.session.as_deref()).await?;
-                self.set_auth(auth.clone()).await?;
+                let auth = get_auth(state, Some(&self.remote), act.session.as_deref()).await?;
+                self.set_auth(auth.clone());
                 self.send_message(IAction::AuthStatus(auth)).await?;
             }
             IAction::Login(act) => {
@@ -417,16 +407,15 @@ impl WebClient {
                 }
             }
             IAction::Logout(act) => {
-                let host = self.get_host().await?;
-                let auth = self.get_auth().await?;
-                if !self.get_auth().await?.auth {
+                let auth = self.get_auth();
+                if !auth.auth {
                     self.close(403).await?;
                     return Ok(());
                 };
                 let session = auth.session.context("Missing session")?;
                 info!(
                     "logout host:{}, user: {:?}, session: {:?}, forgetPwd: {}, forgetOtp: {}",
-                    host, auth.user, session, act.forget_pwd, act.forget_otp,
+                    self.remote, auth.user, session, act.forget_pwd, act.forget_otp,
                 );
                 if act.forget_pwd {
                     query!("UPDATE `sessions` SET `pwd`=NULL WHERE `sid`=?", session)
@@ -438,12 +427,12 @@ impl WebClient {
                         .execute(&state.db)
                         .await?;
                 }
-                let auth = get_auth(state, Some(&host), Some(&session)).await?;
-                self.set_auth(auth.clone()).await?;
+                let auth = get_auth(state, Some(&self.remote), Some(&session)).await?;
+                self.set_auth(auth.clone());
                 self.send_message(IAction::AuthStatus(auth)).await?;
             }
             IAction::FetchObject(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -466,7 +455,7 @@ impl WebClient {
                 .await?;
             }
             IAction::GetObjectId(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -484,7 +473,7 @@ impl WebClient {
                 .await?;
             }
             IAction::GetObjectHistory(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -510,7 +499,7 @@ impl WebClient {
                 .await?;
             }
             IAction::MessageTextReq(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -522,7 +511,7 @@ impl WebClient {
                 .await?;
             }
             IAction::SetMessagesDismissed(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -555,7 +544,7 @@ impl WebClient {
                 .await?;
             }
             IAction::ResetServerState(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -564,7 +553,7 @@ impl WebClient {
                     .await?;
             }
             IAction::Search(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -599,7 +588,7 @@ impl WebClient {
                 self.handle_generate_key(state, act).await?;
             }
             IAction::SaveObject(act) => {
-                let auth = self.get_auth().await?;
+                let auth = self.get_auth();
                 if !auth.admin {
                     self.close(403).await?;
                     return Ok(());
@@ -663,7 +652,7 @@ impl WebClient {
                 .await?;
             }
             IAction::DeleteObject(act) => {
-                let auth = self.get_auth().await?;
+                let auth = self.get_auth();
                 if !auth.admin {
                     self.close(403).await?;
                     return Ok(());
@@ -725,7 +714,7 @@ impl WebClient {
                 }
             }
             IAction::DockerListImageByHash(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -763,7 +752,7 @@ impl WebClient {
                 .await?;
             }
             IAction::DockerListImageTags(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -808,7 +797,7 @@ impl WebClient {
                 .context("In send message")?;
             }
             IAction::DockerImageSetPin(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -855,7 +844,7 @@ impl WebClient {
                 .await?;
             }
             IAction::DockerImageTagSetPin(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -891,7 +880,7 @@ impl WebClient {
                 .await?;
             }
             IAction::DockerListImageTagHistory(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -929,7 +918,7 @@ impl WebClient {
                 .await?;
             }
             IAction::DockerContainerForget(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -953,56 +942,56 @@ impl WebClient {
                 .await?;
             }
             IAction::ServiceDeployStart(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deploy_service(state, self, act).await?;
             }
             IAction::ServiceRedeployStart(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 redploy_service(state, self, act).await?;
             }
             IAction::DockerListDeployments(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 list_deployments(state, self, act).await?;
             }
             IAction::DockerListDeploymentHistory(act) => {
-                if !self.get_auth().await?.docker_push {
+                if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 list_deployment_history(state, self, act).await?;
             }
             IAction::ModifiedFilesScan(_) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 modified_files::scan(state).await?;
             }
             IAction::ModifiedFilesList(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 modified_files::list(state, self, act).await?;
             }
             IAction::ModifiedFilesResolve(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 modified_files::resolve(state, self, act).await?;
             }
             IAction::DeployObject(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -1012,14 +1001,14 @@ impl WebClient {
                 }
             }
             IAction::CancelDeployment(_) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deployment::cancel(state).await?;
             }
             IAction::StartDeployment(_) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -1028,14 +1017,14 @@ impl WebClient {
                 }
             }
             IAction::StopDeployment(_) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deployment::stop(state).await?
             }
             IAction::ToggleDeploymentObject(act) => {
-                if !self.get_auth().await?.admin {
+                if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -1047,41 +1036,166 @@ impl WebClient {
         }
         Ok(())
     }
-}
 
-#[neon::export(context, name = "webclientHandleMessage")]
-async fn handle_message(
-    ch: Channel,
-    Boxed(state): Boxed<Arc<State>>,
-    obj: Root<JsObject>,
-    Json(act): Json<IAction>,
-) -> Result<(), Error> {
-    let wc = WebClient {
-        obj: Arc::new(obj),
-        channel: ch,
-    };
-    match wc.handle_message(&state, act).await {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            error!("Error in handle_message: {:?}", e);
-            Err(e.into())
+    async fn handle_messages(
+        self: &Arc<Self>,
+        state: &Arc<State>,
+        mut source: SplitStream<WebSocket>,
+    ) -> Result<()> {
+        // TODO we should timeout none authed clients quite quickly
+        while let Some(msg) = source.next().await {
+            match msg? {
+                Message::Text(utf8_bytes) => {
+                    let Ok(act) = serde_json::from_str(utf8_bytes.as_str()) else {
+                        warn!("Invalid message from client {}", self.remote);
+                        continue;
+                    };
+                    let act: IAction = act;
+                    let s = self.clone();
+                    let state = state.clone();
+                    // Todo push the task creation into handle message
+                    tokio::spawn(async move {
+                        if let Err(e) = s.handle_message(&state, act).await {
+                            error!("Error handeling message from {}: {:?}", s.remote, e);
+                        }
+                    });
+                }
+                _ => (), // TODO Should we respond to ping?
+            }
         }
+        Ok(())
     }
 }
 
-pub async fn broadcast(state: &State, msg: IAction) -> Result<()> {
-    let instances = state.instances.clone();
+async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: String) -> Result<()> {
+    let (sink, source) = websocket.split();
+    let webclient = Arc::new(WebClient {
+        remote,
+        sink: TMutex::new(sink),
+        auth: Default::default(),
+    });
     state
-        .ch
-        .try_send(move |mut cx| {
-            let h = instances.to_inner(&mut cx);
-            let wc: Handle<JsObject> = h.prop(&mut cx, "webClients").get()?;
-            let mut m = wc.method(&mut cx, "broadcast")?;
-            m.this(wc)?;
-            m.arg(Json(msg))?;
-            m.exec()?;
-            Ok(())
-        })?
-        .await?;
+        .web_clients
+        .lock()
+        .unwrap()
+        .insert(CmpRef(webclient.clone()));
+
+    webclient.handle_messages(&state, source).await?;
+
+    state.web_clients.lock().unwrap().remove(&CmpRef(webclient));
+
+    Ok(())
+}
+
+pub async fn broadcast(state: &State, msg: IAction) -> Result<()> {
+    let msg = Arc::new(serde_json::to_string(&msg)?);
+    for c in &*state.web_clients.lock().unwrap() {
+        let c = (**c).clone();
+        let msg = msg.clone();
+        tokio::spawn(async move {
+            if let Err(e) = c.send_message_str(&msg).await {
+                error!("Failure broadcasting message to {}: {:?}", c.remote, e);
+            }
+        });
+    }
+    Ok(())
+}
+
+async fn sysadmin_handler(
+    ws: WebSocketUpgrade,
+    WState(state): WState<Arc<State>>,
+    ClientIp(remote): ClientIp,
+) -> Response {
+    ws.on_upgrade(move |socket| async move {
+        if let Err(e) = handle_webclient(socket, state, remote).await {
+            error!("Error in websocket connection: {:?}", e);
+        }
+    })
+}
+
+#[derive(Deserialize)]
+struct StatusHandlerQuery {
+    token: String,
+}
+
+async fn status_handler(
+    WState(state): WState<Arc<State>>,
+    query: Query<StatusHandlerQuery>,
+) -> Result<Json<HashMap<String, bool>>, WebError> {
+    let Some(st) = &state.config.status_token else {
+        return Err(WebError::forbidden());
+    };
+    if !crypt::cost_time_compare(st.as_bytes(), query.token.as_bytes()) {
+        return Err(WebError::forbidden());
+    };
+    let mut ans = HashMap::new();
+    let rows = query!(
+        "SELECT `id`, `name` FROM `objects` WHERE `type` = ? AND `newest`",
+        HOST_ID
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let hcs = state.host_clients.lock().unwrap();
+    for row in rows {
+        ans.insert(row.name, hcs.contains_key(&row.id));
+    }
+    Ok(Json(ans))
+}
+
+async fn metrics_handler(WState(state): WState<Arc<State>>) -> Result<Response, WebError> {
+    let v = msg::get_count(&state).await?;
+    Ok((
+        [("Content-Type", "text/plain; version=0.0.4")],
+        format!("simpleadmin_messages {}\n", v),
+    )
+        .into_response())
+}
+
+#[derive(Serialize)]
+struct MessagesHandlerResult {
+    count: u64,
+}
+async fn messages_handler(
+    WState(state): WState<Arc<State>>,
+) -> Result<Json<MessagesHandlerResult>, WebError> {
+    let rows = query!(
+        "SELECT `id` FROM `objects` WHERE `type` = ? AND `newest`",
+        HOST_ID
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let down_hosts = {
+        let hc = state.host_clients.lock().unwrap();
+        rows.into_iter().filter(|r| hc.contains_key(&r.id)).count()
+    };
+    let msg_cnt = msg::get_count(&state).await?;
+    Ok(Json(MessagesHandlerResult {
+        count: down_hosts as u64 + msg_cnt as u64,
+    }))
+}
+
+pub async fn run_web_clients(state: Arc<State>) -> Result<()> {
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8182));
+
+    use axum::routing::{any, get};
+    let app = Router::new()
+        .route("/sysadmin", any(sysadmin_handler))
+        .route("/status", get(status_handler))
+        .route("/metrics", get(metrics_handler))
+        .route("/messages", get(messages_handler))
+        .layer(axum::middleware::from_fn(request_logger))
+        .with_state(state.clone());
+
+    info!("Web server started on port 8182");
+    let listener = TcpListener::bind(addr).await?;
+
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
+
+    info!("Web server stopped");
+
     Ok(())
 }

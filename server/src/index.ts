@@ -1,6 +1,5 @@
-import { errorHandler } from "./error";
+//import { errorHandler } from "./error";
 import * as instances from "./instances";
-import { WebClients } from "./webclient";
 
 const serverRs = require("simple_admin_server_rs");
 
@@ -11,11 +10,9 @@ async function setup() {
     try {
         await serverRs.setupDb(instances.rs);
     } catch (err) {
-        errorHandler("db")(err);
+        //errorHandler("db")(err);
         process.exit(42);
     }
-    instances.setWebClients(new WebClients());
-    instances.webClients.startServer();
 }
 
 setup();

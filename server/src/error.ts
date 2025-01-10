@@ -1,6 +1,6 @@
-import { webClients } from "./instances";
+//import { webClients } from "./instances";
 import { ACTION, type IAlert } from "./shared/actions";
-import type { WebClient } from "./webclient";
+//import type { WebClient } from "./webclient";
 
 export enum ErrorType {
     Database = 0,
@@ -55,22 +55,22 @@ export function descript(err: any) {
     return { type, typeName, description };
 }
 
-export function errorHandler(place: string, webclient?: WebClient | false) {
-    return (err: any) => {
-        const d = descript(err);
-        console.log(err);
-        console.error(`An error occured in ${place}`, {
-            typename: d.typeName,
-            description: d.description,
-            err,
-        });
-        const res: IAlert = {
-            type: ACTION.Alert,
-            title: `Error: ${d.typeName}`,
-            message: `A ${d.type} error occurned ${place}: \n${d.description}`,
-        };
-        if (webclient === false) {
-        } else if (webclient) webclient.sendMessage(res);
-        else webClients.broadcast(res);
-    };
-}
+// export function errorHandler(place: string, webclient?: WebClient | false) {
+//     return (err: any) => {
+//         const d = descript(err);
+//         console.log(err);
+//         console.error(`An error occured in ${place}`, {
+//             typename: d.typeName,
+//             description: d.description,
+//             err,
+//         });
+//         const res: IAlert = {
+//             type: ACTION.Alert,
+//             title: `Error: ${d.typeName}`,
+//             message: `A ${d.type} error occurned ${place}: \n${d.description}`,
+//         };
+//         if (webclient === false) {
+//         } else if (webclient) webclient.sendMessage(res);
+//         else webClients.broadcast(res);
+//     };
+// }

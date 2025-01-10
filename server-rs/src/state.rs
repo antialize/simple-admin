@@ -1,8 +1,10 @@
+use crate::cmpref::CmpRef;
 use crate::config::{read_config, Config};
 use crate::deployment::Deployment;
 use crate::docker::{docker_prune, Docker};
 use crate::hostclient::{run_host_server, HostClient};
 use crate::modified_files::{modified_files_scan, ModifiedFiles};
+use crate::webclient::{run_web_clients, WebClient};
 use anyhow::{Context, Result};
 use log::LevelFilter;
 use neon::event::Channel;
@@ -12,7 +14,7 @@ use simple_logger::SimpleLogger;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use sqlx::ConnectOptions;
 use sqlx::SqlitePool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Mutex};
@@ -24,14 +26,13 @@ pub struct State {
     pub next_object_id: AtomicI64,
     pub modified_files: Mutex<ModifiedFiles>,
     pub deployment: Mutex<Deployment>,
-    pub ch: Channel,
-    pub instances: Arc<Root<JsObject>>,
     pub docker: Docker,
     pub host_clients: Mutex<HashMap<i64, Arc<HostClient>>>,
+    pub web_clients: Mutex<HashSet<CmpRef<Arc<WebClient>>>>,
 }
 
 impl State {
-    pub async fn new(ch: Channel, instances: Root<JsObject>) -> Result<Arc<State>> {
+    pub async fn new(_: Channel, _: Root<JsObject>) -> Result<Arc<State>> {
         SimpleLogger::new()
             .with_level(LevelFilter::Info)
             .init()
@@ -56,16 +57,15 @@ impl State {
             next_object_id: Default::default(),
             modified_files: Default::default(),
             deployment: Default::default(),
-            ch,
-            instances: Arc::new(instances),
             docker,
             host_clients: Default::default(),
+            web_clients: Default::default(),
         });
 
         tokio::spawn(modified_files_scan(state.clone()));
         tokio::spawn(docker_prune(state.clone()));
         tokio::spawn(run_host_server(state.clone()));
-
+        tokio::spawn(run_web_clients(state.clone()));
         Ok(state)
     }
 }

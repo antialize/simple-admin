@@ -265,7 +265,7 @@ async fn deploy_server_inner2(
     do_template: bool,
 ) -> Result<(), anyhow::Error> {
     info!("service deploy start ref: {:?}", r#ref);
-    let auth = client.get_auth().await.context("get_auth")?;
+    let auth = client.get_auth();
     let user = auth.user.context("Missing user")?;
     let host_variables = db::get_host_variables(state, host_id)
         .await?

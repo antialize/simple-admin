@@ -19,6 +19,7 @@ mod service_description;
 mod state;
 mod type_types;
 mod variabels;
+mod web_util;
 mod webclient;
 
 use action_types::{DockerImageTag, DockerImageTagRow, IAuthStatus, IObject2, ObjectType};
@@ -121,43 +122,6 @@ async fn get_object_content_by_type(
     .fetch_all(&state.db)
     .await?;
     Ok(Json(r))
-}
-
-#[neon::export(name = "insertDockerImage")]
-async fn insert_docker_image(
-    Boxed(state): Boxed<Arc<State>>,
-    project: String,
-    tag: String,
-    manifest: String,
-    hash: String,
-    user: String,
-    time: f64,
-    labels: String,
-) -> Result<f64, Error> {
-    query!(
-        "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
-        project,
-        tag,
-        hash,
-    )
-    .execute(&state.db)
-    .await?;
-    let id = query!(
-        "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`,
-        `user`, `time`, `pin`, `labels`)
-        VALUES (?, ?, ?, ?, ?, ?, false, ?)",
-        project,
-        tag,
-        manifest,
-        hash,
-        user,
-        time,
-        labels,
-    )
-    .execute(&state.db)
-    .await?
-    .last_insert_rowid();
-    Ok(id as f64)
 }
 
 #[neon::export(name = "getImageTagsByProject")]

@@ -435,12 +435,7 @@ f.write(o['content'])
                 state,
                 f.object,
                 Some(&obj),
-                client
-                    .get_auth()
-                    .await?
-                    .user
-                    .as_deref()
-                    .context("Missing user")?,
+                client.get_auth().user.as_deref().context("Missing user")?,
             )
             .await?;
             obj.version = Some(version);
