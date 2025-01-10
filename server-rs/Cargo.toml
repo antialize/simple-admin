@@ -5,29 +5,29 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-axum = {version = "0.8", features = ["ws"]}
+axum = {version = "0.8",  default-features = false, features = ["ws", "tokio", "json", "query", "http1"]}
 base32 = "0.5"
-base64 = "0.22.1"
-bytes = "1.9.0"
-chrono = "0.4.39"
+base64 = "0.22"
+bytes = "1.9"
+chrono = "0.4"
 futures = "0.3"
-hex = "0.4.3"
+hex = "0.4"
 libc = "0.2"
 log = "0.4"
-rustls = "0.23.20"
+rustls = "0.23"
 serde = {version="1", features = ["derive"]}
 serde_json = {version = "1", features = ["float_roundtrip", "preserve_order"]}
-serde_repr = "0.1.19"
-serde_yaml = "0.9.34"
-sha2 = "0.10.8"
+serde_repr = "0.1"
+serde_yaml = "0.9"
+sha2 = "0.10"
 simple_logger = "5"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "chrono"] }
-sqlx-type = "0.4.6"
+sqlx-type = "0.4"
 tempfile = "3"
 tokio = {version = "1", features = ["process", "rt", "macros", "io-util", "rt-multi-thread", "signal"]}
-tokio-rustls = "0.26.1"
-tokio-tasks = "0.2.1"
-tokio-util = {version = "0.7.13", features = ["io"]}
+tokio-rustls = "0.26"
+tokio-tasks = "0.2"
+tokio-util = {version = "0.7", features = ["io"]}
 totp-rs= {version="5", features = ["otpauth"]}
 ts-rs = {version="10", features = ["serde-compat", "chrono-impl", "serde-json-impl"]}
 uuid = {version="1", features = ["v4", "serde"]}
