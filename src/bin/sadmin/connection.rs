@@ -137,13 +137,15 @@ impl Connection {
                 {
                     Ok(msg) => msg,
                     Err(_) => {
-                        self.stream.send(WSMessage::Ping(vec![42, 41])).await?;
+                        self.stream
+                            .send(WSMessage::Ping((&[42, 41]).as_slice().into()))
+                            .await?;
                         continue;
                     }
                 };
             let msg = match msg.context("Expected package")?? {
-                WSMessage::Text(msg) => msg,
-                WSMessage::Binary(msg) => String::from_utf8(msg)?,
+                WSMessage::Text(msg) => msg.into(),
+                WSMessage::Binary(msg) => msg,
                 WSMessage::Ping(v) => {
                     self.stream.send(WSMessage::Pong(v)).await?;
                     continue;
@@ -152,14 +154,14 @@ impl Connection {
                 WSMessage::Close(_) => continue,
                 WSMessage::Frame(_) => continue,
             };
-            match serde_json::from_str(&msg) {
+            match serde_json::from_slice(&msg) {
                 Ok(v) => break Ok(v),
                 Err(e) => eprintln!(
                     "Invalid message: {:?} at {}:{}\n{}",
                     e,
                     e.line(),
                     e.column(),
-                    msg
+                    String::from_utf8_lossy(&msg)
                 ),
             }
         }
