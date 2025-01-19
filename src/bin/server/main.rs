@@ -18,7 +18,6 @@ use tokio_tasks::{run_tasks, shutdown, TaskBuilder};
 
 mod action_types;
 mod arena;
-mod client_message;
 mod cmpref;
 mod config;
 mod crt;
@@ -35,7 +34,6 @@ mod mustache;
 mod ocell;
 mod ordered_json;
 mod page_types;
-mod service_description;
 mod setup;
 mod state;
 mod terminal;

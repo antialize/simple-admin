@@ -207,7 +207,10 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
     if let Some(auth) = auth_header
         .to_str()
         .ok()
-        .and_then(|v| v.strip_prefix("Basic ").or_else(|| v.strip_prefix("token ")))
+        .and_then(|v| {
+            v.strip_prefix("Basic ")
+                .or_else(|| v.strip_prefix("token "))
+        })
         .and_then(|v| BASE64_STANDARD.decode(v).ok())
         .and_then(|v| String::from_utf8(v).ok())
     {
@@ -245,7 +248,12 @@ impl FromRequestParts<Arc<State>> for DockerAuthPull {
     type Rejection = Response;
 
     async fn from_request_parts(parts: &mut Parts, state: &Arc<State>) -> Result<Self, Response> {
-        check_docker_path(parts, state, |a| if a.docker_pull { Some(()) } else { None }).await?;
+        check_docker_path(
+            parts,
+            state,
+            |a| if a.docker_pull { Some(()) } else { None },
+        )
+        .await?;
         Ok(Self)
     }
 }
@@ -299,7 +307,6 @@ pub struct ImagesResult {
     images: Vec<DockerImageTag>,
 }
 
-
 pub async fn images_handler(
     _: DockerAuthPull,
     WState(state): WState<Arc<State>>,
@@ -317,7 +324,7 @@ pub async fn images_handler(
     for row in rows {
         images.push(row.try_into()?);
     }
-    Ok(Json(ImagesResult{images}))
+    Ok(Json(ImagesResult { images }))
 }
 
 #[derive(Deserialize)]

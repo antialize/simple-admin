@@ -11,7 +11,6 @@ use crate::action_types::{
     IToggleDeploymentObject, ObjectRow,
 };
 use crate::arena::Arena;
-use crate::client_message::{RunScriptMessage, RunScriptOutType, RunScriptStdinType};
 use crate::cmpref::CmpRef;
 use crate::hostclient::HostClient;
 use crate::ocell::{OCell, OCellAccess};
@@ -29,6 +28,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use log::{error, info};
+use sadmin2::client_message::{
+    ClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx_type::{query, query_as};
@@ -214,8 +216,29 @@ enum DagNode<'a, M> {
 impl<M> std::fmt::Debug for DagNode<'_, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Sentinal { base, name } => f.debug_struct("Sentinal").field("base", &base.id).field("name", name).finish(),
-            Self::Normal { base, name, triggers, deployment_title, script, content, type_id } => f.debug_struct("Normal").field("base", &base.id).field("name", name).field("triggers", triggers).field("deployment_title", deployment_title).field("script", script).field("content", content).field("type_id", type_id).finish(),
+            Self::Sentinal { base, name } => f
+                .debug_struct("Sentinal")
+                .field("base", &base.id)
+                .field("name", name)
+                .finish(),
+            Self::Normal {
+                base,
+                name,
+                triggers,
+                deployment_title,
+                script,
+                content,
+                type_id,
+            } => f
+                .debug_struct("Normal")
+                .field("base", &base.id)
+                .field("name", name)
+                .field("triggers", triggers)
+                .field("deployment_title", deployment_title)
+                .field("script", script)
+                .field("content", content)
+                .field("type_id", type_id)
+                .finish(),
         }
     }
 }
@@ -1255,35 +1278,33 @@ async fn deploy_single(
     content: Value,
 ) -> Result<()> {
     let mut jh = host_client
-        .start_job(&crate::client_message::ClientMessage::RunScript(
-            RunScriptMessage {
-                id: host_client.next_job_id(),
-                name: "deploy.py".to_string(),
-                interperter: "/usr/bin/python3".to_string(),
-                content: script,
-                args: vec![],
-                input_json: Some(content),
-                stdin_type: Some(RunScriptStdinType::GivenJson),
-                stdout_type: Some(RunScriptOutType::Binary),
-                stderr_type: Some(RunScriptOutType::Binary),
-            },
-        ))
+        .start_job(&ClientMessage::RunScript(RunScriptMessage {
+            id: host_client.next_job_id(),
+            name: "deploy.py".to_string(),
+            interperter: "/usr/bin/python3".to_string(),
+            content: script,
+            args: vec![],
+            input_json: Some(content),
+            stdin_type: Some(RunScriptStdinType::GivenJson),
+            stdout_type: Some(RunScriptOutType::Binary),
+            stderr_type: Some(RunScriptOutType::Binary),
+        }))
         .await?;
     loop {
         let msg = jh.next_message().await?.context("Host went away")?;
         match msg {
-            crate::client_message::ClientMessage::Failure(msg) => {
+            ClientMessage::Failure(msg) => {
                 jh.done();
                 bail!("Command failed {:?}", msg.failure_type);
             }
-            crate::client_message::ClientMessage::Success(msg) => {
+            ClientMessage::Success(msg) => {
                 jh.done();
                 if msg.code == Some(0) {
                     return Ok(());
                 }
                 bail!("Command failed with code {:?}", msg.code)
             }
-            crate::client_message::ClientMessage::Data(msg) => {
+            ClientMessage::Data(msg) => {
                 mut_deployment(state, move |deployment| {
                     let data = msg.data.as_str().context("Expected string")?;
                     let line = String::from_utf8(BASE64_STANDARD.decode(data)?)?;

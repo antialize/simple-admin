@@ -9,11 +9,13 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+use sadmin2::client_message;
+use sadmin2::service_description::{Bind, ServiceDescription, ServiceMetrics, ServiceType};
+
 use crate::{
     client_daemon::{self, SERVICE_ORDER},
-    client_message, persist_daemon,
+    persist_daemon,
     service_control::DaemonControlMessage,
-    service_description::{Bind, ServiceMetrics, ServiceType},
     tokio_passfd::MyAsFd,
 };
 
@@ -33,8 +35,6 @@ use tokio::{
     net::UnixStream,
 };
 use tokio_tasks::{cancelable, RunToken, Task, TaskBase, TaskBuilder};
-
-use crate::service_description::ServiceDescription;
 
 const SERVICES_BUF_SIZE: usize = 1024 * 64;
 

@@ -11,12 +11,12 @@ use axum::{
 use base64::{prelude::BASE64_STANDARD, Engine};
 use futures::{pin_mut, select, FutureExt, SinkExt, StreamExt};
 use log::error;
+use sadmin2::client_message::{
+    ClientMessage, DataMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
+};
 use serde::Deserialize;
 
 use crate::{
-    client_message::{
-        ClientMessage, DataMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
-    },
     get_auth::get_auth,
     hostclient::HostClient,
     state::State,

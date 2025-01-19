@@ -80,13 +80,20 @@ pub struct WebClient {
     sink: TMutex<SplitSink<WebSocket, Message>>,
     remote: String,
     auth: Mutex<IAuthStatus>,
-    run_token: RunToken
+    run_token: RunToken,
 }
 
 impl WebClient {
     pub async fn send_message_str(&self, msg: &str) -> Result<()> {
         let mut sink = cancelable(&self.run_token, self.sink.lock()).await?;
-        cancelable(&self.run_token, tokio::time::timeout(Duration::from_secs(60),sink.send(Message::Text(msg.into())))).await???;
+        cancelable(
+            &self.run_token,
+            tokio::time::timeout(
+                Duration::from_secs(60),
+                sink.send(Message::Text(msg.into())),
+            ),
+        )
+        .await???;
         Ok(())
     }
 
@@ -104,11 +111,23 @@ impl WebClient {
     }
 
     async fn close(&self, code: u16) -> Result<()> {
-        if let Ok(Ok(mut sink)) = cancelable(&self.run_token,tokio::time::timeout(Duration::from_secs(10), self.sink.lock())).await {
-            let _ = cancelable(&self.run_token, tokio::time::timeout(Duration::from_secs(10),sink.send(Message::Close(Some(CloseFrame{
-                code,
-                reason: "".into(),
-            }))))).await;
+        if let Ok(Ok(mut sink)) = cancelable(
+            &self.run_token,
+            tokio::time::timeout(Duration::from_secs(10), self.sink.lock()),
+        )
+        .await
+        {
+            let _ = cancelable(
+                &self.run_token,
+                tokio::time::timeout(
+                    Duration::from_secs(10),
+                    sink.send(Message::Close(Some(CloseFrame {
+                        code,
+                        reason: "".into(),
+                    }))),
+                ),
+            )
+            .await;
             let _ = sink.close().await;
         }
         self.run_token.cancel();
@@ -1037,7 +1056,7 @@ impl WebClient {
                 Ok(Some(Ok(v))) => v,
                 Ok(Some(Err(e))) => Err(e).context("Failure to read client message")?,
                 Ok(None) => break,
-                Err(_) => break
+                Err(_) => break,
             };
             match msg {
                 Message::Text(utf8_bytes) => {
@@ -1052,8 +1071,10 @@ impl WebClient {
                     TaskBuilder::new("handle_message")
                         .shutdown_order(0)
                         .create(|rt| async move {
-                        s.handle_message(&state, rt, act).await.with_context(|| format!("Error handeling message from {}", s.remote))
-                    });
+                            s.handle_message(&state, rt, act).await.with_context(|| {
+                                format!("Error handeling message from {}", s.remote)
+                            })
+                        });
                 }
                 _ => (), // TODO Should we respond to ping?
             }
@@ -1069,7 +1090,7 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
         remote,
         sink: TMutex::new(sink),
         auth: Default::default(),
-        run_token
+        run_token,
     });
     state
         .web_clients
@@ -1181,12 +1202,9 @@ pub async fn run_web_clients(state: Arc<State>, run_token: RunToken) -> Result<(
         .route("/status", get(status_handler))
         .route("/metrics", get(metrics_handler))
         .route("/messages", get(messages_handler))
-        .route(
-            "/docker/images/{project}",
-            get(docker_web::images_handler),
-        )
+        .route("/docker/images/{project}", get(docker_web::images_handler))
         .route("/usedImages", post(docker_web::used_images))
-	.route("/setup.sh", get(setup::setup))
+        .route("/setup.sh", get(setup::setup))
         .nest("/v2/", docker_web::docker_api_routes()?)
         .layer(axum::middleware::from_fn(request_logger))
         .with_state(state.clone());

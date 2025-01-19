@@ -19,8 +19,6 @@ use upgrade::{Setup, Upgrade};
 mod client_daemon;
 #[cfg(feature = "daemon")]
 mod client_daemon_service;
-#[cfg(feature = "daemon")]
-mod client_message;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
@@ -35,8 +33,6 @@ mod run;
 #[cfg(feature = "daemon")]
 mod service_control;
 mod service_deploy;
-#[cfg(feature = "daemon")]
-mod service_description;
 #[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;

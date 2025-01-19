@@ -23,11 +23,12 @@ use tokio::{
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 use tokio_tasks::{cancelable, RunToken, TaskBuilder};
 
+use sadmin2::client_message::{
+    ClientMessage, RunInstantMessage, RunInstantStdinOutputType, RunInstantStdinType,
+};
+
 use crate::{
     action_types::{IAction, IHostDown, IHostUp},
-    client_message::{
-        ClientMessage, RunInstantMessage, RunInstantStdinOutputType, RunInstantStdinType,
-    },
     crt, crypt, db,
     state::State,
     type_types::HOST_ID,
@@ -385,8 +386,9 @@ async fn handle_host_client(
 ) -> Result<()> {
     let stream = cancelable(
         &run_token,
-        tokio::time::timeout(
-            Duration::from_secs(2),acceptor.accept(stream))).await???;
+        tokio::time::timeout(Duration::from_secs(2), acceptor.accept(stream)),
+    )
+    .await???;
 
     info!("Client connected {:?}", peer_address);
     let (mut reader, writer) = tokio::io::split(stream);

@@ -12,7 +12,7 @@ use std::{
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::client_daemon::CONTROL_SOCKET_PATH;
-use crate::service_description::ServiceDescription;
+use sadmin2::service_description::ServiceDescription;
 
 /// Start the given stopped service
 ///
