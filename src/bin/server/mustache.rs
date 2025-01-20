@@ -14,17 +14,29 @@ pub fn render<'a, 'b, 'c>(
     }
     let mut template = template;
     let mut res = String::with_capacity(template.len() + 1024);
-    while let Some((before, after)) = template.split_once("{{") {
+    let mut start_delim = "{{";
+    let mut end_delim = "}}";
+    while let Some((before, after)) = template.split_once(start_delim) {
         res.push_str(before);
-        // Magic sequency to stop template parsing
-        if let Some(after) = after.strip_prefix("={| |}=}}") {
-            template = after;
-            break;
+
+        if let Some(after) = after.strip_prefix('=') {
+            let (mid, rem) = after.split_once(end_delim).context("Unbalanced")?;
+            let Some(mid) = mid.strip_suffix("=") else {
+                bail!("Missing = at end of delim change");
+            };
+            let (sd, ed) = mid
+                .split_once(" ")
+                .context("Missing ' ' in delimiter change")?;
+            start_delim = sd;
+            end_delim = ed;
+            template = rem;
+            continue;
         }
+
         let (var, after) = if let Some(after) = after.strip_prefix('{') {
             after.split_once("}}}").context("Unbalanced")?
         } else {
-            after.split_once("}}").context("Unbalanced")?
+            after.split_once(end_delim).context("Unbalanced")?
         };
         let v = inner_variables
             .get(var)
@@ -43,4 +55,27 @@ pub fn render<'a, 'b, 'c>(
     }
     res.push_str(template);
     Ok(res.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mustash() {
+        let mut vars = HashMap::new();
+        vars.insert("a".into(), "AA".into());
+        vars.insert("b".into(), "BB".into());
+        vars.insert("c".into(), "CC".into());
+        assert_eq!(
+            render(
+                "Hello {{{a}}} {{=<% %>=}} <%b%> {{kat}} <%={{ }}=%> {{c}}",
+                None,
+                &vars,
+                true
+            )
+            .unwrap(),
+            "Hello AA  BB {{kat}}  CC"
+        );
+    }
 }
