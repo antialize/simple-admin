@@ -187,7 +187,6 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
     cb: F,
 ) -> Result<T, Response> {
     let Some(auth_header) = parts.headers.get("Authorization") else {
-        // TODO Jakobt check content type ("Content-Type", "application/json; charset=utf-8"
         return Err((
             StatusCode::UNAUTHORIZED,
             [(
@@ -224,7 +223,6 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
             }
         }
     }
-    // TODO Jakobt check content type ("Content-Type", "application/json; charset=utf-8"
     return Err((
         StatusCode::FORBIDDEN,
         [(
@@ -711,7 +709,7 @@ async fn put_manifest(
     };
     #[derive(Deserialize)]
     struct ConfigConfig {
-        #[serde(default)]
+        #[serde(default, alias = "Labels")]
         labels: HashMap<String, String>,
     }
 
