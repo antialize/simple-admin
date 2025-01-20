@@ -551,9 +551,15 @@ impl<'a, M> Visitor<'a, M> {
         prefix: &mut Vec<i64>,
         vars: &mut Variables<'a>,
     ) -> Result<NodePair<'a, M>> {
-        let l = prefix.iter().map(|v| num_len(*v) + 1).sum::<usize>() + num_len(id);
+        let l = prefix.iter().map(|v| num_len(*v) + 1).sum::<usize>()
+            + num_len(id)
+            + (if prefix.is_empty() { 1 } else { 0 });
         let name = self.string_arena.alloc_slice_repeated(access, 0, l);
         let mut nw = &mut *name;
+        if prefix.is_empty() {
+            // To match old behaivour
+            write!(&mut nw, ".")?;
+        }
         for v in prefix.iter() {
             write!(&mut nw, "{}.", v).context("num_len failed 1")?;
         }
@@ -634,9 +640,11 @@ impl<'a, M> Visitor<'a, M> {
             self.add_variabels(vars, obj);
         }
         if let Some(nv) = &type_content.name_variable {
-            if let Err(e) = vars.add_str(nv.as_str(), &obj.name) {
-                self.errors
-                    .push(format!("Failed to add varible {}: {:?}", nv, e));
+            if !nv.is_empty() {
+                if let Err(e) = vars.add_str(nv.as_str(), &obj.name) {
+                    self.errors
+                        .push(format!("Failed to add varible {}: {:?}", nv, e));
+                }
             }
         }
         let mut v = self.visit_content(access, &obj.name, &obj.content, type_content, vars)?;
@@ -1466,10 +1474,10 @@ async fn perform_deploy(state: &State) -> Result<()> {
             .await?;
             for row in res {
                 let c: IDeployContent = serde_json::from_str(&row.content)?;
-                host_objects.entry(row.r#type).or_default().insert(
-                    row.name,
-                    Value::Object(c.content.context("Missing content")?),
-                );
+                host_objects
+                    .entry(row.r#type)
+                    .or_default()
+                    .insert(row.name, Value::Object(c.content.unwrap_or_default()));
             }
         }
 
