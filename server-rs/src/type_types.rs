@@ -45,7 +45,9 @@ pub struct IPasswordTypeProp {
 pub struct IDocumentTypeProp {
     pub title: String,
     pub name: String,
+    #[serde(default)]
     pub lang_name: String,
+    #[serde(default)]
     pub lang: String,
     #[serde(default)]
     pub description: String,
