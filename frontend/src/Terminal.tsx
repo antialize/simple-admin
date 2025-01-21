@@ -30,8 +30,12 @@ class Connection {
         this.socket = socket;
         let buffer: string[] | null = [];
 
-        socket.onmessage = (msg) => {
-            term.write(msg.data);
+        socket.onmessage = async (msg) => {
+            if (msg.data instanceof Blob) {
+                term.write(await (msg.data as any).bytes());
+            } else {
+                term.write(msg.data);
+            }
         };
 
         socket.onopen = () => {
@@ -119,7 +123,9 @@ export default function HostTerminals(props: { id: number }) {
 
         return () => {
             if (conn.term.element) {
-                div?.removeChild(conn.term.element);
+                try {
+                    div?.removeChild(conn.term.element);
+                } catch {}
             }
             window.clearInterval(interval);
         };
@@ -164,7 +170,7 @@ export default function HostTerminals(props: { id: number }) {
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: Should only run once
     useEffect(() => {
-        if (Object.keys(info.connections).length === 0) newTerminal();
+        if (info.connections.size === 0) newTerminal();
     }, []);
 
     const reset = () => {
@@ -188,7 +194,7 @@ export default function HostTerminals(props: { id: number }) {
         }
     };
 
-    const ids = Object.keys(names).map((v) => +v);
+    const ids = Array.from(names.keys());
     ids.sort((a, b) => a - b);
     const terms: JSX.Element[] = ids.map((id) => {
         const style: React.CSSProperties = { margin: 4 };
