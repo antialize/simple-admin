@@ -396,7 +396,7 @@ async fn handle_host_client(
     )
     .await???;
 
-    info!("Client connected {:?}", peer_address);
+    info!("Host connected {:?}", peer_address);
     let (mut reader, writer) = tokio::io::split(stream);
     let mut buf = BytesMut::with_capacity(1024 * 128);
     let (id, hostname) = match cancelable(
@@ -410,23 +410,25 @@ async fn handle_host_client(
     {
         Ok(Ok(Ok(id))) => id,
         Ok(Ok(Err(e))) => {
-            warn!("Client auth error for {:?}: {:?}", peer_address, e);
+            warn!("Host auth error for {:?}: {:?}", peer_address, e);
             return Ok(());
         }
         Ok(Err(_)) => {
-            warn!("Client auth timeout for {:?}", peer_address);
+            warn!("Host auth timeout for {:?}", peer_address);
             return Ok(());
         }
         Err(_) => return Ok(()),
     };
-    info!("Client authorized {:?} {} ({})", peer_address, hostname, id);
+    info!("Host authorized {:?} {} ({})", peer_address, hostname, id);
+
+    let j: u32 = rand::thread_rng().gen();
 
     let hc = Arc::new(HostClient {
         id,
         hostname,
         writer: TMutex::new(writer),
         job_sinks: Default::default(),
-        next_job_id: Default::default(),
+        next_job_id: AtomicU64::new(j as u64),
         run_token: run_token.clone(),
         killed_jobs: Default::default(),
     });
