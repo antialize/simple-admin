@@ -45,12 +45,13 @@ use webclient::run_web_clients;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> Result<()> {
-    let _ = rustls::crypto::CryptoProvider::install_default(
-        rustls::crypto::aws_lc_rs::default_provider(),
-    );
+    tokio_rustls::rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
 
     SimpleLogger::new()
         .with_level(LevelFilter::Info)
+        .with_local_timestamps()
         .init()
         .unwrap();
 
