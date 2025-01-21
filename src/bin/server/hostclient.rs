@@ -66,10 +66,10 @@ impl Drop for JobHandle {
 
 pub struct HostClient {
     id: i64,
-    addr: SocketAddr,
     hostname: String,
     writer: TMutex<tokio::io::WriteHalf<TlsStream<TcpStream>>>,
     job_sinks: Mutex<HashMap<u64, UnboundedSender<ClientMessage>>>,
+    killed_jobs: Mutex<HashSet<u64>>,
     next_job_id: AtomicU64,
     run_token: RunToken,
 }
@@ -139,8 +139,13 @@ impl HostClient {
         Ok(())
     }
 
-    pub fn spawn_kill_job(self: Arc<Self>, id: u64) {
-        tokio::spawn(self.kill_job(id));
+    pub fn spawn_kill_job(self: Arc<Self>, id: u64) -> bool {
+        if self.killed_jobs.lock().unwrap().insert(id) {
+            tokio::spawn(self.kill_job(id));
+            true
+        } else {
+            false
+        }
     }
 
     async fn handle_messages(
@@ -189,9 +194,8 @@ impl HostClient {
                                         if let Err(e) = job.send(msg) {
                                             error!("Unable to handle job message: {:?}", e);
                                         }
-                                    } else {
-                                        error!("Got message from unknown job {}", id);
-                                        self.clone().spawn_kill_job(id);
+                                    } else if self.clone().spawn_kill_job(id) {
+                                        error!("Got message from unknown job {} on host {}", id, self.hostname);
                                     }
                                 }
                             }
@@ -418,12 +422,12 @@ async fn handle_host_client(
 
     let hc = Arc::new(HostClient {
         id,
-        addr: peer_address,
         hostname,
         writer: TMutex::new(writer),
         job_sinks: Default::default(),
         next_job_id: Default::default(),
         run_token: run_token.clone(),
+        killed_jobs: Default::default(),
     });
     if let Some(c) = state.host_clients.lock().unwrap().insert(id, hc.clone()) {
         c.run_token.cancel();
