@@ -91,14 +91,25 @@ pub struct WebClient {
 impl WebClient {
     pub async fn send_message_str(&self, msg: &str) -> Result<()> {
         let mut sink = cancelable(&self.run_token, self.sink.lock()).await?;
-        cancelable(
+        match cancelable(
             &self.run_token,
             tokio::time::timeout(
                 Duration::from_secs(60),
                 sink.send(Message::Text(msg.into())),
             ),
         )
-        .await???;
+        .await
+        {
+            Ok(Ok(Ok(()))) => (),
+            Ok(Ok(Err(e))) => {
+                Err(e).context(format!("Failure sending message to client {}", self.remote))?
+            }
+            Ok(Err(_)) => {
+                self.run_token.cancel();
+                bail!("Timeout sending message to client {}", self.remote);
+            }
+            Err(_) => (),
+        }
         Ok(())
     }
 
@@ -1122,10 +1133,10 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
         .unwrap()
         .insert(CmpRef(webclient.clone()));
 
-    webclient.handle_messages(&state, source).await?;
+    let e = webclient.handle_messages(&state, source).await;
     info!("Web client disconnected {}", webclient.remote);
     state.web_clients.lock().unwrap().remove(&CmpRef(webclient));
-
+    e?;
     Ok(())
 }
 
