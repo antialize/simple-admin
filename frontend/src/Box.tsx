@@ -6,14 +6,20 @@ function Box({
     collapsable,
     expanded,
     children,
+    onChange,
 }: {
     title: React.ReactNode;
     collapsable?: boolean;
     expanded?: boolean;
     children?: React.ReactNode;
+    onChange?: (event: React.SyntheticEvent, expanded: boolean) => void;
 }): JSX.Element {
     return (
-        <Accordion defaultExpanded={!collapsable || expanded} style={{ marginBottom: "20px" }}>
+        <Accordion
+            defaultExpanded={!collapsable || expanded}
+            style={{ marginBottom: "20px" }}
+            onChange={onChange}
+        >
             <AccordionSummary>
                 <Typography variant="h5" component="h4">
                     {title}
