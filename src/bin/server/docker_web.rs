@@ -17,6 +17,7 @@ use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use futures::StreamExt;
 use log::info;
+use sadmin2::finite_float::ToFinite;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use sha2::Sha256;
@@ -27,7 +28,7 @@ use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 use crate::action_types::{
-    DockerImageTag, DockerImageTagRow, IAction, IAuthStatus, IDockerImageTagsCharged,
+    DockerImageTag, DockerImageTagRow, IAuthStatus, IDockerListImageTagsCharged, IServerAction,
 };
 use crate::crypt::cost_time_compare;
 use crate::docker::DOCKER_BLOBS_PATH;
@@ -767,13 +768,13 @@ async fn put_manifest(
 
     webclient::broadcast(
         &state,
-        IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+        IServerAction::DockerListImageTagsChanged(IDockerListImageTagsCharged {
             changed: vec![DockerImageTag {
                 id,
                 image: name.clone(),
                 tag: reference,
                 hash: hash.clone(),
-                time,
+                time: time.to_finite().to_api_error("Invalid float")?,
                 user,
                 pin: false,
                 labels: config.config.labels,

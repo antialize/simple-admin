@@ -1,12 +1,13 @@
 use anyhow::{bail, Context, Result};
 use bytes::{Buf, BytesMut};
 use log::{error, info, warn};
+use rand::Rng;
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
 use serde_json::Value;
 use sqlx_type::query;
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{hash_map::Entry, HashMap, HashSet},
     net::SocketAddr,
     sync::{atomic::AtomicU64, Arc, Mutex, Weak},
     time::Duration,
@@ -28,12 +29,12 @@ use sadmin2::client_message::{
 };
 
 use crate::{
-    action_types::{IAction, IHostDown, IHostUp},
+    action_types::{IHostDown, IHostUp, IServerAction},
     crt, crypt, db,
     state::State,
-    type_types::HOST_ID,
     webclient,
 };
+use sadmin2::type_types::HOST_ID;
 
 pub struct JobHandle {
     client: Weak<HostClient>,
@@ -428,7 +429,7 @@ async fn handle_host_client(
         c.run_token.cancel();
     }
 
-    webclient::broadcast(&state, IAction::HostUp(IHostUp { id }))?;
+    webclient::broadcast(&state, IServerAction::HostUp(IHostUp { id }))?;
 
     if let Err(e) = hc.clone().handle_messages(state.clone(), reader, buf).await {
         error!("Error handeling host client messages: {:?}", e);
@@ -440,9 +441,9 @@ async fn handle_host_client(
         }
     }
 
-    webclient::broadcast(&state, IAction::HostDown(IHostDown { id }))?;
+    webclient::broadcast(&state, IServerAction::HostDown(IHostDown { id }))?;
 
-    info!("Client disconnected {:?}", peer_address);
+    info!("Host disconnected {:?}", peer_address);
     Ok(())
 }
 

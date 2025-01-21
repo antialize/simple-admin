@@ -1,1 +1,0 @@
-../../src/bin/sadmin/client_message.rs

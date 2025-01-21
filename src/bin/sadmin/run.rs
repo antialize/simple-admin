@@ -1,15 +1,13 @@
 use anyhow::{bail, Result};
 use futures_util::{SinkExt, StreamExt};
+use sadmin2::action_types::{IClientAction, IRequestInitialState, IServerAction, ObjectType};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::signal;
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 
-use crate::{
-    connection::{Config, Connection},
-    message::Message,
-};
+use crate::connection::{Config, Connection};
 
 /// Deauthenticate your user
 #[derive(clap::Parser)]
@@ -42,22 +40,21 @@ async fn connect(
     let mut c = Connection::open(config, false).await?;
     c.prompt_auth().await?;
 
-    c.send(&Message::RequestInitialState {}).await?;
+    c.send(&IClientAction::RequestInitialState(IRequestInitialState {}))
+        .await?;
 
     let state = loop {
-        if let Message::SetInitialState(s) = c.recv().await? {
+        if let IServerAction::SetInitialState(s) = c.recv().await? {
             break s;
         }
     };
 
     let mut host_id = None;
-    if let Some(v) = state.object_names_and_ids.get("2") {
+    if let Some(v) = state.object_names_and_ids.get(&ObjectType::Id(2)) {
         for obj in v {
-            if let Some(name) = &obj.name {
-                if name == &host {
-                    host_id = Some(obj.id);
-                    break;
-                }
+            if obj.name == host {
+                host_id = Some(obj.id);
+                break;
             }
         }
     }

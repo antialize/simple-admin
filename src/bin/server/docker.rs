@@ -1,19 +1,23 @@
 use crate::{
     action_types::{
-        DockerDeployment, DockerImageTag, DockerImageTagRow, IAction, IAddDeploymentLog,
-        IDockerDeployDone, IDockerDeploymentsChanged, IDockerListDeploymentHistory,
-        IDockerListDeploymentHistoryRes, IDockerListDeployments, IDockerListDeploymentsRes,
-        IServiceDeployStart, IServiceRedeployStart, Ref,
+        DockerDeployment, DockerImageTag, DockerImageTagRow, IDockerDeployEnd,
+        IDockerDeploymentsChanged, IDockerListDeploymentHistory, IDockerListDeploymentHistoryRes,
+        IDockerListDeployments, IDockerListDeploymentsRes, IServerAction, IServiceDeployStart,
+        IServiceRedeployStart, Ref,
     },
     crt, crypt, db,
     state::State,
     webclient::{self, WebClient},
 };
 
-use sadmin2::client_message::{
-    ClientMessage, DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage,
-};
 use sadmin2::service_description::{ServiceDescription, Subcert};
+use sadmin2::{
+    action_types::IDockerDeployLog,
+    client_message::{
+        ClientMessage, DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage,
+    },
+    finite_float::ToFinite,
+};
 
 use anyhow::{bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
@@ -252,12 +256,16 @@ fn row_to_deployment(row: DockerDeploymentRow) -> Result<DockerDeployment> {
         hash: Some(row.hash), // TODO
         name: row.container.clone(),
         host: row.host,
-        start: row.startTime as f64,        //TODO
-        end: row.endTime.map(|v| v as f64), // TODO
+        start: (row.startTime as f64).to_finite()?, // TODO
+        end: row.endTime.map(|v| v as f64).to_finite()?, // TODO
         user: row.user.unwrap_or_default(),
         state: None,
         config: row.config.unwrap_or_default(), //TODO
-        timeout: row.timeout.map(|v| v as f64).unwrap_or_default(), // TODO
+        timeout: row
+            .timeout
+            .map(|v| v as f64)
+            .unwrap_or_default()
+            .to_finite()?, // TODO
         use_podman: row.usePodman,
         service: row.service,
         image_info: Some(itr.try_into()?),
@@ -493,8 +501,9 @@ async fn deploy_server_inner3(
         match jh.next_message().await? {
             Some(ClientMessage::Data(DataMessage { data, .. })) => {
                 client
-                    .send_message(IAction::AddDeploymentLog(IAddDeploymentLog {
-                        bytes: data.to_string(), //TODO Buffer.from(obj.data, "base64").toString("binary")
+                    .send_message(IServerAction::DockerDeployLog(IDockerDeployLog {
+                        r#ref: r#ref.clone(),
+                        message: data.to_string(), //TODO Buffer.from(obj.data, "base64").toString("binary")
                     }))
                     .await?;
             }
@@ -559,10 +568,10 @@ async fn deploy_server_inner3(
     .context("Query 3")?
     .last_insert_rowid();
     client
-        .send_message(IAction::DockerDeployDone(IDockerDeployDone {
+        .send_message(IServerAction::DockerDeployEnd(IDockerDeployEnd {
             r#ref,
             status: true,
-            message: Some("Success".into()),
+            message: "Success".into(),
             id: Some(id2),
         }))
         .await?;
@@ -574,19 +583,19 @@ async fn deploy_server_inner3(
         hash: Some(hash),
         name: name.clone(),
         user: user.clone(),
-        start: now as f64,
+        start: (now as f64).to_finite()?,
         end: None,
         host: host_id,
         state: None,
-        config: "".to_string(), // TODO
-        timeout: 0.0,           // TODO
+        config: "".to_string(),    // TODO
+        timeout: 0.0.to_finite()?, // TODO
         use_podman: false,
         service: true,
     };
 
     webclient::broadcast(
         state,
-        IAction::DockerDeploymentsChanged(IDockerDeploymentsChanged {
+        IServerAction::DockerDeploymentsChanged(IDockerDeploymentsChanged {
             changed: vec![o],
             removed: vec![],
         }),
@@ -637,10 +646,10 @@ pub async fn redploy_service(
     if let Err(e) = redploy_service_inner(state, client, act).await {
         error!("Service redeployment failed: {:?}", e);
         client
-            .send_message(IAction::DockerDeployDone(IDockerDeployDone {
+            .send_message(IServerAction::DockerDeployEnd(IDockerDeployEnd {
                 r#ref,
                 status: false,
-                message: Some(format!("Deployment failed {}", e)),
+                message: format!("Deployment failed {}", e),
                 id: None,
             }))
             .await?;
@@ -680,10 +689,10 @@ pub async fn deploy_service(
     {
         error!("Service deployment failed: {:?}", e);
         client
-            .send_message(IAction::DockerDeployDone(IDockerDeployDone {
+            .send_message(IServerAction::DockerDeployEnd(IDockerDeployEnd {
                 r#ref: act.r#ref,
                 status: false,
-                message: Some(format!("Deployment failed {}", e)),
+                message: format!("Deployment failed {}", e),
                 id: None,
             }))
             .await?;
@@ -763,7 +772,7 @@ pub async fn list_deployments(
     }
 
     client
-        .send_message(IAction::DockerListDeploymentsRes(
+        .send_message(IServerAction::DockerListDeploymentsRes(
             IDockerListDeploymentsRes {
                 r#ref: act.r#ref,
                 deployments,
@@ -808,7 +817,7 @@ pub async fn list_deployment_history(
         deployments.push(row_to_deployment(row)?);
     }
     client
-        .send_message(IAction::DockerListDeploymentHistoryRes(
+        .send_message(IServerAction::DockerListDeploymentHistoryRes(
             IDockerListDeploymentHistoryRes {
                 r#ref: act.r#ref,
                 host: act.host,

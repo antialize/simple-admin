@@ -9,14 +9,15 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::{
-    action_types::{IAction, IObject2, IObjectChanged},
+    action_types::{IObject2, IObjectChanged, IServerAction},
     crypt,
     db::{self, IV},
     state::State,
-    type_types::HOST_ID,
     web_util::WebError,
     webclient,
 };
+
+use sadmin2::type_types::HOST_ID;
 
 #[derive(Deserialize)]
 pub struct SetupQuery {
@@ -53,7 +54,7 @@ pub async fn setup(
 
     webclient::broadcast(
         &state,
-        IAction::ObjectChanged(IObjectChanged {
+        IServerAction::ObjectChanged(IObjectChanged {
             id,
             object: vec![ho],
         }),

@@ -4,7 +4,11 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use ts_rs::TS;
 
-use crate::{page_types::IPage, type_types::ValueMap};
+use crate::{
+    finite_float::{FiniteF64, ToFinite},
+    page_types::IPage,
+    type_types::ValueMap,
+};
 
 fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     Ok(match serde_json::Value::deserialize(d)? {
@@ -110,7 +114,7 @@ pub struct IObject2<T: Clone> {
     pub version: Option<i64>,
     pub comment: String,
     pub author: Option<String>,
-    pub time: Option<f64>,
+    pub time: Option<FiniteF64>,
 }
 
 impl<T: Clone + DeserializeOwned> TryFrom<ObjectRow> for IObject2<T> {
@@ -130,11 +134,18 @@ impl<T: Clone + DeserializeOwned> TryFrom<ObjectRow> for IObject2<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize, Deserialize, Clone, Debug, TS, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Ref {
     Number(i64),
     String(String),
+}
+
+impl Ref {
+    pub fn random() -> Ref {
+        use rand::Rng;
+        Ref::Number(rand::thread_rng().gen_range(0..(1 << 48)))
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -165,7 +176,7 @@ pub struct IMessage {
     pub subtype: Option<String>,
     pub message: String,
     pub full_message: bool,
-    pub time: f64,
+    pub time: FiniteF64,
     pub url: Option<String>,
     pub dismissed: bool,
 }
@@ -413,6 +424,7 @@ pub struct IAlert {
 pub struct IRequestAuthStatus {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub session: Option<String>,
 }
 
@@ -482,6 +494,15 @@ pub enum HostEnum {
     Name(String),
 }
 
+impl std::fmt::Display for HostEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HostEnum::Name(v) => f.write_str(v),
+            HostEnum::Id(v) => write!(f, "{v}"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IServiceDeployStart {
@@ -490,6 +511,7 @@ pub struct IServiceDeployStart {
     pub description: String,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub image: Option<String>,
 }
 
@@ -509,14 +531,13 @@ pub struct IDockerDeployLog {
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct IDockerDeployDone {
+pub struct IDockerDeployEnd {
     pub r#ref: Ref,
     pub status: bool,
+    pub message: String,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub id: Option<i64>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -525,6 +546,7 @@ pub struct IGenerateKey {
     pub r#ref: Ref,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub ssh_public_key: Option<String>,
 }
 
@@ -564,7 +586,7 @@ pub struct IGetObjectHistory {
 #[serde(rename_all = "camelCase")]
 pub struct IGetObjectHistoryResHistory {
     pub version: i64,
-    pub time: f64,
+    pub time: FiniteF64,
     pub author: Option<String>,
 }
 
@@ -594,19 +616,19 @@ pub struct DockerImageTagRow {
     pub removed: Option<f64>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[derive(Serialize, Deserialize, Clone, Debug, TS, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DockerImageTag {
     pub id: i64,
     pub image: String,
     pub tag: String,
     pub hash: String,
-    pub time: f64,
+    pub time: FiniteF64,
     pub user: String,
     #[serde(default, deserialize_with = "forgiving_bool")]
     pub pin: bool,
     pub labels: HashMap<String, String>,
-    pub removed: Option<f64>,
+    pub removed: Option<FiniteF64>,
     #[serde(default)]
     pub pinned_image_tag: bool,
 }
@@ -619,11 +641,11 @@ impl TryFrom<DockerImageTagRow> for DockerImageTag {
             image: row.project,
             tag: row.tag,
             hash: row.hash,
-            time: row.time,
+            time: row.time.to_finite()?,
             user: row.user,
             pin: row.pin,
             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-            removed: row.removed,
+            removed: row.removed.to_finite()?,
             pinned_image_tag: false,
         })
     }
@@ -641,9 +663,7 @@ pub struct IDockerListImageTagsResTag {
 pub struct IDockerListImageTagsRes {
     pub r#ref: Ref,
     pub tags: Vec<DockerImageTag>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pinned_image_tags: Option<Vec<IDockerListImageTagsResTag>>,
+    pub pinned_image_tags: Vec<IDockerListImageTagsResTag>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -663,11 +683,12 @@ pub struct IDockerImageTagsChargedImageTagPin {
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct IDockerImageTagsCharged {
+pub struct IDockerListImageTagsCharged {
     pub changed: Vec<DockerImageTag>,
     pub removed: Vec<IDockerImageTagsChargedRemoved>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub image_tag_pin_changed: Option<Vec<IDockerImageTagsChargedImageTagPin>>,
 }
 
@@ -677,9 +698,11 @@ pub struct IDockerListDeployments {
     pub r#ref: Ref,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub host: Option<i64>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub image: Option<String>,
 }
 
@@ -690,20 +713,23 @@ pub struct DockerDeployment {
     pub image: String,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub image_info: Option<DockerImageTag>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub hash: Option<String>,
     pub name: String,
     pub user: String,
-    pub start: f64,
-    pub end: Option<f64>,
+    pub start: FiniteF64,
+    pub end: Option<FiniteF64>,
     pub host: i64,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub state: Option<String>,
     pub config: String,
-    pub timeout: f64,
+    pub timeout: FiniteF64,
     pub use_podman: bool,
     pub service: bool,
 }
@@ -820,7 +846,7 @@ pub struct IModifiedFilesList {}
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IModifiedFilesChanged {
-    pub last_scan_time: Option<f64>,
+    pub last_scan_time: Option<FiniteF64>,
     pub scanning: bool,
     pub full: bool,
     pub changed: Vec<ModifiedFile>,
@@ -843,140 +869,153 @@ pub struct IModifiedFilesResolve {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
-#[serde(tag = "type")]
-pub enum IAction {
-    #[serde(rename = "AddDeploymentLog")]
+#[serde(tag = "type", rename_all = "PascalCase")]
+pub enum IServerAction {
     AddDeploymentLog(IAddDeploymentLog),
-    #[serde(rename = "AddLogLines")]
-    AddLogLines(IAddLogLines),
-    #[serde(rename = "AddMessage")]
     AddMessage(IAddMessage),
-    #[serde(rename = "Alert")]
     Alert(IAlert),
-    #[serde(rename = "AuthStatus")]
     AuthStatus(IAuthStatus),
-    #[serde(rename = "CancelDeployment")]
-    CancelDeployment(ICancelDeployment),
-    #[serde(rename = "ClearDeploymentLog")]
     ClearDeploymentLog(IClearDeploymentLog),
-    #[serde(rename = "DeleteObject")]
-    DeleteObject(IDeleteObject),
-    #[serde(rename = "DeployObject")]
-    DeployObject(IDeployObject),
-    #[serde(rename = "DockerContainerForget")]
-    DockerContainerForget(IDockerContainerForget),
-    #[serde(rename = "DockerDeployEnd")]
-    DockerDeployDone(IDockerDeployDone),
-    #[serde(rename = "DockerDeployLog")]
-    DockerDeployLog(IDockerDeployLog),
-    #[serde(rename = "DockerDeploymentsChanged")]
+    DockerDeployEnd(IDockerDeployEnd),
     DockerDeploymentsChanged(IDockerDeploymentsChanged),
-    #[serde(rename = "DockerImageSetPin")]
-    DockerImageSetPin(IDockerImageSetPin),
-    #[serde(rename = "DockerListImageTagsChanged")]
-    DockerImageTagsCharged(IDockerImageTagsCharged),
-    #[serde(rename = "DockerImageTagSetPin")]
-    DockerImageTagSetPin(IDockerImageTagSetPin),
-    #[serde(rename = "DockerListDeploymentHistory")]
-    DockerListDeploymentHistory(IDockerListDeploymentHistory),
-    #[serde(rename = "DockerListDeploymentHistoryRes")]
+    DockerListImageTagsChanged(IDockerListImageTagsCharged),
     DockerListDeploymentHistoryRes(IDockerListDeploymentHistoryRes),
-    #[serde(rename = "DockerListDeployments")]
-    DockerListDeployments(IDockerListDeployments),
-    #[serde(rename = "DockerListDeploymentsRes")]
     DockerListDeploymentsRes(IDockerListDeploymentsRes),
-    #[serde(rename = "DockerListImageByHash")]
-    DockerListImageByHash(IDockerListImageByHash),
-    #[serde(rename = "DockerListImageByHashRes")]
     DockerListImageByHashRes(IDockerListImageByHashRes),
-    #[serde(rename = "DockerListImageTagHistory")]
-    DockerListImageTagHistory(IDockerListImageTagHistory),
-    #[serde(rename = "DockerListImageTagHistoryRes")]
     DockerListImageTagHistoryRes(IDockerListImageTagHistoryRes),
-    #[serde(rename = "DockerListImageTags")]
-    DockerListImageTags(IDockerListImageTags),
-    #[serde(rename = "DockerListImageTagsRes")]
     DockerListImageTagsRes(IDockerListImageTagsRes),
-    #[serde(rename = "EndLog")]
-    EndLog(IEndLog),
-    #[serde(rename = "FetchObject")]
-    FetchObject(IFetchObject),
-    #[serde(rename = "GenerateKey")]
-    GenerateKey(IGenerateKey),
-    #[serde(rename = "GenerateKeyRes")]
+    DockerDeployLog(IDockerDeployLog),
     GenerateKeyRes(IGenerateKeyRes),
-    #[serde(rename = "GetObjectHistory")]
-    GetObjectHistory(IGetObjectHistory),
-    #[serde(rename = "GetObjectHistoryRes")]
     GetObjectHistoryRes(IGetObjectHistoryRes),
-    #[serde(rename = "GetObjectId")]
-    GetObjectId(IGetObjectId),
-    #[serde(rename = "GetObjectIdRes")]
     GetObjectIdRes(IGetObjectIdRes),
-    #[serde(rename = "HostDown")]
     HostDown(IHostDown),
-    #[serde(rename = "HostUp")]
     HostUp(IHostUp),
-    #[serde(rename = "Login")]
-    Login(ILogin),
-    #[serde(rename = "LogOut")]
-    Logout(ILogout),
-    #[serde(rename = "MessageTextRep")]
     MessageTextRep(IMessageTextRepAction),
-    #[serde(rename = "MessageTextReq")]
-    MessageTextReq(IMessageTextReqAction),
-    #[serde(rename = "ModifiedFilesChanged")]
     ModifiedFilesChanged(IModifiedFilesChanged),
-    #[serde(rename = "ModifiedFilesList")]
-    ModifiedFilesList(IModifiedFilesList),
-    #[serde(rename = "ModifiedFilesResolve")]
-    ModifiedFilesResolve(IModifiedFilesResolve),
-    #[serde(rename = "ModifiedFilesScan")]
-    ModifiedFilesScan(IModifiedFilesScan),
-    #[serde(rename = "ObjectChanged")]
     ObjectChanged(IObjectChanged),
-    #[serde(rename = "RequestAuthStatus")]
-    RequestAuthStatus(IRequestAuthStatus),
-    #[serde(rename = "RequestInitialState")]
-    RequestInitialState(IRequestInitialState),
-    #[serde(rename = "ResetServerState")]
-    ResetServerState(IResetServerState),
-    #[serde(rename = "SaveObject")]
-    SaveObject(ISaveObject),
-    #[serde(rename = "Search")]
-    Search(ISearch),
-    #[serde(rename = "SearchRes")]
     SearchRes(ISearchRes),
-    #[serde(rename = "ServiceDeployStart")]
-    ServiceDeployStart(IServiceDeployStart),
-    #[serde(rename = "ServiceRedeployStart")]
-    ServiceRedeployStart(IServiceRedeployStart),
-    #[serde(rename = "SetDeploymentMessage")]
     SetDeploymentMessage(ISetDeploymentMessage),
-    #[serde(rename = "SetDeploymentObjects")]
     SetDeploymentObjects(ISetDeploymentObjects),
-    #[serde(rename = "SetDeploymentObjectStatus")]
     SetDeploymentObjectStatus(ISetDeploymentObjectStatus),
-    #[serde(rename = "SetDeploymentStatus")]
     SetDeploymentStatus(ISetDeploymentStatus),
-    #[serde(rename = "SetInitialState")]
     SetInitialState(ISetInitialState),
-    #[serde(rename = "SetMessageDismissed")]
     SetMessagesDismissed(ISetMessagesDismissed),
-    #[serde(rename = "SetPage")]
     SetPage(ISetPageAction),
-    #[serde(rename = "StartDeployment")]
-    StartDeployment(IStartDeployment),
-    #[serde(rename = "StartLog")]
-    StartLog(IStartLog),
-    #[serde(rename = "StatValueChanges")]
-    StatValueChanges(IStatValueChanges),
-    #[serde(rename = "StopDeployment")]
-    StopDeployment(IStopDeployment),
-    #[serde(rename = "SubscribeStatValues")]
-    SubscribeStatValues(ISubscribeStatValues),
-    #[serde(rename = "ToggleDeploymentObject")]
     ToggleDeploymentObject(IToggleDeploymentObject),
+}
+
+impl IServerAction {
+    pub fn tag(&self) -> &'static str {
+        match self {
+            IServerAction::AddDeploymentLog(_) => "AddDeploymentLog",
+            IServerAction::AddMessage(_) => "AddMessage",
+            IServerAction::Alert(_) => "Alert",
+            IServerAction::AuthStatus(_) => "AuthStatus",
+            IServerAction::ClearDeploymentLog(_) => "ClearDeploymentLog",
+            IServerAction::DockerDeployEnd(_) => "DockerDeployEnd",
+            IServerAction::DockerDeploymentsChanged(_) => "DockerDeploymentsChanged",
+            IServerAction::DockerListImageTagsChanged(_) => "DockerListImageTagsChanged",
+            IServerAction::DockerListDeploymentHistoryRes(_) => "DockerListDeploymentHistoryRes",
+            IServerAction::DockerListDeploymentsRes(_) => "DockerListDeploymentsRes",
+            IServerAction::DockerListImageByHashRes(_) => "DockerListImageByHashRes",
+            IServerAction::DockerListImageTagHistoryRes(_) => "DockerListImageTagHistoryRes",
+            IServerAction::DockerListImageTagsRes(_) => "DockerListImageTagsRes",
+            IServerAction::DockerDeployLog(_) => "DockerDeployLog",
+            IServerAction::GenerateKeyRes(_) => "GenerateKeyRes",
+            IServerAction::GetObjectHistoryRes(_) => "GetObjectHistoryRes",
+            IServerAction::GetObjectIdRes(_) => "GetObjectIdRes",
+            IServerAction::HostDown(_) => "HostDown",
+            IServerAction::HostUp(_) => "HostUp",
+            IServerAction::MessageTextRep(_) => "MessageTextRep",
+            IServerAction::ModifiedFilesChanged(_) => "ModifiedFilesChanged",
+            IServerAction::ObjectChanged(_) => "ObjectChanged",
+            IServerAction::SearchRes(_) => "SearchRes",
+            IServerAction::SetDeploymentMessage(_) => "SetDeploymentMessage",
+            IServerAction::SetDeploymentObjects(_) => "SetDeploymentObjects",
+            IServerAction::SetDeploymentObjectStatus(_) => "SetDeploymentObjectStatus",
+            IServerAction::SetDeploymentStatus(_) => "SetDeploymentStatus",
+            IServerAction::SetInitialState(_) => "SetInitialState",
+            IServerAction::SetMessagesDismissed(_) => "SetMessagesDismissed",
+            IServerAction::SetPage(_) => "SetPage",
+            IServerAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[serde(tag = "type", rename_all = "PascalCase")]
+pub enum IClientAction {
+    CancelDeployment(ICancelDeployment),
+    DeleteObject(IDeleteObject),
+    DeployObject(IDeployObject),
+    DockerContainerForget(IDockerContainerForget),
+    DockerImageSetPin(IDockerImageSetPin),
+    DockerImageTagSetPin(IDockerImageTagSetPin),
+    DockerListDeploymentHistory(IDockerListDeploymentHistory),
+    DockerListDeployments(IDockerListDeployments),
+    DockerListImageByHash(IDockerListImageByHash),
+    DockerListImageTagHistory(IDockerListImageTagHistory),
+    DockerListImageTags(IDockerListImageTags),
+    FetchObject(IFetchObject),
+    GenerateKey(IGenerateKey),
+    GetObjectHistory(IGetObjectHistory),
+    GetObjectId(IGetObjectId),
+    Login(ILogin),
+    Logout(ILogout),
+    MessageTextReq(IMessageTextReqAction),
+    ModifiedFilesList(IModifiedFilesList),
+    ModifiedFilesResolve(IModifiedFilesResolve),
+    ModifiedFilesScan(IModifiedFilesScan),
+    RequestAuthStatus(IRequestAuthStatus),
+    RequestInitialState(IRequestInitialState),
+    ResetServerState(IResetServerState),
+    SaveObject(ISaveObject),
+    Search(ISearch),
+    ServiceDeployStart(IServiceDeployStart),
+    ServiceRedeployStart(IServiceRedeployStart),
+    SetMessageDismissed(ISetMessagesDismissed),
+    StartDeployment(IStartDeployment),
+    StopDeployment(IStopDeployment),
+    ToggleDeploymentObject(IToggleDeploymentObject),
+}
+
+impl IClientAction {
+    pub fn tag(&self) -> &'static str {
+        match self {
+            IClientAction::CancelDeployment(_) => "CancelDeployment",
+            IClientAction::DeleteObject(_) => "DeleteObject",
+            IClientAction::DeployObject(_) => "DeployObject",
+            IClientAction::DockerContainerForget(_) => "DockerContainerForget",
+            IClientAction::DockerImageSetPin(_) => "DockerImageSetPin",
+            IClientAction::DockerImageTagSetPin(_) => "DockerImageTagSetPin",
+            IClientAction::DockerListDeploymentHistory(_) => "DockerListDeploymentHistory",
+            IClientAction::DockerListDeployments(_) => "DockerListDeployments",
+            IClientAction::DockerListImageByHash(_) => "DockerListImageByHash",
+            IClientAction::DockerListImageTagHistory(_) => "DockerListImageTagHistory",
+            IClientAction::DockerListImageTags(_) => "DockerListImageTags",
+            IClientAction::FetchObject(_) => "FetchObject",
+            IClientAction::GenerateKey(_) => "GenerateKey",
+            IClientAction::GetObjectHistory(_) => "GetObjectHistory",
+            IClientAction::GetObjectId(_) => "GetObjectId",
+            IClientAction::Login(_) => "Login",
+            IClientAction::Logout(_) => "Logout",
+            IClientAction::MessageTextReq(_) => "MessageTextReq",
+            IClientAction::ModifiedFilesList(_) => "ModifiedFilesList",
+            IClientAction::ModifiedFilesResolve(_) => "ModifiedFilesResolve",
+            IClientAction::ModifiedFilesScan(_) => "ModifiedFilesScan",
+            IClientAction::RequestAuthStatus(_) => "RequestAuthStatus",
+            IClientAction::RequestInitialState(_) => "RequestInitialState",
+            IClientAction::ResetServerState(_) => "ResetServerState",
+            IClientAction::SaveObject(_) => "SaveObject",
+            IClientAction::Search(_) => "Search",
+            IClientAction::ServiceDeployStart(_) => "ServiceDeployStart",
+            IClientAction::ServiceRedeployStart(_) => "ServiceRedeployStart",
+            IClientAction::SetMessageDismissed(_) => "SetMessageDismissed",
+            IClientAction::StartDeployment(_) => "StartDeployment",
+            IClientAction::StopDeployment(_) => "StopDeployment",
+            IClientAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
+        }
+    }
 }
 
 #[cfg(test)]

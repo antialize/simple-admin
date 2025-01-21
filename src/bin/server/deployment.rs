@@ -5,10 +5,10 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::action_types::{
-    DeploymentObjectAction, DeploymentObjectStatus, DeploymentStatus, IAction, IAddDeploymentLog,
-    IClearDeploymentLog, IDeploymentObject, IDeploymentTrigger, IObject2, ISetDeploymentMessage,
-    ISetDeploymentObjectStatus, ISetDeploymentObjects, ISetDeploymentStatus, ISource,
-    IToggleDeploymentObject, ObjectRow,
+    DeploymentObjectAction, DeploymentObjectStatus, DeploymentStatus, IAddDeploymentLog,
+    IClearDeploymentLog, IDeploymentObject, IDeploymentTrigger, IObject2, IServerAction,
+    ISetDeploymentMessage, ISetDeploymentObjectStatus, ISetDeploymentObjects, ISetDeploymentStatus,
+    ISource, IToggleDeploymentObject, ObjectRow,
 };
 use crate::arena::Arena;
 use crate::cmpref::CmpRef;
@@ -16,20 +16,20 @@ use crate::hostclient::HostClient;
 use crate::ocell::{OCell, OCellAccess};
 use crate::ordered_json::JsonCmp;
 use crate::state::State;
-use crate::type_types::{
-    IBoolTypeProp, IChoiceTypeProp, IContainsIter, IDependsIter, IDocumentTypeProp,
-    INumberTypeProp, IPasswordTypeProp, ITextTypeProp, ITriggersIter, IType, IVariablesIter,
-    KindType, COLLECTION_ID, COMPLEX_COLLECTION_ID, HOST_ID, HOST_VARIABLE_ID, PACKAGE_ID,
-    ROOT_INSTANCE_ID, TYPE_ID,
-};
 use crate::variabels::Variables;
 use crate::webclient;
 use anyhow::{anyhow, bail, Context, Result};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use log::{error, info};
+use log::error;
 use sadmin2::client_message::{
     ClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
+};
+use sadmin2::type_types::{
+    IBoolTypeProp, IChoiceTypeProp, IContainsIter, IDependsIter, IDocumentTypeProp,
+    INumberTypeProp, IPasswordTypeProp, ITextTypeProp, ITriggersIter, IType, ITypeProp,
+    IVariablesIter, KindType, COLLECTION_ID, COMPLEX_COLLECTION_ID, HOST_ID, HOST_VARIABLE_ID,
+    PACKAGE_ID, ROOT_INSTANCE_ID, TYPE_ID,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -97,7 +97,7 @@ pub struct Deployment {
     pub message: String,
     pub deployment_objects: Vec<IDeploymentObject>,
     pub log: Vec<String>,
-    delayed_actions: Vec<IAction>,
+    delayed_actions: Vec<IServerAction>,
 }
 
 impl Deployment {
@@ -113,13 +113,15 @@ impl Deployment {
     fn add_log(&mut self, line: String) {
         self.log.push(line.clone());
         self.delayed_actions
-            .push(IAction::AddDeploymentLog(IAddDeploymentLog { bytes: line }));
+            .push(IServerAction::AddDeploymentLog(IAddDeploymentLog {
+                bytes: line,
+            }));
     }
 
     fn set_status(&mut self, status: DeploymentStatus) {
         self.status = status.clone();
         self.delayed_actions
-            .push(IAction::SetDeploymentStatus(ISetDeploymentStatus {
+            .push(IServerAction::SetDeploymentStatus(ISetDeploymentStatus {
                 status,
             }));
     }
@@ -129,14 +131,14 @@ impl Deployment {
             v.status = status.clone();
         }
         self.delayed_actions
-            .push(IAction::SetDeploymentObjectStatus(
+            .push(IServerAction::SetDeploymentObjectStatus(
                 ISetDeploymentObjectStatus { index, status },
             ));
     }
     fn set_message(&mut self, message: String) {
         self.message = message.clone();
         self.delayed_actions
-            .push(IAction::SetDeploymentMessage(ISetDeploymentMessage {
+            .push(IServerAction::SetDeploymentMessage(ISetDeploymentMessage {
                 message,
             }))
     }
@@ -144,7 +146,7 @@ impl Deployment {
     fn set_deploment_objects(&mut self, objects: Vec<IDeploymentObject>) {
         self.deployment_objects = objects.clone();
         self.delayed_actions
-            .push(IAction::SetDeploymentObjects(ISetDeploymentObjects {
+            .push(IServerAction::SetDeploymentObjects(ISetDeploymentObjects {
                 objects,
             }));
     }
@@ -152,10 +154,10 @@ impl Deployment {
     fn clear_log(&mut self) {
         self.log.clear();
         self.delayed_actions
-            .push(IAction::ClearDeploymentLog(IClearDeploymentLog {}));
+            .push(IServerAction::ClearDeploymentLog(IClearDeploymentLog {}));
     }
 
-    fn take_actions(&mut self) -> Vec<IAction> {
+    fn take_actions(&mut self) -> Vec<IServerAction> {
         std::mem::take(&mut self.delayed_actions)
     }
 }
@@ -342,9 +344,9 @@ impl<'a, M> Visitor<'a, M> {
         if let Some(type_content) = &r#type.content {
             for item in type_content {
                 match item {
-                    crate::type_types::ITypeProp::None => (),
-                    crate::type_types::ITypeProp::Monitor => bail!("Monitor is deprecated"),
-                    crate::type_types::ITypeProp::Bool(IBoolTypeProp {
+                    ITypeProp::None => (),
+                    ITypeProp::Monitor => bail!("Monitor is deprecated"),
+                    ITypeProp::Bool(IBoolTypeProp {
                         name,
                         default,
                         variable,
@@ -361,7 +363,7 @@ impl<'a, M> Visitor<'a, M> {
                         }
                         content.insert(name.to_string(), Value::Bool(v));
                     }
-                    crate::type_types::ITypeProp::Text(ITextTypeProp {
+                    ITypeProp::Text(ITextTypeProp {
                         name,
                         default,
                         template,
@@ -392,14 +394,14 @@ impl<'a, M> Visitor<'a, M> {
                         }
                         content.insert(name.to_string(), Value::String(v.into_owned()));
                     }
-                    crate::type_types::ITypeProp::Password(IPasswordTypeProp { name, .. }) => {
+                    ITypeProp::Password(IPasswordTypeProp { name, .. }) => {
                         let v = obj_content
                             .get(name)
                             .and_then(|v| v.as_str())
                             .unwrap_or_default();
                         content.insert(name.to_string(), Value::String(v.to_string()));
                     }
-                    crate::type_types::ITypeProp::Document(IDocumentTypeProp {
+                    ITypeProp::Document(IDocumentTypeProp {
                         name,
                         template,
                         variable,
@@ -421,7 +423,7 @@ impl<'a, M> Visitor<'a, M> {
                         }
                         content.insert(name.to_string(), Value::String(v.into_owned()));
                     }
-                    crate::type_types::ITypeProp::Choice(IChoiceTypeProp {
+                    ITypeProp::Choice(IChoiceTypeProp {
                         name,
                         default,
                         variable,
@@ -438,10 +440,8 @@ impl<'a, M> Visitor<'a, M> {
                         }
                         content.insert(name.to_string(), Value::String(v.to_owned()));
                     }
-                    crate::type_types::ITypeProp::TypeContent(_) => (),
-                    crate::type_types::ITypeProp::Number(INumberTypeProp {
-                        name, default, ..
-                    }) => {
+                    ITypeProp::TypeContent(_) => (),
+                    ITypeProp::Number(INumberTypeProp { name, default, .. }) => {
                         let v = obj_content
                             .get(name)
                             .and_then(|v| v.as_number())
@@ -1731,7 +1731,7 @@ pub async fn toggle_object(state: &State, index: Option<usize>, enabled: bool) -
     }
     webclient::broadcast(
         state,
-        IAction::ToggleDeploymentObject(IToggleDeploymentObject {
+        IServerAction::ToggleDeploymentObject(IToggleDeploymentObject {
             index,
             enabled,
             source: ISource::Server,

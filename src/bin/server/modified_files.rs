@@ -1,7 +1,7 @@
 use crate::{
     action_types::{
-        IAction, IModifiedFilesChanged, IModifiedFilesList, IModifiedFilesResolve, IObject2,
-        IObjectChanged, ModifiedFile,
+        IModifiedFilesChanged, IModifiedFilesList, IModifiedFilesResolve, IObject2, IObjectChanged,
+        IServerAction, ModifiedFile,
     },
     db::{change_object, IV},
     hostclient::HostClient,
@@ -12,9 +12,12 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future::join_all;
 use log::{error, info};
-use sadmin2::client_message::{
-    ClientMessage, DataSource, FailureMessage, RunScriptMessage, RunScriptOutType,
-    RunScriptStdinType, SuccessMessage,
+use sadmin2::{
+    client_message::{
+        ClientMessage, DataSource, FailureMessage, RunScriptMessage, RunScriptOutType,
+        RunScriptStdinType, SuccessMessage,
+    },
+    finite_float::ToFinite,
 };
 use serde::Deserialize;
 use sqlx_type::query;
@@ -98,10 +101,10 @@ async fn broadcast_changes(state: &State) -> Result<()> {
         }
         content.modified_files.retain(|(_, p)| !p.dead);
 
-        IAction::ModifiedFilesChanged(IModifiedFilesChanged {
+        IServerAction::ModifiedFilesChanged(IModifiedFilesChanged {
             full: false,
             scanning: content.scanning,
-            last_scan_time: content.last_scan,
+            last_scan_time: content.last_scan.to_finite()?,
             changed,
             removed,
         })
@@ -442,7 +445,7 @@ f.write(o['content'])
             obj.version = Some(version);
             webclient::broadcast(
                 state,
-                IAction::ObjectChanged(IObjectChanged {
+                IServerAction::ObjectChanged(IObjectChanged {
                     id,
                     object: vec![obj],
                 }),
@@ -456,10 +459,10 @@ f.write(o['content'])
 pub async fn list(state: &State, client: &WebClient, _: IModifiedFilesList) -> Result<()> {
     let msg = {
         let inner = state.modified_files.lock().unwrap();
-        IAction::ModifiedFilesChanged(IModifiedFilesChanged {
+        IServerAction::ModifiedFilesChanged(IModifiedFilesChanged {
             full: true,
             scanning: inner.scanning,
-            last_scan_time: inner.last_scan,
+            last_scan_time: inner.last_scan.to_finite()?,
             changed: inner
                 .modified_files
                 .iter()

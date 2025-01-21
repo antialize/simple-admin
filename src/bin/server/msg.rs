@@ -1,9 +1,10 @@
 use crate::{
-    action_types::{IAction, IAddMessage, IMessage},
+    action_types::{IAddMessage, IMessage, IServerAction},
     state::State,
     webclient,
 };
 use anyhow::{Context, Result};
+use sadmin2::finite_float::ToFinite;
 use sqlx_type::query;
 
 pub async fn get_resent(state: &State) -> Result<Vec<IMessage>> {
@@ -26,7 +27,7 @@ pub async fn get_resent(state: &State) -> Result<Vec<IMessage>> {
                     message,
                     full_message,
                     url: row.url,
-                    time: row.time.unwrap_or_default(),
+                    time: row.time.to_finite().ok().flatten().unwrap_or_default(),
                     dismissed: row.dismissed
                 }
             }).fetch_all(&state.db).await.context("query failed in get_resent")
@@ -68,7 +69,7 @@ pub async fn emit(state: &State, host: i64, r#type: String, mut message: String)
 
     webclient::broadcast(
         state,
-        IAction::AddMessage(IAddMessage {
+        IServerAction::AddMessage(IAddMessage {
             message: IMessage {
                 id,
                 host: Some(host),
@@ -76,7 +77,7 @@ pub async fn emit(state: &State, host: i64, r#type: String, mut message: String)
                 message,
                 full_message,
                 subtype: None,
-                time,
+                time: time.to_finite()?,
                 url: None,
                 dismissed: false,
             },

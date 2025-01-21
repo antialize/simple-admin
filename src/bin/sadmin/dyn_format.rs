@@ -1,15 +1,14 @@
 use anyhow::Result;
+use sadmin2::{action_types::DockerImageTag, finite_float::FiniteF64};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Display,
 };
 
-use crate::finite_float::FiniteF64;
-
 pub enum FormatArg<'a> {
     String(&'a str),
     Float(FiniteF64),
-    Number(u64),
+    I64(i64),
     Bool(bool),
     RelTime(RelTime),
     None,
@@ -97,7 +96,7 @@ impl std::fmt::Display for FormatArg<'_> {
         match self {
             FormatArg::String(v) => f.write_str(v),
             FormatArg::Float(v) => write!(f, "{v}"),
-            FormatArg::Number(v) => write!(f, "{v}"),
+            FormatArg::I64(v) => write!(f, "{v}"),
             FormatArg::Bool(v) => write!(f, "{v}"),
             FormatArg::RelTime(v) => write!(f, "{v}"),
             FormatArg::Dict(_) => f.write_str("dict"),
@@ -136,4 +135,30 @@ pub fn dyn_format(format: &str, args: &dyn GetFmtArgDict) -> Result<String> {
         }
     }
     Ok(res)
+}
+
+impl GetFmtArgDict for DockerImageTag {
+    fn get_fmt_arg(&self, name: &str) -> FormatArg<'_> {
+        match name {
+            "id" => FormatArg::I64(self.id),
+            "image" => FormatArg::String(&self.image),
+            "hash" => FormatArg::String(&self.hash),
+            "tag" => FormatArg::String(&self.tag),
+            "user" => FormatArg::String(&self.user),
+            "time" => FormatArg::Float(self.time),
+            "pin" => FormatArg::Bool(self.pin),
+            "removed" => match self.removed {
+                Some(v) => FormatArg::Float(v),
+                None => FormatArg::None,
+            },
+            "labels" => FormatArg::Dict(&self.labels),
+            "rel_time" => FormatArg::RelTime(RelTime(self.time)),
+            "pin_suffix" => FormatArg::String(if self.pinned_image_tag {
+                "pinned by tag"
+            } else {
+                ""
+            }),
+            _ => FormatArg::Missing,
+        }
+    }
 }

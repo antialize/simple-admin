@@ -14,17 +14,18 @@ use std::{
 };
 use tokio::net::TcpListener;
 use tokio_tasks::{cancelable, RunToken, TaskBuilder};
+use tokio_tungstenite::tungstenite;
 
 use crate::{
     action_types::{
-        DockerImageTag, DockerImageTagRow, IAction, IAlert, IAuthStatus, IDockerDeploymentsChanged,
-        IDockerDeploymentsChangedRemoved, IDockerImageTagsCharged,
-        IDockerImageTagsChargedImageTagPin, IDockerListImageByHashRes,
-        IDockerListImageTagHistoryRes, IDockerListImageTagsRes, IDockerListImageTagsResTag,
-        IGenerateKey, IGenerateKeyRes, IGetObjectHistoryRes, IGetObjectHistoryResHistory,
-        IGetObjectId, IGetObjectIdRes, ILogin, IMessageTextRepAction, IObject2, IObjectChanged,
-        IObjectDigest, ISearchRes, ISearchResObject, ISetInitialState, ISetMessagesDismissed,
-        ISetPageAction, ISource, ObjectRow, ObjectType,
+        DockerImageTag, DockerImageTagRow, IAlert, IAuthStatus, IDockerDeploymentsChanged,
+        IDockerDeploymentsChangedRemoved, IDockerImageTagsChargedImageTagPin,
+        IDockerListImageByHashRes, IDockerListImageTagHistoryRes, IDockerListImageTagsCharged,
+        IDockerListImageTagsRes, IDockerListImageTagsResTag, IGenerateKey, IGenerateKeyRes,
+        IGetObjectHistoryRes, IGetObjectHistoryResHistory, IGetObjectId, IGetObjectIdRes, ILogin,
+        IMessageTextRepAction, IObject2, IObjectChanged, IObjectDigest, ISearchRes,
+        ISearchResObject, ISetInitialState, ISetMessagesDismissed, ISetPageAction, ISource,
+        ObjectRow, ObjectType,
     },
     cmpref::CmpRef,
     crt, crypt,
@@ -33,17 +34,12 @@ use crate::{
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     docker_web,
     get_auth::get_auth,
-    modified_files, msg,
-    page_types::{IObjectPage, IPage},
-    setup,
+    modified_files, msg, setup,
     state::State,
     terminal,
-    type_types::{
-        IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, HOST_ID, TYPE_ID,
-        USER_ID,
-    },
     web_util::{request_logger, ClientIp, WebError},
 };
+
 use axum::{
     extract::{ws::CloseFrame, State as WState},
     response::{IntoResponse, Response},
@@ -55,6 +51,15 @@ use axum::{
     },
     Json, Router,
 };
+use sadmin2::{
+    action_types::{IClientAction, IServerAction},
+    finite_float::ToFinite,
+    page_types::{IObjectPage, IPage},
+    type_types::{
+        IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, HOST_ID, TYPE_ID,
+        USER_ID,
+    },
+};
 use tokio::sync::Mutex as TMutex;
 
 pub async fn alert_error(
@@ -64,7 +69,7 @@ pub async fn alert_error(
     webclient: Option<&WebClient>,
 ) -> Result<()> {
     error!("An error occoured in {}: {:?}", place, err);
-    let act = IAction::Alert(IAlert {
+    let act = IServerAction::Alert(IAlert {
         message: format!("An error occoured in {}: {:?}", place, err),
         title: format!("Error in {}", place),
     });
@@ -97,7 +102,7 @@ impl WebClient {
         Ok(())
     }
 
-    pub async fn send_message(&self, msg: IAction) -> Result<()> {
+    pub async fn send_message(&self, msg: IServerAction) -> Result<()> {
         let msg = serde_json::to_string(&msg)?;
         self.send_message_str(&msg).await
     }
@@ -178,7 +183,8 @@ impl WebClient {
                 res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
             }
         }
-        self.send_message(IAction::GenerateKeyRes(res)).await?;
+        self.send_message(IServerAction::GenerateKeyRes(res))
+            .await?;
         Ok(())
     }
 
@@ -229,7 +235,7 @@ impl WebClient {
 
         if !found {
             self.set_auth(IAuthStatus::default());
-            self.send_message(IAction::AuthStatus(IAuthStatus {
+            self.send_message(IServerAction::AuthStatus(IAuthStatus {
                 session,
                 user: Some(act.user),
                 message: Some("Invalid user name".to_string()),
@@ -265,7 +271,7 @@ impl WebClient {
                 otp,
                 ..Default::default()
             });
-            self.send_message(IAction::AuthStatus(IAuthStatus {
+            self.send_message(IServerAction::AuthStatus(IAuthStatus {
                 session,
                 user: Some(act.user),
                 otp,
@@ -311,7 +317,7 @@ impl WebClient {
                 bail!("Internal auth error");
             }
             self.set_auth(auth.clone());
-            self.send_message(IAction::AuthStatus(auth)).await?;
+            self.send_message(IServerAction::AuthStatus(auth)).await?;
         }
         Ok(())
     }
@@ -341,9 +347,14 @@ impl WebClient {
         Ok(object_id)
     }
 
-    pub async fn handle_message(&self, state: &State, _rt: RunToken, act: IAction) -> Result<()> {
+    pub async fn handle_message(
+        &self,
+        state: &State,
+        _rt: RunToken,
+        act: IClientAction,
+    ) -> Result<()> {
         match act {
-            IAction::RequestInitialState(_) => {
+            IClientAction::RequestInitialState(_) => {
                 if !self.get_auth().auth {
                     self.close(403).await?;
                     return Ok(());
@@ -391,7 +402,7 @@ impl WebClient {
                     used_by.extend(object.content.contains_iter().map(|v| (v, object.id)));
                     used_by.extend(object.content.sudo_on_iter().map(|v| (v, object.id)))
                 }
-                self.send_message(IAction::SetInitialState(ISetInitialState {
+                self.send_message(IServerAction::SetInitialState(ISetInitialState {
                     messages,
                     hosts_up,
                     types,
@@ -405,22 +416,22 @@ impl WebClient {
                 .await
                 .context("send_message")?;
             }
-            IAction::RequestAuthStatus(act) => {
+            IClientAction::RequestAuthStatus(act) => {
                 let auth = get_auth(state, Some(&self.remote), act.session.as_deref()).await?;
                 self.set_auth(auth.clone());
-                self.send_message(IAction::AuthStatus(auth)).await?;
+                self.send_message(IServerAction::AuthStatus(auth)).await?;
             }
-            IAction::Login(act) => {
+            IClientAction::Login(act) => {
                 if let Err(e) = self.handle_login_inner(state, act).await {
                     error!("Error in handle_login: {:?}", e);
-                    self.send_message(IAction::AuthStatus(IAuthStatus {
+                    self.send_message(IServerAction::AuthStatus(IAuthStatus {
                         message: Some("Internal error".to_string()),
                         ..Default::default()
                     }))
                     .await?
                 }
             }
-            IAction::Logout(act) => {
+            IClientAction::Logout(act) => {
                 let auth = self.get_auth();
                 if !auth.auth {
                     self.close(403).await?;
@@ -443,9 +454,9 @@ impl WebClient {
                 }
                 let auth = get_auth(state, Some(&self.remote), Some(&session)).await?;
                 self.set_auth(auth.clone());
-                self.send_message(IAction::AuthStatus(auth)).await?;
+                self.send_message(IServerAction::AuthStatus(auth)).await?;
             }
-            IAction::FetchObject(act) => {
+            IClientAction::FetchObject(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -462,13 +473,13 @@ impl WebClient {
                 for row in rows {
                     object.push(row.try_into()?);
                 }
-                self.send_message(IAction::ObjectChanged(IObjectChanged {
+                self.send_message(IServerAction::ObjectChanged(IObjectChanged {
                     id: act.id,
                     object,
                 }))
                 .await?;
             }
-            IAction::GetObjectId(act) => {
+            IClientAction::GetObjectId(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -480,13 +491,13 @@ impl WebClient {
                         None
                     }
                 };
-                self.send_message(IAction::GetObjectIdRes(IGetObjectIdRes {
+                self.send_message(IServerAction::GetObjectIdRes(IGetObjectIdRes {
                     r#ref: act.r#ref,
                     id,
                 }))
                 .await?;
             }
-            IAction::GetObjectHistory(act) => {
+            IClientAction::GetObjectHistory(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -505,26 +516,26 @@ impl WebClient {
                         author: row.author,
                     });
                 }
-                self.send_message(IAction::GetObjectHistoryRes(IGetObjectHistoryRes {
+                self.send_message(IServerAction::GetObjectHistoryRes(IGetObjectHistoryRes {
                     r#ref: act.r#ref,
                     id: act.id,
                     history,
                 }))
                 .await?;
             }
-            IAction::MessageTextReq(act) => {
+            IClientAction::MessageTextReq(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 let t = msg::get_full_text(state, act.id).await?;
-                self.send_message(IAction::MessageTextRep(IMessageTextRepAction {
+                self.send_message(IServerAction::MessageTextRep(IMessageTextRepAction {
                     id: act.id,
                     message: t.unwrap_or_else(|| "missing".to_string()),
                 }))
                 .await?;
             }
-            IAction::SetMessagesDismissed(act) => {
+            IClientAction::SetMessagesDismissed(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -549,14 +560,14 @@ impl WebClient {
                 .await?;
                 broadcast(
                     state,
-                    IAction::SetMessagesDismissed(ISetMessagesDismissed {
+                    IServerAction::SetMessagesDismissed(ISetMessagesDismissed {
                         source: ISource::Server,
                         dismissed: act.dismissed,
                         ids: act.ids,
                     }),
                 )?;
             }
-            IAction::ResetServerState(act) => {
+            IClientAction::ResetServerState(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -565,7 +576,7 @@ impl WebClient {
                     .execute(&state.db)
                     .await?;
             }
-            IAction::Search(act) => {
+            IClientAction::Search(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -591,16 +602,16 @@ impl WebClient {
                         content: row.content,
                     });
                 }
-                self.send_message(IAction::SearchRes(ISearchRes {
+                self.send_message(IServerAction::SearchRes(ISearchRes {
                     r#ref: act.r#ref,
                     objects,
                 }))
                 .await?;
             }
-            IAction::GenerateKey(act) => {
+            IClientAction::GenerateKey(act) => {
                 self.handle_generate_key(state, act).await?;
             }
-            IAction::SaveObject(act) => {
+            IClientAction::SaveObject(act) => {
                 let auth = self.get_auth();
                 if !auth.admin {
                     self.close(403).await?;
@@ -649,12 +660,12 @@ impl WebClient {
                 obj.version = Some(version);
                 broadcast(
                     state,
-                    IAction::ObjectChanged(IObjectChanged {
+                    IServerAction::ObjectChanged(IObjectChanged {
                         id,
                         object: vec![obj],
                     }),
                 )?;
-                self.send_message(IAction::SetPage(ISetPageAction {
+                self.send_message(IServerAction::SetPage(ISetPageAction {
                     page: IPage::Object(IObjectPage {
                         object_type,
                         id: Some(id),
@@ -663,7 +674,7 @@ impl WebClient {
                 }))
                 .await?;
             }
-            IAction::DeleteObject(act) => {
+            IClientAction::DeleteObject(act) => {
                 let auth = self.get_auth();
                 if !auth.admin {
                     self.close(403).await?;
@@ -694,7 +705,7 @@ impl WebClient {
                     }
                 }
                 if !conflicts.is_empty() {
-                    self.send_message(IAction::Alert(IAlert {
+                    self.send_message(IServerAction::Alert(IAlert {
                         title: "Cannot delete object".into(),
                         message: format!(
                             "The object can not be delete as it is in use by:\n{}",
@@ -713,18 +724,18 @@ impl WebClient {
                     .await?;
                     broadcast(
                         state,
-                        IAction::ObjectChanged(IObjectChanged {
+                        IServerAction::ObjectChanged(IObjectChanged {
                             id: act.id,
                             object: vec![],
                         }),
                     )?;
-                    self.send_message(IAction::SetPage(ISetPageAction {
+                    self.send_message(IServerAction::SetPage(ISetPageAction {
                         page: IPage::Dashbord,
                     }))
                     .await?;
                 }
             }
-            IAction::DockerListImageByHash(act) => {
+            IClientAction::DockerListImageByHash(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
@@ -745,16 +756,16 @@ impl WebClient {
                             image: row.project,
                             tag: row.tag,
                             hash: row.hash,
-                            time: row.time,
+                            time: row.time.to_finite()?,
                             user: row.user,
                             pin: row.pin,
                             labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-                            removed: row.removed,
+                            removed: row.removed.to_finite()?,
                             pinned_image_tag: false,
                         },
                     );
                 }
-                self.send_message(IAction::DockerListImageByHashRes(
+                self.send_message(IServerAction::DockerListImageByHashRes(
                     IDockerListImageByHashRes {
                         r#ref: act.r#ref,
                         tags,
@@ -762,7 +773,7 @@ impl WebClient {
                 ))
                 .await?;
             }
-            IAction::DockerListImageTags(act) => {
+            IClientAction::DockerListImageTags(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
@@ -799,15 +810,17 @@ impl WebClient {
                 )
                 .fetch_all(&state.db)
                 .await?;
-                self.send_message(IAction::DockerListImageTagsRes(IDockerListImageTagsRes {
-                    r#ref: act.r#ref,
-                    tags,
-                    pinned_image_tags: Some(pinned_image_tags),
-                }))
+                self.send_message(IServerAction::DockerListImageTagsRes(
+                    IDockerListImageTagsRes {
+                        r#ref: act.r#ref,
+                        tags,
+                        pinned_image_tags,
+                    },
+                ))
                 .await
                 .context("In send message")?;
             }
-            IAction::DockerImageSetPin(act) => {
+            IClientAction::DockerImageSetPin(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
@@ -836,24 +849,24 @@ impl WebClient {
                         image: row.project,
                         tag: row.tag,
                         hash: row.hash,
-                        time: row.time,
+                        time: row.time.to_finite()?,
                         user: row.user,
                         pin: row.pin,
                         labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-                        removed: row.removed,
+                        removed: row.removed.to_finite()?,
                         pinned_image_tag: false,
                     });
                 }
                 broadcast(
                     state,
-                    IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+                    IServerAction::DockerListImageTagsChanged(IDockerListImageTagsCharged {
                         changed,
                         removed: Default::default(),
                         image_tag_pin_changed: Default::default(),
                     }),
                 )?;
             }
-            IAction::DockerImageTagSetPin(act) => {
+            IClientAction::DockerImageTagSetPin(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
@@ -877,7 +890,7 @@ impl WebClient {
                 }
                 broadcast(
                     state,
-                    IAction::DockerImageTagsCharged(IDockerImageTagsCharged {
+                    IServerAction::DockerListImageTagsChanged(IDockerListImageTagsCharged {
                         changed: Default::default(),
                         removed: Default::default(),
                         image_tag_pin_changed: Some(vec![IDockerImageTagsChargedImageTagPin {
@@ -888,7 +901,7 @@ impl WebClient {
                     }),
                 )?;
             }
-            IAction::DockerListImageTagHistory(act) => {
+            IClientAction::DockerListImageTagHistory(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
@@ -908,15 +921,15 @@ impl WebClient {
                         image: row.project,
                         tag: row.tag,
                         hash: row.hash,
-                        time: row.time,
+                        time: row.time.to_finite()?,
                         user: row.user,
                         pin: row.pin,
                         labels: serde_json::from_str(row.labels.as_deref().unwrap_or("{}"))?,
-                        removed: row.removed,
+                        removed: row.removed.to_finite()?,
                         pinned_image_tag: false,
                     });
                 }
-                self.send_message(IAction::DockerListImageTagHistoryRes(
+                self.send_message(IServerAction::DockerListImageTagHistoryRes(
                     IDockerListImageTagHistoryRes {
                         r#ref: act.r#ref,
                         images,
@@ -926,7 +939,7 @@ impl WebClient {
                 ))
                 .await?;
             }
-            IAction::DockerContainerForget(act) => {
+            IClientAction::DockerContainerForget(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
@@ -940,7 +953,7 @@ impl WebClient {
                 .await?;
                 broadcast(
                     state,
-                    IAction::DockerDeploymentsChanged(IDockerDeploymentsChanged {
+                    IServerAction::DockerDeploymentsChanged(IDockerDeploymentsChanged {
                         changed: Default::default(),
                         removed: vec![IDockerDeploymentsChangedRemoved {
                             host: act.host,
@@ -949,56 +962,56 @@ impl WebClient {
                     }),
                 )?;
             }
-            IAction::ServiceDeployStart(act) => {
+            IClientAction::ServiceDeployStart(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deploy_service(state, self, act).await?;
             }
-            IAction::ServiceRedeployStart(act) => {
+            IClientAction::ServiceRedeployStart(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 redploy_service(state, self, act).await?;
             }
-            IAction::DockerListDeployments(act) => {
+            IClientAction::DockerListDeployments(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 list_deployments(state, self, act).await?;
             }
-            IAction::DockerListDeploymentHistory(act) => {
+            IClientAction::DockerListDeploymentHistory(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
                 list_deployment_history(state, self, act).await?;
             }
-            IAction::ModifiedFilesScan(_) => {
+            IClientAction::ModifiedFilesScan(_) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 modified_files::scan(state).await?;
             }
-            IAction::ModifiedFilesList(act) => {
+            IClientAction::ModifiedFilesList(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 modified_files::list(state, self, act).await?;
             }
-            IAction::ModifiedFilesResolve(act) => {
+            IClientAction::ModifiedFilesResolve(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 modified_files::resolve(state, self, act).await?;
             }
-            IAction::DeployObject(act) => {
+            IClientAction::DeployObject(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -1008,14 +1021,14 @@ impl WebClient {
                     alert_error(state, e, "Deployment::deployObject", Some(self)).await?;
                 }
             }
-            IAction::CancelDeployment(_) => {
+            IClientAction::CancelDeployment(_) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deployment::cancel(state).await?;
             }
-            IAction::StartDeployment(_) => {
+            IClientAction::StartDeployment(_) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -1024,22 +1037,19 @@ impl WebClient {
                     alert_error(state, e, "Deployment::start", Some(self)).await?;
                 }
             }
-            IAction::StopDeployment(_) => {
+            IClientAction::StopDeployment(_) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deployment::stop(state).await?
             }
-            IAction::ToggleDeploymentObject(act) => {
+            IClientAction::ToggleDeploymentObject(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
                 deployment::toggle_object(state, act.index, act.enabled).await?;
-            }
-            _ => {
-                warn!("Unhandled message {:?}", act)
             }
         }
         Ok(())
@@ -1054,7 +1064,22 @@ impl WebClient {
         loop {
             let msg = match cancelable(&self.run_token, source.next()).await {
                 Ok(Some(Ok(v))) => v,
-                Ok(Some(Err(e))) => Err(e).context("Failure to read client message")?,
+                Ok(Some(Err(e))) => {
+                    if let Some(e) = std::error::Error::source(&e) {
+                        let e: Option<&tungstenite::Error> = e.downcast_ref();
+                        if let Some(e) = e {
+                            match e {
+                                tungstenite::Error::ConnectionClosed => break,
+                                tungstenite::Error::AlreadyClosed => break,
+                                tungstenite::Error::Protocol(
+                                    tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                                ) => break,
+                                _ => (),
+                            }
+                        }
+                    }
+                    return Err(e).context("Failure to read client message")?;
+                }
                 Ok(None) => break,
                 Err(_) => break,
             };
@@ -1064,7 +1089,6 @@ impl WebClient {
                         warn!("Invalid message from client {}", self.remote);
                         continue;
                     };
-                    let act: IAction = act;
                     let s = self.clone();
                     let state = state.clone();
 
@@ -1105,7 +1129,7 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
     Ok(())
 }
 
-pub fn broadcast(state: &State, msg: IAction) -> Result<()> {
+pub fn broadcast(state: &State, msg: IServerAction) -> Result<()> {
     let msg = Arc::new(serde_json::to_string(&msg)?);
     for c in &*state.web_clients.lock().unwrap() {
         let c = (**c).clone();
