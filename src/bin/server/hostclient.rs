@@ -155,13 +155,13 @@ impl HostClient {
         mut buf: BytesMut,
     ) -> Result<()> {
         const PING_INTERVAL: Duration = Duration::from_secs(80);
-        const PONG_TIMEOUT: Duration = Duration::from_secs(9);
+        const PONG_TIMEOUT: Duration = Duration::from_secs(40);
         const SIGN_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
         const FOREVER: Duration = Duration::from_secs(60 * 60 * 24);
         let mut ping_time = tokio::time::Instant::now() + PING_INTERVAL;
         let mut pong_time = ping_time + FOREVER;
         let mut sign_time = tokio::time::Instant::now();
-        let mut ping_id: u64 = 0;
+        let mut ping_id: u32 = rand::thread_rng().gen();
 
         loop {
             let read_fut = reader.read_buf(&mut buf);
@@ -183,10 +183,11 @@ impl HostClient {
                         match msg {
                             ClientMessage::Auth { .. } => bail!("Unexpected auth"),
                             ClientMessage::Pong { id } => {
-                                if id != ping_id {
-                                    bail!("Got pong with wrong id");
+                                if id != ping_id as u64 {
+                                    warn!("Got pong with wrong id {} vs {} on host {}", id, ping_id, self.hostname);
+                                } else {
+                                    pong_time = ping_time + FOREVER;
                                 }
-                                pong_time = ping_time + FOREVER;
                             }
                             msg => {
                                 if let Some(id) = msg.job_id() {
@@ -210,7 +211,7 @@ impl HostClient {
                     let id = ping_id;
                     tokio::spawn(async move {
                         if let Err(e) = s.send_message(&ClientMessage::Ping{
-                            id
+                            id: id as u64
                         }).await {
                             error!("Failed sending ping: {:?}", e)
                         }
