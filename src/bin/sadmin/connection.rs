@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use futures_util::{SinkExt, StreamExt};
 use sadmin2::action_types::{
     IClientAction, IGenerateKey, ILogin, IRequestAuthStatus, IServerAction, Ref,
@@ -347,8 +347,7 @@ impl Connection {
         dockerconfig.auths.insert(
             self.server_host.clone(),
             DockerAuth {
-                auth: base64::engine::general_purpose::STANDARD
-                    .encode(format!("{user}:{session}").as_bytes()),
+                auth: BASE64_STANDARD.encode(format!("{user}:{session}").as_bytes()),
             },
         );
         std::fs::create_dir_all(dockerconfpath.parent().context("Expected parent")?)?;

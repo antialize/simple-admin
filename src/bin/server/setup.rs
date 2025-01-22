@@ -42,7 +42,7 @@ pub async fn setup(
 
     let mut buf = [0; 18];
     crypt::random_fill(&mut buf)?;
-    let npw = BASE64_URL_SAFE.encode(&buf);
+    let npw = BASE64_URL_SAFE.encode(buf);
     let cpw = crypt::hash(&npw)?;
     ho.content
         .as_object_mut()

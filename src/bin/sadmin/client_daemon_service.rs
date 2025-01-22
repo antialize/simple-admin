@@ -20,7 +20,7 @@ use crate::{
 };
 
 use anyhow::{bail, Context, Result};
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use log::{debug, error, info, warn};
@@ -386,7 +386,7 @@ impl RemoteLogTarget<'_> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -400,7 +400,7 @@ impl RemoteLogTarget<'_> {
             } => send_journal_messages(socket, Priority::Info, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -429,7 +429,7 @@ impl RemoteLogTarget<'_> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -443,7 +443,7 @@ impl RemoteLogTarget<'_> {
             } => send_journal_messages(socket, Priority::Error, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
