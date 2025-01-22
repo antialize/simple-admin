@@ -38,8 +38,9 @@ daemon = [
 nix = ["dep:nix"]
 
 [[bin]]
-name = "server"
+name = "simpleadmin-server"
 required-features = ["server"]
+path = "src/bin/server/main.rs"
 
 [dependencies]
 anyhow = "1"
