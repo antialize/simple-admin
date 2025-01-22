@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use bytes::Bytes;
 use futures::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
@@ -119,6 +120,19 @@ impl WebClient {
             }
             Err(_) | Ok(Err(_)) => (),
         }
+        Ok(())
+    }
+
+    pub async fn send_pong(self: Arc<Self>, data: Bytes, rt: RunToken) -> Result<()> {
+        let mut sink = cancelable(&rt, cancelable(&self.run_token, self.sink.lock())).await??;
+        let _ = cancelable(
+            &rt,
+            cancelable(
+                &self.run_token,
+                tokio::time::timeout(Duration::from_secs(60), sink.send(Message::Pong(data))),
+            ),
+        )
+        .await;
         Ok(())
     }
 
@@ -1169,7 +1183,13 @@ impl WebClient {
                             })
                         });
                 }
-                _ => (), // TODO Should we respond to ping?
+                Message::Ping(data) => {
+                    let s = self.clone();
+                    TaskBuilder::new("send_pong")
+                        .shutdown_order(0)
+                        .create(|rt| async move { s.send_pong(data, rt).await });
+                }
+                _ => (),
             }
         }
         Ok(())
