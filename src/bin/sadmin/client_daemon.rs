@@ -36,9 +36,9 @@ use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
 use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
 
 use sadmin2::client_message::{
-    ClientMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
-    RunInstantMessage, RunInstantStdinOutputType, RunScriptMessage, RunScriptOutType,
-    RunScriptStdinType, SuccessMessage,
+    ClientHostMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
+    HostClientMessage, RunInstantMessage, RunInstantStdinOutputType, RunScriptMessage,
+    RunScriptOutType, RunScriptStdinType, SuccessMessage,
 };
 
 use sadmin2::service_description::ServiceDescription;
@@ -108,7 +108,7 @@ async fn write_all_and_flush(v: &mut WriteHalf<TlsStream<TcpStream>>, data: &[u8
 }
 
 impl Client {
-    pub async fn send_message(self: &Arc<Self>, message: ClientMessage) {
+    pub async fn send_message(self: &Arc<Self>, message: ClientHostMessage) {
         let mut message = serde_json::to_vec(&message).unwrap();
         if message.contains(&30) {
             panic!("Failed to encode message, it contains 30");
@@ -150,13 +150,13 @@ impl Client {
 
     async fn handle_ping(self: Arc<Self>, id: u64) {
         debug!("Ping from server {}", id);
-        self.send_message(ClientMessage::Pong { id }).await;
+        self.send_message(ClientHostMessage::Pong { id }).await;
     }
 
     async fn handle_run_instant_inner(
         self: &Arc<Self>,
         msg: RunInstantMessage,
-    ) -> Result<ClientMessage> {
+    ) -> Result<ClientHostMessage> {
         let mut file = tempfile::Builder::new().suffix(&msg.name).tempfile()?;
 
         file.write_all(msg.content.as_bytes())?;
@@ -183,7 +183,7 @@ impl Client {
             );
             debug!("stdout: '{}'", stdout);
             debug!("stderr: '{}'", stderr);
-            return Ok(ClientMessage::Failure(FailureMessage {
+            return Ok(ClientHostMessage::Failure(FailureMessage {
                 id: msg.id,
                 code,
                 failure_type: Some(FailureType::Script),
@@ -200,7 +200,7 @@ impl Client {
             RunInstantStdinOutputType::Json => serde_json::from_slice(&output.stdout)?,
             RunInstantStdinOutputType::Utf8 => String::from_utf8(output.stdout)?.into(),
         };
-        Ok(ClientMessage::Success(SuccessMessage {
+        Ok(ClientHostMessage::Success(SuccessMessage {
             id: msg.id,
             code: None,
             data: Some(data),
@@ -218,7 +218,7 @@ impl Client {
             Ok(v) => v,
             Err(e) => {
                 error!("Error in instant command {}: {}", id, e);
-                ClientMessage::Failure(FailureMessage {
+                ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::Exception),
                     message: Some(e.to_string()),
@@ -250,7 +250,7 @@ impl Client {
                 loop {
                     buf.clear();
                     let s = out.read_buf(&mut buf).await?;
-                    self.send_message(ClientMessage::Data(DataMessage {
+                    self.send_message(ClientHostMessage::Data(DataMessage {
                         id,
                         source: Some(source),
                         data: BASE64_STANDARD.encode(&buf).into(),
@@ -272,7 +272,7 @@ impl Client {
                         i -= 1;
                     }
                     if i != 0 {
-                        self.send_message(ClientMessage::Data(DataMessage {
+                        self.send_message(ClientHostMessage::Data(DataMessage {
                             id,
                             source: Some(source),
                             data: String::from_utf8_lossy(&buf.split_to(i)).into(),
@@ -297,7 +297,7 @@ impl Client {
                         if *c != 0 {
                             continue;
                         }
-                        self.send_message(ClientMessage::Data(DataMessage {
+                        self.send_message(ClientHostMessage::Data(DataMessage {
                             id,
                             source: Some(source),
                             data: serde_json::from_slice(&buf[last..i])?,
@@ -351,7 +351,7 @@ impl Client {
         self: &Arc<Self>,
         msg: RunScriptMessage,
         stdin: UnboundedReceiver<DataMessage>,
-    ) -> Result<ClientMessage> {
+    ) -> Result<ClientHostMessage> {
         let mut file = tempfile::Builder::new().suffix(&msg.name).tempfile()?;
 
         file.write_all(msg.content.as_bytes())?;
@@ -422,7 +422,7 @@ impl Client {
         let status = child_result.unwrap()?;
         if !status.success() {
             let code = status.code().or_else(|| status.signal().map(|v| -v));
-            return Ok(ClientMessage::Failure(FailureMessage {
+            return Ok(ClientHostMessage::Failure(FailureMessage {
                 id: msg.id,
                 code,
                 failure_type: Some(FailureType::Script),
@@ -431,7 +431,7 @@ impl Client {
         }
         stdout_result.unwrap()?;
         stderr_result.unwrap()?;
-        Ok(ClientMessage::Success(SuccessMessage {
+        Ok(ClientHostMessage::Success(SuccessMessage {
             id: msg.id,
             code: Some(0),
             data: None,
@@ -448,7 +448,7 @@ impl Client {
         let id = msg.id;
         let m = match self.handle_run_script_inner(msg, recv).await {
             Ok(v) => v,
-            Err(e) => ClientMessage::Failure(FailureMessage {
+            Err(e) => ClientHostMessage::Failure(FailureMessage {
                 id,
                 failure_type: Some(FailureType::Exception),
                 message: Some(e.to_string()),
@@ -465,7 +465,7 @@ impl Client {
     async fn handle_deploy_service_inner(
         self: &Arc<Self>,
         msg: DeployServiceMessage,
-    ) -> Result<ClientMessage> {
+    ) -> Result<ClientHostMessage> {
         let d: ServiceDescription = serde_yaml::from_str(&msg.description)
             .with_context(|| format!("Parsing description: '{}'", msg.description))?;
 
@@ -503,7 +503,7 @@ impl Client {
             )
             .await?;
 
-        Ok(ClientMessage::Success(SuccessMessage {
+        Ok(ClientHostMessage::Success(SuccessMessage {
             id: msg.id,
             code: Some(0),
             data: None,
@@ -520,7 +520,7 @@ impl Client {
             Ok(m) => m,
             Err(e) => {
                 error!("Error in deploy service: {:?}", e);
-                self.send_message(ClientMessage::Data(DataMessage {
+                self.send_message(ClientHostMessage::Data(DataMessage {
                     id,
                     source: Some(DataSource::Stderr),
                     data: BASE64_STANDARD
@@ -529,7 +529,7 @@ impl Client {
                     eof: Some(true),
                 }))
                 .await;
-                ClientMessage::Failure(FailureMessage {
+                ClientHostMessage::Failure(FailureMessage {
                     id,
                     ..Default::default()
                 })
@@ -544,7 +544,7 @@ impl Client {
         match task {
             Some(v) => v.cancel().await,
             None => {
-                self.send_message(ClientMessage::Failure(FailureMessage {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::UnknownTask),
                     message: Some("Unknown task".to_string()),
@@ -555,26 +555,14 @@ impl Client {
         }
     }
 
-    fn handle_message(self: &Arc<Self>, message: ClientMessage) {
+    fn handle_message(self: &Arc<Self>, message: HostClientMessage) {
         match message {
-            ClientMessage::Auth { .. } => {
-                error!("Got unexpected message auth");
-            }
-            ClientMessage::Pong { .. } => {
-                error!("Got unexpected message pong");
-            }
-            ClientMessage::Failure(_) => {
-                error!("Got unexpected message failure");
-            }
-            ClientMessage::Success(_) => {
-                error!("Got unexpected message success");
-            }
-            ClientMessage::Data(d) => {
+            HostClientMessage::Data(d) => {
                 if let Some(v) = self.script_stdin.lock().unwrap().get(&d.id) {
                     let _ = v.send(d);
                 }
             }
-            ClientMessage::RunInstant(ri) => {
+            HostClientMessage::RunInstant(ri) => {
                 let id = ri.id;
 
                 let task = TaskBuilder::new(format!("run_instant_{id}"))
@@ -583,7 +571,7 @@ impl Client {
 
                 self.command_tasks.lock().unwrap().insert(id, task);
             }
-            ClientMessage::RunScript(ri) => {
+            HostClientMessage::RunScript(ri) => {
                 let (send, recv) = tokio::sync::mpsc::unbounded_channel();
                 let id = ri.id;
                 if let Some(input_json) = &ri.input_json {
@@ -606,16 +594,16 @@ impl Client {
 
                 self.command_tasks.lock().unwrap().insert(id, task);
             }
-            ClientMessage::DeployService(ds) => {
+            HostClientMessage::DeployService(ds) => {
                 let id = ds.id;
                 TaskBuilder::new(format!("deploy_service_{id}"))
                     .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_deploy_service(run_token, ds));
             }
-            ClientMessage::Ping { id } => {
+            HostClientMessage::Ping { id } => {
                 tokio::spawn(self.clone().handle_ping(id));
             }
-            ClientMessage::Kill { id } => {
+            HostClientMessage::Kill { id } => {
                 tokio::spawn(self.clone().handle_kill(id));
             }
         }
@@ -829,7 +817,7 @@ impl Client {
         let domain = rustls::pki_types::ServerName::try_from(server_host.as_str())?.to_owned();
         let (read, mut write) = tokio::io::split(self.connector.connect(domain, stream).await?);
 
-        let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
+        let mut auth_message = serde_json::to_vec(&ClientHostMessage::Auth {
             hostname: self.config.hostname.as_ref().unwrap().clone(),
             password: self.password.clone(),
         })?;
@@ -937,7 +925,7 @@ impl Client {
                         start = 0;
                         match serde_json::from_slice(o) {
                             Ok(msg) => {
-                                if matches!(msg, ClientMessage::Ping { .. }) {
+                                if matches!(msg, HostClientMessage::Ping { .. }) {
                                     last_ping_time = Instant::now();
                                 }
                                 self.handle_message(msg)

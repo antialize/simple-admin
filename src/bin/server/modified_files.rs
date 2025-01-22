@@ -14,8 +14,8 @@ use futures::future::join_all;
 use log::{error, info};
 use sadmin2::{
     client_message::{
-        ClientMessage, DataSource, FailureMessage, RunScriptMessage, RunScriptOutType,
-        RunScriptStdinType, SuccessMessage,
+        ClientHostMessage, DataSource, FailureMessage, HostClientMessage, RunScriptMessage,
+        RunScriptOutType, RunScriptStdinType, SuccessMessage,
     },
     finite_float::ToFinite,
 };
@@ -357,7 +357,7 @@ f.write(o['content'])
 ";
 
             let mut jh = host
-                .start_job(&ClientMessage::RunScript(RunScriptMessage {
+                .start_job(&HostClientMessage::RunScript(RunScriptMessage {
                     id: host.next_job_id(),
                     name: "revert.py".to_string(),
                     interperter: "/usr/bin/python3".to_string(),
@@ -371,7 +371,7 @@ f.write(o['content'])
                 .await?;
 
             match jh.next_message().await? {
-                Some(ClientMessage::Success(SuccessMessage { code, .. })) => {
+                Some(ClientHostMessage::Success(SuccessMessage { code, .. })) => {
                     jh.done();
                     if let Some(code) = code {
                         if code != 0 {
@@ -379,7 +379,7 @@ f.write(o['content'])
                         }
                     }
                 }
-                Some(ClientMessage::Failure(FailureMessage { .. })) => {
+                Some(ClientHostMessage::Failure(FailureMessage { .. })) => {
                     jh.done();
                     bail!("Failure in resolve job")
                 }
@@ -515,7 +515,7 @@ for path in sys.argv[1:]:
 sys.stdout.write(json.dumps(ans))
 sys.stdout.flush()";
     let mut jh = host
-        .start_job(&ClientMessage::RunScript(RunScriptMessage {
+        .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id: host.next_job_id(),
             name: "read_files.py".to_string(),
             interperter: "/usr/bin/python3".to_string(),
@@ -530,12 +530,12 @@ sys.stdout.flush()";
     let mut out = String::new();
     loop {
         match jh.next_message().await? {
-            Some(ClientMessage::Data(m)) => {
+            Some(ClientHostMessage::Data(m)) => {
                 if matches!(m.source, Some(DataSource::Stdout)) {
                     out.push_str(m.data.as_str().context("Expected str")?);
                 }
             }
-            Some(ClientMessage::Success(m)) => {
+            Some(ClientHostMessage::Success(m)) => {
                 jh.done();
                 if let Some(code) = m.code {
                     if code != 0 {
@@ -544,7 +544,7 @@ sys.stdout.flush()";
                 }
                 break;
             }
-            Some(ClientMessage::Failure(m)) => {
+            Some(ClientHostMessage::Failure(m)) => {
                 jh.done();
                 bail!("Script failure {:?}", m)
             }

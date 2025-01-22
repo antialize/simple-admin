@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use sadmin2::client_message;
+use sadmin2::client_message::{ClientHostMessage, DataMessage, DataSource};
 use sadmin2::service_description::{Bind, ServiceDescription, ServiceMetrics, ServiceType};
 
 use crate::{
@@ -409,16 +409,12 @@ impl RemoteLogTarget<'_> {
             }
             RemoteLogTarget::Backend { id, client } => {
                 client
-                    .send_message(client_message::ClientMessage::Data(
-                        client_message::DataMessage {
-                            id: *id,
-                            source: Some(client_message::DataSource::Stdout),
-                            data: base64::engine::general_purpose::STANDARD
-                                .encode(data)
-                                .into(),
-                            eof: None,
-                        },
-                    ))
+                    .send_message(ClientHostMessage::Data(DataMessage {
+                        id: *id,
+                        source: Some(DataSource::Stdout),
+                        data: BASE64_STANDARD.encode(data).into(),
+                        eof: None,
+                    }))
                     .await;
             }
         }
@@ -452,16 +448,12 @@ impl RemoteLogTarget<'_> {
             }
             RemoteLogTarget::Backend { id, client } => {
                 client
-                    .send_message(client_message::ClientMessage::Data(
-                        client_message::DataMessage {
-                            id: *id,
-                            source: Some(client_message::DataSource::Stderr),
-                            data: base64::engine::general_purpose::STANDARD
-                                .encode(data)
-                                .into(),
-                            eof: None,
-                        },
-                    ))
+                    .send_message(ClientHostMessage::Data(DataMessage {
+                        id: *id,
+                        source: Some(DataSource::Stderr),
+                        data: BASE64_STANDARD.encode(data).into(),
+                        eof: None,
+                    }))
                     .await;
             }
         }

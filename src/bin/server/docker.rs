@@ -10,13 +10,14 @@ use crate::{
     webclient::{self, WebClient},
 };
 
-use sadmin2::service_description::{ServiceDescription, Subcert};
 use sadmin2::{
     action_types::IDockerDeployLog,
-    client_message::{
-        ClientMessage, DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage,
-    },
+    client_message::{DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage},
     finite_float::ToFinite,
+};
+use sadmin2::{
+    client_message::{ClientHostMessage, HostClientMessage},
+    service_description::{ServiceDescription, Subcert},
 };
 
 use anyhow::{bail, Context, Result};
@@ -488,7 +489,7 @@ async fn deploy_server_inner3(
     };
 
     let mut jh = host
-        .start_job(&ClientMessage::DeployService(DeployServiceMessage {
+        .start_job(&HostClientMessage::DeployService(DeployServiceMessage {
             id: host.next_job_id(),
             description: description_str.to_string(),
             extra_env,
@@ -499,7 +500,7 @@ async fn deploy_server_inner3(
         .await?;
     loop {
         match jh.next_message().await? {
-            Some(ClientMessage::Data(DataMessage { data, .. })) => {
+            Some(ClientHostMessage::Data(DataMessage { data, .. })) => {
                 client
                     .send_message(IServerAction::DockerDeployLog(IDockerDeployLog {
                         r#ref: r#ref.clone(),
@@ -507,14 +508,14 @@ async fn deploy_server_inner3(
                     }))
                     .await?;
             }
-            Some(ClientMessage::Success(SuccessMessage { code, .. })) => {
+            Some(ClientHostMessage::Success(SuccessMessage { code, .. })) => {
                 jh.done();
                 if code == Some(0) {
                     break;
                 }
                 bail!("Failed with code {:?}", code);
             }
-            Some(ClientMessage::Failure(FailureMessage { .. })) => {
+            Some(ClientHostMessage::Failure(FailureMessage { .. })) => {
                 jh.done();
                 bail!("Failed")
             }
@@ -669,7 +670,7 @@ pub async fn deploy_service(
             .lock()
             .unwrap()
             .values()
-            .find(|v| v.hostname() == &n)
+            .find(|v| v.hostname() == n)
             .map(|v| v.id())
             .context("no such host")?,
     };

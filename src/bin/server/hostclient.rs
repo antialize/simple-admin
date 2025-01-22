@@ -25,7 +25,8 @@ use tokio_rustls::{server::TlsStream, TlsAcceptor};
 use tokio_tasks::{cancelable, RunToken, TaskBuilder};
 
 use sadmin2::client_message::{
-    ClientMessage, RunInstantMessage, RunInstantStdinOutputType, RunInstantStdinType,
+    ClientHostMessage, HostClientMessage, RunInstantMessage, RunInstantStdinOutputType,
+    RunInstantStdinType,
 };
 
 use crate::{
@@ -39,12 +40,12 @@ use sadmin2::type_types::HOST_ID;
 pub struct JobHandle {
     client: Weak<HostClient>,
     id: u64,
-    reciever: UnboundedReceiver<ClientMessage>,
+    reciever: UnboundedReceiver<ClientHostMessage>,
     should_kill: bool,
 }
 
 impl JobHandle {
-    pub async fn next_message(&mut self) -> Result<Option<ClientMessage>> {
+    pub async fn next_message(&mut self) -> Result<Option<ClientHostMessage>> {
         Ok(self.reciever.recv().await)
     }
 
@@ -68,7 +69,7 @@ pub struct HostClient {
     id: i64,
     hostname: String,
     writer: TMutex<tokio::io::WriteHalf<TlsStream<TcpStream>>>,
-    job_sinks: Mutex<HashMap<u64, UnboundedSender<ClientMessage>>>,
+    job_sinks: Mutex<HashMap<u64, UnboundedSender<ClientHostMessage>>>,
     killed_jobs: Mutex<HashSet<u64>>,
     next_job_id: AtomicU64,
     run_token: RunToken,
@@ -88,7 +89,7 @@ impl HostClient {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    pub async fn send_message(&self, msg: &ClientMessage) -> Result<()> {
+    pub async fn send_message(&self, msg: &HostClientMessage) -> Result<()> {
         let mut msg = serde_json::to_vec(msg)?;
         msg.push(0x1e);
         let mut writer = cancelable(&self.run_token, self.writer.lock()).await?;
@@ -115,7 +116,7 @@ impl HostClient {
         Ok(())
     }
 
-    pub async fn start_job(self: &Arc<Self>, msg: &ClientMessage) -> Result<JobHandle> {
+    pub async fn start_job(self: &Arc<Self>, msg: &HostClientMessage) -> Result<JobHandle> {
         let Some(id) = msg.job_id() else {
             bail!("Not a job message")
         };
@@ -135,7 +136,7 @@ impl HostClient {
     }
 
     pub async fn kill_job(self: Arc<Self>, id: u64) -> Result<()> {
-        self.send_message(&ClientMessage::Kill { id }).await?;
+        self.send_message(&HostClientMessage::Kill { id }).await?;
         Ok(())
     }
 
@@ -176,13 +177,13 @@ impl HostClient {
                         break
                     }
                     while let Some(i) = buf.iter().position(|v| *v == 0x1e) {
-                        let msg: ClientMessage =
+                        let msg: ClientHostMessage =
                             serde_json::from_slice(&buf[..i]).context("Invalid message")?;
                         buf.advance(i + 1);
 
                         match msg {
-                            ClientMessage::Auth { .. } => bail!("Unexpected auth"),
-                            ClientMessage::Pong { id } => {
+                            ClientHostMessage::Auth { .. } => bail!("Unexpected auth"),
+                            ClientHostMessage::Pong { id } => {
                                 if id != ping_id as u64 {
                                     warn!("Got pong with wrong id {} vs {} on host {}", id, ping_id, self.hostname);
                                 } else {
@@ -210,7 +211,7 @@ impl HostClient {
                     let s = self.clone();
                     let id = ping_id;
                     tokio::spawn(async move {
-                        if let Err(e) = s.send_message(&ClientMessage::Ping{
+                        if let Err(e) = s.send_message(&HostClientMessage::Ping{
                             id: id as u64
                         }).await {
                             error!("Failed sending ping: {:?}", e)
@@ -241,7 +242,7 @@ impl HostClient {
 
     async fn run_shell(self: &Arc<Self>, cmd: String) -> Result<String> {
         let mut jh = self
-            .start_job(&ClientMessage::RunInstant(RunInstantMessage {
+            .start_job(&HostClientMessage::RunInstant(RunInstantMessage {
                 id: self.next_job_id(),
                 name: "runShell.sh".into(),
                 interperter: "/bin/sh".into(),
@@ -252,7 +253,7 @@ impl HostClient {
             }))
             .await?;
         match jh.next_message().await? {
-            Some(ClientMessage::Success(msg)) => {
+            Some(ClientHostMessage::Success(msg)) => {
                 jh.done();
                 if let Some(code) = msg.code {
                     if code != 0 {
@@ -264,7 +265,7 @@ impl HostClient {
                 };
                 Ok(v)
             }
-            Some(ClientMessage::Failure(msg)) => {
+            Some(ClientHostMessage::Failure(msg)) => {
                 jh.done();
                 bail!("Command failed with code {}", msg.code.unwrap_or(-43));
             }
@@ -275,7 +276,7 @@ impl HostClient {
 
     async fn write_small_text_file(self: &Arc<Self>, path: String, content: String) -> Result<()> {
         let mut jh = self
-            .start_job(&ClientMessage::RunInstant(RunInstantMessage {
+            .start_job(&HostClientMessage::RunInstant(RunInstantMessage {
                 id: self.next_job_id(),
                 name: "writeSmallFile.sh".into(),
                 interperter: "/bin/bash".into(),
@@ -286,7 +287,7 @@ impl HostClient {
             }))
             .await?;
         match jh.next_message().await? {
-            Some(ClientMessage::Success(msg)) => {
+            Some(ClientHostMessage::Success(msg)) => {
                 jh.done();
                 if let Some(code) = msg.code {
                     if code != 0 {
@@ -295,7 +296,7 @@ impl HostClient {
                 }
                 Ok(())
             }
-            Some(ClientMessage::Failure(msg)) => {
+            Some(ClientHostMessage::Failure(msg)) => {
                 jh.done();
                 bail!("Command failed with code {}", msg.code.unwrap_or(-45));
             }
@@ -310,7 +311,7 @@ impl HostClient {
         let host_key = self
             .run_shell("cat /etc/ssh/ssh_host_ed25519_key.pub".into())
             .await?;
-        let r = db::get_root_variables(&state).await?;
+        let r = db::get_root_variables(state).await?;
         if let Some(ssh_host_ca_key) = r.get("sshHostCaKey") {
             const VALIDITY_DAYS: u32 = 7;
             let ssh_crt: String = crt::generate_ssh_crt(
@@ -346,13 +347,13 @@ async fn auth_client(
             bail!("Disconnected");
         }
         if let Some(i) = buf.iter().position(|v| *v == 0x1e) {
-            let msg: ClientMessage =
+            let msg: ClientHostMessage =
                 serde_json::from_slice(&buf[..i]).context("Invalid message")?;
             buf.advance(i + 1);
             break msg;
         }
     };
-    let ClientMessage::Auth { hostname, password } = msg else {
+    let ClientHostMessage::Auth { hostname, password } = msg else {
         bail!("Expected auth message");
     };
 
@@ -439,7 +440,10 @@ async fn handle_host_client(
     webclient::broadcast(&state, IServerAction::HostUp(IHostUp { id }))?;
 
     if let Err(e) = hc.clone().handle_messages(state.clone(), reader, buf).await {
-        error!("Error handeling host client messages: {:?}", e);
+        error!(
+            "Error handeling host messages from {}: {:?}",
+            hc.hostname, e
+        );
     }
 
     if let Entry::Occupied(e) = state.host_clients.lock().unwrap().entry(id) {

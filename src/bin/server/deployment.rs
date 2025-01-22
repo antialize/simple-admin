@@ -23,7 +23,7 @@ use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use log::error;
 use sadmin2::client_message::{
-    ClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
+    ClientHostMessage, HostClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
 };
 use sadmin2::type_types::{
     IBoolTypeProp, IChoiceTypeProp, IContainsIter, IDependsIter, IDocumentTypeProp,
@@ -306,7 +306,7 @@ impl<'a, M> Visitor<'a, M> {
                     "Template error in {} of {}: {:?}",
                     name, deployment_title, e
                 );
-                return "".into();
+                "".into()
             }
         }
     }
@@ -382,7 +382,7 @@ impl<'a, M> Visitor<'a, M> {
                         };
                         let vv = match &v {
                             Cow::Borrowed(v) => v,
-                            Cow::Owned(v) => self.string_arena.alloc_str(access, &v),
+                            Cow::Owned(v) => self.string_arena.alloc_str(access, v),
                         };
                         if let Some(variable) = variable {
                             if !variable.is_empty() {
@@ -504,6 +504,7 @@ impl<'a, M> Visitor<'a, M> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn handle_contains(
         &mut self,
         access: &mut OCellAccess<M>,
@@ -623,6 +624,7 @@ impl<'a, M> Visitor<'a, M> {
         Ok((node, sentinal))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn visit_inner(
         &mut self,
         access: &mut OCellAccess<M>,
@@ -1286,7 +1288,7 @@ async fn deploy_single(
     content: Value,
 ) -> Result<()> {
     let mut jh = host_client
-        .start_job(&ClientMessage::RunScript(RunScriptMessage {
+        .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id: host_client.next_job_id(),
             name: "deploy.py".to_string(),
             interperter: "/usr/bin/python3".to_string(),
@@ -1301,18 +1303,18 @@ async fn deploy_single(
     loop {
         let msg = jh.next_message().await?.context("Host went away")?;
         match msg {
-            ClientMessage::Failure(msg) => {
+            ClientHostMessage::Failure(msg) => {
                 jh.done();
                 bail!("Command failed {:?}", msg.failure_type);
             }
-            ClientMessage::Success(msg) => {
+            ClientHostMessage::Success(msg) => {
                 jh.done();
                 if msg.code == Some(0) {
                     return Ok(());
                 }
                 bail!("Command failed with code {:?}", msg.code)
             }
-            ClientMessage::Data(msg) => {
+            ClientHostMessage::Data(msg) => {
                 mut_deployment(state, move |deployment| {
                     let data = msg.data.as_str().context("Expected string")?;
                     let line = String::from_utf8(BASE64_STANDARD.decode(data)?)?;

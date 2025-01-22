@@ -127,33 +127,68 @@ pub struct DeployServiceMessage {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum ClientMessage {
-    Auth { hostname: String, password: String },
+pub enum HostClientMessage {
     RunInstant(RunInstantMessage),
     RunScript(RunScriptMessage),
     Ping { id: u64 },
-    Pong { id: u64 },
-    Failure(FailureMessage),
-    Success(SuccessMessage),
     Kill { id: u64 },
     Data(DataMessage),
     DeployService(DeployServiceMessage),
 }
 
-impl ClientMessage {
-    #[allow(dead_code)]
+impl HostClientMessage {
     pub fn job_id(&self) -> Option<u64> {
         match self {
-            ClientMessage::Failure(failure_message) => Some(failure_message.id),
-            ClientMessage::Success(success_message) => Some(success_message.id),
-            ClientMessage::Kill { id } => Some(*id),
-            ClientMessage::Data(data_message) => Some(data_message.id),
-            ClientMessage::DeployService(deploy_service_message) => Some(deploy_service_message.id),
-            ClientMessage::RunInstant(m) => Some(m.id),
-            ClientMessage::RunScript(m) => Some(m.id),
-            ClientMessage::Auth { .. }
-            | ClientMessage::Ping { .. }
-            | ClientMessage::Pong { .. } => None,
+            HostClientMessage::Kill { id } => Some(*id),
+            HostClientMessage::Data(data_message) => Some(data_message.id),
+            HostClientMessage::DeployService(deploy_service_message) => {
+                Some(deploy_service_message.id)
+            }
+            HostClientMessage::RunInstant(m) => Some(m.id),
+            HostClientMessage::RunScript(m) => Some(m.id),
+            HostClientMessage::Ping { .. } => None,
+        }
+    }
+
+    pub fn tag(&self) -> &'static str {
+        match self {
+            HostClientMessage::RunInstant(_) => "run_instant",
+            HostClientMessage::RunScript(_) => "run_script",
+            HostClientMessage::Ping { .. } => "ping",
+            HostClientMessage::Kill { .. } => "pong",
+            HostClientMessage::Data(_) => "data",
+            HostClientMessage::DeployService(_) => "deploy_service",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClientHostMessage {
+    Auth { hostname: String, password: String },
+    Pong { id: u64 },
+    Failure(FailureMessage),
+    Success(SuccessMessage),
+    Data(DataMessage),
+}
+
+impl ClientHostMessage {
+    pub fn job_id(&self) -> Option<u64> {
+        match self {
+            ClientHostMessage::Failure(failure_message) => Some(failure_message.id),
+            ClientHostMessage::Success(success_message) => Some(success_message.id),
+            ClientHostMessage::Data(data_message) => Some(data_message.id),
+            ClientHostMessage::Auth { .. } | ClientHostMessage::Pong { .. } => None,
+        }
+    }
+
+    pub fn tag(&self) -> &'static str {
+        match self {
+            ClientHostMessage::Auth { .. } => "auth",
+            ClientHostMessage::Pong { .. } => "pong",
+            ClientHostMessage::Failure(_) => "failure",
+            ClientHostMessage::Success(_) => "success",
+            ClientHostMessage::Data(_) => "data",
         }
     }
 }

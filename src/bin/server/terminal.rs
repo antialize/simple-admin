@@ -12,7 +12,8 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use futures::{pin_mut, select, FutureExt, SinkExt, StreamExt};
 use log::error;
 use sadmin2::client_message::{
-    ClientMessage, DataMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
+    ClientHostMessage, DataMessage, HostClientMessage, RunScriptMessage, RunScriptOutType,
+    RunScriptStdinType,
 };
 use serde::Deserialize;
 
@@ -73,7 +74,7 @@ while True:
 os.waitpid(pid, 0)"#;
     let id = host_client.next_job_id();
     let jh = host_client
-        .start_job(&ClientMessage::RunScript(RunScriptMessage {
+        .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id,
             name: "shell.py".into(),
             interperter: "/usr/bin/python3".into(),
@@ -111,23 +112,24 @@ async fn read_from_shell(
     mut jh: crate::hostclient::JobHandle,
     mut socket_sink: futures::stream::SplitSink<WebSocket, Message>,
 ) -> Result<(), anyhow::Error> {
-    Ok(while let Some(m) = jh.next_message().await? {
+    while let Some(m) = jh.next_message().await? {
         match m {
-            ClientMessage::Failure(failure_message) => {
+            ClientHostMessage::Failure(failure_message) => {
                 bail!("Failed with code {:?}", failure_message.code);
             }
-            ClientMessage::Success(_) => {
+            ClientHostMessage::Success(_) => {
                 // TODO make better??
                 break;
             }
-            ClientMessage::Data(data_message) => {
+            ClientHostMessage::Data(data_message) => {
                 let data = BASE64_STANDARD
                     .decode(data_message.data.as_str().context("Data is not string")?)?;
                 socket_sink.send(Message::Binary(data.into())).await?;
             }
             _ => bail!("Unexpected message"),
         }
-    })
+    }
+    Ok(())
 }
 
 async fn send_to_shell(
@@ -139,12 +141,12 @@ async fn send_to_shell(
         let v = v?;
         let data = match &v {
             Message::Text(utf8_bytes) => utf8_bytes.as_bytes(),
-            Message::Binary(bytes) => &bytes,
+            Message::Binary(bytes) => bytes,
             Message::Ping(_) | Message::Pong(_) | Message::Close(_) => continue,
         };
         let data = BASE64_STANDARD.encode(data);
         host_client
-            .send_message(&ClientMessage::Data(DataMessage {
+            .send_message(&HostClientMessage::Data(DataMessage {
                 id,
                 source: None,
                 data: data.into(),
