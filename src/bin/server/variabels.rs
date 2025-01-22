@@ -2,12 +2,14 @@ use crate::mustache::VarsMap;
 use anyhow::{bail, Context, Result};
 use std::{borrow::Cow, ops::Deref};
 
+type StackEntry<'a> = (Cow<'a, str>, Option<Cow<'a, str>>);
+
 pub struct Variables<'a> {
     map: VarsMap<'a>,
-    stack: Vec<Vec<(Cow<'a, str>, Option<Cow<'a, str>>)>>,
+    stack: Vec<Vec<StackEntry<'a>>>,
 }
 
-impl<'a> Default for Variables<'a> {
+impl Default for Variables<'_> {
     fn default() -> Self {
         Self {
             map: Default::default(),
@@ -24,7 +26,7 @@ impl<'a> Variables<'a> {
     ) -> Result<()> {
         let k = k.into();
         let v = v.into();
-        let ov = if let Some(_) = v.strip_prefix("json:") {
+        let ov = if v.strip_prefix("json:").is_some() {
             bail!("json: not supported");
         } else {
             self.map.insert(k.clone(), v)

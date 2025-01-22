@@ -139,7 +139,7 @@ impl Connection {
                     Ok(msg) => msg,
                     Err(_) => {
                         self.stream
-                            .send(WSMessage::Ping((&[42, 41]).as_slice().into()))
+                            .send(WSMessage::Ping(([42, 41]).as_slice().into()))
                             .await?;
                         continue;
                     }
