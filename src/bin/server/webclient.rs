@@ -63,6 +63,7 @@ use sadmin2::{
 use tokio::sync::Mutex as TMutex;
 
 pub async fn alert_error(
+    rt: &RunToken,
     state: &State,
     err: anyhow::Error,
     place: &str,
@@ -74,7 +75,7 @@ pub async fn alert_error(
         title: format!("Error in {}", place),
     });
     if let Some(webclient) = webclient {
-        webclient.send_message(act).await?;
+        webclient.send_message(rt, act).await?;
     } else {
         broadcast(state, act)?;
     }
@@ -89,40 +90,48 @@ pub struct WebClient {
 }
 
 impl WebClient {
-    pub async fn send_message_str(&self, msg: &str) -> Result<()> {
-        let mut sink = cancelable(&self.run_token, self.sink.lock()).await?;
+    pub async fn send_message_str(&self, rt: &RunToken, msg: &str) -> Result<()> {
+        let mut sink = match cancelable(rt, cancelable(&self.run_token, self.sink.lock())).await {
+            Ok(Ok(v)) => v,
+            _ => {
+                return Ok(());
+            }
+        };
         match cancelable(
-            &self.run_token,
-            tokio::time::timeout(
-                Duration::from_secs(60),
-                sink.send(Message::Text(msg.into())),
+            rt,
+            cancelable(
+                &self.run_token,
+                tokio::time::timeout(
+                    Duration::from_secs(60),
+                    sink.send(Message::Text(msg.into())),
+                ),
             ),
         )
         .await
         {
-            Ok(Ok(Ok(()))) => (),
-            Ok(Ok(Err(e))) => {
+            Ok(Ok(Ok(Ok(())))) => (),
+            Ok(Ok(Ok(Err(e)))) => {
                 Err(e).context(format!("Failure sending message to client {}", self.remote))?
             }
-            Ok(Err(_)) => {
+            Ok(Ok(Err(_))) => {
                 self.run_token.cancel();
                 bail!("Timeout sending message to client {}", self.remote);
             }
-            Err(_) => (),
+            Err(_) | Ok(Err(_)) => (),
         }
         Ok(())
     }
 
-    pub async fn send_message(&self, msg: IServerAction) -> Result<()> {
+    pub async fn send_message(&self, rt: &RunToken, msg: IServerAction) -> Result<()> {
         let msg = serde_json::to_string(&msg)?;
-        self.send_message_str(&msg).await
+        self.send_message_str(rt, &msg).await
     }
 
     pub fn get_auth(&self) -> IAuthStatus {
         self.auth.lock().unwrap().clone()
     }
 
-    fn set_auth(&self, auth: IAuthStatus) -> () {
+    fn set_auth(&self, auth: IAuthStatus) {
         *self.auth.lock().unwrap() = auth;
     }
 
@@ -150,7 +159,12 @@ impl WebClient {
         Ok(())
     }
 
-    async fn handle_generate_key(&self, state: &State, act: IGenerateKey) -> Result<()> {
+    async fn handle_generate_key(
+        &self,
+        rt: &RunToken,
+        state: &State,
+        act: IGenerateKey,
+    ) -> Result<()> {
         let auth = self.get_auth();
         let Some(sslname) = auth.sslname else {
             self.close(403).await?;
@@ -194,12 +208,17 @@ impl WebClient {
                 res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
             }
         }
-        self.send_message(IServerAction::GenerateKeyRes(res))
+        self.send_message(rt, IServerAction::GenerateKeyRes(res))
             .await?;
         Ok(())
     }
 
-    pub async fn handle_login_inner(&self, state: &State, act: ILogin) -> Result<()> {
+    pub async fn handle_login_inner(
+        &self,
+        rt: &RunToken,
+        state: &State,
+        act: ILogin,
+    ) -> Result<()> {
         let mut session = self.get_auth().session;
         let auth = if let Some(session) = &session {
             get_auth(state, Some(&self.remote), Some(session)).await?
@@ -246,12 +265,15 @@ impl WebClient {
 
         if !found {
             self.set_auth(IAuthStatus::default());
-            self.send_message(IServerAction::AuthStatus(IAuthStatus {
-                session,
-                user: Some(act.user),
-                message: Some("Invalid user name".to_string()),
-                ..Default::default()
-            }))
+            self.send_message(
+                rt,
+                IServerAction::AuthStatus(IAuthStatus {
+                    session,
+                    user: Some(act.user),
+                    message: Some("Invalid user name".to_string()),
+                    ..Default::default()
+                }),
+            )
             .await?;
         } else if !pwd || !otp {
             if otp && new_otp {
@@ -282,13 +304,16 @@ impl WebClient {
                 otp,
                 ..Default::default()
             });
-            self.send_message(IServerAction::AuthStatus(IAuthStatus {
-                session,
-                user: Some(act.user),
-                otp,
-                message: Some("Invalid password or one time password".to_string()),
-                ..Default::default()
-            }))
+            self.send_message(
+                rt,
+                IServerAction::AuthStatus(IAuthStatus {
+                    session,
+                    user: Some(act.user),
+                    otp,
+                    message: Some("Invalid password or one time password".to_string()),
+                    ..Default::default()
+                }),
+            )
             .await?;
         } else {
             if let Some(session) = &session {
@@ -328,7 +353,8 @@ impl WebClient {
                 bail!("Internal auth error");
             }
             self.set_auth(auth.clone());
-            self.send_message(IServerAction::AuthStatus(auth)).await?;
+            self.send_message(rt, IServerAction::AuthStatus(auth))
+                .await?;
         }
         Ok(())
     }
@@ -361,7 +387,7 @@ impl WebClient {
     pub async fn handle_message(
         &self,
         state: &State,
-        _rt: RunToken,
+        rt: RunToken,
         act: IClientAction,
     ) -> Result<()> {
         match act {
@@ -413,32 +439,39 @@ impl WebClient {
                     used_by.extend(object.content.contains_iter().map(|v| (v, object.id)));
                     used_by.extend(object.content.sudo_on_iter().map(|v| (v, object.id)))
                 }
-                self.send_message(IServerAction::SetInitialState(ISetInitialState {
-                    messages,
-                    hosts_up,
-                    types,
-                    used_by,
-                    object_names_and_ids,
-                    deployment_objects,
-                    deployment_status,
-                    deployment_message,
-                    deployment_log,
-                }))
+                self.send_message(
+                    &rt,
+                    IServerAction::SetInitialState(ISetInitialState {
+                        messages,
+                        hosts_up,
+                        types,
+                        used_by,
+                        object_names_and_ids,
+                        deployment_objects,
+                        deployment_status,
+                        deployment_message,
+                        deployment_log,
+                    }),
+                )
                 .await
                 .context("send_message")?;
             }
             IClientAction::RequestAuthStatus(act) => {
                 let auth = get_auth(state, Some(&self.remote), act.session.as_deref()).await?;
                 self.set_auth(auth.clone());
-                self.send_message(IServerAction::AuthStatus(auth)).await?;
+                self.send_message(&rt, IServerAction::AuthStatus(auth))
+                    .await?;
             }
             IClientAction::Login(act) => {
-                if let Err(e) = self.handle_login_inner(state, act).await {
+                if let Err(e) = self.handle_login_inner(&rt, state, act).await {
                     error!("Error in handle_login: {:?}", e);
-                    self.send_message(IServerAction::AuthStatus(IAuthStatus {
-                        message: Some("Internal error".to_string()),
-                        ..Default::default()
-                    }))
+                    self.send_message(
+                        &rt,
+                        IServerAction::AuthStatus(IAuthStatus {
+                            message: Some("Internal error".to_string()),
+                            ..Default::default()
+                        }),
+                    )
                     .await?
                 }
             }
@@ -465,7 +498,8 @@ impl WebClient {
                 }
                 let auth = get_auth(state, Some(&self.remote), Some(&session)).await?;
                 self.set_auth(auth.clone());
-                self.send_message(IServerAction::AuthStatus(auth)).await?;
+                self.send_message(&rt, IServerAction::AuthStatus(auth))
+                    .await?;
             }
             IClientAction::FetchObject(act) => {
                 if !self.get_auth().admin {
@@ -484,10 +518,10 @@ impl WebClient {
                 for row in rows {
                     object.push(row.try_into()?);
                 }
-                self.send_message(IServerAction::ObjectChanged(IObjectChanged {
-                    id: act.id,
-                    object,
-                }))
+                self.send_message(
+                    &rt,
+                    IServerAction::ObjectChanged(IObjectChanged { id: act.id, object }),
+                )
                 .await?;
             }
             IClientAction::GetObjectId(act) => {
@@ -502,10 +536,13 @@ impl WebClient {
                         None
                     }
                 };
-                self.send_message(IServerAction::GetObjectIdRes(IGetObjectIdRes {
-                    r#ref: act.r#ref,
-                    id,
-                }))
+                self.send_message(
+                    &rt,
+                    IServerAction::GetObjectIdRes(IGetObjectIdRes {
+                        r#ref: act.r#ref,
+                        id,
+                    }),
+                )
                 .await?;
             }
             IClientAction::GetObjectHistory(act) => {
@@ -527,11 +564,14 @@ impl WebClient {
                         author: row.author,
                     });
                 }
-                self.send_message(IServerAction::GetObjectHistoryRes(IGetObjectHistoryRes {
-                    r#ref: act.r#ref,
-                    id: act.id,
-                    history,
-                }))
+                self.send_message(
+                    &rt,
+                    IServerAction::GetObjectHistoryRes(IGetObjectHistoryRes {
+                        r#ref: act.r#ref,
+                        id: act.id,
+                        history,
+                    }),
+                )
                 .await?;
             }
             IClientAction::MessageTextReq(act) => {
@@ -540,13 +580,16 @@ impl WebClient {
                     return Ok(());
                 };
                 let t = msg::get_full_text(state, act.id).await?;
-                self.send_message(IServerAction::MessageTextRep(IMessageTextRepAction {
-                    id: act.id,
-                    message: t.unwrap_or_else(|| "missing".to_string()),
-                }))
+                self.send_message(
+                    &rt,
+                    IServerAction::MessageTextRep(IMessageTextRepAction {
+                        id: act.id,
+                        message: t.unwrap_or_else(|| "missing".to_string()),
+                    }),
+                )
                 .await?;
             }
-            IClientAction::SetMessagesDismissed(act) => {
+            IClientAction::SetMessageDismissed(act) => {
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
@@ -613,14 +656,17 @@ impl WebClient {
                         content: row.content,
                     });
                 }
-                self.send_message(IServerAction::SearchRes(ISearchRes {
-                    r#ref: act.r#ref,
-                    objects,
-                }))
+                self.send_message(
+                    &rt,
+                    IServerAction::SearchRes(ISearchRes {
+                        r#ref: act.r#ref,
+                        objects,
+                    }),
+                )
                 .await?;
             }
             IClientAction::GenerateKey(act) => {
-                self.handle_generate_key(state, act).await?;
+                self.handle_generate_key(&rt, state, act).await?;
             }
             IClientAction::SaveObject(act) => {
                 let auth = self.get_auth();
@@ -676,13 +722,16 @@ impl WebClient {
                         object: vec![obj],
                     }),
                 )?;
-                self.send_message(IServerAction::SetPage(ISetPageAction {
-                    page: IPage::Object(IObjectPage {
-                        object_type,
-                        id: Some(id),
-                        version: Some(version),
+                self.send_message(
+                    &rt,
+                    IServerAction::SetPage(ISetPageAction {
+                        page: IPage::Object(IObjectPage {
+                            object_type,
+                            id: Some(id),
+                            version: Some(version),
+                        }),
                     }),
-                }))
+                )
                 .await?;
             }
             IClientAction::DeleteObject(act) => {
@@ -716,13 +765,16 @@ impl WebClient {
                     }
                 }
                 if !conflicts.is_empty() {
-                    self.send_message(IServerAction::Alert(IAlert {
-                        title: "Cannot delete object".into(),
-                        message: format!(
-                            "The object can not be delete as it is in use by:\n{}",
-                            conflicts.join("\n")
-                        ),
-                    }))
+                    self.send_message(
+                        &rt,
+                        IServerAction::Alert(IAlert {
+                            title: "Cannot delete object".into(),
+                            message: format!(
+                                "The object can not be delete as it is in use by:\n{}",
+                                conflicts.join("\n")
+                            ),
+                        }),
+                    )
                     .await?;
                 } else {
                     info!("Web client delete object id={}", act.id);
@@ -740,9 +792,12 @@ impl WebClient {
                             object: vec![],
                         }),
                     )?;
-                    self.send_message(IServerAction::SetPage(ISetPageAction {
-                        page: IPage::Dashbord,
-                    }))
+                    self.send_message(
+                        &rt,
+                        IServerAction::SetPage(ISetPageAction {
+                            page: IPage::Dashbord,
+                        }),
+                    )
                     .await?;
                 }
             }
@@ -776,12 +831,13 @@ impl WebClient {
                         },
                     );
                 }
-                self.send_message(IServerAction::DockerListImageByHashRes(
-                    IDockerListImageByHashRes {
+                self.send_message(
+                    &rt,
+                    IServerAction::DockerListImageByHashRes(IDockerListImageByHashRes {
                         r#ref: act.r#ref,
                         tags,
-                    },
-                ))
+                    }),
+                )
                 .await?;
             }
             IClientAction::DockerListImageTags(act) => {
@@ -821,13 +877,14 @@ impl WebClient {
                 )
                 .fetch_all(&state.db)
                 .await?;
-                self.send_message(IServerAction::DockerListImageTagsRes(
-                    IDockerListImageTagsRes {
+                self.send_message(
+                    &rt,
+                    IServerAction::DockerListImageTagsRes(IDockerListImageTagsRes {
                         r#ref: act.r#ref,
                         tags,
                         pinned_image_tags,
-                    },
-                ))
+                    }),
+                )
                 .await
                 .context("In send message")?;
             }
@@ -940,14 +997,15 @@ impl WebClient {
                         pinned_image_tag: false,
                     });
                 }
-                self.send_message(IServerAction::DockerListImageTagHistoryRes(
-                    IDockerListImageTagHistoryRes {
+                self.send_message(
+                    &rt,
+                    IServerAction::DockerListImageTagHistoryRes(IDockerListImageTagHistoryRes {
                         r#ref: act.r#ref,
                         images,
                         image: act.image,
                         tag: act.tag,
-                    },
-                ))
+                    }),
+                )
                 .await?;
             }
             IClientAction::DockerContainerForget(act) => {
@@ -992,14 +1050,14 @@ impl WebClient {
                     self.close(403).await?;
                     return Ok(());
                 };
-                list_deployments(state, self, act).await?;
+                list_deployments(&rt, state, self, act).await?;
             }
             IClientAction::DockerListDeploymentHistory(act) => {
                 if !self.get_auth().docker_push {
                     self.close(403).await?;
                     return Ok(());
                 };
-                list_deployment_history(state, self, act).await?;
+                list_deployment_history(&rt, state, self, act).await?;
             }
             IClientAction::ModifiedFilesScan(_) => {
                 if !self.get_auth().admin {
@@ -1013,7 +1071,7 @@ impl WebClient {
                     self.close(403).await?;
                     return Ok(());
                 };
-                modified_files::list(state, self, act).await?;
+                modified_files::list(&rt, state, self, act).await?;
             }
             IClientAction::ModifiedFilesResolve(act) => {
                 if !self.get_auth().admin {
@@ -1029,7 +1087,7 @@ impl WebClient {
                 };
                 // TODO is there a magic no object id
                 if let Err(e) = deployment::deploy_object(state, act.id, act.redeploy).await {
-                    alert_error(state, e, "Deployment::deployObject", Some(self)).await?;
+                    alert_error(&rt, state, e, "Deployment::deployObject", Some(self)).await?;
                 }
             }
             IClientAction::CancelDeployment(_) => {
@@ -1045,7 +1103,7 @@ impl WebClient {
                     return Ok(());
                 };
                 if let Err(e) = deployment::start(state).await {
-                    alert_error(state, e, "Deployment::start", Some(self)).await?;
+                    alert_error(&rt, state, e, "Deployment::start", Some(self)).await?;
                 }
             }
             IClientAction::StopDeployment(_) => {
@@ -1096,14 +1154,14 @@ impl WebClient {
             };
             match msg {
                 Message::Text(utf8_bytes) => {
-                    let Ok(act) = serde_json::from_str(utf8_bytes.as_str()) else {
+                    let Ok(act) = serde_json::from_str::<IClientAction>(utf8_bytes.as_str()) else {
                         warn!("Invalid message from client {}", self.remote);
                         continue;
                     };
                     let s = self.clone();
                     let state = state.clone();
 
-                    TaskBuilder::new("handle_message")
+                    TaskBuilder::new(format!("handle_client_message_{}", act.tag()))
                         .shutdown_order(0)
                         .create(|rt| async move {
                             s.handle_message(&state, rt, act).await.with_context(|| {
@@ -1145,11 +1203,14 @@ pub fn broadcast(state: &State, msg: IServerAction) -> Result<()> {
     for c in &*state.web_clients.lock().unwrap() {
         let c = (**c).clone();
         let msg = msg.clone();
-        tokio::spawn(async move {
-            if let Err(e) = c.send_message_str(&msg).await {
-                error!("Failure broadcasting message to {}: {:?}", c.remote, e);
-            }
-        });
+        TaskBuilder::new("breadcast_message")
+            .shutdown_order(-1)
+            .create(|rt| async move {
+                if let Err(e) = c.send_message_str(&rt, &msg).await {
+                    error!("Failure broadcasting message to {}: {:?}", c.remote, e);
+                }
+                Ok::<(), ()>(())
+            });
     }
     Ok(())
 }

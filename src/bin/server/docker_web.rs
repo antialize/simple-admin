@@ -224,7 +224,7 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
             }
         }
     }
-    return Err((
+    Err((
         StatusCode::FORBIDDEN,
         [(
             "WWW-Authenticate",
@@ -238,7 +238,7 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
             }],
         }),
     )
-        .into_response());
+        .into_response())
 }
 
 pub struct DockerAuthPull;
@@ -733,7 +733,7 @@ async fn put_manifest(
     let labels_string = serde_json::to_string(&config.config.labels)
         .to_api_error("Unable to convert labels to string")?;
     let digest = sha2::Sha256::digest(&body);
-    let hash = format!("sha256:{}", hex::encode(&digest));
+    let hash = format!("sha256:{}", hex::encode(digest));
 
     let time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -905,7 +905,7 @@ async fn post_blob_upload(
     // TODO(jakobt) we should add some timeout here to not have the file there forever
 
     state.docker_uploads.lock().unwrap().insert(
-        uuid.clone(),
+        uuid,
         Arc::new(Upload {
             shadow_range: Default::default(),
             inner: TMutex::new(Some(UploadInner {

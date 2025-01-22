@@ -487,6 +487,7 @@ async fn deploy_server_inner3(
     let Some(host) = state.host_clients.lock().unwrap().get(&host_id).cloned() else {
         bail!("Host not up");
     };
+    let rt = RunToken::new();
 
     let mut jh = host
         .start_job(&HostClientMessage::DeployService(DeployServiceMessage {
@@ -501,11 +502,22 @@ async fn deploy_server_inner3(
     loop {
         match jh.next_message().await? {
             Some(ClientHostMessage::Data(DataMessage { data, .. })) => {
+                let serde_json::Value::String(msg) = data else {
+                    continue;
+                };
+                let msg = BASE64_STANDARD.decode(&msg)?;
+                let message = match String::from_utf8(msg) {
+                    Ok(v) => v,
+                    Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+                };
                 client
-                    .send_message(IServerAction::DockerDeployLog(IDockerDeployLog {
-                        r#ref: r#ref.clone(),
-                        message: data.to_string(), //TODO Buffer.from(obj.data, "base64").toString("binary")
-                    }))
+                    .send_message(
+                        &rt,
+                        IServerAction::DockerDeployLog(IDockerDeployLog {
+                            r#ref: r#ref.clone(),
+                            message,
+                        }),
+                    )
                     .await?;
             }
             Some(ClientHostMessage::Success(SuccessMessage { code, .. })) => {
@@ -569,12 +581,15 @@ async fn deploy_server_inner3(
     .context("Query 3")?
     .last_insert_rowid();
     client
-        .send_message(IServerAction::DockerDeployEnd(IDockerDeployEnd {
-            r#ref,
-            status: true,
-            message: "Success".into(),
-            id: Some(id2),
-        }))
+        .send_message(
+            &rt,
+            IServerAction::DockerDeployEnd(IDockerDeployEnd {
+                r#ref,
+                status: true,
+                message: "Success".into(),
+                id: Some(id2),
+            }),
+        )
         .await?;
 
     let o = DockerDeployment {
@@ -643,16 +658,20 @@ pub async fn redploy_service(
     client: &WebClient,
     act: IServiceRedeployStart,
 ) -> Result<()> {
+    let rt = RunToken::new();
     let r#ref = act.r#ref.clone();
     if let Err(e) = redploy_service_inner(state, client, act).await {
         error!("Service redeployment failed: {:?}", e);
         client
-            .send_message(IServerAction::DockerDeployEnd(IDockerDeployEnd {
-                r#ref,
-                status: false,
-                message: format!("Deployment failed {}", e),
-                id: None,
-            }))
+            .send_message(
+                &rt,
+                IServerAction::DockerDeployEnd(IDockerDeployEnd {
+                    r#ref,
+                    status: false,
+                    message: format!("Deployment failed {}", e),
+                    id: None,
+                }),
+            )
             .await?;
     }
     Ok(())
@@ -688,14 +707,18 @@ pub async fn deploy_service(
     )
     .await
     {
+        let rt = RunToken::new();
         error!("Service deployment failed: {:?}", e);
         client
-            .send_message(IServerAction::DockerDeployEnd(IDockerDeployEnd {
-                r#ref: act.r#ref,
-                status: false,
-                message: format!("Deployment failed {}", e),
-                id: None,
-            }))
+            .send_message(
+                &rt,
+                IServerAction::DockerDeployEnd(IDockerDeployEnd {
+                    r#ref: act.r#ref,
+                    status: false,
+                    message: format!("Deployment failed {}", e),
+                    id: None,
+                }),
+            )
             .await?;
     }
     Ok(())
@@ -727,6 +750,7 @@ struct DockerDeploymentRow {
 }
 
 pub async fn list_deployments(
+    rt: &RunToken,
     state: &State,
     client: &WebClient,
     act: IDockerListDeployments,
@@ -773,17 +797,19 @@ pub async fn list_deployments(
     }
 
     client
-        .send_message(IServerAction::DockerListDeploymentsRes(
-            IDockerListDeploymentsRes {
+        .send_message(
+            rt,
+            IServerAction::DockerListDeploymentsRes(IDockerListDeploymentsRes {
                 r#ref: act.r#ref,
                 deployments,
-            },
-        ))
+            }),
+        )
         .await?;
     Ok(())
 }
 
 pub async fn list_deployment_history(
+    rt: &RunToken,
     state: &State,
     client: &WebClient,
     act: IDockerListDeploymentHistory,
@@ -818,14 +844,15 @@ pub async fn list_deployment_history(
         deployments.push(row_to_deployment(row)?);
     }
     client
-        .send_message(IServerAction::DockerListDeploymentHistoryRes(
-            IDockerListDeploymentHistoryRes {
+        .send_message(
+            rt,
+            IServerAction::DockerListDeploymentHistoryRes(IDockerListDeploymentHistoryRes {
                 r#ref: act.r#ref,
                 host: act.host,
                 name: act.name,
                 deployments,
-            },
-        ))
+            }),
+        )
         .await?;
     Ok(())
 }

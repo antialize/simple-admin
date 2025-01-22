@@ -456,7 +456,12 @@ f.write(o['content'])
     Ok(())
 }
 
-pub async fn list(state: &State, client: &WebClient, _: IModifiedFilesList) -> Result<()> {
+pub async fn list(
+    rt: &RunToken,
+    state: &State,
+    client: &WebClient,
+    _: IModifiedFilesList,
+) -> Result<()> {
     let msg = {
         let inner = state.modified_files.lock().unwrap();
         IServerAction::ModifiedFilesChanged(IModifiedFilesChanged {
@@ -472,7 +477,7 @@ pub async fn list(state: &State, client: &WebClient, _: IModifiedFilesList) -> R
             removed: Vec::new(),
         })
     };
-    client.send_message(msg).await?;
+    client.send_message(rt, msg).await?;
     Ok(())
 }
 
