@@ -51,7 +51,6 @@ async fn main() -> Result<()> {
 
     SimpleLogger::new()
         .with_level(LevelFilter::Info)
-        .with_local_timestamps()
         .init()
         .unwrap();
 

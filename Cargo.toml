@@ -75,7 +75,7 @@ serde_json = { version = "1", default-features = false, features=['std', "float_
 serde_repr = {version = "0.1"}
 serde_yaml = "0.9"
 sha2 = {version="0.10", optional = true}
-simple_logger = {version = "5", default-features=false, features=["timestamps"] }
+simple_logger = {version = "5", default-features=false}
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "chrono"], optional = true}
 sqlx-type = {version = "0.4", optional = true}
 tempfile = {version="3", optional=true}
