@@ -210,6 +210,7 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
         .and_then(|v| {
             v.strip_prefix("Basic ")
                 .or_else(|| v.strip_prefix("token "))
+                .or_else(|| v.strip_prefix("Bearer "))
         })
         .and_then(|v| BASE64_STANDARD.decode(v).ok())
         .and_then(|v| String::from_utf8(v).ok())
