@@ -162,7 +162,7 @@ impl HostClient {
     async fn handle_messages(
         self: Arc<Self>,
         state: Arc<State>,
-        mut reader: ReadHalf<TlsStream<TcpStream>>,
+        reader: &mut ReadHalf<TlsStream<TcpStream>>,
         mut buf: BytesMut,
     ) -> Result<()> {
         const PING_INTERVAL: Duration = Duration::from_secs(80);
@@ -422,13 +422,18 @@ async fn handle_host_client(
         Ok(Ok(Ok(id))) => id,
         Ok(Ok(Err(e))) => {
             warn!("Host auth error for {:?}: {:?}", peer_address, e);
+            reader.unsplit(writer);
             return Ok(());
         }
         Ok(Err(_)) => {
             warn!("Host auth timeout for {:?}", peer_address);
+            reader.unsplit(writer);
             return Ok(());
         }
-        Err(_) => return Ok(()),
+        Err(_) => {
+            reader.unsplit(writer);
+            return Ok(());
+        }
     };
     info!("Host authorized {:?} {} ({})", peer_address, hostname, id);
 
@@ -444,17 +449,26 @@ async fn handle_host_client(
         killed_jobs: Default::default(),
     });
     if let Some(c) = state.host_clients.lock().unwrap().insert(id, hc.clone()) {
+        info!(
+            "Duplicate host connection for {}, cancelling old host",
+            hc.hostname
+        );
         c.run_token.cancel();
     }
 
     webclient::broadcast(&state, IServerAction::HostUp(IHostUp { id }))?;
 
-    if let Err(e) = hc.clone().handle_messages(state.clone(), reader, buf).await {
+    if let Err(e) = hc
+        .clone()
+        .handle_messages(state.clone(), &mut reader, buf)
+        .await
+    {
         error!(
             "Error handeling host messages from {}: {:?}",
             hc.hostname, e
         );
     }
+    run_token.cancel();
 
     if let Entry::Occupied(e) = state.host_clients.lock().unwrap().entry(id) {
         if Arc::as_ptr(e.get()) == Arc::as_ptr(&hc) {
@@ -463,8 +477,26 @@ async fn handle_host_client(
     }
 
     webclient::broadcast(&state, IServerAction::HostDown(IHostDown { id }))?;
-
-    info!("Host disconnected {:?}", peer_address);
+    match Arc::try_unwrap(hc) {
+        Ok(hc) => {
+            let writer = hc.writer.into_inner();
+            reader.unsplit(writer);
+            info!(
+                "Host disconnected {:?} {}, clean",
+                hc.hostname, peer_address
+            );
+        }
+        Err(hc) => {
+            let _ = tokio::time::timeout(Duration::from_secs(2), async {
+                hc.writer.lock().await.shutdown().await
+            })
+            .await;
+            info!(
+                "Host disconnected {:?} {}, references linger",
+                hc.hostname, peer_address
+            );
+        }
+    }
     Ok(())
 }
 

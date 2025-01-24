@@ -35,7 +35,7 @@ use crate::{
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     docker_web,
     get_auth::get_auth,
-    modified_files, msg, setup,
+    hostclient, modified_files, msg, setup,
     state::State,
     terminal,
     web_util::{request_logger, ClientIp, WebError},

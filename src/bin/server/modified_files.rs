@@ -532,6 +532,7 @@ sys.stdout.flush()";
             stderr_type: Some(RunScriptOutType::None),
         }))
         .await?;
+    std::mem::drop(host);
     let mut out = String::new();
     loop {
         match jh.next_message().await? {

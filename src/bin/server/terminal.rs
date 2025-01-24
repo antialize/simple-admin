@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use anyhow::{bail, Context, Result};
 use axum::{
@@ -26,7 +26,7 @@ use crate::{
 
 async fn inner(
     socket: WebSocket,
-    host_client: Arc<HostClient>,
+    host_client: Weak<HostClient>,
     rows: usize,
     cols: usize,
 ) -> Result<()> {
@@ -72,21 +72,25 @@ while True:
                 fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
 
 os.waitpid(pid, 0)"#;
-    let id = host_client.next_job_id();
-    let jh = host_client
-        .start_job(&HostClientMessage::RunScript(RunScriptMessage {
+    let (id, jh) = {
+        let hc = host_client.upgrade().context("Host disconnected")?;
+        let id = hc.next_job_id();
+        (
             id,
-            name: "shell.py".into(),
-            interperter: "/usr/bin/python3".into(),
-            content: content.into(),
-            args: vec![cols.to_string(), rows.to_string()],
-            input_json: None,
-            stdin_type: Some(RunScriptStdinType::Binary),
-            stdout_type: Some(RunScriptOutType::Binary),
-            stderr_type: Some(RunScriptOutType::Binary),
-        }))
-        .await?;
-
+            hc.start_job(&HostClientMessage::RunScript(RunScriptMessage {
+                id,
+                name: "shell.py".into(),
+                interperter: "/usr/bin/python3".into(),
+                content: content.into(),
+                args: vec![cols.to_string(), rows.to_string()],
+                input_json: None,
+                stdin_type: Some(RunScriptStdinType::Binary),
+                stdout_type: Some(RunScriptOutType::Binary),
+                stderr_type: Some(RunScriptOutType::Binary),
+            }))
+            .await?,
+        )
+    };
     let (socket_sink, socket_source) = socket.split();
 
     let send_to_shell = send_to_shell(host_client, id, socket_source).fuse();
@@ -133,7 +137,7 @@ async fn read_from_shell(
 }
 
 async fn send_to_shell(
-    host_client: Arc<HostClient>,
+    host_client: Weak<HostClient>,
     id: u64,
     mut socket_source: futures::stream::SplitStream<WebSocket>,
 ) -> Result<(), anyhow::Error> {
@@ -144,15 +148,16 @@ async fn send_to_shell(
             Message::Binary(bytes) => bytes,
             Message::Ping(_) | Message::Pong(_) | Message::Close(_) => continue,
         };
+
         let data = BASE64_STANDARD.encode(data);
-        host_client
-            .send_message(&HostClientMessage::Data(DataMessage {
-                id,
-                source: None,
-                data: data.into(),
-                eof: None,
-            }))
-            .await?;
+        let hc = host_client.upgrade().context("Host disconnected")?;
+        hc.send_message(&HostClientMessage::Data(DataMessage {
+            id,
+            source: None,
+            data: data.into(),
+            eof: None,
+        }))
+        .await?;
     }
     Ok(())
 }
@@ -180,7 +185,13 @@ pub async fn handler(
     if !auth.admin {
         return Err(WebError::forbidden());
     }
-    let Some(host_client) = state.host_clients.lock().unwrap().get(&server).cloned() else {
+    let Some(host_client) = state
+        .host_clients
+        .lock()
+        .unwrap()
+        .get(&server)
+        .map(Arc::downgrade)
+    else {
         return Err(WebError::not_found());
     };
     Ok(ws.on_upgrade(move |socket| async move {
