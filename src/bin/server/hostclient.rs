@@ -84,6 +84,16 @@ impl HostClient {
         &self.hostname
     }
 
+    pub fn debug(&self) {
+        info!(
+            "  {} id={} jobs={} cancelled={}",
+            self.hostname,
+            self.id,
+            self.job_sinks.lock().unwrap().len(),
+            self.run_token.is_cancelled()
+        );
+    }
+
     pub fn next_job_id(&self) -> u64 {
         self.next_job_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)

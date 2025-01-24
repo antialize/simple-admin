@@ -9,7 +9,7 @@ use list_deployments::ListDeployments;
 use list_images::ListImages;
 #[cfg(feature = "daemon")]
 use persist_daemon::PersistDaemon;
-use sadmin2::action_types::{IClientAction, ILogout};
+use sadmin2::action_types::{IClientAction, IDebug, ILogout};
 #[cfg(feature = "daemon")]
 use service_control::Service;
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
@@ -96,6 +96,7 @@ enum Action {
     DebugPersist(DebugPersist),
     Shell(Shell),
     Run(Run),
+    DebugServer,
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -127,6 +128,12 @@ async fn deauth(config: Config, args: Deauth) -> Result<()> {
             Err(e) => bail!("Unable to delete cookiefile: {}", e),
         };
     }
+    Ok(())
+}
+
+async fn debug_server(config: Config) -> Result<()> {
+    let mut con = Connection::open(config, false).await?;
+    con.send(&IClientAction::Debug(IDebug {})).await?;
     Ok(())
 }
 
@@ -198,5 +205,6 @@ async fn main() -> Result<()> {
         Action::Service(args) => service_control::run(args).await,
         Action::Shell(args) => run::shell(config, args).await,
         Action::Run(args) => run::run(config, args).await,
+        Action::DebugServer => debug_server(config).await,
     }
 }

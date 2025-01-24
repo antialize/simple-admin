@@ -1134,6 +1134,37 @@ impl WebClient {
                 };
                 deployment::toggle_object(state, act.index, act.enabled).await?;
             }
+            IClientAction::Debug(_) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                info!("=======> Debug output triggered <======");
+                info!("Tasks:");
+                for task in tokio_tasks::list_tasks() {
+                    info!(
+                        "  {} id={} start_time={} shutdown_order={}",
+                        task.name(),
+                        task.id(),
+                        task.start_time(),
+                        task.shutdown_order()
+                    );
+                }
+                info!("Host cliests:");
+                for host in state.host_clients.lock().unwrap().values() {
+                    host.debug();
+                }
+                info!("Web clients:");
+                for wc in state.web_clients.lock().unwrap().iter() {
+                    let auth = wc.auth.lock().unwrap();
+                    info!(
+                        "  {} user={} canceled={}",
+                        wc.remote,
+                        auth.user.as_deref().unwrap_or("unknown"),
+                        wc.run_token.is_cancelled()
+                    );
+                }
+            }
         }
         Ok(())
     }

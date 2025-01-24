@@ -869,6 +869,9 @@ pub struct IModifiedFilesResolve {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IDebug {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(tag = "type", rename_all = "PascalCase")]
 pub enum IServerAction {
     AddDeploymentLog(IAddDeploymentLog),
@@ -977,12 +980,14 @@ pub enum IClientAction {
     StartDeployment(IStartDeployment),
     StopDeployment(IStopDeployment),
     ToggleDeploymentObject(IToggleDeploymentObject),
+    Debug(IDebug),
 }
 
 impl IClientAction {
     pub fn tag(&self) -> &'static str {
         match self {
             IClientAction::CancelDeployment(_) => "CancelDeployment",
+            IClientAction::Debug(_) => "Debug",
             IClientAction::DeleteObject(_) => "DeleteObject",
             IClientAction::DeployObject(_) => "DeployObject",
             IClientAction::DockerContainerForget(_) => "DockerContainerForget",
