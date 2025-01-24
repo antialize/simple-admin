@@ -152,11 +152,20 @@ impl HostClient {
 
     pub fn spawn_kill_job(self: Arc<Self>, id: u64) -> bool {
         if self.killed_jobs.lock().unwrap().insert(id) {
-            tokio::spawn(self.kill_job(id));
+            TaskBuilder::new("kill_host_client")
+                .shutdown_order(0)
+                .create(|rt| self.kill_job(id));
             true
         } else {
             false
         }
+    }
+
+    async fn send_ping(self: Arc<Self>, _rt: RunToken, id: u64) -> Result<()> {
+        if let Err(e) = self.send_message(&HostClientMessage::Ping { id }).await {
+            error!("Failed sending ping: {:?}", e)
+        }
+        Ok(())
     }
 
     async fn handle_messages(
@@ -220,13 +229,9 @@ impl HostClient {
                     ping_time += PING_INTERVAL;
                     let s = self.clone();
                     let id = ping_id;
-                    tokio::spawn(async move {
-                        if let Err(e) = s.send_message(&HostClientMessage::Ping{
-                            id: id as u64
-                        }).await {
-                            error!("Failed sending ping: {:?}", e)
-                        }
-                    });
+                    TaskBuilder::new(format!("send_ping_{}_{}", self.hostname, id))
+                        .shutdown_order(-1)
+                        .create(|rt| s.send_ping(rt, id as u64));
                 }
                 () = pong_timeout_fut => {
                     bail!("Ping timeout")
@@ -235,12 +240,23 @@ impl HostClient {
                     sign_time += SIGN_INTERVAL;
                     let s = self.clone();
                     let state = state.clone();
-                    tokio::spawn(async move {
-                        let s = s;
-                        if let Err(e) = s.sign_host_certificate(&state).await {
-                            error!("An error occurred in host ssh certificate generation for {}: {:?}", s.hostname, e);
-                        }
-                    });
+
+                    TaskBuilder::new(format!("sign host certificate {}", self.hostname))
+                        .shutdown_order(-1)
+                        .create(|rt| async move {
+                            let s = s;
+                            match cancelable(&rt, tokio::time::timeout(Duration::from_secs(60), s.sign_host_certificate(&state))).await {
+                                Ok(Ok(Ok(()))) => (),
+                                Ok(Ok(Err(e))) => {
+                                    error!("An error occurred in host ssh certificate generation for {}: {:?}", s.hostname, e);
+                                },
+                                Ok(Err(_)) =>  {
+                                    error!("Timeout signing host cert for {}", s.hostname);
+                                },
+                                Err(_) => ()
+                            }
+                            Ok::<(),()>(())
+                        });
                 }
                 () = cancelled => {
                     break
