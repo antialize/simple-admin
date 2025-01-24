@@ -3,6 +3,7 @@ use std::{
     io::Write,
     net::{SocketAddr, ToSocketAddrs},
     os::unix::{
+        fs::PermissionsExt,
         prelude::{AsRawFd, BorrowedFd, OwnedFd},
         process::ExitStatusExt,
     },
@@ -15,6 +16,7 @@ use std::{
 use anyhow::{bail, ensure, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
+use clap::builder::Str;
 use log::{debug, error, info, warn};
 use reqwest::Url;
 use serde::Deserialize;
@@ -555,6 +557,69 @@ impl Client {
         }
     }
 
+    async fn handle_read_file(self: Arc<Self>, id: u64, path: String) {
+        match tokio::fs::read(&path).await {
+            Ok(v) => {
+                self.send_message(ClientHostMessage::ReadFileResult {
+                    id: id,
+                    content: BASE64_STANDARD.encode(v),
+                })
+                .await;
+            }
+            Err(e) => {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
+                    id,
+                    failure_type: Some(FailureType::UnknownTask),
+                    message: Some(format!("Unable to read file {}: {:?}", path, e)),
+                    ..Default::default()
+                }))
+                .await;
+            }
+        }
+    }
+
+    async fn handle_write_file_inner(
+        self: &Self,
+        path: &str,
+        content: &str,
+        mode: Option<u32>,
+    ) -> Result<()> {
+        let content = BASE64_STANDARD.decode(content)?;
+        tokio::fs::write(path, content).await?;
+        if let Some(mode) = mode {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+        }
+        Ok(())
+    }
+
+    async fn handle_write_file(
+        self: Arc<Self>,
+        id: u64,
+        path: String,
+        content: String,
+        mode: Option<u32>,
+    ) {
+        match self.handle_write_file_inner(&path, &content, mode).await {
+            Ok(v) => {
+                self.send_message(ClientHostMessage::Success(SuccessMessage {
+                    id,
+                    code: None,
+                    data: None,
+                }))
+                .await;
+            }
+            Err(e) => {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
+                    id,
+                    failure_type: Some(FailureType::UnknownTask),
+                    message: Some(format!("Unable to write file {}: {:?}", path, e)),
+                    ..Default::default()
+                }))
+                .await;
+            }
+        }
+    }
+
     fn handle_message(self: &Arc<Self>, message: HostClientMessage) {
         match message {
             HostClientMessage::Data(d) => {
@@ -605,6 +670,17 @@ impl Client {
             }
             HostClientMessage::Kill { id } => {
                 tokio::spawn(self.clone().handle_kill(id));
+            }
+            HostClientMessage::ReadFile { id, path } => {
+                tokio::spawn(self.clone().handle_read_file(id, path));
+            }
+            HostClientMessage::WriteFile {
+                id,
+                path,
+                content,
+                mode,
+            } => {
+                tokio::spawn(self.clone().handle_write_file(id, path, content, mode));
             }
         }
     }

@@ -130,10 +130,25 @@ pub struct DeployServiceMessage {
 pub enum HostClientMessage {
     RunInstant(RunInstantMessage),
     RunScript(RunScriptMessage),
-    Ping { id: u64 },
-    Kill { id: u64 },
+    Ping {
+        id: u64,
+    },
+    Kill {
+        id: u64,
+    },
     Data(DataMessage),
     DeployService(DeployServiceMessage),
+    ReadFile {
+        id: u64,
+        path: String,
+    },
+    WriteFile {
+        id: u64,
+        path: String,
+        // Base64
+        content: String,
+        mode: Option<u32>,
+    },
 }
 
 impl HostClientMessage {
@@ -147,6 +162,8 @@ impl HostClientMessage {
             HostClientMessage::RunInstant(m) => Some(m.id),
             HostClientMessage::RunScript(m) => Some(m.id),
             HostClientMessage::Ping { .. } => None,
+            HostClientMessage::ReadFile { id, .. } => Some(*id),
+            HostClientMessage::WriteFile { id, .. } => Some(*id),
         }
     }
 
@@ -158,6 +175,8 @@ impl HostClientMessage {
             HostClientMessage::Kill { .. } => "pong",
             HostClientMessage::Data(_) => "data",
             HostClientMessage::DeployService(_) => "deploy_service",
+            HostClientMessage::ReadFile { .. } => "read_file",
+            HostClientMessage::WriteFile { .. } => "read_file",
         }
     }
 }
@@ -165,11 +184,21 @@ impl HostClientMessage {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientHostMessage {
-    Auth { hostname: String, password: String },
-    Pong { id: u64 },
+    Auth {
+        hostname: String,
+        password: String,
+    },
+    Pong {
+        id: u64,
+    },
     Failure(FailureMessage),
     Success(SuccessMessage),
     Data(DataMessage),
+    ReadFileResult {
+        id: u64,
+        // Base64 encoded
+        content: String,
+    },
 }
 
 impl ClientHostMessage {
@@ -179,6 +208,7 @@ impl ClientHostMessage {
             ClientHostMessage::Success(success_message) => Some(success_message.id),
             ClientHostMessage::Data(data_message) => Some(data_message.id),
             ClientHostMessage::Auth { .. } | ClientHostMessage::Pong { .. } => None,
+            ClientHostMessage::ReadFileResult { id, .. } => Some(*id),
         }
     }
 
@@ -189,6 +219,7 @@ impl ClientHostMessage {
             ClientHostMessage::Failure(_) => "failure",
             ClientHostMessage::Success(_) => "success",
             ClientHostMessage::Data(_) => "data",
+            ClientHostMessage::ReadFileResult { .. } => "read_file_result",
         }
     }
 }
