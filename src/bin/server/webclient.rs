@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::Bytes;
 use futures::{
     stream::{SplitSink, SplitStream},
@@ -35,7 +36,8 @@ use crate::{
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     docker_web,
     get_auth::get_auth,
-    hostclient, modified_files, msg, setup,
+    hostclient::JobHandle,
+    modified_files, msg, setup,
     state::State,
     terminal,
     web_util::{request_logger, ClientIp, WebError},
@@ -53,7 +55,13 @@ use axum::{
     Json, Router,
 };
 use sadmin2::{
-    action_types::{IClientAction, IServerAction},
+    action_types::{
+        IClientAction, IRunCommand, IRunCommandFinished, IRunCommandOutput, IServerAction,
+    },
+    client_message::{
+        ClientHostMessage, DataSource, HostClientMessage, RunScriptMessage, RunScriptOutType,
+        RunScriptStdinType,
+    },
     finite_float::ToFinite,
     page_types::{IObjectPage, IPage},
     type_types::{
@@ -88,6 +96,7 @@ pub struct WebClient {
     remote: String,
     auth: Mutex<IAuthStatus>,
     run_token: RunToken,
+    command_tokens: Mutex<HashMap<i64, RunToken>>,
 }
 
 impl WebClient {
@@ -150,6 +159,7 @@ impl WebClient {
     }
 
     async fn close(&self, code: u16) -> Result<()> {
+        warn!("Closing connection {} with error code {code}", self.remote);
         if let Ok(Ok(mut sink)) = cancelable(
             &self.run_token,
             tokio::time::timeout(Duration::from_secs(10), self.sink.lock()),
@@ -396,6 +406,158 @@ impl WebClient {
         .await?
         .id;
         Ok(object_id)
+    }
+
+    pub async fn handle_run_command_output(
+        &self,
+        act_id: i64,
+        rt: &RunToken,
+        jh: &mut JobHandle,
+    ) -> Result<i32> {
+        loop {
+            match jh.next_message().await? {
+                Some(ClientHostMessage::Failure(failure_message)) => {
+                    return Ok(failure_message.code.unwrap_or(42));
+                }
+                Some(ClientHostMessage::Success(success_message)) => {
+                    return Ok(success_message.code.unwrap_or(0));
+                }
+                Some(ClientHostMessage::Data(msg)) => {
+                    let mut m = IRunCommandOutput {
+                        id: act_id,
+                        stdout: None,
+                        stderr: None,
+                    };
+                    let serde_json::Value::String(data) = msg.data else {
+                        bail!("Bad data thing")
+                    };
+                    if matches!(msg.source, Some(DataSource::Stderr)) {
+                        m.stderr = Some(data);
+                    } else {
+                        m.stdout = Some(data);
+                    };
+                    self.send_message(rt, IServerAction::RunCommandOutput(m))
+                        .await?;
+                }
+                Some(other) => {
+                    bail!("Unexpected message {}", other.tag())
+                }
+                None => {
+                    bail!("Host went away")
+                }
+            }
+        }
+    }
+
+    pub async fn handle_run_command_inner(
+        &self,
+        state: &State,
+        rt: &RunToken,
+        ct: &RunToken,
+        act: IRunCommand,
+    ) -> Result<i32> {
+        let mut host = None;
+        for hc in state.host_clients.lock().unwrap().values() {
+            if hc.hostname() == act.host {
+                host = Some(hc.clone());
+            }
+        }
+        let Some(host) = host else {
+            bail!("Host not found")
+        };
+        let id = host.next_job_id();
+
+        let content = "
+import os, sys
+os.execv(sys.argv[1], sys.argv[1:])
+";
+        let mut args = act.args;
+        args.insert(0, act.command);
+        let mut jh = host
+            .start_job(&HostClientMessage::RunScript(RunScriptMessage {
+                id,
+                name: "run_command.py".into(),
+                interperter: "/usr/bin/python3".into(),
+                content: content.into(),
+                args,
+                input_json: None,
+                stdin_type: Some(RunScriptStdinType::None),
+                stdout_type: Some(RunScriptOutType::Binary),
+                stderr_type: Some(RunScriptOutType::Binary),
+            }))
+            .await?;
+
+        match cancelable(
+            &self.run_token,
+            cancelable(
+                rt,
+                cancelable(
+                    ct,
+                    tokio::time::timeout(
+                        Duration::from_secs(60 * 30),
+                        self.handle_run_command_output(act.id, rt, &mut jh),
+                    ),
+                ),
+            ),
+        )
+        .await
+        {
+            Ok(Ok(Ok(Ok(Ok(code))))) => {
+                jh.done();
+                Ok(code)
+            }
+            Ok(Ok(Ok(Ok(Err(e))))) => Err(e.context("Failure in handle_run_command_output")),
+            Ok(Ok(Ok(Err(_)))) => {
+                bail!("Command timeout")
+            }
+            Ok(Ok(Err(_))) => {
+                bail!("Terminated by user")
+            }
+            Ok(Err(_)) => {
+                bail!("handle_run_command_inner was cancelled")
+            }
+            Err(_) => {
+                bail!("Web client disconnected")
+            }
+        }
+    }
+
+    pub async fn handle_run_command(
+        &self,
+        state: &State,
+        rt: &RunToken,
+        act: IRunCommand,
+    ) -> Result<()> {
+        let ct = RunToken::new();
+        let act_id = act.id;
+        self.command_tokens
+            .lock()
+            .unwrap()
+            .insert(act_id, ct.clone());
+        let r = self.handle_run_command_inner(state, rt, &ct, act).await;
+        self.command_tokens.lock().unwrap().remove(&act_id);
+        let status = match r {
+            Ok(code) => code,
+            Err(e) => {
+                error!("Failure in run command: {:?}", e);
+                self.send_message(
+                    rt,
+                    IServerAction::RunCommandOutput(IRunCommandOutput {
+                        id: act_id,
+                        stdout: None,
+                        stderr: Some(BASE64_STANDARD.encode(format!("{:?}", e))),
+                    }),
+                )
+                .await?;
+                42
+            }
+        };
+        self.send_message(
+            rt,
+            IServerAction::RunCommandFinished(IRunCommandFinished { id: act_id, status }),
+        )
+        .await?;
+        Ok(())
     }
 
     pub async fn handle_message(
@@ -1164,6 +1326,23 @@ impl WebClient {
                         wc.run_token.is_cancelled()
                     );
                 }
+                info!("===========================================");
+            }
+            IClientAction::RunCommand(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                self.handle_run_command(state, &rt, act).await?;
+            }
+            IClientAction::RunCommandTerminate(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if let Some(token) = self.command_tokens.lock().unwrap().get(&act.id) {
+                    token.cancel();
+                }
             }
         }
         Ok(())
@@ -1235,6 +1414,7 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
         sink: TMutex::new(sink),
         auth: Default::default(),
         run_token,
+        command_tokens: Default::default(),
     });
     state
         .web_clients

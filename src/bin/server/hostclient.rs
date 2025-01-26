@@ -154,7 +154,8 @@ impl HostClient {
         if self.killed_jobs.lock().unwrap().insert(id) {
             TaskBuilder::new("kill_host_client")
                 .shutdown_order(0)
-                .create(|rt| self.kill_job(id));
+                .abort()
+                .create(|_| self.kill_job(id));
             true
         } else {
             false
@@ -245,7 +246,7 @@ impl HostClient {
                         .shutdown_order(-1)
                         .create(|rt| async move {
                             let s = s;
-                            match cancelable(&rt, tokio::time::timeout(Duration::from_secs(60), s.sign_host_certificate(&state))).await {
+                            match cancelable(&rt, tokio::time::timeout(Duration::from_secs(600), s.sign_host_certificate(&state))).await {
                                 Ok(Ok(Ok(()))) => (),
                                 Ok(Ok(Err(e))) => {
                                     error!("An error occurred in host ssh certificate generation for {}: {:?}", s.hostname, e);

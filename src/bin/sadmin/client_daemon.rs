@@ -16,7 +16,6 @@ use std::{
 use anyhow::{bail, ensure, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
-use clap::builder::Str;
 use log::{debug, error, info, warn};
 use reqwest::Url;
 use serde::Deserialize;
@@ -561,7 +560,7 @@ impl Client {
         match tokio::fs::read(&path).await {
             Ok(v) => {
                 self.send_message(ClientHostMessage::ReadFileResult {
-                    id: id,
+                    id,
                     content: BASE64_STANDARD.encode(v),
                 })
                 .await;
@@ -579,7 +578,7 @@ impl Client {
     }
 
     async fn handle_write_file_inner(
-        self: &Self,
+        &self,
         path: &str,
         content: &str,
         mode: Option<u32>,
@@ -600,7 +599,7 @@ impl Client {
         mode: Option<u32>,
     ) {
         match self.handle_write_file_inner(&path, &content, mode).await {
-            Ok(v) => {
+            Ok(()) => {
                 self.send_message(ClientHostMessage::Success(SuccessMessage {
                     id,
                     code: None,

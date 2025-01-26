@@ -872,6 +872,40 @@ pub struct IModifiedFilesResolve {
 pub struct IDebug {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IRunCommand {
+    pub id: i64,
+    pub host: String,
+    pub command: String,
+    pub args: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IRunCommandTerminate {
+    pub id: i64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IRunCommandOutput {
+    pub id: i64,
+    // Base 64 encoded
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub stdout: Option<String>,
+    // Base 64 encoded
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub stderr: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IRunCommandFinished {
+    pub id: i64,
+    pub status: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(tag = "type", rename_all = "PascalCase")]
 pub enum IServerAction {
     AddDeploymentLog(IAddDeploymentLog),
@@ -880,14 +914,14 @@ pub enum IServerAction {
     AuthStatus(IAuthStatus),
     ClearDeploymentLog(IClearDeploymentLog),
     DockerDeployEnd(IDockerDeployEnd),
+    DockerDeployLog(IDockerDeployLog),
     DockerDeploymentsChanged(IDockerDeploymentsChanged),
-    DockerListImageTagsChanged(IDockerListImageTagsCharged),
     DockerListDeploymentHistoryRes(IDockerListDeploymentHistoryRes),
     DockerListDeploymentsRes(IDockerListDeploymentsRes),
     DockerListImageByHashRes(IDockerListImageByHashRes),
     DockerListImageTagHistoryRes(IDockerListImageTagHistoryRes),
+    DockerListImageTagsChanged(IDockerListImageTagsCharged),
     DockerListImageTagsRes(IDockerListImageTagsRes),
-    DockerDeployLog(IDockerDeployLog),
     GenerateKeyRes(IGenerateKeyRes),
     GetObjectHistoryRes(IGetObjectHistoryRes),
     GetObjectIdRes(IGetObjectIdRes),
@@ -896,6 +930,8 @@ pub enum IServerAction {
     MessageTextRep(IMessageTextRepAction),
     ModifiedFilesChanged(IModifiedFilesChanged),
     ObjectChanged(IObjectChanged),
+    RunCommandFinished(IRunCommandFinished),
+    RunCommandOutput(IRunCommandOutput),
     SearchRes(ISearchRes),
     SetDeploymentMessage(ISetDeploymentMessage),
     SetDeploymentObjects(ISetDeploymentObjects),
@@ -916,14 +952,14 @@ impl IServerAction {
             IServerAction::AuthStatus(_) => "AuthStatus",
             IServerAction::ClearDeploymentLog(_) => "ClearDeploymentLog",
             IServerAction::DockerDeployEnd(_) => "DockerDeployEnd",
+            IServerAction::DockerDeployLog(_) => "DockerDeployLog",
             IServerAction::DockerDeploymentsChanged(_) => "DockerDeploymentsChanged",
-            IServerAction::DockerListImageTagsChanged(_) => "DockerListImageTagsChanged",
             IServerAction::DockerListDeploymentHistoryRes(_) => "DockerListDeploymentHistoryRes",
             IServerAction::DockerListDeploymentsRes(_) => "DockerListDeploymentsRes",
             IServerAction::DockerListImageByHashRes(_) => "DockerListImageByHashRes",
             IServerAction::DockerListImageTagHistoryRes(_) => "DockerListImageTagHistoryRes",
+            IServerAction::DockerListImageTagsChanged(_) => "DockerListImageTagsChanged",
             IServerAction::DockerListImageTagsRes(_) => "DockerListImageTagsRes",
-            IServerAction::DockerDeployLog(_) => "DockerDeployLog",
             IServerAction::GenerateKeyRes(_) => "GenerateKeyRes",
             IServerAction::GetObjectHistoryRes(_) => "GetObjectHistoryRes",
             IServerAction::GetObjectIdRes(_) => "GetObjectIdRes",
@@ -932,6 +968,8 @@ impl IServerAction {
             IServerAction::MessageTextRep(_) => "MessageTextRep",
             IServerAction::ModifiedFilesChanged(_) => "ModifiedFilesChanged",
             IServerAction::ObjectChanged(_) => "ObjectChanged",
+            IServerAction::RunCommandFinished(_) => "RunCommandFinished",
+            IServerAction::RunCommandOutput(_) => "RunCommandOutput",
             IServerAction::SearchRes(_) => "SearchRes",
             IServerAction::SetDeploymentMessage(_) => "SetDeploymentMessage",
             IServerAction::SetDeploymentObjects(_) => "SetDeploymentObjects",
@@ -949,6 +987,7 @@ impl IServerAction {
 #[serde(tag = "type", rename_all = "PascalCase")]
 pub enum IClientAction {
     CancelDeployment(ICancelDeployment),
+    Debug(IDebug),
     DeleteObject(IDeleteObject),
     DeployObject(IDeployObject),
     DockerContainerForget(IDockerContainerForget),
@@ -972,6 +1011,8 @@ pub enum IClientAction {
     RequestAuthStatus(IRequestAuthStatus),
     RequestInitialState(IRequestInitialState),
     ResetServerState(IResetServerState),
+    RunCommand(IRunCommand),
+    RunCommandTerminate(IRunCommandTerminate),
     SaveObject(ISaveObject),
     Search(ISearch),
     ServiceDeployStart(IServiceDeployStart),
@@ -980,7 +1021,6 @@ pub enum IClientAction {
     StartDeployment(IStartDeployment),
     StopDeployment(IStopDeployment),
     ToggleDeploymentObject(IToggleDeploymentObject),
-    Debug(IDebug),
 }
 
 impl IClientAction {
@@ -1011,6 +1051,8 @@ impl IClientAction {
             IClientAction::RequestAuthStatus(_) => "RequestAuthStatus",
             IClientAction::RequestInitialState(_) => "RequestInitialState",
             IClientAction::ResetServerState(_) => "ResetServerState",
+            IClientAction::RunCommand(_) => "RunCommand",
+            IClientAction::RunCommandTerminate(_) => "RunCommandTerminate",
             IClientAction::SaveObject(_) => "SaveObject",
             IClientAction::Search(_) => "Search",
             IClientAction::ServiceDeployStart(_) => "ServiceDeployStart",
