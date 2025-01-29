@@ -978,7 +978,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 }
             }
             IClientAction::DockerListImageByHash(act) => {
-                if !self.get_auth().docker_push {
+                if !self.get_auth().docker_pull {
                     self.close(403).await?;
                     return Ok(());
                 };
@@ -1017,7 +1017,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 .await?;
             }
             IClientAction::DockerListImageTags(act) => {
-                if !self.get_auth().docker_push {
+                if !self.get_auth().docker_pull {
                     self.close(403).await?;
                     return Ok(());
                 };
