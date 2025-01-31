@@ -4,18 +4,26 @@ use crate::dyn_format::AsFmtArg;
 use crate::dyn_format::GetFmtArgDict;
 use crate::dyn_format::RelTime;
 use crate::dyn_format::{dyn_format, FormatArg};
-use crate::message::Deployment;
-use crate::message::ImageInfo;
-use crate::message::Message;
 use anyhow::bail;
 use anyhow::Result;
 use itertools::Itertools;
-use rand::Rng;
+use sadmin2::action_types::DockerDeployment;
+use sadmin2::action_types::DockerImageTag;
+use sadmin2::action_types::HostEnum;
+use sadmin2::action_types::IClientAction;
+use sadmin2::action_types::IDockerListDeploymentHistory;
+use sadmin2::action_types::IDockerListDeploymentHistoryRes;
+use sadmin2::action_types::IDockerListDeployments;
+use sadmin2::action_types::IDockerListDeploymentsRes;
+use sadmin2::action_types::IDockerListImageTags;
+use sadmin2::action_types::IRequestInitialState;
+use sadmin2::action_types::IServerAction;
+use sadmin2::action_types::ObjectType;
+use sadmin2::action_types::Ref;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::io::Write;
 
 #[derive(clap::ValueEnum, Clone)]
@@ -65,25 +73,11 @@ pub struct ListDeployments {
 #[derive(Serialize)]
 struct PorcelainV1<'a> {
     version: Porcelain,
-    host_names: HashMap<u64, &'a str>,
-    deployments: Vec<Deployment>,
+    host_names: HashMap<i64, &'a str>,
+    deployments: Vec<DockerDeployment>,
 }
 
-enum NameOrId<'a> {
-    Name(&'a str),
-    Id(u64),
-}
-
-impl Display for NameOrId<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NameOrId::Name(v) => f.write_str(v),
-            NameOrId::Id(v) => write!(f, "{v}"),
-        }
-    }
-}
-
-fn numeric_sort_key(left: &Deployment, right: &Deployment) -> std::cmp::Ordering {
+fn numeric_sort_key(left: &DockerDeployment, right: &DockerDeployment) -> std::cmp::Ordering {
     let mut i1 = left.name.chars().peekable();
     let mut i2 = right.name.chars().peekable();
     loop {
@@ -114,9 +108,9 @@ fn numeric_sort_key(left: &Deployment, right: &Deployment) -> std::cmp::Ordering
 }
 
 fn group_deployments(
-    mut deployments: Vec<Deployment>,
-    host_ids: HashMap<u64, &str>,
-) -> Vec<(String, Vec<Deployment>)> {
+    mut deployments: Vec<DockerDeployment>,
+    host_ids: HashMap<i64, &str>,
+) -> Vec<(String, Vec<DockerDeployment>)> {
     deployments.sort_unstable_by(|l, r| (&l.image, l.host).cmp(&(&r.image, r.host)));
     let mut groups = Vec::new();
     for (image, image_group) in &deployments.into_iter().chunk_by(|v| v.image.clone()) {
@@ -126,8 +120,8 @@ fn group_deployments(
             .map(|(host_id, b)| {
                 (
                     match host_ids.get(&host_id) {
-                        Some(v) => NameOrId::Name(v),
-                        None => NameOrId::Id(host_id),
+                        Some(v) => HostEnum::Name(v.to_string()),
+                        None => HostEnum::Id(host_id),
                     },
                     b.collect_vec(),
                 )
@@ -184,13 +178,13 @@ struct Key {
     deploy_user: String,
     push_time: Option<String>,
     push_user: Option<String>,
-    image_info: Option<ImageInfo>,
+    image_info: Option<DockerImageTag>,
     removed: Option<String>,
     name: String,
     git: String,
 }
 
-struct KeyDeployment(Deployment);
+struct KeyDeployment(DockerDeployment);
 
 impl KeyDeployment {
     fn key(&self) -> Key {
@@ -232,7 +226,7 @@ impl GetFmtArgDict for Key {
 }
 
 fn list_deployment_groups(
-    groups: Vec<(String, Vec<Deployment>)>,
+    groups: Vec<(String, Vec<DockerDeployment>)>,
     format: Option<String>,
     pinned_image_tags: HashSet<(String, String)>,
 ) -> Result<()> {
@@ -311,14 +305,17 @@ fn list_deployment_groups(
 pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<()> {
     let mut c = Connection::open(config, false).await?;
     c.prompt_auth().await?;
-    let msg_ref: u64 = rand::thread_rng().gen_range(0..(1 << 48));
-    c.send(&Message::RequestInitialState {}).await?;
+    let msg_ref = Ref::random();
+    c.send(&IClientAction::RequestInitialState(IRequestInitialState {}))
+        .await?;
 
     let mut got_list = if args.porcelain.is_some() {
         true
     } else {
-        c.send(&Message::DockerListImageTags { r#ref: msg_ref })
-            .await?;
+        c.send(&IClientAction::DockerListImageTags(IDockerListImageTags {
+            r#ref: msg_ref.clone(),
+        }))
+        .await?;
         false
     };
 
@@ -326,8 +323,8 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     let mut pinned_image_tags = HashSet::new();
     while state.is_none() || !got_list {
         match c.recv().await? {
-            Message::SetInitialState(s) => state = Some(s),
-            Message::DockerListImageTagsRes(res) => {
+            IServerAction::SetInitialState(s) => state = Some(s),
+            IServerAction::DockerListImageTagsRes(res) => {
                 for pin in res.pinned_image_tags {
                     pinned_image_tags.insert((pin.image, pin.tag));
                 }
@@ -340,25 +337,21 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
     let mut type_ids = HashMap::new();
     for v in state
         .object_names_and_ids
-        .get("1")
+        .get(&ObjectType::Id(1))
         .map(|v| v.as_slice())
         .unwrap_or_default()
     {
-        if let Some(n) = &v.name {
-            type_ids.insert(n.as_str(), v.id);
-        }
+        type_ids.insert(v.name.as_str(), v.id);
     }
     let mut host_names = HashMap::new();
     if let Some(host_type_id) = type_ids.get("Host") {
         for v in state
             .object_names_and_ids
-            .get(&host_type_id.to_string())
+            .get(&ObjectType::Id(*host_type_id))
             .map(|v| v.as_slice())
             .unwrap_or_default()
         {
-            if let Some(n) = &v.name {
-                host_names.insert(v.id, n.as_str());
-            }
+            host_names.insert(v.id, v.name.as_str());
         }
     }
 
@@ -380,29 +373,36 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
             Some(v) => v,
             None => bail!("--history requires --host"),
         };
-        c.send(&Message::DockerListDeploymentHistory {
-            r#ref: msg_ref,
-            host,
-            name,
-        })
+        c.send(&IClientAction::DockerListDeploymentHistory(
+            IDockerListDeploymentHistory {
+                r#ref: msg_ref.clone(),
+                host,
+                name,
+            },
+        ))
         .await?;
     } else {
-        c.send(&Message::DockerListDeployments {
-            r#ref: msg_ref,
-            host,
-            image: args.image.clone(),
-        })
+        c.send(&IClientAction::DockerListDeployments(
+            IDockerListDeployments {
+                r#ref: msg_ref.clone(),
+                host,
+                image: args.image.clone(),
+            },
+        ))
         .await?;
     }
 
     let mut deployments = loop {
         match c.recv().await? {
-            Message::DockerListDeploymentHistoryRes { r#ref, deployments } if r#ref == msg_ref => {
-                break deployments
-            }
-            Message::DockerListDeploymentsRes { r#ref, deployments } if r#ref == msg_ref => {
-                break deployments
-            }
+            IServerAction::DockerListDeploymentHistoryRes(IDockerListDeploymentHistoryRes {
+                r#ref,
+                deployments,
+                ..
+            }) if r#ref == msg_ref => break deployments,
+            IServerAction::DockerListDeploymentsRes(IDockerListDeploymentsRes {
+                r#ref,
+                deployments,
+            }) if r#ref == msg_ref => break deployments,
             _ => continue,
         };
     };

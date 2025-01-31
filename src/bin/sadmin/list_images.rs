@@ -1,8 +1,12 @@
 use crate::connection::Config;
 use crate::connection::Connection;
 use crate::dyn_format::dyn_format;
-use crate::message::Message;
 use anyhow::Result;
+use sadmin2::action_types::IClientAction;
+use sadmin2::action_types::IDockerListImageByHash;
+use sadmin2::action_types::IDockerListImageTags;
+use sadmin2::action_types::IServerAction;
+use sadmin2::action_types::Ref;
 use std::collections::HashSet;
 use std::io::Write;
 
@@ -44,15 +48,21 @@ pub async fn list_images(config: Config, args: ListImages) -> Result<()> {
     c.prompt_auth().await?;
 
     let format = args.format.as_deref().unwrap_or("{image}:{red}{bold}{tag}{reset} pushed {green}{bold}{rel_time}{reset} by {user} {green}{image}@{hash}{reset}{pin_suffix}");
+    let msg_ref = Ref::random();
 
     if !args.hash.is_empty() {
-        c.send(&Message::DockerListImageByHash {
-            r#ref: 1,
-            hash: args.hash.clone(),
-        })
+        c.send(&IClientAction::DockerListImageByHash(
+            IDockerListImageByHash {
+                r#ref: msg_ref.clone(),
+                hash: args.hash.clone(),
+            },
+        ))
         .await?;
     } else {
-        c.send(&Message::DockerListImageTags { r#ref: 1 }).await?;
+        c.send(&IClientAction::DockerListImageTags(IDockerListImageTags {
+            r#ref: msg_ref.clone(),
+        }))
+        .await?;
     }
 
     let mut got_list = false;
@@ -60,14 +70,16 @@ pub async fn list_images(config: Config, args: ListImages) -> Result<()> {
     while args.follow || !got_list {
         let msg = c.recv().await?;
         let (mut images, full) = match msg {
-            Message::DockerListImageTagsRes(res) => {
+            IServerAction::DockerListImageTagsRes(res) => {
                 for pin in res.pinned_image_tags {
                     pinned_image_tags.insert((pin.image, pin.tag));
                 }
                 (res.tags, true)
             }
-            Message::DockerListImageByHashRes(res) => (res.tags.into_values().collect(), true),
-            Message::DockerListImageTagsChanged { changed, .. } if args.follow => (changed, false),
+            IServerAction::DockerListImageByHashRes(res) => {
+                (res.tags.into_values().collect(), true)
+            }
+            IServerAction::DockerListImageTagsChanged(res) if args.follow => (res.changed, false),
             _ => continue,
         };
         if full {

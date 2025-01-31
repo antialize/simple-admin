@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use chrono::prelude::*;
 use chrono::{DateTime, TimeZone};
@@ -12,7 +13,7 @@ use std::{
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::client_daemon::CONTROL_SOCKET_PATH;
-use crate::service_description::ServiceDescription;
+use sadmin2::service_description::ServiceDescription;
 
 /// Start the given stopped service
 ///
@@ -197,11 +198,11 @@ pub async fn run_shell(args: Shell) -> Result<()> {
         let msg: DaemonControlMessage = serde_json::from_slice(&buf)?;
         match msg {
             DaemonControlMessage::Stdout { data } => {
-                status.extend_from_slice(&base64::engine::general_purpose::STANDARD.decode(data)?);
+                status.extend_from_slice(&BASE64_STANDARD.decode(data)?);
             }
             DaemonControlMessage::Stderr { data } => {
                 let mut o = stderr().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
+                o.write_all(&BASE64_STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Finished { code: 0 } => break,
@@ -258,11 +259,11 @@ pub async fn run_exec(args: Exec) -> Result<()> {
         let msg: DaemonControlMessage = serde_json::from_slice(&buf)?;
         match msg {
             DaemonControlMessage::Stdout { data } => {
-                status.extend_from_slice(&base64::engine::general_purpose::STANDARD.decode(data)?);
+                status.extend_from_slice(&BASE64_STANDARD.decode(data)?);
             }
             DaemonControlMessage::Stderr { data } => {
                 let mut o = stderr().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
+                o.write_all(&BASE64_STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Finished { code: 0 } => break,
@@ -436,12 +437,12 @@ pub async fn run(args: Service) -> Result<()> {
         match msg {
             DaemonControlMessage::Stdout { data } => {
                 let mut o = stdout().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
+                o.write_all(&BASE64_STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Stderr { data } => {
                 let mut o = stderr().lock();
-                o.write_all(&base64::engine::general_purpose::STANDARD.decode(data)?)?;
+                o.write_all(&BASE64_STANDARD.decode(data)?)?;
                 o.flush()?;
             }
             DaemonControlMessage::Finished { code } => {

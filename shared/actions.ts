@@ -36,7 +36,6 @@ export enum ACTION {
     DockerListImageTags = "DockerListImageTags",
     DockerListImageTagsChanged = "DockerListImageTagsChanged",
     DockerListImageTagsRes = "DockerListImageTagsRes",
-    EndLog = "EndLog",
     FetchObject = "FetchObject",
     GenerateKey = "GenerateKey",
     GenerateKeyRes = "GenerateKeyRes",
@@ -72,7 +71,6 @@ export enum ACTION {
     SetMessagesDismissed = "SetMessageDismissed",
     SetPage = "SetPage",
     StartDeployment = "StartDeployment",
-    StartLog = "StartLog",
     StatValueChanges = "StatValueChanges",
     StopDeployment = "StopDeployment",
     SubscribeStatValues = "SubscribeStatValues",
@@ -121,20 +119,6 @@ export interface ISetInitialState {
     types: Record<number, IObject2<IType>>;
     hostsUp: number[];
     usedBy: Array<[number, number]>;
-}
-
-export interface IStartLog {
-    type: ACTION.StartLog;
-    host: number;
-    logtype: "file" | "dmesg" | "journal";
-    id: number;
-    unit?: string;
-}
-
-export interface IEndLog {
-    type: ACTION.EndLog;
-    host: number;
-    id: number;
 }
 
 export interface IAddLogLines {
@@ -586,7 +570,6 @@ export type IAction =
     | IDockerListImageTagHistoryRes
     | IDockerListImageTags
     | IDockerListImageTagsRes
-    | IEndLog
     | IFetchObject
     | IGenerateKey
     | IGenerateKeyRes
@@ -624,7 +607,6 @@ export type IAction =
     | ISetPageAction
     | IStartDeployment
     | IStartDeployment
-    | IStartLog
     | IStatValueChanges
     | IStopDeployment
     | ISubscribeStatValues

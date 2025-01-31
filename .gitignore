@@ -1,7 +1,12 @@
 /frontend/node_modules
 /frontend/public/js
+/frontend/.mypy_cache/
+/frontend/dist/
+/target/
 /server/build
 /server/node_modules
+/server-rs/node_modules
+/server-rs/target
 .vscode
 *~
 .#*

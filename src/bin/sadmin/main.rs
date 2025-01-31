@@ -7,9 +7,9 @@ use connection::{Config, Connection};
 use debug_persist::DebugPersist;
 use list_deployments::ListDeployments;
 use list_images::ListImages;
-use message::{LogOut, Message};
 #[cfg(feature = "daemon")]
 use persist_daemon::PersistDaemon;
+use sadmin2::action_types::{IClientAction, IDebug, ILogout};
 #[cfg(feature = "daemon")]
 use service_control::Service;
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
@@ -23,18 +23,14 @@ mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
 mod dyn_format;
-mod finite_float;
 mod list_deployments;
 mod list_images;
-mod message;
 #[cfg(feature = "daemon")]
 mod persist_daemon;
 mod run;
 #[cfg(feature = "daemon")]
 mod service_control;
 mod service_deploy;
-#[cfg(feature = "daemon")]
-mod service_description;
 #[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;
@@ -100,6 +96,7 @@ enum Action {
     DebugPersist(DebugPersist),
     Shell(Shell),
     Run(Run),
+    DebugServer,
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -118,7 +115,7 @@ async fn auth(config: Config) -> Result<()> {
 async fn deauth(config: Config, args: Deauth) -> Result<()> {
     let mut c = Connection::open(config, false).await?;
     if c.authenticated() {
-        c.send(&Message::LogOut(LogOut {
+        c.send(&IClientAction::Logout(ILogout {
             forget_pwd: true,
             forget_otp: args.full,
         }))
@@ -134,7 +131,13 @@ async fn deauth(config: Config, args: Deauth) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main(flavor = "current_thread")]
+async fn debug_server(config: Config) -> Result<()> {
+    let mut con = Connection::open(config, false).await?;
+    con.send(&IClientAction::Debug(IDebug {})).await?;
+    Ok(())
+}
+
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> Result<()> {
     let mut args = Args::parse();
 
@@ -202,5 +205,6 @@ async fn main() -> Result<()> {
         Action::Service(args) => service_control::run(args).await,
         Action::Shell(args) => run::shell(config, args).await,
         Action::Run(args) => run::run(config, args).await,
+        Action::DebugServer => debug_server(config).await,
     }
 }

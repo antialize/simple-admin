@@ -1,8 +1,9 @@
-use crate::message::Message;
 use anyhow::{bail, Context, Result};
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use futures_util::{SinkExt, StreamExt};
-use rand::Rng;
+use sadmin2::action_types::{
+    IClientAction, IGenerateKey, ILogin, IRequestAuthStatus, IServerAction, Ref,
+};
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::unix::prelude::OpenOptionsExt;
@@ -103,13 +104,13 @@ impl Connection {
             server_host,
         };
 
-        con.send(&Message::RequestAuthStatus {
-            session: con.session.clone(),
-        })
+        con.send(&IClientAction::RequestAuthStatus(IRequestAuthStatus {
+            session: Some(con.session.clone()),
+        }))
         .await?;
 
         match con.recv().await? {
-            Message::AuthStatus(s) => {
+            IServerAction::AuthStatus(s) => {
                 con.user = s.user;
                 con.pwd = s.pwd;
                 con.otp = s.otp;
@@ -123,13 +124,13 @@ impl Connection {
         Ok(con)
     }
 
-    pub async fn send(&mut self, msg: &Message) -> Result<()> {
+    pub async fn send(&mut self, msg: &IClientAction) -> Result<()> {
         let m = serde_json::to_string(msg)?;
         self.stream.send(WSMessage::text(m)).await?;
         Ok(())
     }
 
-    pub async fn recv(&mut self) -> Result<Message> {
+    pub async fn recv(&mut self) -> Result<IServerAction> {
         loop {
             let msg =
                 match tokio::time::timeout(std::time::Duration::from_secs(1), self.stream.next())
@@ -137,13 +138,15 @@ impl Connection {
                 {
                     Ok(msg) => msg,
                     Err(_) => {
-                        self.stream.send(WSMessage::Ping(vec![42, 41])).await?;
+                        self.stream
+                            .send(WSMessage::Ping(([42, 41]).as_slice().into()))
+                            .await?;
                         continue;
                     }
                 };
             let msg = match msg.context("Expected package")?? {
-                WSMessage::Text(msg) => msg,
-                WSMessage::Binary(msg) => String::from_utf8(msg)?,
+                WSMessage::Text(msg) => msg.into(),
+                WSMessage::Binary(msg) => msg,
                 WSMessage::Ping(v) => {
                     self.stream.send(WSMessage::Pong(v)).await?;
                     continue;
@@ -152,14 +155,14 @@ impl Connection {
                 WSMessage::Close(_) => continue,
                 WSMessage::Frame(_) => continue,
             };
-            match serde_json::from_str(&msg) {
+            match serde_json::from_slice(&msg) {
                 Ok(v) => break Ok(v),
                 Err(e) => eprintln!(
                     "Invalid message: {:?} at {}:{}\n{}",
                     e,
                     e.line(),
                     e.column(),
-                    msg
+                    String::from_utf8_lossy(&msg)
                 ),
             }
         }
@@ -170,7 +173,7 @@ impl Connection {
     }
 
     pub async fn get_key(&mut self) -> Result<()> {
-        let r#ref: u64 = rand::thread_rng().gen_range(0..(1 << 48));
+        let r#ref = Ref::random();
         let home_dir = dirs::home_dir().context("Expected homedir")?;
 
         let mut key = None;
@@ -190,26 +193,26 @@ impl Connection {
         let (ssh_public_key, msg) = match key {
             Some((key, pk)) => (
                 Some(key),
-                Message::GenerateKey {
-                    r#ref,
+                IClientAction::GenerateKey(IGenerateKey {
+                    r#ref: r#ref.clone(),
                     ssh_public_key: Some(pk),
-                },
+                }),
             ),
             None => {
                 println!("No SSH key found - not signing any SSH key");
                 (
                     None,
-                    Message::GenerateKey {
-                        r#ref,
+                    IClientAction::GenerateKey(IGenerateKey {
+                        r#ref: r#ref.clone(),
                         ssh_public_key: None,
-                    },
+                    }),
                 )
             }
         };
         self.send(&msg).await?;
         let res = loop {
             match self.recv().await? {
-                Message::GenerateKeyRes(res) if res.r#ref == r#ref => break res,
+                IServerAction::GenerateKeyRes(res) if res.r#ref == r#ref => break res,
                 _ => continue,
             };
         };
@@ -304,14 +307,14 @@ impl Connection {
             Some(otp)
         };
 
-        self.send(&Message::Login {
+        self.send(&IClientAction::Login(ILogin {
             user: user.clone(),
             pwd,
             otp,
-        })
+        }))
         .await?;
         let res = match self.recv().await? {
-            Message::AuthStatus(res) => res,
+            IServerAction::AuthStatus(res) => res,
             _ => bail!("Bad result type"),
         };
 
@@ -344,8 +347,7 @@ impl Connection {
         dockerconfig.auths.insert(
             self.server_host.clone(),
             DockerAuth {
-                auth: base64::engine::general_purpose::STANDARD
-                    .encode(format!("{user}:{session}").as_bytes()),
+                auth: BASE64_STANDARD.encode(format!("{user}:{session}").as_bytes()),
             },
         );
         std::fs::create_dir_all(dockerconfpath.parent().context("Expected parent")?)?;

@@ -3,6 +3,7 @@ use std::{
     io::Write,
     net::{SocketAddr, ToSocketAddrs},
     os::unix::{
+        fs::PermissionsExt,
         prelude::{AsRawFd, BorrowedFd, OwnedFd},
         process::ExitStatusExt,
     },
@@ -13,11 +14,11 @@ use std::{
 };
 
 use anyhow::{bail, ensure, Context, Result};
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
 use log::{debug, error, info, warn};
 use reqwest::Url;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::{
@@ -35,12 +36,19 @@ use tokio::{
 use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
 use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
 
+use sadmin2::client_message::{
+    ClientHostMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
+    HostClientMessage, RunInstantMessage, RunInstantStdinOutputType, RunScriptMessage,
+    RunScriptOutType, RunScriptStdinType, SuccessMessage,
+};
+
+use sadmin2::service_description::ServiceDescription;
+
 use crate::{
     client_daemon_service::RemoteLogTarget,
     connection::Config,
     persist_daemon,
     service_control::DaemonControlMessage,
-    service_description::ServiceDescription,
     tokio_passfd::{self},
 };
 use sdnotify::SdNotify;
@@ -66,145 +74,6 @@ pub struct ClientDaemon {
     /// Verbosity of messages to display
     #[clap(long, default_value = "info")]
     log_level: log::LevelFilter,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum RunInstantStdinOutputType {
-    Text,
-    Base64,
-    Json,
-    #[serde(rename = "utf-8")]
-    Utf8,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum RunInstantStdinType {
-    None,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RunInstantMessage {
-    id: u64,
-    name: String,
-    interperter: String,
-    content: String,
-    args: Vec<String>,
-    output_type: RunInstantStdinOutputType,
-    stdin_type: RunInstantStdinType,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum RunScriptStdinType {
-    None,
-    Binary,
-    GivenJson,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum RunScriptOutType {
-    None,
-    Binary,
-    Text,
-    BlockedJson,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RunScriptMessage {
-    id: u64,
-    name: String,
-    interperter: String,
-    content: String,
-    args: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    input_json: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stdin_type: Option<RunScriptStdinType>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stdout_type: Option<RunScriptOutType>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stderr_type: Option<RunScriptOutType>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-pub enum DataSource {
-    Stdin,
-    Stdout,
-    Stderr,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DataMessage {
-    pub id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source: Option<DataSource>,
-    pub data: serde_json::Value,
-    pub eof: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum FailureType {
-    Script,
-    UnknownTask,
-    Exception,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct FailureMessage {
-    id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    failure_type: Option<FailureType>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    code: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stdout: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    stderr: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    message: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SuccessMessage {
-    id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    code: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    data: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DeployServiceMessage {
-    id: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    image: Option<String>,
-    description: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    docker_auth: Option<String>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    extra_env: HashMap<String, String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    user: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum ClientMessage {
-    Auth { hostname: String, password: String },
-    RunInstant(RunInstantMessage),
-    RunScript(RunScriptMessage),
-    Ping { id: u64 },
-    Pong { id: u64 },
-    Failure(FailureMessage),
-    Success(SuccessMessage),
-    Kill { id: u64 },
-    Data(DataMessage),
-    DeployService(DeployServiceMessage),
 }
 
 pub type PersistMessageSender =
@@ -240,7 +109,7 @@ async fn write_all_and_flush(v: &mut WriteHalf<TlsStream<TcpStream>>, data: &[u8
 }
 
 impl Client {
-    pub async fn send_message(self: &Arc<Self>, message: ClientMessage) {
+    pub async fn send_message(self: &Arc<Self>, message: ClientHostMessage) {
         let mut message = serde_json::to_vec(&message).unwrap();
         if message.contains(&30) {
             panic!("Failed to encode message, it contains 30");
@@ -282,13 +151,13 @@ impl Client {
 
     async fn handle_ping(self: Arc<Self>, id: u64) {
         debug!("Ping from server {}", id);
-        self.send_message(ClientMessage::Pong { id }).await;
+        self.send_message(ClientHostMessage::Pong { id }).await;
     }
 
     async fn handle_run_instant_inner(
         self: &Arc<Self>,
         msg: RunInstantMessage,
-    ) -> Result<ClientMessage> {
+    ) -> Result<ClientHostMessage> {
         let mut file = tempfile::Builder::new().suffix(&msg.name).tempfile()?;
 
         file.write_all(msg.content.as_bytes())?;
@@ -315,7 +184,7 @@ impl Client {
             );
             debug!("stdout: '{}'", stdout);
             debug!("stderr: '{}'", stderr);
-            return Ok(ClientMessage::Failure(FailureMessage {
+            return Ok(ClientHostMessage::Failure(FailureMessage {
                 id: msg.id,
                 code,
                 failure_type: Some(FailureType::Script),
@@ -328,13 +197,11 @@ impl Client {
             RunInstantStdinOutputType::Text => {
                 String::from_utf8_lossy(&output.stdout).to_string().into()
             }
-            RunInstantStdinOutputType::Base64 => base64::engine::general_purpose::STANDARD
-                .encode(&output.stdout)
-                .into(),
+            RunInstantStdinOutputType::Base64 => BASE64_STANDARD.encode(&output.stdout).into(),
             RunInstantStdinOutputType::Json => serde_json::from_slice(&output.stdout)?,
             RunInstantStdinOutputType::Utf8 => String::from_utf8(output.stdout)?.into(),
         };
-        Ok(ClientMessage::Success(SuccessMessage {
+        Ok(ClientHostMessage::Success(SuccessMessage {
             id: msg.id,
             code: None,
             data: Some(data),
@@ -352,7 +219,7 @@ impl Client {
             Ok(v) => v,
             Err(e) => {
                 error!("Error in instant command {}: {}", id, e);
-                ClientMessage::Failure(FailureMessage {
+                ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::Exception),
                     message: Some(e.to_string()),
@@ -384,12 +251,10 @@ impl Client {
                 loop {
                     buf.clear();
                     let s = out.read_buf(&mut buf).await?;
-                    self.send_message(ClientMessage::Data(DataMessage {
+                    self.send_message(ClientHostMessage::Data(DataMessage {
                         id,
                         source: Some(source),
-                        data: base64::engine::general_purpose::STANDARD
-                            .encode(&buf)
-                            .into(),
+                        data: BASE64_STANDARD.encode(&buf).into(),
                         eof: Some(s == 0),
                     }))
                     .await;
@@ -408,7 +273,7 @@ impl Client {
                         i -= 1;
                     }
                     if i != 0 {
-                        self.send_message(ClientMessage::Data(DataMessage {
+                        self.send_message(ClientHostMessage::Data(DataMessage {
                             id,
                             source: Some(source),
                             data: String::from_utf8_lossy(&buf.split_to(i)).into(),
@@ -433,7 +298,7 @@ impl Client {
                         if *c != 0 {
                             continue;
                         }
-                        self.send_message(ClientMessage::Data(DataMessage {
+                        self.send_message(ClientHostMessage::Data(DataMessage {
                             id,
                             source: Some(source),
                             data: serde_json::from_slice(&buf[last..i])?,
@@ -471,7 +336,7 @@ impl Client {
                 Some(v) => v,
             };
             let bytes = match data.data.as_str() {
-                Some(v) => base64::engine::general_purpose::STANDARD.decode(v)?,
+                Some(v) => BASE64_STANDARD.decode(v)?,
                 None => bail!("Expected string data"),
             };
             write.write_all(&bytes).await?;
@@ -487,7 +352,7 @@ impl Client {
         self: &Arc<Self>,
         msg: RunScriptMessage,
         stdin: UnboundedReceiver<DataMessage>,
-    ) -> Result<ClientMessage> {
+    ) -> Result<ClientHostMessage> {
         let mut file = tempfile::Builder::new().suffix(&msg.name).tempfile()?;
 
         file.write_all(msg.content.as_bytes())?;
@@ -558,7 +423,7 @@ impl Client {
         let status = child_result.unwrap()?;
         if !status.success() {
             let code = status.code().or_else(|| status.signal().map(|v| -v));
-            return Ok(ClientMessage::Failure(FailureMessage {
+            return Ok(ClientHostMessage::Failure(FailureMessage {
                 id: msg.id,
                 code,
                 failure_type: Some(FailureType::Script),
@@ -567,7 +432,7 @@ impl Client {
         }
         stdout_result.unwrap()?;
         stderr_result.unwrap()?;
-        Ok(ClientMessage::Success(SuccessMessage {
+        Ok(ClientHostMessage::Success(SuccessMessage {
             id: msg.id,
             code: Some(0),
             data: None,
@@ -584,7 +449,7 @@ impl Client {
         let id = msg.id;
         let m = match self.handle_run_script_inner(msg, recv).await {
             Ok(v) => v,
-            Err(e) => ClientMessage::Failure(FailureMessage {
+            Err(e) => ClientHostMessage::Failure(FailureMessage {
                 id,
                 failure_type: Some(FailureType::Exception),
                 message: Some(e.to_string()),
@@ -601,7 +466,7 @@ impl Client {
     async fn handle_deploy_service_inner(
         self: &Arc<Self>,
         msg: DeployServiceMessage,
-    ) -> Result<ClientMessage> {
+    ) -> Result<ClientHostMessage> {
         let d: ServiceDescription = serde_yaml::from_str(&msg.description)
             .with_context(|| format!("Parsing description: '{}'", msg.description))?;
 
@@ -639,7 +504,7 @@ impl Client {
             )
             .await?;
 
-        Ok(ClientMessage::Success(SuccessMessage {
+        Ok(ClientHostMessage::Success(SuccessMessage {
             id: msg.id,
             code: Some(0),
             data: None,
@@ -656,16 +521,16 @@ impl Client {
             Ok(m) => m,
             Err(e) => {
                 error!("Error in deploy service: {:?}", e);
-                self.send_message(ClientMessage::Data(DataMessage {
+                self.send_message(ClientHostMessage::Data(DataMessage {
                     id,
                     source: Some(DataSource::Stderr),
-                    data: base64::engine::general_purpose::STANDARD
+                    data: BASE64_STANDARD
                         .encode(format!("Error deploying service: {e:?}"))
                         .into(),
                     eof: Some(true),
                 }))
                 .await;
-                ClientMessage::Failure(FailureMessage {
+                ClientHostMessage::Failure(FailureMessage {
                     id,
                     ..Default::default()
                 })
@@ -680,7 +545,7 @@ impl Client {
         match task {
             Some(v) => v.cancel().await,
             None => {
-                self.send_message(ClientMessage::Failure(FailureMessage {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::UnknownTask),
                     message: Some("Unknown task".to_string()),
@@ -691,26 +556,77 @@ impl Client {
         }
     }
 
-    fn handle_message(self: &Arc<Self>, message: ClientMessage) {
+    async fn handle_read_file(self: Arc<Self>, id: u64, path: String) {
+        match tokio::fs::read(&path).await {
+            Ok(v) => {
+                self.send_message(ClientHostMessage::ReadFileResult {
+                    id,
+                    content: BASE64_STANDARD.encode(v),
+                })
+                .await;
+            }
+            Err(e) => {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
+                    id,
+                    failure_type: Some(FailureType::UnknownTask),
+                    message: Some(format!("Unable to read file {}: {:?}", path, e)),
+                    ..Default::default()
+                }))
+                .await;
+            }
+        }
+    }
+
+    async fn handle_write_file_inner(
+        &self,
+        path: &str,
+        content: &str,
+        mode: Option<u32>,
+    ) -> Result<()> {
+        let content = BASE64_STANDARD.decode(content)?;
+        tokio::fs::write(path, content).await?;
+        if let Some(mode) = mode {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))?;
+        }
+        Ok(())
+    }
+
+    async fn handle_write_file(
+        self: Arc<Self>,
+        id: u64,
+        path: String,
+        content: String,
+        mode: Option<u32>,
+    ) {
+        match self.handle_write_file_inner(&path, &content, mode).await {
+            Ok(()) => {
+                self.send_message(ClientHostMessage::Success(SuccessMessage {
+                    id,
+                    code: None,
+                    data: None,
+                }))
+                .await;
+            }
+            Err(e) => {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
+                    id,
+                    failure_type: Some(FailureType::UnknownTask),
+                    message: Some(format!("Unable to write file {}: {:?}", path, e)),
+                    ..Default::default()
+                }))
+                .await;
+            }
+        }
+    }
+
+    fn handle_message(self: &Arc<Self>, message: HostClientMessage) {
         match message {
-            ClientMessage::Auth { .. } => {
-                error!("Got unexpected message auth");
-            }
-            ClientMessage::Pong { .. } => {
-                error!("Got unexpected message pong");
-            }
-            ClientMessage::Failure(_) => {
-                error!("Got unexpected message failure");
-            }
-            ClientMessage::Success(_) => {
-                error!("Got unexpected message success");
-            }
-            ClientMessage::Data(d) => {
+            HostClientMessage::Data(d) => {
                 if let Some(v) = self.script_stdin.lock().unwrap().get(&d.id) {
                     let _ = v.send(d);
                 }
             }
-            ClientMessage::RunInstant(ri) => {
+            HostClientMessage::RunInstant(ri) => {
                 let id = ri.id;
 
                 let task = TaskBuilder::new(format!("run_instant_{id}"))
@@ -719,14 +635,14 @@ impl Client {
 
                 self.command_tasks.lock().unwrap().insert(id, task);
             }
-            ClientMessage::RunScript(ri) => {
+            HostClientMessage::RunScript(ri) => {
                 let (send, recv) = tokio::sync::mpsc::unbounded_channel();
                 let id = ri.id;
                 if let Some(input_json) = &ri.input_json {
                     send.send(DataMessage {
                         id,
                         source: None,
-                        data: base64::engine::general_purpose::STANDARD
+                        data: BASE64_STANDARD
                             .encode(serde_json::to_string(input_json).unwrap())
                             .into(),
                         eof: Some(true),
@@ -742,17 +658,28 @@ impl Client {
 
                 self.command_tasks.lock().unwrap().insert(id, task);
             }
-            ClientMessage::DeployService(ds) => {
+            HostClientMessage::DeployService(ds) => {
                 let id = ds.id;
                 TaskBuilder::new(format!("deploy_service_{id}"))
                     .shutdown_order(JOB_ORDER)
                     .create(|run_token| self.clone().handle_deploy_service(run_token, ds));
             }
-            ClientMessage::Ping { id } => {
+            HostClientMessage::Ping { id } => {
                 tokio::spawn(self.clone().handle_ping(id));
             }
-            ClientMessage::Kill { id } => {
+            HostClientMessage::Kill { id } => {
                 tokio::spawn(self.clone().handle_kill(id));
+            }
+            HostClientMessage::ReadFile { id, path } => {
+                tokio::spawn(self.clone().handle_read_file(id, path));
+            }
+            HostClientMessage::WriteFile {
+                id,
+                path,
+                content,
+                mode,
+            } => {
+                tokio::spawn(self.clone().handle_write_file(id, path, content, mode));
             }
         }
     }
@@ -965,7 +892,7 @@ impl Client {
         let domain = rustls::pki_types::ServerName::try_from(server_host.as_str())?.to_owned();
         let (read, mut write) = tokio::io::split(self.connector.connect(domain, stream).await?);
 
-        let mut auth_message = serde_json::to_vec(&ClientMessage::Auth {
+        let mut auth_message = serde_json::to_vec(&ClientHostMessage::Auth {
             hostname: self.config.hostname.as_ref().unwrap().clone(),
             password: self.password.clone(),
         })?;
@@ -1073,7 +1000,7 @@ impl Client {
                         start = 0;
                         match serde_json::from_slice(o) {
                             Ok(msg) => {
-                                if matches!(msg, ClientMessage::Ping { .. }) {
+                                if matches!(msg, HostClientMessage::Ping { .. }) {
                                     last_ping_time = Instant::now();
                                 }
                                 self.handle_message(msg)
@@ -1268,8 +1195,7 @@ impl Client {
                     if matches!(m.porcelain, Some(crate::service_control::Porcelain::V1)) {
                         let status = service.status_json().await?;
                         let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                            data: base64::engine::general_purpose::STANDARD
-                                .encode(serde_json::to_string_pretty(&status)?),
+                            data: BASE64_STANDARD.encode(serde_json::to_string_pretty(&status)?),
                         })?;
                         socket.write_u32(v.len().try_into()?).await?;
                         socket.write_all(&v).await?;
@@ -1288,8 +1214,7 @@ impl Client {
                             status.insert(service.name().to_string(), service.status_json().await?);
                         }
                         let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                            data: base64::engine::general_purpose::STANDARD
-                                .encode(serde_json::to_string_pretty(&status)?),
+                            data: BASE64_STANDARD.encode(serde_json::to_string_pretty(&status)?),
                         })?;
                         socket.write_u32(v.len().try_into()?).await?;
                         socket.write_all(&v).await?;
@@ -1343,8 +1268,7 @@ impl Client {
             Self::send_daemon_control_message(
                 &mut socket,
                 DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD
-                        .encode(format!("fatal error: {e:?}\n")),
+                    data: BASE64_STANDARD.encode(format!("fatal error: {e:?}\n")),
                 },
             )
             .await?;

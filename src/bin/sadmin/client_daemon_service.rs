@@ -9,16 +9,18 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+use sadmin2::client_message::{ClientHostMessage, DataMessage, DataSource};
+use sadmin2::service_description::{Bind, ServiceDescription, ServiceMetrics, ServiceType};
+
 use crate::{
     client_daemon::{self, SERVICE_ORDER},
     persist_daemon,
     service_control::DaemonControlMessage,
-    service_description::{Bind, ServiceMetrics, ServiceType},
     tokio_passfd::MyAsFd,
 };
 
 use anyhow::{bail, Context, Result};
-use base64::Engine;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use log::{debug, error, info, warn};
@@ -33,8 +35,6 @@ use tokio::{
     net::UnixStream,
 };
 use tokio_tasks::{cancelable, RunToken, Task, TaskBase, TaskBuilder};
-
-use crate::service_description::ServiceDescription;
 
 const SERVICES_BUF_SIZE: usize = 1024 * 64;
 
@@ -381,12 +381,12 @@ pub enum RemoteLogTarget<'a> {
     },
 }
 
-impl<'a> RemoteLogTarget<'a> {
+impl RemoteLogTarget<'_> {
     pub async fn stdout(&mut self, data: &[u8]) -> Result<()> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -400,7 +400,7 @@ impl<'a> RemoteLogTarget<'a> {
             } => send_journal_messages(socket, Priority::Info, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stdout {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -409,16 +409,12 @@ impl<'a> RemoteLogTarget<'a> {
             }
             RemoteLogTarget::Backend { id, client } => {
                 client
-                    .send_message(client_daemon::ClientMessage::Data(
-                        client_daemon::DataMessage {
-                            id: *id,
-                            source: Some(client_daemon::DataSource::Stdout),
-                            data: base64::engine::general_purpose::STANDARD
-                                .encode(data)
-                                .into(),
-                            eof: None,
-                        },
-                    ))
+                    .send_message(ClientHostMessage::Data(DataMessage {
+                        id: *id,
+                        source: Some(DataSource::Stdout),
+                        data: BASE64_STANDARD.encode(data).into(),
+                        eof: None,
+                    }))
                     .await;
             }
         }
@@ -429,7 +425,7 @@ impl<'a> RemoteLogTarget<'a> {
         match self {
             RemoteLogTarget::ServiceControl(stream) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 stream.write_u32(v.len().try_into()?).await?;
                 stream.write_all(&v).await?;
@@ -443,7 +439,7 @@ impl<'a> RemoteLogTarget<'a> {
             } => send_journal_messages(socket, Priority::Error, data, name, *instance_id).await?,
             RemoteLogTarget::ServiceControlLock(l) => {
                 let v = serde_json::to_vec(&DaemonControlMessage::Stderr {
-                    data: base64::engine::general_purpose::STANDARD.encode(data),
+                    data: BASE64_STANDARD.encode(data),
                 })?;
                 let mut stream = l.lock().await;
                 stream.write_u32(v.len().try_into()?).await?;
@@ -452,16 +448,12 @@ impl<'a> RemoteLogTarget<'a> {
             }
             RemoteLogTarget::Backend { id, client } => {
                 client
-                    .send_message(client_daemon::ClientMessage::Data(
-                        client_daemon::DataMessage {
-                            id: *id,
-                            source: Some(client_daemon::DataSource::Stderr),
-                            data: base64::engine::general_purpose::STANDARD
-                                .encode(data)
-                                .into(),
-                            eof: None,
-                        },
-                    ))
+                    .send_message(ClientHostMessage::Data(DataMessage {
+                        id: *id,
+                        source: Some(DataSource::Stderr),
+                        data: BASE64_STANDARD.encode(data).into(),
+                        eof: None,
+                    }))
                     .await;
             }
         }

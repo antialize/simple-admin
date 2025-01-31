@@ -33,7 +33,7 @@ impl<T: AsFd> MyAsFd for &T {
 }
 
 /// Send a filedescriptor over the write half of a tokio unix stream
-pub async fn send_fd<'a>(
+pub async fn send_fd(
     stream: &mut tokio::net::unix::OwnedWriteHalf,
     fd: impl MyAsFd,
 ) -> Result<(), std::io::Error> {
