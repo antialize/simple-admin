@@ -190,7 +190,7 @@ pub struct ISetInitialState {
     pub deployment_status: DeploymentStatus,
     pub deployment_message: String,
     pub deployment_log: Vec<String>,
-    pub types: HashMap<i64, IObject2<ValueMap>>, // TODO(jakobt) IType
+    pub types: HashMap<ObjectType, IObject2<ValueMap>>, // TODO(jakobt) IType
     pub hosts_up: Vec<i64>,
     pub used_by: Vec<(i64, i64)>,
 }
