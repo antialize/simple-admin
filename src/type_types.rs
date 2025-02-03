@@ -1,8 +1,9 @@
 use serde::{de, ser::SerializeMap, Deserialize, Serialize, Serializer};
 use serde_json::Value;
+use ts_rs::TS;
 pub type ValueMap = serde_json::Map<String, Value>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IBoolTypeProp {
     pub title: String,
@@ -12,10 +13,11 @@ pub struct IBoolTypeProp {
     #[serde(default)]
     pub default: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub variable: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ITextTypeProp {
     #[serde(default)]
@@ -28,14 +30,17 @@ pub struct ITextTypeProp {
     #[serde(default)]
     pub template: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub variable: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub deploy_title: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub lines: Option<u64>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IPasswordTypeProp {
     pub title: String,
@@ -44,25 +49,28 @@ pub struct IPasswordTypeProp {
     pub description: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IDocumentTypeProp {
     #[serde(default)]
     pub title: String,
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub lang_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub lang: Option<String>,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
     pub template: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub variable: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IChoiceTypeProp {
     pub title: String,
@@ -73,10 +81,11 @@ pub struct IChoiceTypeProp {
     pub default: String,
     pub choices: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub variable: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct INumberTypeProp {
     pub title: String,
@@ -87,7 +96,7 @@ pub struct INumberTypeProp {
     pub default: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ITypeContentTypeProp {
     pub name: String,
@@ -106,6 +115,45 @@ pub enum ITypeProp {
     TypeContent(ITypeContentTypeProp),
     Number(INumberTypeProp),
     Monitor,
+}
+
+impl TS for ITypeProp {
+    type WithoutGenerics = ITypeProp;
+    fn ident() -> String {
+        "ITypeProp".to_owned()
+    }
+    fn name() -> String {
+        "ITypeProp".to_owned()
+    }
+    fn decl_concrete() -> String {
+        todo!();
+    }
+    fn decl() -> String {
+        "type ITypeProp = | { type: TypePropType.none }\
+            | ({ type: TypePropType.bool } & IBoolTypeProp)\
+            | ({ type: TypePropType.text } & ITextTypeProp)\
+            | ({ type: TypePropType.password } & IPasswordTypeProp)\
+            | ({ type: TypePropType.document } & IDocumentTypeProp)\
+            | ({ type: TypePropType.choice } & IChoiceTypeProp)\
+            | ({ type: TypePropType.typeContent } & ITypeContentTypeProp)\
+            | ({ type: TypePropType.number } & INumberTypeProp)\
+            | { type: TypePropType.monitor };"
+            .to_string()
+    }
+    fn inline() -> String {
+        todo!()
+    }
+    fn inline_flattened() -> String {
+        todo!()
+    }
+    fn output_path() -> Option<&'static std::path::Path> {
+        Some(std::path::Path::new("ITypeProp.ts"))
+    }
+    fn visit_dependencies(_: &mut impl ::ts_rs::TypeVisitor)
+    where
+        Self: 'static,
+    {
+    }
 }
 
 impl Serialize for ITypeProp {
@@ -198,7 +246,7 @@ impl<'de> serde::Deserialize<'de> for ITypeProp {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 pub enum KindType {
     Host,
@@ -213,68 +261,55 @@ pub enum KindType {
     Monitor, // Deprecated
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IType {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub plural: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub kind: Option<KindType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub deploy_order: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub script: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub has_category: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub has_variables: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub has_contains: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub has_sudo_on: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub has_triggers: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub has_depends: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub contains_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub content: Option<Vec<ITypeProp>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub name_variable: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IVariable {
     pub key: String,
     pub value: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct IVariables {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variables: Option<Vec<IVariable>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub secrets: Option<Vec<IVariable>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct IHost {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variables: Option<Vec<IVariable>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub secrets: Option<Vec<IVariable>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub contains: Option<Vec<i64>>,
-    #[serde(default)]
-    pub message_on_down: bool,
-    #[serde(default)]
-    pub deb_packages: bool,
-    #[serde(default)]
-    pub use_podman: bool,
 }
 
 pub trait IContainsIter {
@@ -426,23 +461,6 @@ impl ITriggersIter for ValueMap {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct IObject<T> {
-    pub id: i64,
-    pub r#type: i64,
-    pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub category: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub version: Option<i64>,
-    pub comment: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub author: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub time: Option<i64>,
-    pub content: T,
-}
-
 pub const TYPE_ID: i64 = 1;
 pub const HOST_ID: i64 = 2;
 pub const ROOT_ID: i64 = 3;
@@ -452,3 +470,49 @@ pub const COMPLEX_COLLECTION_ID: i64 = 8;
 pub const HOST_VARIABLE_ID: i64 = 10840;
 pub const PACKAGE_ID: i64 = 10;
 pub const ROOT_INSTANCE_ID: i64 = 100;
+
+pub fn export_ts() -> Vec<String> {
+    vec![
+        format!("export const {} = {};", "TYPE_ID", TYPE_ID),
+        format!("export const {} = {};", "HOST_ID", HOST_ID),
+        format!("export const {} = {};", "ROOT_ID", ROOT_ID),
+        format!("export const {} = {};", "USER_ID", USER_ID),
+        format!("export const {} = {};", "COLLECTION_ID", COLLECTION_ID),
+        format!(
+            "export const {} = {};",
+            "COMPLEX_COLLECTION_ID", COMPLEX_COLLECTION_ID
+        ),
+        format!(
+            "export const {} = {};",
+            "HOST_VARIABLE_ID", HOST_VARIABLE_ID
+        ),
+        format!("export const {} = {};", "PACKAGE_ID", PACKAGE_ID),
+        format!(
+            "export const {} = {};",
+            "ROOT_INSTANCE_ID", ROOT_INSTANCE_ID
+        ),
+        "export enum TypePropType {\
+            none = 0,\
+            bool = 1,\
+            text = 2,\
+            password = 3,\
+            document = 4,\
+            choice = 5,\
+            typeContent = 6,\
+            number = 7,\
+            monitor = 8,\
+        }"
+        .to_string(),
+        IBoolTypeProp::export_to_string().unwrap(),
+        ITextTypeProp::export_to_string().unwrap(),
+        IPasswordTypeProp::export_to_string().unwrap(),
+        IDocumentTypeProp::export_to_string().unwrap(),
+        IChoiceTypeProp::export_to_string().unwrap(),
+        INumberTypeProp::export_to_string().unwrap(),
+        ITypeContentTypeProp::export_to_string().unwrap(),
+        ITypeProp::export_to_string().unwrap(),
+        KindType::export_to_string().unwrap(),
+        IType::export_to_string().unwrap(),
+        IVariable::export_to_string().unwrap(),
+    ]
+}

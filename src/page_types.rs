@@ -3,16 +3,6 @@ use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct IObjectDigest {
-    pub name: String,
-    pub comment: String,
-    pub id: i64,
-    pub r#type: i64,
-    pub category: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, TS)]
-#[serde(rename_all = "camelCase")]
 pub struct IObjectListPage {
     pub object_type: i64,
 }
@@ -22,8 +12,10 @@ pub struct IObjectListPage {
 pub struct IObjectPage {
     pub object_type: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub id: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub version: Option<i64>,
 }
 
@@ -63,11 +55,11 @@ pub struct IModifiedFilePage {
 
 // This should be integer tagged
 // see https://stackoverflow.com/questions/65575385/deserialization-of-json-with-serde-by-a-numerical-value-as-type-identifier/65576570#65576570
-#[derive(Debug, Clone, TS)]
+#[derive(Debug, Clone)]
 pub enum IPage {
     Dashbord,
-    Deployment(IDeploymentDetailsPage),
-    DeploymentDetails,
+    Deployment,
+    DeploymentDetails(IDeploymentDetailsPage),
     DockerContainerDetails(IDockerContainerDetails),
     DockerContainerHistory(IDockerContainerHistory),
     DockerServices,
@@ -78,6 +70,58 @@ pub enum IPage {
     Object(IObjectPage),
     ObjectList(IObjectListPage),
     Search,
+}
+impl ::ts_rs::TS for IPage {
+    type WithoutGenerics = IPage;
+    fn ident() -> String {
+        "IPage".to_owned()
+    }
+    fn name() -> String {
+        "IPage".to_owned()
+    }
+    fn decl_concrete() -> String {
+        todo!();
+    }
+    fn decl() -> String {
+        "type IPage = | { type: PAGE_TYPE.Dashbord }\
+        | ({ type: PAGE_TYPE.Deployment } \
+        | { type: PAGE_TYPE.DeploymentDetails } & IDeploymentDetailsPage)\
+        | ({ type: PAGE_TYPE.DockerContainerDetails } & IDockerContainerDetails)\
+        | ({ type: PAGE_TYPE.DockerContainerHistory } & IDockerContainerHistory)\
+        | { type: PAGE_TYPE.DockerServices }\
+        | ({ type: PAGE_TYPE.DockerImageHistory } & IDockerImageHistory)\
+        | { type: PAGE_TYPE.DockerImages }\
+        | ({ type: PAGE_TYPE.ModifiedFile } & IModifiedFilePage)\
+        | { type: PAGE_TYPE.ModifiedFiles }\
+        | ({ type: PAGE_TYPE.Object } & IObjectPage)\
+        | ({ type: PAGE_TYPE.ObjectList } & IObjectListPage)\
+        | { type: PAGE_TYPE.Search };"
+            .to_string()
+    }
+
+    fn inline() -> String {
+        todo!();
+    }
+
+    fn inline_flattened() -> String {
+        todo!()
+    }
+
+    fn visit_generics(_: &mut impl ::ts_rs::TypeVisitor)
+    where
+        Self: 'static,
+    {
+    }
+
+    fn output_path() -> Option<&'static std::path::Path> {
+        Some(std::path::Path::new("IPage.ts"))
+    }
+
+    fn visit_dependencies(_: &mut impl ::ts_rs::TypeVisitor)
+    where
+        Self: 'static,
+    {
+    }
 }
 
 impl Serialize for IPage {
@@ -91,12 +135,12 @@ impl Serialize for IPage {
             IPage::Dashbord => {
                 s.serialize_entry("type", &0)?;
             }
-            IPage::Deployment(t) => {
+            IPage::Deployment => {
                 s.serialize_entry("type", &1)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
             }
-            IPage::DeploymentDetails => {
+            IPage::DeploymentDetails(t) => {
                 s.serialize_entry("type", &2)?;
+                t.serialize(FlatMapSerializer(&mut s))?;
             }
             IPage::DockerContainerDetails(t) => {
                 s.serialize_entry("type", &3)?;
@@ -154,8 +198,10 @@ impl<'de> serde::Deserialize<'de> for IPage {
                 .ok_or_else(|| D::Error::custom("missing type"))?
             {
                 0 => IPage::Dashbord,
-                1 => IPage::Deployment(Deserialize::deserialize(value).map_err(D::Error::custom)?),
-                2 => IPage::DeploymentDetails,
+                1 => IPage::Deployment,
+                2 => IPage::DeploymentDetails(
+                    Deserialize::deserialize(value).map_err(D::Error::custom)?,
+                ),
                 3 => IPage::DockerContainerDetails(
                     Deserialize::deserialize(value).map_err(D::Error::custom)?,
                 ),
@@ -178,4 +224,33 @@ impl<'de> serde::Deserialize<'de> for IPage {
             },
         )
     }
+}
+
+pub fn export_ts() -> Vec<String> {
+    vec![
+        "export enum PAGE_TYPE { \
+    Dashbord = 0, \
+    Deployment = 1, \
+    DeploymentDetails = 2, \
+    DockerContainerDetails = 3, \
+    DockerContainerHistory = 4, \
+    DockerServices = 5, \
+    DockerImageHistory = 6, \
+    DockerImages = 7, \
+    ModifiedFile = 8, \
+    ModifiedFiles = 9, \
+    Object = 10, \
+    ObjectList = 11, \
+    Search = 12, \
+}"
+        .to_string(),
+        IObjectListPage::export_to_string().unwrap(),
+        IObjectPage::export_to_string().unwrap(),
+        IDeploymentDetailsPage::export_to_string().unwrap(),
+        IDockerImageHistory::export_to_string().unwrap(),
+        IDockerContainerDetails::export_to_string().unwrap(),
+        IDockerContainerHistory::export_to_string().unwrap(),
+        IModifiedFilePage::export_to_string().unwrap(),
+        IPage::export_to_string().unwrap(),
+    ]
 }

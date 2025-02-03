@@ -599,7 +599,23 @@ os.execv(sys.argv[1], sys.argv[1:])
                 for row in rows {
                     let object: IObject2<ValueMap> = row.try_into().context("IObject2")?;
                     if object.r#type == ObjectType::Id(TYPE_ID) {
-                        types.insert(ObjectType::Id(object.id), object.clone());
+                        let o = object.clone();
+                        let content: IType =
+                            serde_json::from_value(serde_json::Value::Object(o.content))?;
+                        types.insert(
+                            ObjectType::Id(object.id),
+                            IObject2 {
+                                content,
+                                id: o.id,
+                                r#type: o.r#type,
+                                name: o.name,
+                                category: o.category,
+                                version: o.version,
+                                comment: o.comment,
+                                author: o.author,
+                                time: o.time,
+                            },
+                        );
                     }
                     object_names_and_ids
                         .entry(object.r#type)
@@ -852,9 +868,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 };
                 let mut obj = act.obj.context("Missing object in action")?;
                 let object_type: i64 = obj.r#type.into();
-                let serde_json::Value::Object(ref mut content) = obj.content else {
-                    bail!("Content is not object")
-                };
+                let content = &mut obj.content;
                 let type_row = query!(
                     "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`",
                     object_type
