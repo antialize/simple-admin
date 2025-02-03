@@ -1,14 +1,13 @@
 import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
-import nullCheck from ".././shared/nullCheck";
-import type * as State from ".././shared/state";
-import { type IType, TypePropType } from ".././shared/type";
+import nullCheck from "../nullCheck";
 import Editor from "../Editor";
 import DisplayError from "../Error";
 import { InformationList, InformationListRow } from "../InformationList";
 import state from "../state";
+import { IObject2, IType, TypePropType } from "../shared_types";
 
-function CententInfo(p: { c: Record<string, any> | null; t: State.IObject2<IType> }) {
+function CententInfo(p: { c: Record<string, any> | null; t: IObject2<IType> }) {
     if (!p.c) return <DisplayError>Missing p.c</DisplayError>;
     const i = p.c[p.t.name];
     if (!i) return <DisplayError>missing i</DisplayError>;

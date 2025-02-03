@@ -1,7 +1,7 @@
 import { Button } from "@mui/material";
 import { observer } from "mobx-react";
-import * as State from ".././shared/state";
 import DisplayError from "../Error";
+import { DEPLOYMENT_STATUS } from "../shared_types";
 import state from "../state";
 
 const Buttons = observer(function Buttons() {
@@ -20,22 +20,22 @@ const Buttons = observer(function Buttons() {
     let deployAll = false;
     let canSelect = false;
     switch (p.status) {
-        case State.DEPLOYMENT_STATUS.BuildingTree:
+        case DEPLOYMENT_STATUS.BuildingTree:
             cancel = true;
             break;
-        case State.DEPLOYMENT_STATUS.ComputingChanges:
+        case DEPLOYMENT_STATUS.ComputingChanges:
             cancel = true;
             break;
-        case State.DEPLOYMENT_STATUS.Deploying:
+        case DEPLOYMENT_STATUS.Deploying:
             stop = true;
             break;
-        case State.DEPLOYMENT_STATUS.Done:
+        case DEPLOYMENT_STATUS.Done:
             deployAll = true;
             break;
-        case State.DEPLOYMENT_STATUS.InvilidTree:
+        case DEPLOYMENT_STATUS.InvilidTree:
             deployAll = true;
             break;
-        case State.DEPLOYMENT_STATUS.ReviewChanges:
+        case DEPLOYMENT_STATUS.ReviewChanges:
             start = true;
             cancel = true;
             canSelect = true;

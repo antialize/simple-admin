@@ -1,12 +1,12 @@
 import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
 import HostChip from "./HostChip";
-import { hostId } from "./shared/type";
+import { HOST_ID } from "./shared_types";
 import state from "./state";
 
 const Statuses = observer(function Statuses() {
     const catagories: Record<string, Array<{ id: number; name: string }>> = {};
-    const hosts = state.objectDigests.get(hostId);
+    const hosts = state.objectDigests.get(HOST_ID);
     if (!hosts) return null;
     for (const [_, host] of hosts) {
         const cat = host.category || "Other";

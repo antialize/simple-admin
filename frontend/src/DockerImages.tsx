@@ -6,10 +6,8 @@ import DisplayError from "./Error";
 import InfoTable, { InfoTableHeader } from "./InfoTable";
 import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
-import { ACTION } from "./shared/actions";
-import nullCheck from "./shared/nullCheck";
-import * as State from "./shared/state";
-import type { IPage } from "./shared/state";
+import nullCheck from "./nullCheck";
+import { type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 export const DockerImages = observer(function DockerImages() {
@@ -39,7 +37,7 @@ export const DockerImages = observer(function DockerImages() {
                 commit = `${tag.labels.GIT_BRANCH || ""} ${tag.labels.GIT_COMMIT || ""}`;
             }
             const historyPage: IPage = {
-                type: State.PAGE_TYPE.DockerImageHistory,
+                type: PAGE_TYPE.DockerImageHistory,
                 project: tag.image,
                 tag: tag.tag,
             };
@@ -62,7 +60,7 @@ export const DockerImages = observer(function DockerImages() {
                                 checked={!!tag.pin}
                                 onChange={(e) => {
                                     state.sendMessage({
-                                        type: ACTION.DockerImageSetPin,
+                                        type: "DockerImageSetPin",
                                         id: tag.id,
                                         pin: e.target.checked,
                                     });
@@ -74,7 +72,7 @@ export const DockerImages = observer(function DockerImages() {
                             checked={!!pin}
                             onChange={(e) => {
                                 state.sendMessage({
-                                    type: ACTION.DockerImageTagSetPin,
+                                    type: "DockerImageTagSetPin",
                                     image: project,
                                     tag: tag.tag,
                                     pin: e.target.checked,
@@ -143,8 +141,7 @@ export const DockerImageHistory = observer(function DockerImageHistory() {
     const spage = state.page;
     if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
-    if (page.type !== State.PAGE_TYPE.DockerImageHistory)
-        return <DisplayError>Wrong page</DisplayError>;
+    if (page.type !== PAGE_TYPE.DockerImageHistory) return <DisplayError>Wrong page</DisplayError>;
 
     const h1 = s.imageHistory.get(page.project);
     const r = extractRemote(h1?.get(page.tag));
@@ -179,7 +176,7 @@ export const DockerImageHistory = observer(function DockerImageHistory() {
                             checked={!!image.pin}
                             onChange={(e) => {
                                 state.sendMessage({
-                                    type: ACTION.DockerImageSetPin,
+                                    type: "DockerImageSetPin",
                                     id: image.id,
                                     pin: e.target.checked,
                                 });

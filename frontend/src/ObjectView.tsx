@@ -7,8 +7,7 @@ import { InformationList, InformationListRow } from "./InformationList";
 import Type from "./Type";
 import UnixTime from "./UnixTime";
 import UserExtra from "./UserExtra";
-import { DEPLOYMENT_STATUS, type IPage, PAGE_TYPE } from "./shared/state";
-import { hostId, userId } from "./shared/type";
+import { DEPLOYMENT_STATUS, HOST_ID, type IPage, PAGE_TYPE, USER_ID } from "./shared_types";
 import state from "./state";
 
 const ObjectView = observer(function ObjectView({
@@ -76,10 +75,10 @@ const ObjectView = observer(function ObjectView({
         );
     }
 
-    if (type === hostId) {
+    if (type === HOST_ID) {
         extra = <HostExtra id={id} />;
     }
-    if (type === userId) {
+    if (type === USER_ID) {
         extra = <UserExtra id={id} />;
     }
 
@@ -209,7 +208,7 @@ const ObjectView = observer(function ObjectView({
                     >
                         Delete
                     </Button>
-                    {type === hostId ? (
+                    {type === HOST_ID ? (
                         <Button
                             variant="contained"
                             color="primary"

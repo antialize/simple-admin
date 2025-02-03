@@ -2,10 +2,9 @@ import * as $ from "jquery";
 import { action, makeObservable, observable, runInAction } from "mobx";
 import type * as React from "react";
 import ObjectState from "./ObjectState";
-import getOrInsert from "./shared/getOrInsert";
-import nullCheck from "./shared/nullCheck";
-import * as State from "./shared/state";
-import { hostId } from "./shared/type";
+import getOrInsert from "./getOrInsert";
+import nullCheck from "./nullCheck";
+import { HOST_ID, type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 function never(_: never, message: string) {
@@ -21,40 +20,40 @@ class PageState {
     nextNewObjectId = -2;
 
     @observable
-    private current_: State.IPage = { type: State.PAGE_TYPE.Dashbord };
+    private current_: IPage = { type: PAGE_TYPE.Dashbord };
 
     @action
     loadContent() {
         const p = this.current_;
         switch (p.type) {
-            case State.PAGE_TYPE.Deployment:
-            case State.PAGE_TYPE.Dashbord:
-            case State.PAGE_TYPE.Search:
-            case State.PAGE_TYPE.ObjectList:
-            case State.PAGE_TYPE.DeploymentDetails:
+            case PAGE_TYPE.Deployment:
+            case PAGE_TYPE.Dashbord:
+            case PAGE_TYPE.Search:
+            case PAGE_TYPE.ObjectList:
+            case PAGE_TYPE.DeploymentDetails:
                 break;
-            case State.PAGE_TYPE.Object:
+            case PAGE_TYPE.Object:
                 {
                     const id = p.id;
                     if (id) getOrInsert(state.objects, id, () => new ObjectState(id)).loadCurrent();
-                    if (p.objectType === hostId) nullCheck(state.dockerContainers).load();
+                    if (p.objectType === HOST_ID) nullCheck(state.dockerContainers).load();
                 }
                 break;
-            case State.PAGE_TYPE.DockerImages:
+            case PAGE_TYPE.DockerImages:
                 nullCheck(state.dockerImages).load();
                 break;
-            case State.PAGE_TYPE.DockerServices:
+            case PAGE_TYPE.DockerServices:
                 nullCheck(state.dockerContainers).load();
                 break;
-            case State.PAGE_TYPE.ModifiedFiles:
-            case State.PAGE_TYPE.ModifiedFile:
+            case PAGE_TYPE.ModifiedFiles:
+            case PAGE_TYPE.ModifiedFile:
                 nullCheck(state.modifiedFiles).load();
                 break;
-            case State.PAGE_TYPE.DockerContainerDetails:
-            case State.PAGE_TYPE.DockerContainerHistory:
+            case PAGE_TYPE.DockerContainerDetails:
+            case PAGE_TYPE.DockerContainerHistory:
                 nullCheck(state.dockerContainers).loadHistory(p.host, p.container);
                 break;
-            case State.PAGE_TYPE.DockerImageHistory:
+            case PAGE_TYPE.DockerImageHistory:
                 nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
                 break;
             default:
@@ -62,7 +61,7 @@ class PageState {
         }
     }
 
-    onClick(e: React.MouseEvent<unknown>, page: State.IPage) {
+    onClick(e: React.MouseEvent<unknown>, page: IPage) {
         if (e.metaKey || e.ctrlKey || e.button === 2) return;
         e.preventDefault();
         this.set(page);
@@ -72,7 +71,7 @@ class PageState {
         return this.current_;
     }
 
-    set current(p: State.IPage) {
+    set current(p: IPage) {
         runInAction(() => {
             this.current_ = p;
             this.loadContent();
@@ -80,9 +79,9 @@ class PageState {
     }
 
     @action
-    set(page: State.IPage) {
+    set(page: IPage) {
         const pg = Object.assign({}, page);
-        if (pg.type === State.PAGE_TYPE.Object && !pg.id) {
+        if (pg.type === PAGE_TYPE.Object && !pg.id) {
             pg.id = this.nextNewObjectId;
             --this.nextNewObjectId;
         }
@@ -90,60 +89,60 @@ class PageState {
         this.current = pg;
     }
 
-    link(page: State.IPage): string {
+    link(page: IPage): string {
         const o: Record<string, string> = {};
         switch (page.type) {
-            case State.PAGE_TYPE.Deployment:
+            case PAGE_TYPE.Deployment:
                 o.page = "deployment";
                 break;
-            case State.PAGE_TYPE.Dashbord:
+            case PAGE_TYPE.Dashbord:
                 o.page = "dashbord";
                 break;
-            case State.PAGE_TYPE.ObjectList:
+            case PAGE_TYPE.ObjectList:
                 o.page = "objectlist";
                 o.type = `${page.objectType}`;
                 break;
-            case State.PAGE_TYPE.Object:
+            case PAGE_TYPE.Object:
                 o.page = "object";
                 o.type = `${page.objectType}`;
                 if (page.id != null) o.id = `${page.id}`;
                 else o.id = "-1";
                 if (page.version != null) o.version = `${page.version}`;
                 break;
-            case State.PAGE_TYPE.DeploymentDetails:
+            case PAGE_TYPE.DeploymentDetails:
                 o.page = "deploymentDetails";
                 o.index = `${page.index}`;
                 break;
-            case State.PAGE_TYPE.DockerImages:
+            case PAGE_TYPE.DockerImages:
                 o.page = "dockerImages";
                 break;
-            case State.PAGE_TYPE.DockerServices:
+            case PAGE_TYPE.DockerServices:
                 o.page = "dockerContainers";
                 break;
-            case State.PAGE_TYPE.ModifiedFiles:
+            case PAGE_TYPE.ModifiedFiles:
                 o.page = "modifiedFiles";
                 break;
-            case State.PAGE_TYPE.ModifiedFile:
+            case PAGE_TYPE.ModifiedFile:
                 o.page = "modifiedFile";
                 o.id = `${page.id}`;
                 break;
-            case State.PAGE_TYPE.DockerContainerDetails:
+            case PAGE_TYPE.DockerContainerDetails:
                 o.page = "dockerContainerDetails";
                 o.host = `${page.host}`;
                 o.container = page.container;
                 o.id = `${page.id}`;
                 break;
-            case State.PAGE_TYPE.DockerContainerHistory:
+            case PAGE_TYPE.DockerContainerHistory:
                 o.page = "dockerContainerHistory";
                 o.host = `${page.host}`;
                 o.container = page.container;
                 break;
-            case State.PAGE_TYPE.DockerImageHistory:
+            case PAGE_TYPE.DockerImageHistory:
                 o.page = "dockerImageHistory";
                 o.project = `${page.project}`;
                 o.tag = page.tag;
                 break;
-            case State.PAGE_TYPE.Search:
+            case PAGE_TYPE.Search:
                 o.page = "search";
                 break;
             default:
@@ -164,23 +163,23 @@ class PageState {
         const p = getUrlParameter("page");
         switch (p) {
             case "dockerImages":
-                this.current = { type: State.PAGE_TYPE.DockerImages };
+                this.current = { type: PAGE_TYPE.DockerImages };
                 break;
             case "dockerContainers":
-                this.current = { type: State.PAGE_TYPE.DockerServices };
+                this.current = { type: PAGE_TYPE.DockerServices };
                 break;
             case "modifiedFiles":
-                this.current = { type: State.PAGE_TYPE.ModifiedFiles };
+                this.current = { type: PAGE_TYPE.ModifiedFiles };
                 break;
             case "modifiedFile":
-                this.current = { type: State.PAGE_TYPE.ModifiedFile, id: +getUrlParameter("id") };
+                this.current = { type: PAGE_TYPE.ModifiedFile, id: +getUrlParameter("id") };
                 break;
             case "deployment":
-                this.current = { type: State.PAGE_TYPE.Deployment };
+                this.current = { type: PAGE_TYPE.Deployment };
                 break;
             case "objectlist":
                 this.current = {
-                    type: State.PAGE_TYPE.ObjectList,
+                    type: PAGE_TYPE.ObjectList,
                     objectType: +getUrlParameter("type"),
                 };
                 break;
@@ -188,7 +187,7 @@ class PageState {
                 {
                     const v = getUrlParameter("version");
                     this.current = {
-                        type: State.PAGE_TYPE.Object,
+                        type: PAGE_TYPE.Object,
                         objectType: +getUrlParameter("type"),
                         id: +getUrlParameter("id"),
                         version: v ? +v : undefined,
@@ -197,13 +196,13 @@ class PageState {
                 break;
             case "deploymentDetails":
                 this.current = {
-                    type: State.PAGE_TYPE.DeploymentDetails,
+                    type: PAGE_TYPE.DeploymentDetails,
                     index: +getUrlParameter("index"),
                 };
                 break;
             case "dockerContainerDetails":
                 this.current = {
-                    type: State.PAGE_TYPE.DockerContainerDetails,
+                    type: PAGE_TYPE.DockerContainerDetails,
                     host: +getUrlParameter("host"),
                     container: getUrlParameter("container"),
                     id: +getUrlParameter("id"),
@@ -211,23 +210,23 @@ class PageState {
                 break;
             case "dockerContainerHistory":
                 this.current = {
-                    type: State.PAGE_TYPE.DockerContainerHistory,
+                    type: PAGE_TYPE.DockerContainerHistory,
                     host: +getUrlParameter("host"),
                     container: getUrlParameter("container"),
                 };
                 break;
             case "dockerImageHistory":
                 this.current = {
-                    type: State.PAGE_TYPE.DockerImageHistory,
+                    type: PAGE_TYPE.DockerImageHistory,
                     project: getUrlParameter("project"),
                     tag: getUrlParameter("tag"),
                 };
                 break;
             case "search":
-                this.current = { type: State.PAGE_TYPE.Search };
+                this.current = { type: PAGE_TYPE.Search };
                 break;
             default:
-                this.current = { type: State.PAGE_TYPE.Dashbord };
+                this.current = { type: PAGE_TYPE.Dashbord };
                 break;
         }
     }

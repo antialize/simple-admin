@@ -3,9 +3,8 @@ import { observer } from "mobx-react";
 import Box from "./Box";
 import DisplayError from "./Error";
 import InfoTable from "./InfoTable";
-import nullCheck from "./shared/nullCheck";
-import type { IPage } from "./shared/state";
-import * as State from "./shared/state";
+import nullCheck from "./nullCheck";
+import { type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 const Search = observer(function Search() {
@@ -19,8 +18,8 @@ const Search = observer(function Search() {
 
     const rows = [];
     for (const o of s.objects) {
-        const type = state.types.get(o.type);
-        const p: IPage = { type: State.PAGE_TYPE.Object, objectType: o.type, id: o.id };
+        const type = state.types.get(o.type as number);
+        const p: IPage = { type: PAGE_TYPE.Object, objectType: o.type as number, id: o.id };
         rows.push(
             <tr key={o.id}>
                 <td>{type ? type.name : o.type}</td>

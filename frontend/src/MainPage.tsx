@@ -11,7 +11,7 @@ import ObjectView from "./ObjectView";
 import Search from "./Search";
 import Statuses from "./Statuses";
 import DeploymentDetails from "./deployment/Details";
-import * as State from "./shared/state";
+import { PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 function never(_: never, message: string) {
@@ -24,7 +24,7 @@ export const MainPage = observer(function MainPage() {
 
     const p = page.current;
     switch (p.type) {
-        case State.PAGE_TYPE.Dashbord:
+        case PAGE_TYPE.Dashbord:
             return (
                 <>
                     <Typography variant="h4" component="h4" color="textPrimary">
@@ -34,33 +34,33 @@ export const MainPage = observer(function MainPage() {
                     <Statuses />
                 </>
             );
-        case State.PAGE_TYPE.ObjectList:
+        case PAGE_TYPE.ObjectList:
             return <ObjectList type={p.objectType} />;
-        case State.PAGE_TYPE.Object:
+        case PAGE_TYPE.Object:
             return <ObjectView type={p.objectType} id={p.id} version={p.version} />;
-        case State.PAGE_TYPE.Deployment:
+        case PAGE_TYPE.Deployment:
             return <Deployment />;
-        case State.PAGE_TYPE.DeploymentDetails:
+        case PAGE_TYPE.DeploymentDetails:
             return (
                 <div>
                     <DeploymentDetails index={p.index} />
                 </div>
             );
-        case State.PAGE_TYPE.DockerImages:
+        case PAGE_TYPE.DockerImages:
             return <DockerImages />;
-        case State.PAGE_TYPE.DockerServices:
+        case PAGE_TYPE.DockerServices:
             return <DockerServices />;
-        case State.PAGE_TYPE.ModifiedFiles:
+        case PAGE_TYPE.ModifiedFiles:
             return <ModifiedFiles />;
-        case State.PAGE_TYPE.ModifiedFile:
+        case PAGE_TYPE.ModifiedFile:
             return <ModifiedFileRevolver id={p.id} />;
-        case State.PAGE_TYPE.DockerContainerDetails:
+        case PAGE_TYPE.DockerContainerDetails:
             return <DockerServiceDetails />;
-        case State.PAGE_TYPE.DockerContainerHistory:
+        case PAGE_TYPE.DockerContainerHistory:
             return <DockerServiceHistory />;
-        case State.PAGE_TYPE.DockerImageHistory:
+        case PAGE_TYPE.DockerImageHistory:
             return <DockerImageHistory />;
-        case State.PAGE_TYPE.Search:
+        case PAGE_TYPE.Search:
             return <Search />;
         default:
             never(p, "Unhandled page type");

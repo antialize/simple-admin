@@ -1,13 +1,12 @@
 import { ObservableMap, action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
-import {
-    ACTION,
-    type DockerDeployment,
-    type IDockerDeploymentsChanged,
-    type IDockerListDeploymentHistoryRes,
-    type IDockerListDeploymentsRes,
-} from "./shared/actions";
-import getOrInsert from "./shared/getOrInsert";
+import getOrInsert from "./getOrInsert";
+import type {
+    DockerDeployment,
+    IDockerDeploymentsChanged,
+    IDockerListDeploymentHistoryRes,
+    IDockerListDeploymentsRes,
+} from "./shared_types";
 import state from "./state";
 
 export default class DockerrvicesState {
@@ -28,7 +27,7 @@ export default class DockerrvicesState {
     load() {
         if (this.hosts.state !== "initial") return;
         state.sendMessage({
-            type: ACTION.DockerListDeployments,
+            type: "DockerListDeployments",
             ref: 0,
         });
         this.hosts = { state: "loading" };
@@ -44,7 +43,7 @@ export default class DockerrvicesState {
         const c2 = c1.get(container);
         if (c2 && c2.state !== "initial") return;
         state.sendMessage({
-            type: ACTION.DockerListDeploymentHistory,
+            type: "DockerListDeploymentHistory",
             host,
             name: container,
             ref: 0,

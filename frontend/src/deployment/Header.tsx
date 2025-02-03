@@ -1,7 +1,7 @@
 import { CircularProgress, Typography } from "@mui/material";
 import { observer } from "mobx-react";
-import * as State from ".././shared/state";
 import DisplayError from "../Error";
+import { DEPLOYMENT_STATUS } from "../shared_types";
 import state from "../state";
 
 const Header = observer(function Header() {
@@ -11,27 +11,27 @@ const Header = observer(function Header() {
     let status = "";
 
     switch (deployment.status) {
-        case State.DEPLOYMENT_STATUS.BuildingTree:
+        case DEPLOYMENT_STATUS.BuildingTree:
             status = " - Building tree";
             spin = true;
             break;
-        case State.DEPLOYMENT_STATUS.ComputingChanges:
+        case DEPLOYMENT_STATUS.ComputingChanges:
             status = " - Computing changes";
             spin = true;
             break;
-        case State.DEPLOYMENT_STATUS.Deploying:
+        case DEPLOYMENT_STATUS.Deploying:
             status = " - Deploying";
             spin = true;
             break;
-        case State.DEPLOYMENT_STATUS.Done:
+        case DEPLOYMENT_STATUS.Done:
             status = " - Done";
             spin = false;
             break;
-        case State.DEPLOYMENT_STATUS.InvilidTree:
+        case DEPLOYMENT_STATUS.InvilidTree:
             status = " - Invalid tree";
             spin = false;
             break;
-        case State.DEPLOYMENT_STATUS.ReviewChanges:
+        case DEPLOYMENT_STATUS.ReviewChanges:
             status = " - Review changes";
             spin = false;
     }

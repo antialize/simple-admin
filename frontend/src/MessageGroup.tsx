@@ -1,8 +1,7 @@
 import { Button } from "@mui/material";
 import { observer } from "mobx-react";
 import Message from "./Message";
-import { ACTION, type ISetMessagesDismissed } from "./shared/actions";
-import { hostId } from "./shared/type";
+import { HOST_ID, type IClientAction } from "./shared_types";
 import state from "./state";
 
 const MessageGroup = observer(function MessageGroup({
@@ -16,8 +15,8 @@ const MessageGroup = observer(function MessageGroup({
     dismissed: number;
 }) {
     const toggle = (dismissed: boolean) => {
-        const p: ISetMessagesDismissed = {
-            type: ACTION.SetMessagesDismissed,
+        const p: IClientAction = {
+            type: "SetMessageDismissed",
             ids,
             dismissed,
             source: "webclient",
@@ -28,7 +27,7 @@ const MessageGroup = observer(function MessageGroup({
     const id = ids[0];
     const message = state.messages.get(id);
     if (!message) return null;
-    const hosts = state.objectDigests.get(hostId);
+    const hosts = state.objectDigests.get(HOST_ID);
     const host = message.host && hosts?.get(message.host);
     // biome-ignore lint: host can be 0
     const hostname = (host && host.name) ?? "";

@@ -6,24 +6,23 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import { ThemeProvider, createTheme } from "@mui/material";
 import App from "./App.tsx";
+import nullCheck from "./nullCheck.ts";
 import { setupSocket, socket } from "./setupSocket.ts";
 import setupState from "./setupState.ts";
-import type { IAction } from "./shared/actions.ts";
-import nullCheck from "./shared/nullCheck.ts";
-import type * as State from "./shared/state.ts";
 import state from "./state.ts";
 
 import "./style.css";
 import "@xterm/xterm/css/xterm.css";
+import type { IClientAction, IPage } from "./shared_types.ts";
 
 setupState();
 setupSocket();
-state.doSendMessage = (action: IAction) => {
+state.doSendMessage = (action: IClientAction) => {
     nullCheck(socket).send(JSON.stringify(action));
 };
 
 window.onpopstate = (e: PopStateEvent) => {
-    nullCheck(state.page).set(e.state as State.IPage);
+    nullCheck(state.page).set(e.state as IPage);
 };
 
 const theme = createTheme({

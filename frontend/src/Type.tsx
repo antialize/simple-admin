@@ -9,7 +9,8 @@ import Password from "./Password";
 import Triggers from "./Triggers";
 import TypeContent from "./TypeContent";
 import Variables from "./Variables";
-import { TypePropType, hostId, rootId, typeId } from "./shared/type";
+import nullCheck from "./nullCheck";
+import { HOST_ID, ROOT_ID, TYPE_ID, TypePropType } from "./shared_types";
 import state from "./state";
 
 const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id: number }) {
@@ -30,7 +31,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
         obj.touched = true;
     };
     for (const ct of type?.content ?? []) {
-        if (ct.type === TypePropType.none) continue;
+        if (ct.type === TypePropType.none || ct.type === TypePropType.monitor) continue;
         const v = c[ct.name];
 
         switch (ct.type) {
@@ -123,10 +124,10 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                         setData={(v: string) => {
                             setProp(ct.name, v);
                         }}
-                        lang={ct.lang ?? c[ct.langName]}
+                        lang={ct.lang ?? c[nullCheck(ct.langName)]}
                         fixedLang={ct.lang != null && ct.lang !== ""}
                         setLang={(v: string) => {
-                            setProp(ct.langName, v);
+                            setProp(nullCheck(ct.langName), v);
                         }}
                     />,
                 );
@@ -224,7 +225,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     >
                         <ObjectSelector
                             filter={(type, _) =>
-                                type !== hostId && type !== typeId && type !== rootId
+                                type !== HOST_ID && type !== TYPE_ID && type !== ROOT_ID
                             }
                             selected={c.contains ? c.contains : []}
                             setSelected={(sel: number[]) => {
@@ -237,7 +238,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     <InformationListRow name="Depends on" long={true} key="depends_on">
                         <ObjectSelector
                             filter={(type, _) =>
-                                type !== hostId && type !== typeId && type !== rootId
+                                type !== HOST_ID && type !== TYPE_ID && type !== ROOT_ID
                             }
                             selected={c.depends ? c.depends : []}
                             setSelected={(sel: number[]) => {
@@ -249,7 +250,7 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                 {type.hasSudoOn ? (
                     <InformationListRow name="Sudo on" long={true} key="sudo_on">
                         <ObjectSelector
-                            filter={(type, _) => type === hostId}
+                            filter={(type, _) => type === HOST_ID}
                             selected={c.sudoOn ? c.sudoOn : []}
                             setSelected={(sel: number[]) => {
                                 setProp("sudoOn", sel);

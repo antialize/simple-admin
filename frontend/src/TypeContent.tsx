@@ -1,5 +1,5 @@
 import { FormControlLabel, MenuItem, Select, Switch, TextField, useTheme } from "@mui/material";
-import { type ITypeProp, TypePropType } from "./shared/type";
+import { type ITypeProp, TypePropType } from "./shared_types";
 
 function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => void }) {
     const rows = [];
@@ -29,7 +29,8 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
             r.type === TypePropType.none ||
             r.type === TypePropType.typeContent ||
             r.type === TypePropType.document ||
-            r.type === TypePropType.password
+            r.type === TypePropType.password ||
+            r.type === TypePropType.monitor
         )
             def = <TextField variant="standard" value="" disabled={true} />;
         else if (r.type === TypePropType.bool) {
@@ -206,7 +207,12 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                 <td>
                     <TextField
                         variant="standard"
-                        value={(r.type !== TypePropType.none && r.name) || ""}
+                        value={
+                            (r.type !== TypePropType.none &&
+                                r.type !== TypePropType.monitor &&
+                                r.name) ||
+                            ""
+                        }
                         disabled={r.type === TypePropType.none}
                         onChange={(e) => {
                             change({ name: e.target.value });
@@ -218,6 +224,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                         variant="standard"
                         value={
                             (r.type !== TypePropType.none &&
+                                r.type !== TypePropType.monitor &&
                                 r.type !== TypePropType.typeContent &&
                                 r.title) ||
                             ""
@@ -238,6 +245,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                         variant="standard"
                         value={
                             (r.type !== TypePropType.none &&
+                                r.type !== TypePropType.monitor &&
                                 r.type !== TypePropType.typeContent &&
                                 r.description) ||
                             ""

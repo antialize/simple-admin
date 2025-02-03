@@ -1,24 +1,21 @@
 import { action, makeObservable, observable } from "mobx";
+import nullCheck from "./nullCheck";
 import {
-    ACTION,
-    type IDeleteObject,
-    type IDeployObject,
-    type IFetchObject,
-    type IGetObjectHistory,
-    type IResetServerState,
-    type ISaveObject,
-} from "./shared/actions";
-import nullCheck from "./shared/nullCheck";
-import { type IObject2, PAGE_TYPE } from "./shared/state";
-import { type IType, TypePropType } from "./shared/type";
+    type IClientAction,
+    type IObject2,
+    type IType,
+    type JsonMap,
+    PAGE_TYPE,
+    TypePropType,
+} from "./shared_types";
 import { state } from "./state";
 
 class ObjectState {
     @observable
-    current: IObject2<any> | null;
+    current: IObject2<JsonMap> | null;
 
     @observable
-    versions: Map<number, IObject2<any>>;
+    versions: Map<number, IObject2<JsonMap>>;
 
     @observable
     history: Array<{ version: number; time: number; author: string | null }> | null;
@@ -40,8 +37,8 @@ class ObjectState {
     save() {
         if (!this.current) return;
 
-        const a: ISaveObject = {
-            type: ACTION.SaveObject,
+        const a: IClientAction = {
+            type: "SaveObject",
             id: this.id,
             obj: this.current,
         };
@@ -60,8 +57,8 @@ class ObjectState {
     deploy(cancel: boolean, redeploy: boolean) {
         nullCheck(state.page).set({ type: PAGE_TYPE.Deployment });
         if (cancel) nullCheck(state.deployment).cancel();
-        const a: IDeployObject = {
-            type: ACTION.DeployObject,
+        const a: IClientAction = {
+            type: "DeployObject",
             id: this.id,
             redeploy,
         };
@@ -70,8 +67,8 @@ class ObjectState {
 
     @action.bound
     delete() {
-        const a: IDeleteObject = {
-            type: ACTION.DeleteObject,
+        const a: IClientAction = {
+            type: "DeleteObject",
             id: this.id,
         };
         state.sendMessage(a);
@@ -79,8 +76,8 @@ class ObjectState {
 
     @action.bound
     resetState() {
-        const a: IResetServerState = {
-            type: ACTION.ResetServerState,
+        const a: IClientAction = {
+            type: "ResetServerState",
             host: this.id,
         };
         state.sendMessage(a);
@@ -88,8 +85,8 @@ class ObjectState {
 
     @action.bound
     loadHistory() {
-        const a: IGetObjectHistory = {
-            type: ACTION.GetObjectHistory,
+        const a: IClientAction = {
+            type: "GetObjectHistory",
             id: this.id,
             ref: 0,
         };
@@ -139,8 +136,8 @@ class ObjectState {
         if (this.loadStatus === "loading") return;
         if (this.id >= 0) {
             if (this.loadStatus === "not_loaded") {
-                const a: IFetchObject = {
-                    type: ACTION.FetchObject,
+                const a: IClientAction = {
+                    type: "FetchObject",
                     id: this.id,
                 };
                 state.sendMessage(a);

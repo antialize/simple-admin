@@ -1,7 +1,6 @@
 import { Autocomplete, Chip, TextField } from "@mui/material";
 import { observer } from "mobx-react";
-import * as State from "./shared/state";
-import { hostId } from "./shared/type";
+import { HOST_ID, type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 interface IProps {
@@ -21,8 +20,9 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
     const selected: Item[] = [];
     for (const [type, ps] of state.objectDigests) {
         for (const [id, ct] of ps) {
-            if (!p.filter(ct.type, id)) continue;
-            const t = state.types?.get(ct.type);
+            const tn = ct.type as number;
+            if (!p.filter(tn, id)) continue;
+            const t = state.types?.get(tn);
             const item: Item = { label: `${ct.name} (${t ? t.name : +type})`, value: id };
             all.push(item);
             if (id in sel) selected.push(item);
@@ -46,15 +46,15 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
             renderTags={(tagValue, getTagProps) =>
                 tagValue.map((option, index) => {
                     const { key, onDelete, ...tagProps } = getTagProps({ index });
-                    let t = hostId;
+                    let t = HOST_ID;
                     for (const [type, digests] of state.objectDigests) {
                         if (digests.has(option.value)) {
                             t = type;
                             break;
                         }
                     }
-                    const pageDetails: State.IPage = {
-                        type: State.PAGE_TYPE.Object,
+                    const pageDetails: IPage = {
+                        type: PAGE_TYPE.Object,
                         objectType: t,
                         id: option.value,
                     };
