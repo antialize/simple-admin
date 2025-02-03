@@ -2,6 +2,7 @@ use anyhow::bail;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
+use std::str::FromStr;
 use ts_rs::TS;
 
 use crate::{
@@ -277,11 +278,43 @@ pub enum FixedObjectType {
     Type,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
+#[derive(Serialize, Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
 #[serde(untagged)]
 pub enum ObjectType {
     Id(i64),
     Fixed(FixedObjectType),
+}
+
+impl<'de> Deserialize<'de> for ObjectType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        let value = serde_json::Value::deserialize(deserializer)?;
+
+        match value {
+            serde_json::Value::Number(num) => {
+                let Some(id) = num.as_i64() else {
+                    return Err(D::Error::custom("unsupported number for ObjectType"));
+                };
+                Ok(ObjectType::Id(id))
+            }
+            serde_json::Value::String(s) => {
+                if let Ok(id) = i64::from_str(&s) {
+                    return Ok(ObjectType::Id(id));
+                }
+                let Ok(fixed) =
+                    serde_json::from_value::<FixedObjectType>(serde_json::Value::String(s))
+                else {
+                    return Err(D::Error::custom("unsupported string for ObjectType"));
+                };
+                Ok(ObjectType::Fixed(fixed))
+            }
+            _ => Err(D::Error::custom("unsupported type for ObjectType")),
+        }
+    }
 }
 
 impl From<ObjectType> for i64 {
@@ -1089,5 +1122,13 @@ mod tests {
             serde_json::from_str("\"type\"").unwrap()
         );
         assert_eq!(ObjectType::Id(64), serde_json::from_str("64").unwrap());
+        let hashmap: HashMap<ObjectType, Vec<IObjectDigest>> = serde_json::from_str(
+            r#"{"1":[{"name":"Type","comment":"","id":1,"type":1,"category":""}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            hashmap.keys().collect::<Vec<&ObjectType>>(),
+            vec![&ObjectType::Id(1)]
+        );
     }
 }
