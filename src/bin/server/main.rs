@@ -41,16 +41,26 @@ mod web_util;
 mod webclient;
 
 use anyhow::Result;
+use clap::Parser;
 use webclient::run_web_clients;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long, default_value_t = LevelFilter::Info)]
+    log_level: LevelFilter,
+}
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> Result<()> {
+    let args = Args::parse();
+
     tokio_rustls::rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
 
     SimpleLogger::new()
-        .with_level(LevelFilter::Info)
+        .with_level(args.log_level)
         .init()
         .unwrap();
 
