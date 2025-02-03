@@ -599,7 +599,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 for row in rows {
                     let object: IObject2<ValueMap> = row.try_into().context("IObject2")?;
                     if object.r#type == ObjectType::Id(TYPE_ID) {
-                        types.insert(object.id, object.clone());
+                        types.insert(ObjectType::Id(object.id), object.clone());
                     }
                     object_names_and_ids
                         .entry(object.r#type)
