@@ -270,26 +270,82 @@ pub struct ISearch {
     pub pattern: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, Eq, PartialEq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum FixedObjectType {
+#[derive(Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
+pub enum ObjectType {
+    Id(i64),
     Root,
     Type,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
-#[serde(untagged)]
-pub enum ObjectType {
-    Id(i64),
-    Fixed(FixedObjectType),
+impl<'de> Deserialize<'de> for ObjectType {
+    fn deserialize<D>(deserializer: D) -> Result<ObjectType, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct V;
+
+        impl serde::de::Visitor<'_> for V {
+            type Value = ObjectType;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string or number")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match v {
+                    "root" => Ok(ObjectType::Root),
+                    "type" => Ok(ObjectType::Type),
+                    v => {
+                        let v = v
+                            .parse()
+                            .map_err(|_| E::custom(format!("Invalid object type '{}'", v)))?;
+                        Ok(ObjectType::Id(v))
+                    }
+                }
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ObjectType::Id(v))
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(ObjectType::Id(v.try_into().map_err(|_| {
+                    E::custom(format!("Invalid object type {}", v))
+                })?))
+            }
+        }
+        deserializer.deserialize_any(V)
+    }
+}
+
+impl Serialize for ObjectType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            ObjectType::Id(v) => serializer.serialize_i64(*v),
+            ObjectType::Root => serializer.serialize_str("root"),
+            ObjectType::Type => serializer.serialize_str("type"),
+        }
+    }
 }
 
 impl From<ObjectType> for i64 {
     fn from(value: ObjectType) -> Self {
         match value {
             ObjectType::Id(v) => v,
-            ObjectType::Fixed(FixedObjectType::Root) => -1,
-            ObjectType::Fixed(FixedObjectType::Type) => -2,
+            ObjectType::Root => -1,
+            ObjectType::Type => -2,
         }
     }
 }
@@ -299,8 +355,8 @@ impl TryFrom<i64> for ObjectType {
 
     fn try_from(value: i64) -> Result<Self, Self::Error> {
         match value {
-            -1 => Ok(ObjectType::Fixed(FixedObjectType::Root)),
-            -2 => Ok(ObjectType::Fixed(FixedObjectType::Type)),
+            -1 => Ok(ObjectType::Root),
+            -2 => Ok(ObjectType::Type),
             i if i > 0 => Ok(ObjectType::Id(i)),
             _ => bail!("Invalid object type"),
         }
@@ -1072,22 +1128,25 @@ mod tests {
     #[test]
     fn test_object_type() {
         assert_eq!(
-            serde_json::to_string(&ObjectType::Fixed(FixedObjectType::Root)).unwrap(),
+            serde_json::to_string(&ObjectType::Root).unwrap(),
             "\"root\""
         );
         assert_eq!(
-            serde_json::to_string(&ObjectType::Fixed(FixedObjectType::Type)).unwrap(),
+            serde_json::to_string(&ObjectType::Type).unwrap(),
             "\"type\""
         );
         assert_eq!(serde_json::to_string(&ObjectType::Id(64)).unwrap(), "64");
-        assert_eq!(
-            ObjectType::Fixed(FixedObjectType::Root),
-            serde_json::from_str("\"root\"").unwrap()
-        );
-        assert_eq!(
-            ObjectType::Fixed(FixedObjectType::Type),
-            serde_json::from_str("\"type\"").unwrap()
-        );
+        assert_eq!(ObjectType::Root, serde_json::from_str("\"root\"").unwrap());
+        assert_eq!(ObjectType::Type, serde_json::from_str("\"type\"").unwrap());
         assert_eq!(ObjectType::Id(64), serde_json::from_str("64").unwrap());
+
+        let hashmap: HashMap<ObjectType, Vec<IObjectDigest>> = serde_json::from_str(
+            r#"{"1":[{"name":"Type","comment":"","id":1,"type":1,"category":""}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            hashmap.keys().collect::<Vec<&ObjectType>>(),
+            vec![&ObjectType::Id(1)]
+        );
     }
 }
