@@ -1,9 +1,17 @@
 use std::{
-    collections::{BTreeMap, HashMap}, future::Future, io::Write, net::{SocketAddr, ToSocketAddrs}, os::unix::{
+    collections::{BTreeMap, HashMap},
+    future::Future,
+    io::Write,
+    net::{SocketAddr, ToSocketAddrs},
+    os::unix::{
         fs::PermissionsExt,
         prelude::{AsRawFd, BorrowedFd, OwnedFd},
         process::ExitStatusExt,
-    }, path::Path, process::Stdio, sync::{atomic::AtomicU64, Arc, Mutex}, time::{Duration, Instant}
+    },
+    path::Path,
+    process::Stdio,
+    sync::{atomic::AtomicU64, Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use anyhow::{bail, ensure, Context, Result};
@@ -55,7 +63,6 @@ pub const SERVICE_ORDER: i32 = -0;
 pub const UPSTREAM_ORDER: i32 = 10;
 pub const PERSIST_ORDER: i32 = 20;
 
-
 /// Return result from fut, unless run_token is canceled before fut is done
 pub async fn cancelable_delay<T, F: Future<Output = T>>(
     run_token: &RunToken,
@@ -66,18 +73,16 @@ pub async fn cancelable_delay<T, F: Future<Output = T>>(
     pin_mut!(fut, c);
     let f = future::select(c, &mut fut).await;
     if let future::Either::Right((v, _)) = f {
-        return Ok(v)
+        return Ok(v);
     }
     let s = tokio::time::sleep(delay);
     pin_mut!(s);
     let f = future::select(s, fut).await;
     match f {
         future::Either::Right((v, _)) => Ok(v),
-        future::Either::Left(_) => Err(CancelledError{}),
+        future::Either::Left(_) => Err(CancelledError {}),
     }
 }
-
-
 
 /// Run the simpleadmin-client daemon (root)
 ///
@@ -465,7 +470,13 @@ impl Client {
     ) -> Result<()> {
         debug!("Start run script {}: {}", msg.id, msg.name);
         let id = msg.id;
-        let m = match cancelable_delay(&run_token, std::time::Duration::from_secs(30), self.handle_run_script_inner(msg, recv)).await {
+        let m = match cancelable_delay(
+            &run_token,
+            std::time::Duration::from_secs(30),
+            self.handle_run_script_inner(msg, recv),
+        )
+        .await
+        {
             Ok(Ok(v)) => v,
             Ok(Err(e)) => ClientHostMessage::Failure(FailureMessage {
                 id,
