@@ -315,7 +315,7 @@ impl Connection {
         .await?;
         let res = match self.recv().await? {
             IServerAction::AuthStatus(res) => res,
-            _ => bail!("Bad result type"),
+            res => bail!("Expected AuthStatus message got {}", res.tag()),
         };
 
         if res.session.is_none() || !res.pwd || !res.otp {
