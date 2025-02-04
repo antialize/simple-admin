@@ -55,6 +55,17 @@ const Buttons = observer(function Buttons() {
             </Button>
             <Button
                 variant="contained"
+                disabled={!start}
+                onClick={(_) => {
+                    if (confirm("Mark selected as already deployed")) {
+                        p.markDeployed();
+                    }
+                }}
+            >
+                Mark Deployed
+            </Button>
+            <Button
+                variant="contained"
                 disabled={!stop}
                 onClick={(_) => {
                     p.stop();

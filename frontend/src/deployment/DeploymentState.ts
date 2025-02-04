@@ -53,6 +53,12 @@ class DeploymentState {
         };
         state.sendMessage(a);
     }
+
+    markDeployed() {
+        state.sendMessage({
+            type: "MarkDeployed",
+        });
+    }
 }
 
 export default DeploymentState;

@@ -19,8 +19,6 @@
     .deployment_items {
         margin-bottom: 10px;
         order: 3;
-        overflow-y: auto;
-        max-height: 40vh;
     }
 
     .deployment_buttons {
@@ -37,7 +35,7 @@
 @media (min-width: 1500px) {
     .deployment_container {
         display: grid;
-        grid-template-columns: 730px 1fr;
+        grid-template-columns: 877px 1fr;
         grid-template-rows: auto auto auto auto 1fr;
         grid-gap: 10px;
         height: calc(100vh - 110px);

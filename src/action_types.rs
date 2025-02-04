@@ -509,6 +509,9 @@ pub struct IDeployObject {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IMarkDeployed {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct IDeleteObject {
     pub id: i64,
@@ -1158,6 +1161,7 @@ pub enum IClientAction {
     Debug(IDebug),
     DeleteObject(IDeleteObject),
     DeployObject(IDeployObject),
+    MarkDeployed(IMarkDeployed),
     DockerContainerForget(IDockerContainerForget),
     DockerImageSetPin(IDockerImageSetPin),
     DockerImageTagSetPin(IDockerImageTagSetPin),
@@ -1229,6 +1233,7 @@ impl IClientAction {
             IClientAction::StartDeployment(_) => "StartDeployment",
             IClientAction::StopDeployment(_) => "StopDeployment",
             IClientAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
+            IClientAction::MarkDeployed(_) => "MarkDeployed",
         }
     }
 }
@@ -1264,6 +1269,7 @@ pub fn export_ts() -> Vec<String> {
         IHostDown::export_to_string().unwrap(),
         IHostUp::export_to_string().unwrap(),
         IDeployObject::export_to_string().unwrap(),
+        IMarkDeployed::export_to_string().unwrap(),
         IDeleteObject::export_to_string().unwrap(),
         ISetDeploymentStatus::export_to_string().unwrap(),
         IResetServerState::export_to_string().unwrap(),

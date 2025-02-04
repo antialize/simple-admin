@@ -321,6 +321,8 @@ export type IHostUp = { id: number };
 
 export type IDeployObject = { id: number | null; redeploy: boolean };
 
+export type IMarkDeployed = Record<string, unknown>;
+
 export type IDeleteObject = { id: number };
 
 export type ISetDeploymentStatus = { status: DEPLOYMENT_STATUS };
@@ -588,6 +590,7 @@ export type IClientAction =
     | ({ type: "Debug" } & IDebug)
     | ({ type: "DeleteObject" } & IDeleteObject)
     | ({ type: "DeployObject" } & IDeployObject)
+    | ({ type: "MarkDeployed" } & IMarkDeployed)
     | ({ type: "DockerContainerForget" } & IDockerContainerForget)
     | ({ type: "DockerImageSetPin" } & IDockerImageSetPin)
     | ({ type: "DockerImageTagSetPin" } & IDockerImageTagSetPin)

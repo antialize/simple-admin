@@ -1275,7 +1275,6 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
-                // TODO is there a magic no object id
                 if let Err(e) = deployment::deploy_object(state, act.id, act.redeploy).await {
                     alert_error(&rt, state, e, "Deployment::deployObject", Some(self)).await?;
                 }
@@ -1294,6 +1293,15 @@ os.execv(sys.argv[1], sys.argv[1:])
                 };
                 if let Err(e) = deployment::start(state).await {
                     alert_error(&rt, state, e, "Deployment::start", Some(self)).await?;
+                }
+            }
+            IClientAction::MarkDeployed(_) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if let Err(e) = deployment::mark_deployed(state).await {
+                    alert_error(&rt, state, e, "Deployment::mark_deployed", Some(self)).await?;
                 }
             }
             IClientAction::StopDeployment(_) => {
