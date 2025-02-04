@@ -3,6 +3,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::io::Write;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::action_types::{
     DeploymentObjectAction, DeploymentObjectStatus, DeploymentStatus, IAddDeploymentLog,
@@ -21,6 +22,7 @@ use crate::webclient;
 use anyhow::{anyhow, bail, Context, Result};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use futures::pin_mut;
 use log::error;
 use sadmin2::client_message::{
     ClientHostMessage, HostClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
@@ -34,6 +36,8 @@ use sadmin2::type_types::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx_type::{query, query_as};
+use tokio::select;
+use tokio_tasks::RunToken;
 
 type ValueMap = serde_json::Map<String, Value>;
 
@@ -98,6 +102,7 @@ pub struct Deployment {
     pub deployment_objects: Vec<IDeploymentObject>,
     pub log: Vec<String>,
     delayed_actions: Vec<IServerAction>,
+    current_deployment_token: Option<RunToken>,
 }
 
 impl Deployment {
@@ -170,6 +175,7 @@ impl Default for Deployment {
             deployment_objects: Default::default(),
             log: Default::default(),
             delayed_actions: Default::default(),
+            current_deployment_token: None,
         }
     }
 }
@@ -1281,15 +1287,12 @@ async fn setup_deployment_inner<'a, M>(
     Ok(())
 }
 
-async fn deploy_single(
+async fn deploy_single_inner(
     state: &State,
-    host_client: Option<Arc<HostClient>>,
+    host_client: Arc<HostClient>,
     script: String,
     content: Value,
 ) -> Result<()> {
-    let Some(host_client) = host_client else {
-        return Ok(());
-    };
     let mut jh = host_client
         .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id: host_client.next_job_id(),
@@ -1328,6 +1331,35 @@ async fn deploy_single(
             }
             _ => bail!("Got unexpected message"),
         }
+    }
+}
+
+async fn deploy_single(
+    rt: &RunToken,
+    state: &State,
+    host_client: Option<Arc<HostClient>>,
+    script: String,
+    content: Value,
+) -> Result<()> {
+    let Some(host_client) = host_client else {
+        return Ok(());
+    };
+
+    let s = tokio::time::sleep(Duration::from_secs(10 * 60));
+    let c = rt.cancelled();
+    let i = deploy_single_inner(state, host_client, script, content);
+    pin_mut!(s, c, i);
+    select! {
+        () = &mut s => bail!("single deployment timeout"),
+        () = c => (),
+        r = &mut i => return r
+    };
+    // We where cancelled
+    let s2 = tokio::time::sleep(Duration::from_secs(60));
+    select! {
+        () = s => bail!("single deployment timeout"),
+        () = s2 => bail!("single deployment cancelled"),
+        r = i => r
     }
 }
 
@@ -1421,11 +1453,12 @@ async fn setup_deployment(state: &State, deploy_id: Option<i64>, redeploy: bool)
     Ok(())
 }
 
-async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
+async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result<()> {
     let Some(deployment_objects) = mut_deployment(state, |deployment| {
         if deployment.status != DeploymentStatus::ReviewChanges {
             return Ok(None);
         }
+        deployment.current_deployment_token = Some(rt.clone());
         deployment.set_status(DeploymentStatus::Deploying);
         deployment.add_log("Deployment started\r\n".to_string());
         Ok(Some(deployment.deployment_objects.clone()))
@@ -1544,6 +1577,9 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
                 }
             }
 
+            if rt.is_cancelled() {
+                break;
+            }
             mut_deployment(state, |deployment| {
                 for (i2, _) in &sum_objects {
                     deployment.set_object_status(*i2, DeploymentObjectStatus::Deplying);
@@ -1554,8 +1590,8 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
 
             let mut m = ValueMap::new();
             m.insert("objects".to_string(), Value::Object(next_objects.clone()));
-            let ret = deploy_single(state, host_client, script, Value::Object(m)).await;
 
+            let ret = deploy_single(rt, state, host_client, script, Value::Object(m)).await;
             if let Err(e) = ret {
                 mut_deployment(state, |deployment| {
                     for (i2, _) in &sum_objects {
@@ -1581,15 +1617,18 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
             continue;
         }
 
+        if rt.is_cancelled() {
+            break;
+        }
         mut_deployment(state, |deployment| {
             deployment.add_header(&format!("{} ({})", &object.title, &object.type_name), false);
             deployment.set_object_status(index, DeploymentObjectStatus::Deplying);
             Ok(())
         })
         .await?;
-
         let ret = if type_kind == Some(KindType::Trigger) {
             deploy_single(
+                rt,
                 state,
                 host_client,
                 object.script.clone(),
@@ -1600,7 +1639,7 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
             let mut m = ValueMap::new();
             m.insert("old".to_string(), object.prev_content.clone().into());
             m.insert("new".to_string(), object.next_content.clone().into());
-            deploy_single(state, host_client, object.script.clone(), m.into()).await
+            deploy_single(rt, state, host_client, object.script.clone(), m.into()).await
         } else {
             Err(anyhow!("Unhandled object type_kind {:?}", type_kind))
         };
@@ -1632,6 +1671,7 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
     }
 
     mut_deployment(state, |deployment| {
+        deployment.add_log("Done".to_string());
         deployment.set_status(DeploymentStatus::Done);
         Ok(())
     })
@@ -1683,26 +1723,29 @@ pub async fn deploy_object(state: &State, id: Option<i64>, redeploy: bool) -> Re
     Ok(())
 }
 
-pub async fn start(state: &State) -> Result<()> {
-    perform_deploy(state, false).await?;
+pub async fn start(rt: &RunToken, state: &State) -> Result<()> {
+    perform_deploy(rt, state, false).await?;
     Ok(())
 }
 
-pub async fn mark_deployed(state: &State) -> Result<()> {
-    perform_deploy(state, true).await?;
+pub async fn mark_deployed(rt: &RunToken, state: &State) -> Result<()> {
+    perform_deploy(rt, state, true).await?;
     Ok(())
 }
 
 pub async fn stop(state: &State) -> Result<()> {
     let actions = {
         let mut deployment = state.deployment.lock().unwrap();
+        if let Some(v) = &deployment.current_deployment_token {
+            v.cancel();
+        }
         if deployment.status != DeploymentStatus::Deploying {
             return Ok(());
         }
-        deployment.set_status(DeploymentStatus::Done);
+        deployment.set_status(DeploymentStatus::Stopping);
+        deployment.add_log("Stopping (could take a bit)".to_string());
         deployment.take_actions()
     };
-    //TODO we should wait for the current action to finish
     for action in actions {
         webclient::broadcast(state, action)?;
     }
