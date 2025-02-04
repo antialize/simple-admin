@@ -1,18 +1,39 @@
-import { Button, Checkbox, styled, useTheme } from "@mui/material";
+import { Button, Checkbox, Tooltip, styled, useTheme } from "@mui/material";
+import * as Diff from "diff";
 import { observer } from "mobx-react";
 import DisplayError from "../Error";
-import state from "../state";
 import {
     DEPLOYMENT_OBJECT_ACTION,
     DEPLOYMENT_OBJECT_STATUS,
     DEPLOYMENT_STATUS,
     PAGE_TYPE,
 } from "../shared_types";
+import state from "../state";
 
 const Table = styled("table")({});
 interface IProps {
     index: number;
 }
+
+const ItemDetailsTooltip = observer(function ItemDetailsTooltip(p: IProps) {
+    const deployment = state.deployment;
+    if (deployment === null) return <DisplayError>Missing state.deployment</DisplayError>;
+    const page = state.page;
+    if (page === null) return <DisplayError>Missing state.page</DisplayError>;
+    const o = deployment.objects[p.index];
+
+    const pc = JSON.stringify(o.prevContent, null, 2);
+    const nc = JSON.stringify(o.nextContent, null, 2);
+    let patch = "";
+    if (nc !== pc) {
+        patch += Diff.createPatch("content", pc, nc, "", "");
+    }
+    if (o.prevScript !== o.script) {
+        patch += Diff.createPatch("script", o.prevScript ?? "", o.script, "", "");
+        return <pre>{patch}</pre>;
+    }
+    return <pre>{patch}</pre>;
+});
 
 const Item = observer(function Item(p: IProps) {
     const theme = useTheme();
@@ -71,17 +92,19 @@ const Item = observer(function Item(p: IProps) {
                 />
             </td>
             <td>
-                <Button
-                    onClick={(e) => {
-                        page.onClick(e, {
-                            type: PAGE_TYPE.DeploymentDetails,
-                            index: o.index,
-                        });
-                    }}
-                    href={page.link({ type: PAGE_TYPE.DeploymentDetails, index: o.index })}
-                >
-                    Details
-                </Button>
+                <Tooltip title={<ItemDetailsTooltip index={o.index} />}>
+                    <Button
+                        onClick={(e) => {
+                            page.onClick(e, {
+                                type: PAGE_TYPE.DeploymentDetails,
+                                index: o.index,
+                            });
+                        }}
+                        href={page.link({ type: PAGE_TYPE.DeploymentDetails, index: o.index })}
+                    >
+                        Details
+                    </Button>
+                </Tooltip>
             </td>
         </tr>
     );

@@ -19,12 +19,15 @@
     "@codemirror/lang-python": "^6.1.6",
     "@codemirror/lang-xml": "^6.1.0",
     "@codemirror/legacy-modes": "^6.4.2",
+    "@codemirror/merge": "^6.8.0",
     "@emotion/react": "^11.13.5",
     "@emotion/styled": "^11.13.5",
     "@fontsource/roboto": "^5.1.0",
     "@mui/icons-material": "^6.1.8",
     "@mui/material": "^6.1.8",
     "@uiw/react-codemirror": "^4.22.2",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "diff": "^7.0.0",
     "jquery": "^3.7.1",
     "js-cookie": "^3.0.5",
@@ -32,10 +35,9 @@
     "mobx-react": "^9.1.1",
     "qrcode": "^1.5.3",
     "react": "^18.3.1",
+    "react-codemirror-merge": "^4.23.8",
     "react-dom": "^18.3.1",
-    "react-hotkeys-hook": "^4.6.1",
-    "@xterm/xterm": "^5.5.0",
-    "@xterm/addon-fit": "^0.10.0"
+    "react-hotkeys-hook": "^4.6.1"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
