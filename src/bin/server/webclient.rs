@@ -100,6 +100,16 @@ pub struct WebClient {
 }
 
 impl WebClient {
+    pub fn debug(&self) {
+        let auth = self.auth.lock().unwrap();
+        info!(
+            "  {} user={} canceled={}",
+            self.remote,
+            auth.user.as_deref().unwrap_or("unknown"),
+            self.run_token.is_cancelled()
+        );
+    }
+
     pub async fn send_message_str(&self, rt: &RunToken, msg: &str) -> Result<()> {
         let mut sink = match cancelable(rt, cancelable(&self.run_token, self.sink.lock())).await {
             Ok(Ok(v)) => v,
@@ -1323,32 +1333,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
-                info!("=======> Debug output triggered <======");
-                info!("Tasks:");
-                for task in tokio_tasks::list_tasks() {
-                    info!(
-                        "  {} id={} start_time={} shutdown_order={}",
-                        task.name(),
-                        task.id(),
-                        task.start_time(),
-                        task.shutdown_order()
-                    );
-                }
-                info!("Host cliests:");
-                for host in state.host_clients.lock().unwrap().values() {
-                    host.debug();
-                }
-                info!("Web clients:");
-                for wc in state.web_clients.lock().unwrap().iter() {
-                    let auth = wc.auth.lock().unwrap();
-                    info!(
-                        "  {} user={} canceled={}",
-                        wc.remote,
-                        auth.user.as_deref().unwrap_or("unknown"),
-                        wc.run_token.is_cancelled()
-                    );
-                }
-                info!("===========================================");
+                state.debug();
             }
             IClientAction::RunCommand(act) => {
                 if !self.get_auth().admin {
