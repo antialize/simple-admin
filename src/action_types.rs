@@ -7,7 +7,7 @@ use ts_rs::TS;
 use crate::{
     finite_float::{FiniteF64, ToFinite},
     page_types::IPage,
-    type_types::ValueMap,
+    type_types::{IType, ValueMap},
 };
 
 fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
@@ -21,7 +21,7 @@ fn forgiving_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Err
     })
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, PartialEq, Eq, TS)]
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum DeploymentStatus {
     Done = 0,
@@ -32,7 +32,37 @@ pub enum DeploymentStatus {
     Deploying = 5,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+impl TS for DeploymentStatus {
+    type WithoutGenerics = DeploymentStatus;
+    fn name() -> String {
+        "DEPLOYMENT_STATUS".to_owned()
+    }
+    fn decl_concrete() -> String {
+        todo!();
+    }
+    fn decl() -> String {
+        "enum DEPLOYMENT_STATUS {\
+            Done = 0,\
+            BuildingTree = 1,\
+            InvilidTree = 2,\
+            ComputingChanges = 3,\
+            ReviewChanges = 4,\
+            Deploying = 5,\
+        }"
+        .to_string()
+    }
+    fn inline() -> String {
+        todo!();
+    }
+    fn inline_flattened() -> String {
+        todo!();
+    }
+    fn output_path() -> Option<&'static std::path::Path> {
+        Some(std::path::Path::new("DeploymentStatus.ts"))
+    }
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug)]
 #[repr(u8)]
 pub enum DeploymentObjectStatus {
     Normal = 0,
@@ -41,13 +71,69 @@ pub enum DeploymentObjectStatus {
     Failure = 3,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone, Debug, TS)]
+impl TS for DeploymentObjectStatus {
+    type WithoutGenerics = DeploymentStatus;
+    fn name() -> String {
+        "DEPLOYMENT_OBJECT_STATUS".to_owned()
+    }
+    fn decl_concrete() -> String {
+        todo!();
+    }
+    fn decl() -> String {
+        "enum DEPLOYMENT_OBJECT_STATUS {\
+            Normal = 0,\
+            Deplying = 1,\
+            Success = 2,\
+            Failure = 3,\
+        }"
+        .to_string()
+    }
+    fn inline() -> String {
+        todo!();
+    }
+    fn inline_flattened() -> String {
+        todo!();
+    }
+    fn output_path() -> Option<&'static std::path::Path> {
+        Some(std::path::Path::new("DeploymentObjectStatus.ts"))
+    }
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Clone, Debug)]
 #[repr(u8)]
 pub enum DeploymentObjectAction {
     Add = 0,
     Modify = 1,
     Remove = 2,
     Trigger = 3,
+}
+
+impl TS for DeploymentObjectAction {
+    type WithoutGenerics = DeploymentStatus;
+    fn name() -> String {
+        "DEPLOYMENT_OBJECT_ACTION".to_owned()
+    }
+    fn decl_concrete() -> String {
+        todo!();
+    }
+    fn decl() -> String {
+        "enum DEPLOYMENT_OBJECT_ACTION {\
+            Add = 0,\
+            Modify = 1,\
+            Remove = 2,\
+            Trigger = 3,\
+        }"
+        .to_string()
+    }
+    fn inline() -> String {
+        todo!();
+    }
+    fn inline_flattened() -> String {
+        todo!();
+    }
+    fn output_path() -> Option<&'static std::path::Path> {
+        Some(std::path::Path::new("DeploymentObjectAction.ts"))
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -158,7 +244,7 @@ pub struct IFetchObject {
 #[serde(rename_all = "camelCase")]
 pub struct IObjectChanged {
     pub id: i64,
-    pub object: Vec<IObject2<serde_json::Value>>,
+    pub object: Vec<IObject2<ValueMap>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -184,13 +270,15 @@ pub struct IMessage {
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ISetInitialState {
+    #[ts(type = "{ [key in string | number]?: Array<IObjectDigest> }")]
     pub object_names_and_ids: HashMap<ObjectType, Vec<IObjectDigest>>,
     pub messages: Vec<IMessage>,
     pub deployment_objects: Vec<IDeploymentObject>,
     pub deployment_status: DeploymentStatus,
     pub deployment_message: String,
     pub deployment_log: Vec<String>,
-    pub types: HashMap<ObjectType, IObject2<ValueMap>>, // TODO(jakobt) IType
+    #[ts(type = "{ [key in number]?: IObject2<IType> }")]
+    pub types: HashMap<ObjectType, IObject2<IType>>,
     pub hosts_up: Vec<i64>,
     pub used_by: Vec<(i64, i64)>,
 }
@@ -260,7 +348,7 @@ pub struct ISaveObject {
     pub id: i64,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub obj: Option<IObject2<serde_json::Value>>,
+    pub obj: Option<IObject2<ValueMap>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -270,11 +358,33 @@ pub struct ISearch {
     pub pattern: String,
 }
 
-#[derive(Clone, Copy, Debug, TS, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ObjectType {
     Id(i64),
     Root,
     Type,
+}
+
+impl ::ts_rs::TS for ObjectType {
+    type WithoutGenerics = ObjectType;
+    fn name() -> String {
+        "ObjectType".to_owned()
+    }
+    fn decl_concrete() -> String {
+        todo!()
+    }
+    fn decl() -> String {
+        "type ObjectType = number | \"root\" | \"type\";".to_string()
+    }
+    fn inline() -> String {
+        todo!()
+    }
+    fn inline_flattened() -> String {
+        todo!()
+    }
+    fn output_path() -> Option<&'static std::path::Path> {
+        Some(std::path::Path::new("ObjectType.ts"))
+    }
 }
 
 impl<'de> Deserialize<'de> for ObjectType {
@@ -397,6 +507,9 @@ pub struct IDeployObject {
     pub id: Option<i64>,
     pub redeploy: bool,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IMarkDeployed {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(rename_all = "camelCase")]
@@ -613,7 +726,9 @@ pub struct IGenerateKeyRes {
     pub ca_pem: String,
     pub key: String,
     pub crt: String,
+    #[ts(optional)]
     pub ssh_host_ca: Option<String>,
+    #[ts(optional)]
     pub ssh_crt: Option<String>,
 }
 
@@ -1046,6 +1161,7 @@ pub enum IClientAction {
     Debug(IDebug),
     DeleteObject(IDeleteObject),
     DeployObject(IDeployObject),
+    MarkDeployed(IMarkDeployed),
     DockerContainerForget(IDockerContainerForget),
     DockerImageSetPin(IDockerImageSetPin),
     DockerImageTagSetPin(IDockerImageTagSetPin),
@@ -1117,8 +1233,111 @@ impl IClientAction {
             IClientAction::StartDeployment(_) => "StartDeployment",
             IClientAction::StopDeployment(_) => "StopDeployment",
             IClientAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
+            IClientAction::MarkDeployed(_) => "MarkDeployed",
         }
     }
+}
+
+pub fn export_ts() -> Vec<String> {
+    vec![
+        DeploymentStatus::export_to_string().unwrap(),
+        DeploymentObjectStatus::export_to_string().unwrap(),
+        DeploymentObjectAction::export_to_string().unwrap(),
+        IObjectDigest::export_to_string().unwrap(),
+        IDeploymentTrigger::export_to_string().unwrap(),
+        IDeploymentObject::export_to_string().unwrap(),
+        IObject2::<()>::export_to_string().unwrap(),
+        Ref::export_to_string().unwrap(),
+        IFetchObject::export_to_string().unwrap(),
+        IObjectChanged::export_to_string().unwrap(),
+        ISetPageAction::export_to_string().unwrap(),
+        IMessage::export_to_string().unwrap(),
+        ISetInitialState::export_to_string().unwrap(),
+        IStartLogLogType::export_to_string().unwrap(),
+        IStartLog::export_to_string().unwrap(),
+        IEndLog::export_to_string().unwrap(),
+        IAddLogLines::export_to_string().unwrap(),
+        IMessageTextReqAction::export_to_string().unwrap(),
+        IMessageTextRepAction::export_to_string().unwrap(),
+        IAddMessage::export_to_string().unwrap(),
+        ISetMessagesDismissed::export_to_string().unwrap(),
+        ISaveObject::export_to_string().unwrap(),
+        ISearch::export_to_string().unwrap(),
+        ObjectType::export_to_string().unwrap(),
+        ISearchResObject::export_to_string().unwrap(),
+        ISearchRes::export_to_string().unwrap(),
+        IHostDown::export_to_string().unwrap(),
+        IHostUp::export_to_string().unwrap(),
+        IDeployObject::export_to_string().unwrap(),
+        IMarkDeployed::export_to_string().unwrap(),
+        IDeleteObject::export_to_string().unwrap(),
+        ISetDeploymentStatus::export_to_string().unwrap(),
+        IResetServerState::export_to_string().unwrap(),
+        ISetDeploymentMessage::export_to_string().unwrap(),
+        ISetDeploymentObjects::export_to_string().unwrap(),
+        IClearDeploymentLog::export_to_string().unwrap(),
+        IAddDeploymentLog::export_to_string().unwrap(),
+        ISetDeploymentObjectStatus::export_to_string().unwrap(),
+        ISource::export_to_string().unwrap(),
+        IToggleDeploymentObject::export_to_string().unwrap(),
+        IStopDeployment::export_to_string().unwrap(),
+        IStartDeployment::export_to_string().unwrap(),
+        ICancelDeployment::export_to_string().unwrap(),
+        IAlert::export_to_string().unwrap(),
+        IRequestAuthStatus::export_to_string().unwrap(),
+        IAuthStatus::export_to_string().unwrap(),
+        ILogin::export_to_string().unwrap(),
+        ILogout::export_to_string().unwrap(),
+        IRequestInitialState::export_to_string().unwrap(),
+        ISubscribeStatValues::export_to_string().unwrap(),
+        IStatValueChanges::export_to_string().unwrap(),
+        HostEnum::export_to_string().unwrap(),
+        IServiceDeployStart::export_to_string().unwrap(),
+        IServiceRedeployStart::export_to_string().unwrap(),
+        IDockerDeployLog::export_to_string().unwrap(),
+        IDockerDeployEnd::export_to_string().unwrap(),
+        IGenerateKey::export_to_string().unwrap(),
+        IGenerateKeyRes::export_to_string().unwrap(),
+        IGetObjectId::export_to_string().unwrap(),
+        IGetObjectIdRes::export_to_string().unwrap(),
+        IGetObjectHistory::export_to_string().unwrap(),
+        IGetObjectHistoryResHistory::export_to_string().unwrap(),
+        IGetObjectHistoryRes::export_to_string().unwrap(),
+        IDockerListImageTags::export_to_string().unwrap(),
+        DockerImageTag::export_to_string().unwrap(),
+        IDockerListImageTagsResTag::export_to_string().unwrap(),
+        IDockerListImageTagsRes::export_to_string().unwrap(),
+        IDockerImageTagsChargedRemoved::export_to_string().unwrap(),
+        IDockerImageTagsChargedImageTagPin::export_to_string().unwrap(),
+        IDockerListImageTagsCharged::export_to_string().unwrap(),
+        IDockerListDeployments::export_to_string().unwrap(),
+        DockerDeployment::export_to_string().unwrap(),
+        IDockerListDeploymentsRes::export_to_string().unwrap(),
+        IDockerDeploymentsChangedRemoved::export_to_string().unwrap(),
+        IDockerDeploymentsChanged::export_to_string().unwrap(),
+        IDockerContainerForget::export_to_string().unwrap(),
+        IDockerListImageByHash::export_to_string().unwrap(),
+        IDockerListImageByHashRes::export_to_string().unwrap(),
+        IDockerImageSetPin::export_to_string().unwrap(),
+        IDockerImageTagSetPin::export_to_string().unwrap(),
+        IDockerListDeploymentHistory::export_to_string().unwrap(),
+        IDockerListDeploymentHistoryRes::export_to_string().unwrap(),
+        IDockerListImageTagHistory::export_to_string().unwrap(),
+        IDockerListImageTagHistoryRes::export_to_string().unwrap(),
+        ModifiedFile::export_to_string().unwrap(),
+        IModifiedFilesScan::export_to_string().unwrap(),
+        IModifiedFilesList::export_to_string().unwrap(),
+        IModifiedFilesChanged::export_to_string().unwrap(),
+        IModifiedFilesResolveAction::export_to_string().unwrap(),
+        IModifiedFilesResolve::export_to_string().unwrap(),
+        IDebug::export_to_string().unwrap(),
+        IRunCommand::export_to_string().unwrap(),
+        IRunCommandTerminate::export_to_string().unwrap(),
+        IRunCommandOutput::export_to_string().unwrap(),
+        IRunCommandFinished::export_to_string().unwrap(),
+        IServerAction::export_to_string().unwrap(),
+        IClientAction::export_to_string().unwrap(),
+    ]
 }
 
 #[cfg(test)]

@@ -1,14 +1,13 @@
 import { action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
-import {
-    ACTION,
-    type DockerImageTag,
-    type IDockerImageTagsCharged,
-    type IDockerListImageTagHistoryRes,
-    type IDockerListImageTagsRes,
-} from "./shared/actions";
-import getOrInsert from "./shared/getOrInsert";
-import nullCheck from "./shared/nullCheck";
+import getOrInsert from "./getOrInsert";
+import nullCheck from "./nullCheck";
+import type {
+    DockerImageTag,
+    IDockerListImageTagHistoryRes,
+    IDockerListImageTagsCharged,
+    IDockerListImageTagsRes,
+} from "./shared_types";
 import state from "./state";
 
 export default class DockerImagesState {
@@ -31,7 +30,7 @@ export default class DockerImagesState {
     load() {
         if (this.projects.state !== "initial") return;
         state.sendMessage({
-            type: ACTION.DockerListImageTags,
+            type: "DockerListImageTags",
             ref: 0,
         });
         this.projects = { state: "loading" };
@@ -52,7 +51,7 @@ export default class DockerImagesState {
         const h2 = h1.get(tag);
         if (h2 && h2.state !== "initial") return;
         state.sendMessage({
-            type: ACTION.DockerListImageTagHistory,
+            type: "DockerListImageTagHistory",
             ref: 0,
             image: project,
             tag,
@@ -81,7 +80,7 @@ export default class DockerImagesState {
     }
 
     @action
-    handleChange(act: IDockerImageTagsCharged) {
+    handleChange(act: IDockerListImageTagsCharged) {
         if (this.projects.state === "data") {
             const projects = this.projects.data;
             for (const tag of act.changed) {

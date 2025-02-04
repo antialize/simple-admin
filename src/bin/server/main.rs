@@ -41,16 +41,34 @@ mod web_util;
 mod webclient;
 
 use anyhow::Result;
+use clap::Parser;
 use webclient::run_web_clients;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long, default_value_t = LevelFilter::Info)]
+    log_level: LevelFilter,
+}
+
+async fn handle_usr2(state: Arc<State>) -> Result<()> {
+    let mut usr2 = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined2())?;
+    while usr2.recv().await.is_some() {
+        state.debug();
+    }
+    Ok(())
+}
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> Result<()> {
+    let args = Args::parse();
+
     tokio_rustls::rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
 
     SimpleLogger::new()
-        .with_level(LevelFilter::Info)
+        .with_level(args.log_level)
         .init()
         .unwrap();
 
@@ -102,6 +120,12 @@ async fn main() -> Result<()> {
         .main()
         .shutdown_order(1)
         .create(|rt| run_web_clients(state.clone(), rt));
+
+    TaskBuilder::new("user2")
+        .main()
+        .abort()
+        .shutdown_order(99)
+        .create(|_| handle_usr2(state.clone()));
 
     tokio::spawn(async {
         tokio::signal::ctrl_c().await.unwrap();

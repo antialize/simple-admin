@@ -1,6 +1,5 @@
 import { makeObservable, observable } from "mobx";
-import * as Actions from ".././shared/actions";
-import { DEPLOYMENT_STATUS, type IDeploymentObject } from ".././shared/state";
+import { DEPLOYMENT_STATUS, type IClientAction, type IDeploymentObject } from "../shared_types";
 import state from "../state";
 
 class DeploymentState {
@@ -18,8 +17,8 @@ class DeploymentState {
     objects: IDeploymentObject[] = [];
 
     toggle(index: number | null, enabled: boolean) {
-        const a: Actions.IToggleDeploymentObject = {
-            type: Actions.ACTION.ToggleDeploymentObject,
+        const a: IClientAction = {
+            type: "ToggleDeploymentObject",
             index,
             enabled,
             source: "webclient",
@@ -28,33 +27,37 @@ class DeploymentState {
     }
 
     cancel() {
-        const a: Actions.ICancelDeployment = {
-            type: Actions.ACTION.CancelDeployment,
+        const a: IClientAction = {
+            type: "CancelDeployment",
         };
         state.sendMessage(a);
     }
 
     stop() {
-        const a: Actions.IStopDeployment = {
-            type: Actions.ACTION.StopDeployment,
-        };
-        state.sendMessage(a);
+        state.sendMessage({
+            type: "StopDeployment",
+        });
     }
 
     start() {
-        const a: Actions.IStartDeployment = {
-            type: Actions.ACTION.StartDeployment,
-        };
-        state.sendMessage(a);
+        state.sendMessage({
+            type: "StartDeployment",
+        });
     }
 
     deployAll(redeploy: boolean) {
-        const a: Actions.IDeployObject = {
-            type: Actions.ACTION.DeployObject,
+        const a: IClientAction = {
+            type: "DeployObject",
             id: null,
             redeploy,
         };
         state.sendMessage(a);
+    }
+
+    markDeployed() {
+        state.sendMessage({
+            type: "MarkDeployed",
+        });
     }
 }
 

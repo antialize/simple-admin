@@ -1,7 +1,7 @@
 import { Button, Link, List, ListItem, TextField, Typography } from "@mui/material";
 import { observer } from "mobx-react";
-import nullCheck from "./shared/nullCheck";
-import * as State from "./shared/state";
+import nullCheck from "./nullCheck";
+import { PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 const ObjectList = observer(function ObjectList({ type }: { type: number }) {
@@ -36,7 +36,7 @@ const ObjectList = observer(function ObjectList({ type }: { type: number }) {
                         key={v.id}
                         onClick={(e) => {
                             page.onClick(e, {
-                                type: State.PAGE_TYPE.Object,
+                                type: PAGE_TYPE.Object,
                                 objectType: type,
                                 id: v.id,
                             });
@@ -49,9 +49,9 @@ const ObjectList = observer(function ObjectList({ type }: { type: number }) {
             <Button
                 variant="contained"
                 onClick={(e) => {
-                    page.onClick(e, { type: State.PAGE_TYPE.Object, objectType: type });
+                    page.onClick(e, { type: PAGE_TYPE.Object, objectType: type });
                 }}
-                href={page.link({ type: State.PAGE_TYPE.Object, objectType: type })}
+                href={page.link({ type: PAGE_TYPE.Object, objectType: type })}
             >
                 Add new
             </Button>

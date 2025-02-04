@@ -1457,6 +1457,50 @@ pub fn get_db() -> Result<rusqlite::Connection> {
     Ok(db)
 }
 
+async fn handle_usr2(client: Arc<Client>) -> Result<()> {
+    let mut usr2 = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined2())?;
+    while usr2.recv().await.is_some() {
+        info!("=======> Debug output triggered <======");
+        info!("Tasks:");
+        for task in tokio_tasks::list_tasks() {
+            info!(
+                "  {} id={} start_time={} shutdown_order={}",
+                task.name(),
+                task.id(),
+                task.start_time(),
+                task.shutdown_order()
+            );
+        }
+
+        info!("Script stdin:");
+        for k in client.script_stdin.lock().unwrap().keys() {
+            info!("  {}", k);
+        }
+
+        info!("persist_responses:");
+        for k in client.persist_responses.lock().unwrap().keys() {
+            info!("  {}", k);
+        }
+
+        info!("Command_tasks:");
+        for (k, v) in client.command_tasks.lock().unwrap().iter() {
+            info!("  {}: {}", k, v.name());
+        }
+
+        info!("dead_process_handlers:");
+        for k in client.dead_process_handlers.lock().unwrap().keys() {
+            info!("  {}", k);
+        }
+
+        info!("services:");
+        for (k, v) in client.services.lock().unwrap().iter() {
+            info!("  {}:", k);
+            v.debug();
+        }
+    }
+    Ok(())
+}
+
 pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
     simple_logger::SimpleLogger::new()
         .with_level(args.log_level)
@@ -1565,6 +1609,12 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         tokio::signal::ctrl_c().await.unwrap();
         tokio_tasks::shutdown("ctrl+c".to_string());
     });
+
+    TaskBuilder::new("user2")
+        .main()
+        .abort()
+        .shutdown_order(99)
+        .create(|_| handle_usr2(client.clone()));
 
     tokio::spawn(async {
         tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())

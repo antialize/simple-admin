@@ -1,5 +1,5 @@
 import { action, makeObservable, observable } from "mobx";
-import { ACTION, type ISearchRes } from "./shared/actions";
+import type { ISearchRes, ISearchResObject } from "./shared_types";
 import state from "./state";
 
 export default class SearchState {
@@ -14,14 +14,7 @@ export default class SearchState {
     searchKey = "";
 
     @observable.shallow
-    objects: Array<{
-        type: number;
-        id: number;
-        version: number;
-        name: string;
-        comment: string;
-        content: string;
-    }> = [];
+    objects: Array<ISearchResObject> = [];
 
     @observable
     searching = false;
@@ -36,7 +29,7 @@ export default class SearchState {
         this.searching = true;
         if (this.key) {
             state.sendMessage({
-                type: ACTION.Search,
+                type: "Search",
                 ref: 0,
                 pattern: `%${this.key.replace(" ", "%")}%`,
             });

@@ -100,6 +100,16 @@ pub struct WebClient {
 }
 
 impl WebClient {
+    pub fn debug(&self) {
+        let auth = self.auth.lock().unwrap();
+        info!(
+            "  {} user={} canceled={}",
+            self.remote,
+            auth.user.as_deref().unwrap_or("unknown"),
+            self.run_token.is_cancelled()
+        );
+    }
+
     pub async fn send_message_str(&self, rt: &RunToken, msg: &str) -> Result<()> {
         let mut sink = match cancelable(rt, cancelable(&self.run_token, self.sink.lock())).await {
             Ok(Ok(v)) => v,
@@ -599,7 +609,23 @@ os.execv(sys.argv[1], sys.argv[1:])
                 for row in rows {
                     let object: IObject2<ValueMap> = row.try_into().context("IObject2")?;
                     if object.r#type == ObjectType::Id(TYPE_ID) {
-                        types.insert(ObjectType::Id(object.id), object.clone());
+                        let o = object.clone();
+                        let content: IType =
+                            serde_json::from_value(serde_json::Value::Object(o.content))?;
+                        types.insert(
+                            ObjectType::Id(object.id),
+                            IObject2 {
+                                content,
+                                id: o.id,
+                                r#type: o.r#type,
+                                name: o.name,
+                                category: o.category,
+                                version: o.version,
+                                comment: o.comment,
+                                author: o.author,
+                                time: o.time,
+                            },
+                        );
                     }
                     object_names_and_ids
                         .entry(object.r#type)
@@ -852,9 +878,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 };
                 let mut obj = act.obj.context("Missing object in action")?;
                 let object_type: i64 = obj.r#type.into();
-                let serde_json::Value::Object(ref mut content) = obj.content else {
-                    bail!("Content is not object")
-                };
+                let content = &mut obj.content;
                 let type_row = query!(
                     "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`",
                     object_type
@@ -1261,7 +1285,6 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
-                // TODO is there a magic no object id
                 if let Err(e) = deployment::deploy_object(state, act.id, act.redeploy).await {
                     alert_error(&rt, state, e, "Deployment::deployObject", Some(self)).await?;
                 }
@@ -1280,6 +1303,15 @@ os.execv(sys.argv[1], sys.argv[1:])
                 };
                 if let Err(e) = deployment::start(state).await {
                     alert_error(&rt, state, e, "Deployment::start", Some(self)).await?;
+                }
+            }
+            IClientAction::MarkDeployed(_) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if let Err(e) = deployment::mark_deployed(state).await {
+                    alert_error(&rt, state, e, "Deployment::mark_deployed", Some(self)).await?;
                 }
             }
             IClientAction::StopDeployment(_) => {
@@ -1301,32 +1333,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
-                info!("=======> Debug output triggered <======");
-                info!("Tasks:");
-                for task in tokio_tasks::list_tasks() {
-                    info!(
-                        "  {} id={} start_time={} shutdown_order={}",
-                        task.name(),
-                        task.id(),
-                        task.start_time(),
-                        task.shutdown_order()
-                    );
-                }
-                info!("Host cliests:");
-                for host in state.host_clients.lock().unwrap().values() {
-                    host.debug();
-                }
-                info!("Web clients:");
-                for wc in state.web_clients.lock().unwrap().iter() {
-                    let auth = wc.auth.lock().unwrap();
-                    info!(
-                        "  {} user={} canceled={}",
-                        wc.remote,
-                        auth.user.as_deref().unwrap_or("unknown"),
-                        wc.run_token.is_cancelled()
-                    );
-                }
-                info!("===========================================");
+                state.debug();
             }
             IClientAction::RunCommand(act) => {
                 if !self.get_auth().admin {

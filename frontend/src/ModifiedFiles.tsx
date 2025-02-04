@@ -7,8 +7,7 @@ import Editor from "./Editor";
 import DisplayError from "./Error";
 import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
-import { type IModifiedFilePage, PAGE_TYPE } from "./shared/state";
-import { hostId } from "./shared/type";
+import { HOST_ID, type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 const Table = styled("table")({});
@@ -151,8 +150,8 @@ export const ModifiedFiles = observer(function ModifiedFiles() {
     const rows = [];
     for (const [id, f] of r.data) {
         const digests = state.objectDigests.get(f.type);
-        const a: IModifiedFilePage = { type: PAGE_TYPE.ModifiedFile, id };
-        const hosts = state.objectDigests.get(hostId);
+        const a: IPage = { type: PAGE_TYPE.ModifiedFile, id };
+        const hosts = state.objectDigests.get(HOST_ID);
         const host = hosts?.get(f.host);
         const type = state.types.get(f.type);
         const digest = digests?.get(f.object);

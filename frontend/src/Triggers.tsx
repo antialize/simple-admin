@@ -1,7 +1,8 @@
 import { MenuItem, Select, TextField } from "@mui/material";
 import { observer } from "mobx-react";
 import derivedState from "./derivedState";
-import { type ITrigger, TypePropType } from "./shared/type";
+import { TypePropType } from "./shared_types";
+import type { ITrigger } from "./type_types";
 
 interface TriggersProps {
     triggers: ITrigger[];

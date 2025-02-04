@@ -3,7 +3,7 @@ import { observer } from "mobx-react";
 import Box from "./Box";
 import Message from "./Message";
 import MessageGroup from "./MessageGroup";
-import nullCheck from "./shared/nullCheck";
+import nullCheck from "./nullCheck";
 import state from "./state";
 
 interface MGroup {

@@ -8,9 +8,7 @@ import type ObjectState from "./ObjectState";
 import type PageState from "./PageState";
 import type SearchState from "./SearchState";
 import type DeploymentState from "./deployment/DeploymentState";
-import type { IAction, IMessage } from "./shared/actions";
-import type { IObject2, IObjectDigest } from "./shared/state";
-import type { IType } from "./shared/type";
+import type { IClientAction, IMessage, IObject2, IObjectDigest, IType } from "./shared_types";
 
 export enum CONNECTION_STATUS {
     CONNECTING = 0,
@@ -103,9 +101,9 @@ class State {
     @observable
     hostsUp = new Set<number>();
 
-    doSendMessage: null | ((act: IAction) => void) = null;
+    doSendMessage: null | ((act: IClientAction) => void) = null;
 
-    sendMessage(act: IAction): void {
+    sendMessage(act: IClientAction): void {
         if (this.doSendMessage === null) throw Error("doSentMessage not set");
         this.doSendMessage(act);
     }

@@ -18,6 +18,7 @@ use sadmin2::{
         RunScriptOutType, RunScriptStdinType, SuccessMessage,
     },
     finite_float::ToFinite,
+    type_types::ValueMap,
 };
 use serde::Deserialize;
 use sqlx_type::query;
@@ -409,7 +410,7 @@ f.write(o['content'])
             .fetch_one(&state.db)
             .await?;
 
-            let mut obj = IObject2::<serde_json::Value> {
+            let mut obj = IObject2::<ValueMap> {
                 id: f.object,
                 r#type: r.r#type.try_into()?,
                 name: r.name,
@@ -427,13 +428,10 @@ f.write(o['content'])
                 CRON_ID => "script",
                 _ => bail!("Unknown object type"),
             };
-            obj.content
-                .as_object_mut()
-                .context("Expected object")?
-                .insert(
-                    key.to_string(),
-                    serde_json::Value::String(act.new_current.context("Missing new current")?),
-                );
+            obj.content.insert(
+                key.to_string(),
+                serde_json::Value::String(act.new_current.context("Missing new current")?),
+            );
 
             let IV { id, version } = change_object(
                 state,

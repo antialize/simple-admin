@@ -1,8 +1,7 @@
 import { action, makeObservable, observable } from "mobx";
 import type Remote from "./Remote";
-import { ACTION, type IModifiedFilesChanged, type ModifiedFile } from "./shared/actions";
-import nullCheck from "./shared/nullCheck";
-import { PAGE_TYPE } from "./shared/state";
+import nullCheck from "./nullCheck";
+import { type IModifiedFilesChanged, type ModifiedFile, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 export default class ModifiedFilesState {
@@ -27,7 +26,7 @@ export default class ModifiedFilesState {
     load() {
         if (this.modifiedFiles.state !== "initial") return;
         state.sendMessage({
-            type: ACTION.ModifiedFilesList,
+            type: "ModifiedFilesList",
         });
         this.modifiedFiles = { state: "loading" };
     }
@@ -44,14 +43,14 @@ export default class ModifiedFilesState {
 
     scan() {
         state.sendMessage({
-            type: ACTION.ModifiedFilesScan,
+            type: "ModifiedFilesScan",
         });
     }
 
     revert(id: number) {
         if (!confirm("Are you sure you want to revert the file on the remote host?")) return;
         state.sendMessage({
-            type: ACTION.ModifiedFilesResolve,
+            type: "ModifiedFilesResolve",
             id,
             action: "redeploy",
             newCurrent: null,
@@ -66,7 +65,7 @@ export default class ModifiedFilesState {
         if (!f) return;
         if (!confirm("Are you sure you want save the current object?")) return;
         state.sendMessage({
-            type: ACTION.ModifiedFilesResolve,
+            type: "ModifiedFilesResolve",
             id,
             action: "updateCurrent",
             newCurrent,

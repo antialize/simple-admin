@@ -1,19 +1,18 @@
 import { Button } from "@mui/material";
 import { observer } from "mobx-react";
-import { ACTION, type IMessageTextReqAction, type ISetMessagesDismissed } from "./shared/actions";
-import nullCheck from "./shared/nullCheck";
-import { hostId } from "./shared/type";
+import nullCheck from "./nullCheck";
+import { HOST_ID, type IClientAction } from "./shared_types";
 import state from "./state";
 
 const Message = observer(function Message({ id, inGroup }: { id: number; inGroup: boolean }) {
     const message = nullCheck(state.messages.get(id));
-    const hostObject = nullCheck(state.objectDigests.get(hostId)).get(nullCheck(message.host));
+    const hostObject = nullCheck(state.objectDigests.get(HOST_ID)).get(nullCheck(message.host));
     const hostname = hostObject ? hostObject.name : "";
     const newDate = new Date(message.time * 1000);
 
     const setDismissed = (dismissed: boolean) => {
-        const p: ISetMessagesDismissed = {
-            type: ACTION.SetMessagesDismissed,
+        const p: IClientAction = {
+            type: "SetMessageDismissed",
             ids: [id],
             dismissed,
             source: "webclient",
@@ -23,8 +22,8 @@ const Message = observer(function Message({ id, inGroup }: { id: number; inGroup
 
     const setExpanded = (expanded: boolean, fetch: boolean) => {
         if (fetch) {
-            const p: IMessageTextReqAction = {
-                type: ACTION.MessageTextReq,
+            const p: IClientAction = {
+                type: "MessageTextReq",
                 id,
             };
             state.sendMessage(p);

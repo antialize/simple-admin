@@ -23,8 +23,7 @@ import MenuDropdown, { DropDownItem } from "./MenuDropdown";
 import SubMenu from "./SubMenu";
 import { ObjectMenuList } from "./TypeMenuItems";
 import derivedState from "./derivedState";
-import * as State from "./shared/state";
-import { rootId, rootInstanceId } from "./shared/type";
+import { PAGE_TYPE, ROOT_ID, ROOT_INSTANCE_ID } from "./shared_types";
 import state from "./state";
 
 function matchText(text: string, key: string) {
@@ -88,11 +87,11 @@ const TypeObjects = observer(function TypeObjects({
             <ListItem>
                 <Link
                     color={"textPrimary" as any}
-                    href={page.link({ type: State.PAGE_TYPE.Object, objectType: type, id })}
+                    href={page.link({ type: PAGE_TYPE.Object, objectType: type, id })}
                     onClick={(e: any) => {
                         clearSearch();
                         page.onClick(e, {
-                            type: State.PAGE_TYPE.Object,
+                            type: PAGE_TYPE.Object,
                             objectType: type,
                             id,
                         });
@@ -145,7 +144,7 @@ function Search() {
         ["return"],
         () => {
             if (goto && searchInput) {
-                page.set({ type: State.PAGE_TYPE.Object, objectType: goto[0], id: goto[1] });
+                page.set({ type: PAGE_TYPE.Object, objectType: goto[0], id: goto[1] });
                 setKey("");
                 searchInput.blur();
             }
@@ -244,13 +243,13 @@ const Menu = observer(function Menu() {
     if (!login) return <DisplayError>Missing state.login</DisplayError>;
     const types = derivedState.menuTypes;
     useHotkeys("d", () => {
-        page.set({ type: State.PAGE_TYPE.Dashbord });
+        page.set({ type: PAGE_TYPE.Dashbord });
     });
     useHotkeys("i", () => {
-        page.set({ type: State.PAGE_TYPE.DockerImages });
+        page.set({ type: PAGE_TYPE.DockerImages });
     });
     useHotkeys("c", () => {
-        page.set({ type: State.PAGE_TYPE.DockerServices });
+        page.set({ type: PAGE_TYPE.DockerServices });
     });
     return (
         <AppBar color="primary" enableColorOnDark>
@@ -258,20 +257,20 @@ const Menu = observer(function Menu() {
                 <>
                     <MenuDropdown hotkey="m">
                         {types.map((t) =>
-                            t.id === rootId ? (
+                            t.id === ROOT_ID ? (
                                 <DropDownItem
-                                    key={rootInstanceId}
+                                    key={ROOT_INSTANCE_ID}
                                     onClick={(e) => {
                                         page.onClick(e, {
-                                            type: State.PAGE_TYPE.Object,
-                                            objectType: rootId,
-                                            id: rootInstanceId,
+                                            type: PAGE_TYPE.Object,
+                                            objectType: ROOT_ID,
+                                            id: ROOT_INSTANCE_ID,
                                         });
                                     }}
                                     href={page.link({
-                                        type: State.PAGE_TYPE.Object,
-                                        objectType: rootId,
-                                        id: rootInstanceId,
+                                        type: PAGE_TYPE.Object,
+                                        objectType: ROOT_ID,
+                                        id: ROOT_INSTANCE_ID,
                                     })}
                                 >
                                     Root
@@ -288,9 +287,9 @@ const Menu = observer(function Menu() {
                         <Button
                             color="inherit"
                             onClick={(e) => {
-                                page.onClick(e, { type: State.PAGE_TYPE.Dashbord });
+                                page.onClick(e, { type: PAGE_TYPE.Dashbord });
                             }}
-                            href={page.link({ type: State.PAGE_TYPE.Dashbord })}
+                            href={page.link({ type: PAGE_TYPE.Dashbord })}
                         >
                             Dashbord
                         </Button>
@@ -298,9 +297,9 @@ const Menu = observer(function Menu() {
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: State.PAGE_TYPE.Deployment });
+                            page.onClick(e, { type: PAGE_TYPE.Deployment });
                         }}
-                        href={page.link({ type: State.PAGE_TYPE.Deployment })}
+                        href={page.link({ type: PAGE_TYPE.Deployment })}
                     >
                         Deployment
                     </Button>
@@ -308,36 +307,36 @@ const Menu = observer(function Menu() {
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: State.PAGE_TYPE.DockerImages });
+                            page.onClick(e, { type: PAGE_TYPE.DockerImages });
                         }}
-                        href={page.link({ type: State.PAGE_TYPE.DockerImages })}
+                        href={page.link({ type: PAGE_TYPE.DockerImages })}
                     >
                         Images
                     </Button>
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: State.PAGE_TYPE.DockerServices });
+                            page.onClick(e, { type: PAGE_TYPE.DockerServices });
                         }}
-                        href={page.link({ type: State.PAGE_TYPE.DockerServices })}
+                        href={page.link({ type: PAGE_TYPE.DockerServices })}
                     >
                         Services
                     </Button>
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: State.PAGE_TYPE.ModifiedFiles });
+                            page.onClick(e, { type: PAGE_TYPE.ModifiedFiles });
                         }}
-                        href={page.link({ type: State.PAGE_TYPE.ModifiedFiles })}
+                        href={page.link({ type: PAGE_TYPE.ModifiedFiles })}
                     >
                         Modified Files
                     </Button>
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: State.PAGE_TYPE.Search });
+                            page.onClick(e, { type: PAGE_TYPE.Search });
                         }}
-                        href={page.link({ type: State.PAGE_TYPE.Search })}
+                        href={page.link({ type: PAGE_TYPE.Search })}
                     >
                         Search
                     </Button>

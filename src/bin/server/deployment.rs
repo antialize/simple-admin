@@ -1283,10 +1283,13 @@ async fn setup_deployment_inner<'a, M>(
 
 async fn deploy_single(
     state: &State,
-    host_client: Arc<HostClient>,
+    host_client: Option<Arc<HostClient>>,
     script: String,
     content: Value,
 ) -> Result<()> {
+    let Some(host_client) = host_client else {
+        return Ok(());
+    };
     let mut jh = host_client
         .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id: host_client.next_job_id(),
@@ -1418,7 +1421,7 @@ async fn setup_deployment(state: &State, deploy_id: Option<i64>, redeploy: bool)
     Ok(())
 }
 
-async fn perform_deploy(state: &State) -> Result<()> {
+async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
     let Some(deployment_objects) = mut_deployment(state, |deployment| {
         if deployment.status != DeploymentStatus::ReviewChanges {
             return Ok(None);
@@ -1492,21 +1495,26 @@ async fn perform_deploy(state: &State) -> Result<()> {
             continue;
         }
 
-        let Some(host_client) = state
-            .host_clients
-            .lock()
-            .unwrap()
-            .get(&object.host)
-            .cloned()
-        else {
-            bad_host = true;
-            mut_deployment(state, |deployment| {
-                deployment.add_log(format!("Host {} is down\r\n", object.host_name));
-                deployment.set_object_status(index, DeploymentObjectStatus::Failure);
-                Ok(())
-            })
-            .await?;
-            continue;
+        let host_client = if mark_only {
+            None
+        } else {
+            let Some(host_client) = state
+                .host_clients
+                .lock()
+                .unwrap()
+                .get(&object.host)
+                .cloned()
+            else {
+                bad_host = true;
+                mut_deployment(state, |deployment| {
+                    deployment.add_log(format!("Host {} is down\r\n", object.host_name));
+                    deployment.set_object_status(index, DeploymentObjectStatus::Failure);
+                    Ok(())
+                })
+                .await?;
+                continue;
+            };
+            Some(host_client)
         };
 
         let type_id = object.type_id;
@@ -1676,7 +1684,12 @@ pub async fn deploy_object(state: &State, id: Option<i64>, redeploy: bool) -> Re
 }
 
 pub async fn start(state: &State) -> Result<()> {
-    perform_deploy(state).await?;
+    perform_deploy(state, false).await?;
+    Ok(())
+}
+
+pub async fn mark_deployed(state: &State) -> Result<()> {
+    perform_deploy(state, true).await?;
     Ok(())
 }
 

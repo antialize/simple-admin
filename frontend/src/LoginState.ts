@@ -1,6 +1,6 @@
 import Cookies from "js-cookie";
 import { action, makeObservable, observable } from "mobx";
-import { ACTION, type ILogin, type ILogout } from "./shared/actions";
+import type { IClientAction } from "./shared_types";
 import state, { CONNECTION_STATUS } from "./state";
 
 class LoginState {
@@ -19,8 +19,8 @@ class LoginState {
 
     @action
     login() {
-        const l: ILogin = {
-            type: ACTION.Login,
+        const l: IClientAction = {
+            type: "Login",
             user: this.user,
             pwd: this.pwd,
             otp: this.otp,
@@ -34,8 +34,8 @@ class LoginState {
 
     @action
     logout(forgetOtp: boolean) {
-        const l: ILogout = {
-            type: ACTION.Logout,
+        const l: IClientAction = {
+            type: "Logout",
             forgetPwd: true,
             forgetOtp,
         };

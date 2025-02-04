@@ -6,10 +6,7 @@ import InfoTable, { InfoTableHeader } from "./InfoTable";
 import { InformationList, InformationListRow } from "./InformationList";
 import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
-import { ACTION } from "./shared/actions";
-import type { IPage } from "./shared/state";
-import * as State from "./shared/state";
-import { hostId } from "./shared/type";
+import { HOST_ID, type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
 export const HostDockerContainers = observer(function DockerContainers(p: {
@@ -24,7 +21,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
     const page = state.page;
     if (!page) return <DisplayError>Missing state.page</DisplayError>;
     const hosts = r.data;
-    const hostDigests = state.objectDigests.get(hostId);
+    const hostDigests = state.objectDigests.get(HOST_ID);
     const hostDigest = hostDigests?.get(p.host);
     const hostName = hostDigest?.name;
     if (!hostName) return <DisplayError>Missing hostName</DisplayError>;
@@ -42,12 +39,12 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
             commit = `${container.imageInfo.labels.GIT_BRANCH || ""} ${container.imageInfo.labels.GIT_COMMIT || ""}`;
         }
         const historyPage: IPage = {
-            type: State.PAGE_TYPE.DockerContainerHistory,
+            type: PAGE_TYPE.DockerContainerHistory,
             host: p.host,
             container: container.name,
         };
         const detailsPage: IPage = {
-            type: State.PAGE_TYPE.DockerContainerDetails,
+            type: PAGE_TYPE.DockerContainerDetails,
             host: p.host,
             container: container.name,
             id: container.id,
@@ -67,7 +64,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
                         onClick={() => {
                             confirm("Forget this container from host?") &&
                                 state.sendMessage({
-                                    type: ACTION.DockerContainerForget,
+                                    type: "DockerContainerForget",
                                     host: p.host,
                                     container: container.name,
                                 });
@@ -162,9 +159,9 @@ export const DockerServiceDetails = observer(function DockerServiceDetails() {
     const spage = state.page;
     if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
-    if (page.type !== State.PAGE_TYPE.DockerContainerDetails)
+    if (page.type !== PAGE_TYPE.DockerContainerDetails)
         return <DisplayError>Wrong page type</DisplayError>;
-    const hosts = state.objectDigests.get(hostId);
+    const hosts = state.objectDigests.get(HOST_ID);
     const host = hosts?.get(page.host);
     const hostName = host?.name;
     if (!hostName) return <DisplayError>Missing host name</DisplayError>;
@@ -239,9 +236,9 @@ export const DockerServiceHistory = observer(function DockerServiceHistory() {
     const spage = state.page;
     if (!spage) return <DisplayError>Missing state.page</DisplayError>;
     const page = spage.current;
-    if (page.type !== State.PAGE_TYPE.DockerContainerHistory)
+    if (page.type !== PAGE_TYPE.DockerContainerHistory)
         return <DisplayError>Wrong page type</DisplayError>;
-    const hosts = state.objectDigests.get(hostId);
+    const hosts = state.objectDigests.get(HOST_ID);
     const host = hosts?.get(page.host);
     const hostName = host?.name;
     if (!hostName) return <DisplayError>Missing host name</DisplayError>;
@@ -264,7 +261,7 @@ export const DockerServiceHistory = observer(function DockerServiceHistory() {
             commit = `${container.imageInfo.labels.GIT_BRANCH || ""} ${container.imageInfo.labels.GIT_COMMIT || ""}`;
         }
         const detailsPage: IPage = {
-            type: State.PAGE_TYPE.DockerContainerDetails,
+            type: PAGE_TYPE.DockerContainerDetails,
             host: page.host,
             container: container.name,
             id: container.id,

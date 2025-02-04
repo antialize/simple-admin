@@ -1,13 +1,39 @@
-import { Button, Checkbox, styled, useTheme } from "@mui/material";
+import { Button, Checkbox, Tooltip, styled, useTheme } from "@mui/material";
+import * as Diff from "diff";
 import { observer } from "mobx-react";
-import * as State from ".././shared/state";
 import DisplayError from "../Error";
+import {
+    DEPLOYMENT_OBJECT_ACTION,
+    DEPLOYMENT_OBJECT_STATUS,
+    DEPLOYMENT_STATUS,
+    PAGE_TYPE,
+} from "../shared_types";
 import state from "../state";
 
 const Table = styled("table")({});
 interface IProps {
     index: number;
 }
+
+const ItemDetailsTooltip = observer(function ItemDetailsTooltip(p: IProps) {
+    const deployment = state.deployment;
+    if (deployment === null) return <DisplayError>Missing state.deployment</DisplayError>;
+    const page = state.page;
+    if (page === null) return <DisplayError>Missing state.page</DisplayError>;
+    const o = deployment.objects[p.index];
+
+    const pc = JSON.stringify(o.prevContent, null, 2);
+    const nc = JSON.stringify(o.nextContent, null, 2);
+    let patch = "";
+    if (nc !== pc) {
+        patch += Diff.createPatch("content", pc, nc, "", "");
+    }
+    if (o.prevScript !== o.script) {
+        patch += Diff.createPatch("script", o.prevScript ?? "", o.script, "", "");
+        return <pre>{patch}</pre>;
+    }
+    return <pre>{patch}</pre>;
+});
 
 const Item = observer(function Item(p: IProps) {
     const theme = useTheme();
@@ -20,36 +46,36 @@ const Item = observer(function Item(p: IProps) {
 
     let s = {};
     switch (o.status) {
-        case State.DEPLOYMENT_OBJECT_STATUS.Deplying:
+        case DEPLOYMENT_OBJECT_STATUS.Deplying:
             s = { backgroundColor: theme.palette.mode === "dark" ? "#990" : "yellow" };
             break;
-        case State.DEPLOYMENT_OBJECT_STATUS.Failure:
+        case DEPLOYMENT_OBJECT_STATUS.Failure:
             s = { backgroundColor: theme.palette.mode === "dark" ? "#600" : "#F77" };
             break;
-        case State.DEPLOYMENT_OBJECT_STATUS.Success:
+        case DEPLOYMENT_OBJECT_STATUS.Success:
             s = { backgroundColor: theme.palette.mode === "dark" ? "#060" : "#7F7" };
             break;
-        case State.DEPLOYMENT_OBJECT_STATUS.Normal:
+        case DEPLOYMENT_OBJECT_STATUS.Normal:
             s = o.enabled ? {} : { color: theme.palette.text.disabled };
             break;
     }
 
     let act: string | null = null;
     switch (o.action) {
-        case State.DEPLOYMENT_OBJECT_ACTION.Add:
+        case DEPLOYMENT_OBJECT_ACTION.Add:
             act = "Add";
             break;
-        case State.DEPLOYMENT_OBJECT_ACTION.Modify:
+        case DEPLOYMENT_OBJECT_ACTION.Modify:
             act = "Modify";
             break;
-        case State.DEPLOYMENT_OBJECT_ACTION.Remove:
+        case DEPLOYMENT_OBJECT_ACTION.Remove:
             act = "Remove";
             break;
-        case State.DEPLOYMENT_OBJECT_ACTION.Trigger:
+        case DEPLOYMENT_OBJECT_ACTION.Trigger:
             act = "Trigger";
             break;
     }
-    const canSelect = deployment.status === State.DEPLOYMENT_STATUS.ReviewChanges;
+    const canSelect = deployment.status === DEPLOYMENT_STATUS.ReviewChanges;
     return (
         <tr style={s} key={o.index}>
             <td>{o.hostName}</td>
@@ -66,17 +92,19 @@ const Item = observer(function Item(p: IProps) {
                 />
             </td>
             <td>
-                <Button
-                    onClick={(e) => {
-                        page.onClick(e, {
-                            type: State.PAGE_TYPE.DeploymentDetails,
-                            index: o.index,
-                        });
-                    }}
-                    href={page.link({ type: State.PAGE_TYPE.DeploymentDetails, index: o.index })}
-                >
-                    Details
-                </Button>
+                <Tooltip title={<ItemDetailsTooltip index={o.index} />}>
+                    <Button
+                        onClick={(e) => {
+                            page.onClick(e, {
+                                type: PAGE_TYPE.DeploymentDetails,
+                                index: o.index,
+                            });
+                        }}
+                        href={page.link({ type: PAGE_TYPE.DeploymentDetails, index: o.index })}
+                    >
+                        Details
+                    </Button>
+                </Tooltip>
             </td>
         </tr>
     );
@@ -87,13 +115,13 @@ const Items = observer(function ItemImpl() {
     if (deployment === null) return <DisplayError>Missing state.deployment</DisplayError>;
 
     switch (deployment.status) {
-        case State.DEPLOYMENT_STATUS.BuildingTree:
-        case State.DEPLOYMENT_STATUS.InvilidTree:
-        case State.DEPLOYMENT_STATUS.ComputingChanges:
+        case DEPLOYMENT_STATUS.BuildingTree:
+        case DEPLOYMENT_STATUS.InvilidTree:
+        case DEPLOYMENT_STATUS.ComputingChanges:
             return null;
-        case State.DEPLOYMENT_STATUS.Deploying:
-        case State.DEPLOYMENT_STATUS.Done:
-        case State.DEPLOYMENT_STATUS.ReviewChanges:
+        case DEPLOYMENT_STATUS.Deploying:
+        case DEPLOYMENT_STATUS.Done:
+        case DEPLOYMENT_STATUS.ReviewChanges:
             break;
     }
     const c = deployment.objects.length;
