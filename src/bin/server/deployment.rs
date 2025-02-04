@@ -1523,6 +1523,9 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
 
         if type_kind == Some(KindType::Sum) {
             let next_objects = host_objects.entry(type_id).or_default();
+            // Temp workaronud for broken objects
+            next_objects.retain(|_, v| v.as_object().map(|v| !v.is_empty()).unwrap_or_default());
+
             let script = std::mem::take(&mut object.script);
             let mut sum_objects = vec![(index, object)];
             while let Some((_, o2)) = it.peek() {
@@ -1540,7 +1543,9 @@ async fn perform_deploy(state: &State, mark_only: bool) -> Result<()> {
                     next_objects.remove(&o2.name);
                 }
                 if let Some(c) = o2.next_content.clone() {
-                    next_objects.insert(o2.name.clone(), c.into());
+                    if !c.is_empty() {
+                        next_objects.insert(o2.name.clone(), c.into());
+                    }
                 }
             }
 
