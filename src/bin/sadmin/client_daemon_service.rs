@@ -630,7 +630,7 @@ struct ServiceInstance {
     code: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct ServiceStatus {
     status: String,
     state: ServiceState,
@@ -890,6 +890,15 @@ pub struct Service {
 impl Service {
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn debug(&self) {
+        info!("    name: {}", self.name);
+        info!("    status: {:?}", self.status.lock().unwrap());
+        match self.run_task.lock().unwrap().as_ref() {
+            None => info!("    run_task: None"),
+            Some(v) => info!("    run_task: {}", v.name()),
+        }
     }
 
     fn persist_status(self: &Arc<Self>) -> Result<()> {
