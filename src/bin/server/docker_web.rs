@@ -351,6 +351,9 @@ pub async fn used_images(
     {
         return Err(WebError::forbidden());
     }
+    if state.read_only {
+        return Err(WebError::forbidden());
+    }
     let mut images = Vec::new();
     for image in body.images {
         let Some((_, image)) = image.split_once("@") else {
@@ -629,6 +632,9 @@ async fn put_manifest(
     Path((name, reference)): Path<(String, String)>,
     body: String,
 ) -> Result<Response, ApiError> {
+    if state.read_only {
+        api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
+    }
     info!("Docker put manifest name={} tag={}", name, reference);
 
     // Validate that manifest is JSON.
@@ -809,6 +815,9 @@ async fn patch_blob_upload(
     content_range: Option<ContentRange>,
     body: Body,
 ) -> Result<Response, ApiError> {
+    if state.read_only {
+        api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
+    }
     let u = state.docker_uploads.lock().unwrap().get(&uuid).cloned();
     let Some(u) = u else {
         api_error!(NOT_FOUND, BlobUploadUnknown, "missing uuid={}", uuid);
@@ -895,7 +904,9 @@ async fn post_blob_upload(
     WState(state): WState<Arc<State>>,
     Path(name): Path<String>,
 ) -> Result<Response, ApiError> {
-    //
+    if state.read_only {
+        api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
+    }
     let uuid = uuid::Uuid::new_v4();
     let path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
     let file = tokio::fs::File::create_new(&path)

@@ -23,6 +23,7 @@ pub struct State {
     pub host_clients: Mutex<HashMap<i64, Arc<HostClient>>>,
     pub web_clients: Mutex<HashSet<CmpRef<Arc<WebClient>>>>,
     pub docker_uploads: Mutex<HashMap<Uuid, Arc<docker_web::Upload>>>,
+    pub read_only: bool,
 }
 
 impl State {

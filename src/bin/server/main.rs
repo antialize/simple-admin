@@ -49,6 +49,8 @@ use webclient::run_web_clients;
 struct Args {
     #[arg(long, default_value_t = LevelFilter::Info)]
     log_level: LevelFilter,
+    #[arg(long)]
+    read_only: bool,
 }
 
 async fn handle_usr2(state: Arc<State>) -> Result<()> {
@@ -97,6 +99,7 @@ async fn main() -> Result<()> {
         host_clients: Default::default(),
         web_clients: Default::default(),
         docker_uploads: Default::default(),
+        read_only: args.read_only,
     });
 
     docker_web::init_upload().await?;
