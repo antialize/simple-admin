@@ -828,6 +828,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 query!("DELETE FROM `deployments` WHERE `host`=?", act.host)
                     .execute(&state.db)
                     .await?;
@@ -876,6 +880,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 let mut obj = act.obj.context("Missing object in action")?;
                 let object_type: i64 = obj.r#type.into();
                 let content = &mut obj.content;
@@ -940,6 +948,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 let rows = query!(
                     "SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest` ORDER BY `id`"
                 )
@@ -1093,7 +1105,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
-
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 query!(
                     "UPDATE `docker_images` SET pin=? WHERE `id`=?",
                     act.pin,
@@ -1139,6 +1154,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 if act.pin {
                     query!(
                         "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
@@ -1213,6 +1232,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 query!(
                     "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
                     act.host,
@@ -1236,6 +1259,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 deploy_service(state, self, act).await?;
             }
             IClientAction::ServiceRedeployStart(act) => {
@@ -1243,6 +1270,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 redploy_service(state, self, act).await?;
             }
             IClientAction::DockerListDeployments(act) => {
@@ -1264,6 +1295,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 modified_files::scan(state).await?;
             }
             IClientAction::ModifiedFilesList(act) => {
@@ -1278,6 +1313,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 modified_files::resolve(state, self, act).await?;
             }
             IClientAction::DeployObject(act) => {
@@ -1285,6 +1324,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 if let Err(e) = deployment::deploy_object(state, act.id, act.redeploy).await {
                     alert_error(&rt, state, e, "Deployment::deployObject", Some(self)).await?;
                 }
@@ -1294,6 +1337,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 deployment::cancel(state).await?;
             }
             IClientAction::StartDeployment(_) => {
@@ -1301,6 +1348,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 if let Err(e) = deployment::start(state).await {
                     alert_error(&rt, state, e, "Deployment::start", Some(self)).await?;
                 }
@@ -1310,6 +1361,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 if let Err(e) = deployment::mark_deployed(state).await {
                     alert_error(&rt, state, e, "Deployment::mark_deployed", Some(self)).await?;
                 }
@@ -1319,6 +1374,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 deployment::stop(state).await?
             }
             IClientAction::ToggleDeploymentObject(act) => {
@@ -1326,6 +1385,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 deployment::toggle_object(state, act.index, act.enabled).await?;
             }
             IClientAction::Debug(_) => {
@@ -1333,6 +1396,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 state.debug();
             }
             IClientAction::RunCommand(act) => {
@@ -1340,6 +1407,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 self.handle_run_command(state, &rt, act).await?;
             }
             IClientAction::RunCommandTerminate(act) => {
@@ -1347,6 +1418,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
                 if let Some(token) = self.command_tokens.lock().unwrap().get(&act.id) {
                     token.cancel();
                 }
