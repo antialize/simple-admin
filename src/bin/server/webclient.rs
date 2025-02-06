@@ -298,7 +298,6 @@ impl WebClient {
             .as_secs() as i64;
 
         if !found {
-            self.set_auth(IAuthStatus::default());
             self.send_message(
                 rt,
                 IServerAction::AuthStatus(IAuthStatus {
@@ -309,6 +308,7 @@ impl WebClient {
                 }),
             )
             .await?;
+            self.set_auth(IAuthStatus::default());
         } else if !pwd || !otp {
             if otp && new_otp {
                 if let Some(session) = &session {
@@ -1514,6 +1514,9 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
 pub fn broadcast(state: &State, msg: IServerAction) -> Result<()> {
     let msg = Arc::new(serde_json::to_string(&msg)?);
     for c in &*state.web_clients.lock().unwrap() {
+        if !c.auth.lock().unwrap().auth {
+            continue;
+        }
         let c = (**c).clone();
         let msg = msg.clone();
         TaskBuilder::new("breadcast_message")
