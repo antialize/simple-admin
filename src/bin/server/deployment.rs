@@ -3,6 +3,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::io::Write;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::action_types::{
     DeploymentObjectAction, DeploymentObjectStatus, DeploymentStatus, IAddDeploymentLog,
@@ -21,7 +22,8 @@ use crate::webclient;
 use anyhow::{anyhow, bail, Context, Result};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use log::error;
+use futures::pin_mut;
+use log::{error, info};
 use sadmin2::client_message::{
     ClientHostMessage, HostClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
 };
@@ -34,6 +36,8 @@ use sadmin2::type_types::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx_type::{query, query_as};
+use tokio::select;
+use tokio_tasks::RunToken;
 
 type ValueMap = serde_json::Map<String, Value>;
 
@@ -1495,7 +1499,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
     let mut cur_host = -1;
     let mut host_objects: HashMap<_, ValueMap> = HashMap::new();
     let mut it = deployment_objects.into_iter().enumerate().peekable();
-    while let Some((index, mut object)) = it.next() {
+    while let Some((index, object)) = it.next() {
         if !object.enabled {
             continue;
         }
@@ -1569,7 +1573,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
             // Temp workaronud for broken objects
             next_objects.retain(|_, v| v.as_object().map(|v| !v.is_empty()).unwrap_or_default());
 
-            let script = std::mem::take(&mut object.script);
+            let script = object.script.clone();
             let mut sum_objects = vec![(index, object)];
             while let Some((_, o2)) = it.peek() {
                 if !o2.enabled {
