@@ -64,6 +64,27 @@ pub const SERVICE_ORDER: i32 = -0;
 pub const UPSTREAM_ORDER: i32 = 10;
 pub const PERSIST_ORDER: i32 = 20;
 
+/// Return result from fut, unless run_token is canceled before fut is done
+pub async fn cancelable_delay<T, F: Future<Output = T>>(
+    run_token: &RunToken,
+    delay: Duration,
+    fut: F,
+) -> Result<T, CancelledError> {
+    let c = run_token.cancelled();
+    pin_mut!(fut, c);
+    let f = future::select(c, &mut fut).await;
+    if let future::Either::Right((v, _)) = f {
+        return Ok(v);
+    }
+    let s = tokio::time::sleep(delay);
+    pin_mut!(s);
+    let f = future::select(s, fut).await;
+    match f {
+        future::Either::Right((v, _)) => Ok(v),
+        future::Either::Left(_) => Err(CancelledError {}),
+    }
+}
+
 /// Run the simpleadmin-client daemon (root)
 ///
 /// You should probably not run this manually, instead this should be run through
@@ -449,18 +470,30 @@ impl Client {
 
     async fn handle_run_script(
         self: Arc<Self>,
-        _run_token: RunToken,
+        run_token: RunToken,
         msg: RunScriptMessage,
         recv: UnboundedReceiver<DataMessage>,
     ) -> Result<()> {
         debug!("Start run script {}: {}", msg.id, msg.name);
         let id = msg.id;
-        let m = match self.handle_run_script_inner(msg, recv).await {
-            Ok(v) => v,
-            Err(e) => ClientHostMessage::Failure(FailureMessage {
+        let m = match cancelable_delay(
+            &run_token,
+            std::time::Duration::from_secs(30),
+            self.handle_run_script_inner(msg, recv),
+        )
+        .await
+        {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => ClientHostMessage::Failure(FailureMessage {
                 id,
                 failure_type: Some(FailureType::Exception),
                 message: Some(e.to_string()),
+                ..Default::default()
+            }),
+            Err(_) => ClientHostMessage::Failure(FailureMessage {
+                id,
+                failure_type: Some(FailureType::Exception),
+                message: Some("Timeout".to_string()),
                 ..Default::default()
             }),
         };
