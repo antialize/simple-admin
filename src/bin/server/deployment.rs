@@ -1290,6 +1290,7 @@ async fn deploy_single_inner(
     script: String,
     content: Value,
 ) -> Result<()> {
+    rt.set_location(file!(), line!());
     let mut jh = host_client
         .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id: host_client.next_job_id(),
@@ -1304,6 +1305,7 @@ async fn deploy_single_inner(
         }))
         .await?;
     loop {
+        rt.set_location(file!(), line!());
         let msg = jh.next_message().await?.context("Host went away")?;
         match msg {
             ClientHostMessage::Failure(msg) => {
@@ -1318,6 +1320,7 @@ async fn deploy_single_inner(
                 bail!("Command failed with code {:?}", msg.code)
             }
             ClientHostMessage::Data(msg) => {
+                rt.set_location(file!(), line!());
                 mut_deployment(state, move |deployment| {
                     let data = msg.data.as_str().context("Expected string")?;
                     let line = String::from_utf8(BASE64_STANDARD.decode(data)?)?;
@@ -1471,7 +1474,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
     else {
         return Ok(());
     };
-
+    rt.set_location(file!(), line!());
     let rows = query_as!(
         ObjectRow,
         "SELECT `id`, `name`, `content`, `category`, `version`, `comment`,
@@ -1500,7 +1503,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         if object.host != cur_host {
             bad_host = false;
             cur_host = object.host;
-
+            rt.set_location(file!(), line!());
             mut_deployment(state, |deployment| {
                 deployment.add_header(&object.host_name, true);
                 Ok(())
@@ -1508,6 +1511,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
             .await?;
 
             host_objects.clear();
+            rt.set_location(file!(), line!());
             let res = query!(
                 "SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?",
                 cur_host
@@ -1524,6 +1528,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         }
 
         if bad_host {
+            rt.set_location(file!(), line!());
             mut_deployment(state, |deployment| {
                 deployment.set_object_status(index, DeploymentObjectStatus::Failure);
                 Ok(())
@@ -1543,6 +1548,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 .cloned()
             else {
                 bad_host = true;
+                rt.set_location(file!(), line!());
                 mut_deployment(state, |deployment| {
                     deployment.add_log(format!("Host {} is down\r\n", object.host_name));
                     deployment.set_object_status(index, DeploymentObjectStatus::Failure);
@@ -1557,7 +1563,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         let type_id = object.type_id;
         let t = types.get(&type_id);
         let type_kind = t.as_ref().and_then(|v| v.content.kind.clone());
-
+        rt.set_location(file!(), line!());
         if type_kind == Some(KindType::Sum) {
             let next_objects = host_objects.entry(type_id).or_default();
             // Temp workaronud for broken objects
@@ -1589,6 +1595,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
             if rt.is_cancelled() {
                 break;
             }
+            rt.set_location(file!(), line!());
             mut_deployment(state, |deployment| {
                 for (i2, _) in &sum_objects {
                     deployment.set_object_status(*i2, DeploymentObjectStatus::Deplying);
@@ -1599,9 +1606,11 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
 
             let mut m = ValueMap::new();
             m.insert("objects".to_string(), Value::Object(next_objects.clone()));
-            let ret = deploy_single(state, host_client, script, Value::Object(m)).await;
+            rt.set_location(file!(), line!());
+            let ret = deploy_single(rt, state, host_client, script, Value::Object(m)).await;
 
             if let Err(e) = ret {
+                rt.set_location(file!(), line!());
                 mut_deployment(state, |deployment| {
                     for (i2, _) in &sum_objects {
                         deployment.set_object_status(*i2, DeploymentObjectStatus::Failure);
@@ -1612,6 +1621,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 .await?;
                 bad_host = true;
             } else {
+                rt.set_location(file!(), line!());
                 mut_deployment(state, |deployment| {
                     for (i2, _) in &sum_objects {
                         deployment.set_object_status(*i2, DeploymentObjectStatus::Success);
@@ -1630,6 +1640,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         if rt.is_cancelled() {
             break;
         }
+        rt.set_location(file!(), line!());
         mut_deployment(state, |deployment| {
             deployment.add_header(&format!("{} ({})", &object.title, &object.type_name), false);
             deployment.set_object_status(index, DeploymentObjectStatus::Deplying);
@@ -1656,6 +1667,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         };
         let ok = ret.is_ok();
         if let Err(e) = ret {
+            rt.set_location(file!(), line!());
             mut_deployment(state, move |deployment| {
                 deployment.add_log(format!("{:?}", e));
                 Ok(())
@@ -1665,8 +1677,10 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 bad_host = true;
             }
         } else if type_kind != Some(KindType::Trigger) && type_kind.is_some() {
+            rt.set_location(file!(), line!());
             set_deployment(state, object, type_id).await?;
         }
+        rt.set_location(file!(), line!());
         mut_deployment(state, |deployment| {
             deployment.set_object_status(
                 index,
@@ -1680,13 +1694,14 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         })
         .await?;
     }
-
+    rt.set_location(file!(), line!());
     mut_deployment(state, |deployment| {
         deployment.add_log("Done".to_string());
         deployment.set_status(DeploymentStatus::Done);
         Ok(())
     })
     .await?;
+    rt.set_location(file!(), line!());
     Ok(())
 }
 

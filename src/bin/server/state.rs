@@ -31,13 +31,25 @@ impl State {
         info!("=======> Debug output triggered <======");
         info!("Tasks:");
         for task in tokio_tasks::list_tasks() {
-            info!(
-                "  {} id={} start_time={} shutdown_order={}",
-                task.name(),
-                task.id(),
-                task.start_time(),
-                task.shutdown_order()
-            );
+            if let Some((file, line)) = task.run_token().location() {
+                info!(
+                    "  {} id={} @{}:{} start_time={} shutdown_order={}",
+                    task.name(),
+                    task.id(),
+                    file,
+                    line,
+                    task.start_time(),
+                    task.shutdown_order()
+                );
+            } else {
+                info!(
+                    "  {} id={} start_time={} shutdown_order={}",
+                    task.name(),
+                    task.id(),
+                    task.start_time(),
+                    task.shutdown_order()
+                );
+            }
         }
         info!("Host cliests:");
         for host in self.host_clients.lock().unwrap().values() {

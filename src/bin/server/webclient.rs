@@ -576,18 +576,21 @@ os.execv(sys.argv[1], sys.argv[1:])
         rt: RunToken,
         act: IClientAction,
     ) -> Result<()> {
+        rt.set_location(file!(), line!());
         match act {
             IClientAction::RequestInitialState(_) => {
                 if !self.get_auth().auth {
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let rows = query_as!(ObjectRow,
                     "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`,
                     strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest` ORDER BY `id`"
                 )
                 .fetch_all(&state.db)
                 .await.context("RequestInitialState query")?;
+                rt.set_location(file!(), line!());
 
                 let hosts_up: Vec<_> = state.host_clients.lock().unwrap().keys().cloned().collect();
 
@@ -641,6 +644,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     used_by.extend(object.content.contains_iter().map(|v| (v, object.id)));
                     used_by.extend(object.content.sudo_on_iter().map(|v| (v, object.id)))
                 }
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::SetInitialState(ISetInitialState {
@@ -659,14 +663,18 @@ os.execv(sys.argv[1], sys.argv[1:])
                 .context("send_message")?;
             }
             IClientAction::RequestAuthStatus(act) => {
+                rt.set_location(file!(), line!());
                 let auth = get_auth(state, Some(&self.remote), act.session.as_deref()).await?;
                 self.set_auth(auth.clone());
+                rt.set_location(file!(), line!());
                 self.send_message(&rt, IServerAction::AuthStatus(auth))
                     .await?;
             }
             IClientAction::Login(act) => {
+                rt.set_location(file!(), line!());
                 if let Err(e) = self.handle_login_inner(&rt, state, act).await {
                     error!("Error in handle_login: {:?}", e);
+                    rt.set_location(file!(), line!());
                     self.send_message(
                         &rt,
                         IServerAction::AuthStatus(IAuthStatus {
@@ -678,6 +686,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 }
             }
             IClientAction::Logout(act) => {
+                rt.set_location(file!(), line!());
                 let auth = self.get_auth();
                 if !auth.auth {
                     self.close(403).await?;
@@ -689,17 +698,20 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.remote, auth.user, session, act.forget_pwd, act.forget_otp,
                 );
                 if act.forget_pwd {
+                    rt.set_location(file!(), line!());
                     query!("UPDATE `sessions` SET `pwd`=NULL WHERE `sid`=?", session)
                         .execute(&state.db)
                         .await?;
                 }
                 if act.forget_otp {
+                    rt.set_location(file!(), line!());
                     query!("UPDATE `sessions` SET `otp`=NULL WHERE `sid`=?", session)
                         .execute(&state.db)
                         .await?;
                 }
                 let auth = get_auth(state, Some(&self.remote), Some(&session)).await?;
                 self.set_auth(auth.clone());
+                rt.set_location(file!(), line!());
                 self.send_message(&rt, IServerAction::AuthStatus(auth))
                     .await?;
             }
@@ -708,6 +720,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let rows = query_as!(
                     ObjectRow,
                     "SELECT `id`, `version`, `type`, `name`, `content`, `category`, `comment`,
@@ -720,6 +733,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 for row in rows {
                     object.push(row.try_into()?);
                 }
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::ObjectChanged(IObjectChanged { id: act.id, object }),
@@ -727,10 +741,12 @@ os.execv(sys.argv[1], sys.argv[1:])
                 .await?;
             }
             IClientAction::GetObjectId(act) => {
+                rt.set_location(file!(), line!());
                 if !self.get_auth().admin {
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let id = match self.get_object_id_inner(state, &act).await {
                     Ok(v) => Some(v),
                     Err(e) => {
@@ -752,6 +768,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let rows = query!(
                     "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
                     act.id
@@ -766,6 +783,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                         author: row.author,
                     });
                 }
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::GetObjectHistoryRes(IGetObjectHistoryRes {
@@ -781,7 +799,9 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let t = msg::get_full_text(state, act.id).await?;
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::MessageTextRep(IMessageTextRepAction {
@@ -806,6 +826,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 } else {
                     None
                 };
+                rt.set_location(file!(), line!());
                 query!(
                     "UPDATE `messages` SET `dismissed`=?, `dismissedTime`=? WHERE `id` IN (_LIST_)",
                     act.dismissed,
@@ -832,6 +853,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 query!("DELETE FROM `deployments` WHERE `host`=?", act.host)
                     .execute(&state.db)
                     .await?;
@@ -841,6 +863,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let rows = query!(
                     "SELECT `id`, `version`, `type`, `name`, `content`, `comment`
                     FROM `objects`
@@ -851,6 +874,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 )
                 .fetch_all(&state.db)
                 .await?;
+                rt.set_location(file!(), line!());
                 let mut objects = Vec::new();
                 for row in rows {
                     objects.push(ISearchResObject {
@@ -862,6 +886,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                         content: row.content,
                     });
                 }
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::SearchRes(ISearchRes {
@@ -872,6 +897,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 .await?;
             }
             IClientAction::GenerateKey(act) => {
+                rt.set_location(file!(), line!());
                 self.handle_generate_key(&rt, state, act).await?;
             }
             IClientAction::SaveObject(act) => {
@@ -887,6 +913,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 let mut obj = act.obj.context("Missing object in action")?;
                 let object_type: i64 = obj.r#type.into();
                 let content = &mut obj.content;
+                rt.set_location(file!(), line!());
                 let type_row = query!(
                     "SELECT `content` FROM `objects` WHERE `id`=? AND `newest`",
                     object_type
@@ -915,6 +942,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     content.insert("otp_base32".to_string(), otp_base32.into());
                     content.insert("otp_url".to_string(), otp_url.into());
                 }
+                rt.set_location(file!(), line!());
                 let IV { id, version } = db::change_object(
                     state,
                     act.id,
@@ -930,6 +958,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                         object: vec![obj],
                     }),
                 )?;
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::SetPage(ISetPageAction {
@@ -952,6 +981,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 let rows = query!(
                     "SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest` ORDER BY `id`"
                 )
@@ -977,6 +1007,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     }
                 }
                 if !conflicts.is_empty() {
+                    rt.set_location(file!(), line!());
                     self.send_message(
                         &rt,
                         IServerAction::Alert(IAlert {
@@ -989,6 +1020,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     )
                     .await?;
                 } else {
+                    rt.set_location(file!(), line!());
                     info!("Web client delete object id={}", act.id);
                     db::change_object::<serde_json::Value>(
                         state,
@@ -1004,6 +1036,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                             object: vec![],
                         }),
                     )?;
+                    rt.set_location(file!(), line!());
                     self.send_message(
                         &rt,
                         IServerAction::SetPage(ISetPageAction {
@@ -1018,6 +1051,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let rows = query!(
                     "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`,
                     `labels`, `removed` FROM `docker_images` WHERE `hash` IN (_LIST_)",
@@ -1043,6 +1077,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                         },
                     );
                 }
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::DockerListImageByHashRes(IDockerListImageByHashRes {
@@ -1053,6 +1088,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 .await?;
             }
             IClientAction::DockerListImageTags(act) => {
+                rt.set_location(file!(), line!());
                 if !self.get_auth().docker_pull {
                     self.close(403).await?;
                     return Ok(());
@@ -1062,6 +1098,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     .context("Bad unix time")?
                     .as_secs_f64();
                 let time = now - 14.0 * 24.0 * 60.0 * 60.0;
+                rt.set_location(file!(), line!());
                 let rows = match query_as!(
                     DockerImageTagRow,
                     "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed`
@@ -1083,12 +1120,14 @@ os.execv(sys.argv[1], sys.argv[1:])
                 for row in rows {
                     tags.push(row.try_into().context("Mapping row")?);
                 }
+                rt.set_location(file!(), line!());
                 let pinned_image_tags = query_as!(
                     IDockerListImageTagsResTag,
                     "SELECT `project` as `image`, `tag` FROM `docker_image_tag_pins`"
                 )
                 .fetch_all(&state.db)
                 .await?;
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::DockerListImageTagsRes(IDockerListImageTagsRes {
@@ -1109,6 +1148,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 query!(
                     "UPDATE `docker_images` SET pin=? WHERE `id`=?",
                     act.pin,
@@ -1116,7 +1156,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 )
                 .execute(&state.db)
                 .await?;
-
+                rt.set_location(file!(), line!());
                 let rows = query!(
                     "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`,
                     `pin`, `labels`, `removed` FROM `docker_images` WHERE `id`=?",
@@ -1158,6 +1198,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 if act.pin {
                     query!(
                         "INSERT INTO `docker_image_tag_pins` (`project`, `tag`) VALUES (?, ?)",
@@ -1193,6 +1234,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 let rows = query!(
                     "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`,
                     `removed` FROM `docker_images` WHERE `tag` = ? AND `project`= ?",
@@ -1216,6 +1258,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                         pinned_image_tag: false,
                     });
                 }
+                rt.set_location(file!(), line!());
                 self.send_message(
                     &rt,
                     IServerAction::DockerListImageTagHistoryRes(IDockerListImageTagHistoryRes {
@@ -1236,6 +1279,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 query!(
                     "DELETE FROM `docker_deployments` WHERE `host`=? AND `container`=?",
                     act.host,
@@ -1263,6 +1307,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 deploy_service(state, self, act).await?;
             }
             IClientAction::ServiceRedeployStart(act) => {
@@ -1274,6 +1319,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 redploy_service(state, self, act).await?;
             }
             IClientAction::DockerListDeployments(act) => {
@@ -1281,6 +1327,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 list_deployments(&rt, state, self, act).await?;
             }
             IClientAction::DockerListDeploymentHistory(act) => {
@@ -1288,6 +1335,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 list_deployment_history(&rt, state, self, act).await?;
             }
             IClientAction::ModifiedFilesScan(_) => {
@@ -1299,6 +1347,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 modified_files::scan(state).await?;
             }
             IClientAction::ModifiedFilesList(act) => {
@@ -1306,6 +1355,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(403).await?;
                     return Ok(());
                 };
+                rt.set_location(file!(), line!());
                 modified_files::list(&rt, state, self, act).await?;
             }
             IClientAction::ModifiedFilesResolve(act) => {
@@ -1317,6 +1367,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 modified_files::resolve(state, self, act).await?;
             }
             IClientAction::DeployObject(act) => {
@@ -1344,6 +1395,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 deployment::cancel(state).await?;
             }
             IClientAction::StartDeployment(_) => {
@@ -1355,7 +1407,8 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
-                if let Err(e) = deployment::start(state).await {
+                rt.set_location(file!(), line!());
+                if let Err(e) = deployment::start(&rt, state).await {
                     alert_error(&rt, state, e, "Deployment::start", Some(self)).await?;
                 }
             }
@@ -1368,7 +1421,8 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
-                if let Err(e) = deployment::mark_deployed(state).await {
+                rt.set_location(file!(), line!());
+                if let Err(e) = deployment::mark_deployed(&rt, state).await {
                     alert_error(&rt, state, e, "Deployment::mark_deployed", Some(self)).await?;
                 }
             }
@@ -1381,6 +1435,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 deployment::stop(state).await?
             }
             IClientAction::ToggleDeploymentObject(act) => {
@@ -1414,6 +1469,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 self.handle_run_command(state, &rt, act).await?;
             }
             IClientAction::RunCommandTerminate(act) => {
@@ -1425,6 +1481,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
+                rt.set_location(file!(), line!());
                 if let Some(token) = self.command_tokens.lock().unwrap().get(&act.id) {
                     token.cancel();
                 }

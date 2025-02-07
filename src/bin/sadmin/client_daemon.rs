@@ -156,6 +156,7 @@ impl Client {
 
     async fn handle_run_instant_inner(
         self: &Arc<Self>,
+        run_token: &RunToken,
         msg: RunInstantMessage,
     ) -> Result<ClientHostMessage> {
         let mut file = tempfile::Builder::new().suffix(&msg.name).tempfile()?;
@@ -170,7 +171,9 @@ impl Client {
         }
         cmd.stdin(Stdio::null());
         cmd.kill_on_drop(true);
+        run_token.set_location(file!(), line!());
         let output = cmd.output().await?;
+        run_token.set_location(file!(), line!());
         if !output.status.success() {
             let code = output
                 .status
@@ -210,12 +213,13 @@ impl Client {
 
     async fn handle_run_instant(
         self: Arc<Self>,
-        _run_token: RunToken,
+        run_token: RunToken,
         msg: RunInstantMessage,
     ) -> Result<()> {
         debug!("Start instant command {}: {}", msg.id, msg.name);
         let id = msg.id;
-        let m = match self.handle_run_instant_inner(msg).await {
+        run_token.set_location(file!(), line!());
+        let m = match self.handle_run_instant_inner(&run_token, msg).await {
             Ok(v) => v,
             Err(e) => {
                 error!("Error in instant command {}: {}", id, e);
@@ -227,7 +231,9 @@ impl Client {
                 })
             }
         };
+        run_token.set_location(file!(), line!());
         self.send_message(m).await;
+        run_token.set_location(file!(), line!());
         self.command_tasks.lock().unwrap().remove(&id);
         debug!("Finished instant command {}", id);
         Ok(())
@@ -908,6 +914,7 @@ impl Client {
         let notifier = SdNotify::from_env().ok();
         let mut first = true;
         loop {
+            run_token.set_location(file!(), line!());
             let mut read = match cancelable(
                 &run_token,
                 timeout(Duration::from_secs(60), self.connect_to_upstream()),
@@ -948,7 +955,7 @@ impl Client {
                 }
                 Err(_) => return Ok(()),
             };
-
+            run_token.set_location(file!(), line!());
             info!("Connected to server");
             let mut last_ping_time = Instant::now();
             let mut buffer = BytesMut::with_capacity(40960);
@@ -965,6 +972,7 @@ impl Client {
                 let read = read.read_buf(&mut buffer);
                 let send_failure = self.send_failure_notify.notified();
                 let sleep = tokio::time::sleep(Duration::from_secs(120));
+                run_token.set_location(file!(), line!());
                 tokio::select! {
                     val = read => {
                         match val {
@@ -1463,13 +1471,25 @@ async fn handle_usr2(client: Arc<Client>) -> Result<()> {
         info!("=======> Debug output triggered <======");
         info!("Tasks:");
         for task in tokio_tasks::list_tasks() {
-            info!(
-                "  {} id={} start_time={} shutdown_order={}",
-                task.name(),
-                task.id(),
-                task.start_time(),
-                task.shutdown_order()
-            );
+            if let Some((file, line)) = task.run_token().location() {
+                info!(
+                    "  {} id={} @{}:{} start_time={} shutdown_order={}",
+                    task.name(),
+                    task.id(),
+                    file,
+                    line,
+                    task.start_time(),
+                    task.shutdown_order()
+                );
+            } else {
+                info!(
+                    "  {} id={} start_time={} shutdown_order={}",
+                    task.name(),
+                    task.id(),
+                    task.start_time(),
+                    task.shutdown_order()
+                );
+            }
         }
 
         info!("Script stdin:");
