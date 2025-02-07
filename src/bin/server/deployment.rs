@@ -1577,9 +1577,10 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
             let mut sum_objects = vec![(index, object)];
             while let Some((_, o2)) = it.peek() {
                 if !o2.enabled {
+                    it.next();
                     continue;
                 }
-                if o2.type_id != type_id || o2.host != cur_host {
+                if o2.type_id != type_id || o2.host != cur_host || o2.script != script {
                     break;
                 }
                 sum_objects.push(it.next().unwrap());
