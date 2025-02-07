@@ -12,7 +12,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc, Mutex, Weak},
     time::Duration,
 };
-use tokio::sync::Mutex as TMutex;
+use tokio::{io::WriteHalf, sync::Mutex as TMutex};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf},
     net::TcpListener,
@@ -75,6 +75,12 @@ pub struct HostClient {
     run_token: RunToken,
 }
 
+async fn write_all_and_flush(v: &mut WriteHalf<TlsStream<TcpStream>>, data: &[u8]) -> Result<()> {
+    v.write_all(data).await?;
+    v.flush().await?;
+    Ok(())
+}
+
 impl HostClient {
     pub fn id(&self) -> i64 {
         self.id
@@ -106,7 +112,10 @@ impl HostClient {
 
         match cancelable(
             &self.run_token,
-            tokio::time::timeout(Duration::from_secs(60), writer.write_all(&msg)),
+            tokio::time::timeout(
+                Duration::from_secs(60),
+                write_all_and_flush(&mut writer, &msg),
+            ),
         )
         .await
         {
