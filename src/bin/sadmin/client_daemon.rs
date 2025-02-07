@@ -1,7 +1,9 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    future::Future,
     io::Write,
     net::{SocketAddr, ToSocketAddrs},
+    ops::DerefMut,
     os::unix::{
         fs::PermissionsExt,
         prelude::{AsRawFd, BorrowedFd, OwnedFd},
@@ -16,6 +18,7 @@ use std::{
 use anyhow::{bail, ensure, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
+use futures::{future, pin_mut};
 use log::{debug, error, info, warn};
 use reqwest::Url;
 use serde::Deserialize;
@@ -34,7 +37,7 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
-use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
+use tokio_tasks::{cancelable, CancelledError, RunToken, TaskBase, TaskBuilder};
 
 use sadmin2::client_message::{
     ClientHostMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
@@ -84,7 +87,7 @@ pub struct Client {
     pub config: Config,
     command_tasks: Mutex<HashMap<u64, Arc<dyn TaskBase>>>,
     send_failure_notify: Notify,
-    recv_failure_notify: Notify,
+    sender_clear: Notify,
     new_send_notify: Notify,
     sender: tokio::sync::Mutex<
         Option<WriteHalf<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>>,
@@ -117,9 +120,9 @@ impl Client {
         message.push(30);
         loop {
             let mut s = self.sender.lock().await;
-            if let Some(v) = &mut *s {
+            if let Some(v) = s.deref_mut() {
                 let write_all = write_all_and_flush(v, &message);
-                let recv_failure = self.recv_failure_notify.notified();
+                let sender_clear = self.sender_clear.notified();
                 let sleep = tokio::time::sleep(Duration::from_secs(40));
                 tokio::select!(
                     val = write_all => {
@@ -131,9 +134,7 @@ impl Client {
                         }
                         break
                     }
-                    _ = recv_failure => {
-                        *s = None
-                    }
+                    _ = sender_clear => {},
                     _ = sleep => {
                         // The send timeouted, notify the recv half so we can try to initiate a new connection
                         error!("Timout sending message to server");
@@ -144,6 +145,7 @@ impl Client {
                 continue;
             }
             // We do not currently have a send socket so lets wait for one
+            info!("We do not currently have a send socket so lets wait for one");
             std::mem::drop(s);
             self.new_send_notify.notified().await;
         }
@@ -978,13 +980,11 @@ impl Client {
                         match val {
                             Ok(0) => {
                                 error!("Connection to server closed cleanly");
-                                self.recv_failure_notify.notify_one();
                                 break
                             }
                             Ok(_) => {}
                             Err(e) => {
                                 error!("Failure reading from server: {}", e);
-                                self.recv_failure_notify.notify_one();
                                 break
                             }
                         }
@@ -994,7 +994,6 @@ impl Client {
                     }
                     _ = sleep => {
                         error!("Timoutout receiving message from server");
-                        self.recv_failure_notify.notify_one();
                         break
                     }
                     _ = run_token.cancelled() => {
@@ -1024,12 +1023,27 @@ impl Client {
                 }
                 if last_ping_time.elapsed().as_secs_f32() > 200.0 {
                     error!("Timout receivivg ping from server");
-                    self.recv_failure_notify.notify_one();
                     break;
                 }
             }
             info!("Trying to take sender for disconnect");
-            self.sender.lock().await.take();
+            run_token.set_location(file!(), line!());
+            {
+                let f = async {
+                    loop {
+                        self.sender_clear.notify_waiters();
+                        self.sender_clear.notify_one();
+                        tokio::time::sleep(Duration::from_millis(1)).await
+                    }
+                };
+                tokio::select! {
+                    mut l = self.sender.lock() => {
+                        let _sender = l.take();
+                    }
+                    () = f => {panic!()}
+                }
+            }
+            run_token.set_location(file!(), line!());
             info!("Took sender for disconnect");
             if let Some(notifier) = &notifier {
                 notifier.set_status("Disconnected".to_string())?;
@@ -1586,7 +1600,7 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         db,
         command_tasks: Default::default(),
         send_failure_notify: Default::default(),
-        recv_failure_notify: Default::default(),
+        sender_clear: Default::default(),
         new_send_notify: Default::default(),
         sender: Default::default(),
         script_stdin: Default::default(),
