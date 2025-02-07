@@ -506,6 +506,7 @@ pub struct IHostUp {
 pub struct IDeployObject {
     pub id: Option<i64>,
     pub redeploy: bool,
+    pub cancel: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]

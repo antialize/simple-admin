@@ -1362,9 +1362,16 @@ async fn setup_deployment_object_types_and_hosts(
     Ok((objects, types, hosts))
 }
 
-async fn setup_deployment(state: &State, deploy_id: Option<i64>, redeploy: bool) -> Result<()> {
+pub async fn setup_deployment(
+    state: &State,
+    deploy_id: Option<i64>,
+    redeploy: bool,
+    cancel: bool,
+) -> Result<()> {
     if mut_deployment(state, move |deployment| {
-        if deployment.status != DeploymentStatus::Done {
+        if deployment.status != DeploymentStatus::Done
+            && (!cancel || deployment.status != DeploymentStatus::ReviewChanges)
+        {
             return Ok(true);
         }
         deployment.set_status(DeploymentStatus::BuildingTree);
@@ -1683,10 +1690,6 @@ async fn set_deployment(
     Ok(())
 }
 
-pub async fn deploy_object(state: &State, id: Option<i64>, redeploy: bool) -> Result<()> {
-    setup_deployment(state, id, redeploy).await?;
-    Ok(())
-}
 
 pub async fn start(state: &State) -> Result<()> {
     perform_deploy(state, false).await?;

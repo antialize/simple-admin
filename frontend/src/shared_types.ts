@@ -319,7 +319,7 @@ export type IHostDown = { id: number };
 
 export type IHostUp = { id: number };
 
-export type IDeployObject = { id: number | null; redeploy: boolean };
+export type IDeployObject = { id: number | null; redeploy: boolean; cancel: boolean };
 
 export type IMarkDeployed = Record<string, unknown>;
 

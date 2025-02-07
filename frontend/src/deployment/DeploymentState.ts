@@ -50,6 +50,7 @@ class DeploymentState {
             type: "DeployObject",
             id: null,
             redeploy,
+            cancel: false,
         };
         state.sendMessage(a);
     }

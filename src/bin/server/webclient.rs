@@ -1328,7 +1328,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                     self.close(503).await?;
                     return Ok(());
                 }
-                if let Err(e) = deployment::deploy_object(state, act.id, act.redeploy).await {
+                rt.set_location(file!(), line!());
+                if let Err(e) =
+                    deployment::setup_deployment(state, act.id, act.redeploy, act.cancel).await
+                {
                     alert_error(&rt, state, e, "Deployment::deployObject", Some(self)).await?;
                 }
             }
