@@ -1,7 +1,9 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    future::Future,
     io::Write,
     net::{SocketAddr, ToSocketAddrs},
+    ops::DerefMut,
     os::unix::{
         fs::PermissionsExt,
         prelude::{AsRawFd, BorrowedFd, OwnedFd},
@@ -16,6 +18,7 @@ use std::{
 use anyhow::{bail, ensure, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bytes::BytesMut;
+use futures::{future, pin_mut};
 use log::{debug, error, info, warn};
 use reqwest::Url;
 use serde::Deserialize;
@@ -34,7 +37,7 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
-use tokio_tasks::{cancelable, RunToken, TaskBase, TaskBuilder};
+use tokio_tasks::{cancelable, CancelledError, RunToken, TaskBase, TaskBuilder};
 
 use sadmin2::client_message::{
     ClientHostMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
@@ -61,6 +64,27 @@ pub const SERVICE_ORDER: i32 = -0;
 pub const UPSTREAM_ORDER: i32 = 10;
 pub const PERSIST_ORDER: i32 = 20;
 
+/// Return result from fut, unless run_token is canceled before fut is done
+pub async fn cancelable_delay<T, F: Future<Output = T>>(
+    run_token: &RunToken,
+    delay: Duration,
+    fut: F,
+) -> Result<T, CancelledError> {
+    let c = run_token.cancelled();
+    pin_mut!(fut, c);
+    let f = future::select(c, &mut fut).await;
+    if let future::Either::Right((v, _)) = f {
+        return Ok(v);
+    }
+    let s = tokio::time::sleep(delay);
+    pin_mut!(s);
+    let f = future::select(s, fut).await;
+    match f {
+        future::Either::Right((v, _)) => Ok(v),
+        future::Either::Left(_) => Err(CancelledError {}),
+    }
+}
+
 /// Run the simpleadmin-client daemon (root)
 ///
 /// You should probably not run this manually, instead this should be run through
@@ -84,7 +108,7 @@ pub struct Client {
     pub config: Config,
     command_tasks: Mutex<HashMap<u64, Arc<dyn TaskBase>>>,
     send_failure_notify: Notify,
-    recv_failure_notify: Notify,
+    sender_clear: Notify,
     new_send_notify: Notify,
     sender: tokio::sync::Mutex<
         Option<WriteHalf<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>>,
@@ -117,9 +141,9 @@ impl Client {
         message.push(30);
         loop {
             let mut s = self.sender.lock().await;
-            if let Some(v) = &mut *s {
+            if let Some(v) = s.deref_mut() {
                 let write_all = write_all_and_flush(v, &message);
-                let recv_failure = self.recv_failure_notify.notified();
+                let sender_clear = self.sender_clear.notified();
                 let sleep = tokio::time::sleep(Duration::from_secs(40));
                 tokio::select!(
                     val = write_all => {
@@ -131,9 +155,7 @@ impl Client {
                         }
                         break
                     }
-                    _ = recv_failure => {
-                        *s = None
-                    }
+                    _ = sender_clear => {},
                     _ = sleep => {
                         // The send timeouted, notify the recv half so we can try to initiate a new connection
                         error!("Timout sending message to server");
@@ -144,6 +166,7 @@ impl Client {
                 continue;
             }
             // We do not currently have a send socket so lets wait for one
+            info!("We do not currently have a send socket so lets wait for one");
             std::mem::drop(s);
             self.new_send_notify.notified().await;
         }
@@ -156,6 +179,7 @@ impl Client {
 
     async fn handle_run_instant_inner(
         self: &Arc<Self>,
+        run_token: &RunToken,
         msg: RunInstantMessage,
     ) -> Result<ClientHostMessage> {
         let mut file = tempfile::Builder::new().suffix(&msg.name).tempfile()?;
@@ -170,7 +194,9 @@ impl Client {
         }
         cmd.stdin(Stdio::null());
         cmd.kill_on_drop(true);
+        run_token.set_location(file!(), line!());
         let output = cmd.output().await?;
+        run_token.set_location(file!(), line!());
         if !output.status.success() {
             let code = output
                 .status
@@ -210,12 +236,13 @@ impl Client {
 
     async fn handle_run_instant(
         self: Arc<Self>,
-        _run_token: RunToken,
+        run_token: RunToken,
         msg: RunInstantMessage,
     ) -> Result<()> {
         debug!("Start instant command {}: {}", msg.id, msg.name);
         let id = msg.id;
-        let m = match self.handle_run_instant_inner(msg).await {
+        run_token.set_location(file!(), line!());
+        let m = match self.handle_run_instant_inner(&run_token, msg).await {
             Ok(v) => v,
             Err(e) => {
                 error!("Error in instant command {}: {}", id, e);
@@ -227,7 +254,9 @@ impl Client {
                 })
             }
         };
+        run_token.set_location(file!(), line!());
         self.send_message(m).await;
+        run_token.set_location(file!(), line!());
         self.command_tasks.lock().unwrap().remove(&id);
         debug!("Finished instant command {}", id);
         Ok(())
@@ -441,18 +470,30 @@ impl Client {
 
     async fn handle_run_script(
         self: Arc<Self>,
-        _run_token: RunToken,
+        run_token: RunToken,
         msg: RunScriptMessage,
         recv: UnboundedReceiver<DataMessage>,
     ) -> Result<()> {
         debug!("Start run script {}: {}", msg.id, msg.name);
         let id = msg.id;
-        let m = match self.handle_run_script_inner(msg, recv).await {
-            Ok(v) => v,
-            Err(e) => ClientHostMessage::Failure(FailureMessage {
+        let m = match cancelable_delay(
+            &run_token,
+            std::time::Duration::from_secs(30),
+            self.handle_run_script_inner(msg, recv),
+        )
+        .await
+        {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => ClientHostMessage::Failure(FailureMessage {
                 id,
                 failure_type: Some(FailureType::Exception),
                 message: Some(e.to_string()),
+                ..Default::default()
+            }),
+            Err(_) => ClientHostMessage::Failure(FailureMessage {
+                id,
+                failure_type: Some(FailureType::Exception),
+                message: Some("Timeout".to_string()),
                 ..Default::default()
             }),
         };
@@ -908,6 +949,7 @@ impl Client {
         let notifier = SdNotify::from_env().ok();
         let mut first = true;
         loop {
+            run_token.set_location(file!(), line!());
             let mut read = match cancelable(
                 &run_token,
                 timeout(Duration::from_secs(60), self.connect_to_upstream()),
@@ -948,7 +990,7 @@ impl Client {
                 }
                 Err(_) => return Ok(()),
             };
-
+            run_token.set_location(file!(), line!());
             info!("Connected to server");
             let mut last_ping_time = Instant::now();
             let mut buffer = BytesMut::with_capacity(40960);
@@ -965,18 +1007,17 @@ impl Client {
                 let read = read.read_buf(&mut buffer);
                 let send_failure = self.send_failure_notify.notified();
                 let sleep = tokio::time::sleep(Duration::from_secs(120));
+                run_token.set_location(file!(), line!());
                 tokio::select! {
                     val = read => {
                         match val {
                             Ok(0) => {
                                 error!("Connection to server closed cleanly");
-                                self.recv_failure_notify.notify_one();
                                 break
                             }
                             Ok(_) => {}
                             Err(e) => {
                                 error!("Failure reading from server: {}", e);
-                                self.recv_failure_notify.notify_one();
                                 break
                             }
                         }
@@ -986,7 +1027,6 @@ impl Client {
                     }
                     _ = sleep => {
                         error!("Timoutout receiving message from server");
-                        self.recv_failure_notify.notify_one();
                         break
                     }
                     _ = run_token.cancelled() => {
@@ -1016,12 +1056,27 @@ impl Client {
                 }
                 if last_ping_time.elapsed().as_secs_f32() > 200.0 {
                     error!("Timout receivivg ping from server");
-                    self.recv_failure_notify.notify_one();
                     break;
                 }
             }
             info!("Trying to take sender for disconnect");
-            self.sender.lock().await.take();
+            run_token.set_location(file!(), line!());
+            {
+                let f = async {
+                    loop {
+                        self.sender_clear.notify_waiters();
+                        self.sender_clear.notify_one();
+                        tokio::time::sleep(Duration::from_millis(1)).await
+                    }
+                };
+                tokio::select! {
+                    mut l = self.sender.lock() => {
+                        let _sender = l.take();
+                    }
+                    () = f => {panic!()}
+                }
+            }
+            run_token.set_location(file!(), line!());
             info!("Took sender for disconnect");
             if let Some(notifier) = &notifier {
                 notifier.set_status("Disconnected".to_string())?;
@@ -1463,13 +1518,25 @@ async fn handle_usr2(client: Arc<Client>) -> Result<()> {
         info!("=======> Debug output triggered <======");
         info!("Tasks:");
         for task in tokio_tasks::list_tasks() {
-            info!(
-                "  {} id={} start_time={} shutdown_order={}",
-                task.name(),
-                task.id(),
-                task.start_time(),
-                task.shutdown_order()
-            );
+            if let Some((file, line)) = task.run_token().location() {
+                info!(
+                    "  {} id={} @{}:{} start_time={} shutdown_order={}",
+                    task.name(),
+                    task.id(),
+                    file,
+                    line,
+                    task.start_time(),
+                    task.shutdown_order()
+                );
+            } else {
+                info!(
+                    "  {} id={} start_time={} shutdown_order={}",
+                    task.name(),
+                    task.id(),
+                    task.start_time(),
+                    task.shutdown_order()
+                );
+            }
         }
 
         info!("Script stdin:");
@@ -1566,7 +1633,7 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         db,
         command_tasks: Default::default(),
         send_failure_notify: Default::default(),
-        recv_failure_notify: Default::default(),
+        sender_clear: Default::default(),
         new_send_notify: Default::default(),
         sender: Default::default(),
         script_stdin: Default::default(),

@@ -179,6 +179,7 @@ export enum DEPLOYMENT_STATUS {
     ComputingChanges = 3,
     ReviewChanges = 4,
     Deploying = 5,
+    Stopping = 6,
 }
 
 export enum DEPLOYMENT_OBJECT_STATUS {
@@ -319,7 +320,7 @@ export type IHostDown = { id: number };
 
 export type IHostUp = { id: number };
 
-export type IDeployObject = { id: number | null; redeploy: boolean };
+export type IDeployObject = { id: number | null; redeploy: boolean; cancel: boolean };
 
 export type IMarkDeployed = Record<string, unknown>;
 

@@ -30,6 +30,7 @@ pub enum DeploymentStatus {
     ComputingChanges = 3,
     ReviewChanges = 4,
     Deploying = 5,
+    Stopping = 6,
 }
 
 impl TS for DeploymentStatus {
@@ -48,6 +49,7 @@ impl TS for DeploymentStatus {
             ComputingChanges = 3,\
             ReviewChanges = 4,\
             Deploying = 5,\
+            Stopping = 6,\
         }"
         .to_string()
     }
@@ -506,6 +508,7 @@ pub struct IHostUp {
 pub struct IDeployObject {
     pub id: Option<i64>,
     pub redeploy: bool,
+    pub cancel: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]

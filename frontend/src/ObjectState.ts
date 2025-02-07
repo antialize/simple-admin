@@ -56,11 +56,11 @@ class ObjectState {
     @action.bound
     deploy(cancel: boolean, redeploy: boolean) {
         nullCheck(state.page).set({ type: PAGE_TYPE.Deployment });
-        if (cancel) nullCheck(state.deployment).cancel();
         const a: IClientAction = {
             type: "DeployObject",
             id: this.id,
             redeploy,
+            cancel,
         };
         state.sendMessage(a);
     }

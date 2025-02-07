@@ -12,7 +12,7 @@ use std::{
     sync::{atomic::AtomicU64, Arc, Mutex, Weak},
     time::Duration,
 };
-use tokio::sync::Mutex as TMutex;
+use tokio::{io::WriteHalf, sync::Mutex as TMutex};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf},
     net::TcpListener,
@@ -75,6 +75,12 @@ pub struct HostClient {
     run_token: RunToken,
 }
 
+async fn write_all_and_flush(v: &mut WriteHalf<TlsStream<TcpStream>>, data: &[u8]) -> Result<()> {
+    v.write_all(data).await?;
+    v.flush().await?;
+    Ok(())
+}
+
 impl HostClient {
     pub fn id(&self) -> i64 {
         self.id
@@ -106,7 +112,10 @@ impl HostClient {
 
         match cancelable(
             &self.run_token,
-            tokio::time::timeout(Duration::from_secs(60), writer.write_all(&msg)),
+            tokio::time::timeout(
+                Duration::from_secs(60),
+                write_all_and_flush(&mut writer, &msg),
+            ),
         )
         .await
         {
@@ -246,7 +255,8 @@ impl HostClient {
                         .shutdown_order(-1)
                         .create(|rt| async move {
                             let s = s;
-                            match cancelable(&rt, tokio::time::timeout(Duration::from_secs(600), s.sign_host_certificate(&state))).await {
+                            rt.set_location(file!(), line!());
+                            match cancelable(&rt, tokio::time::timeout(Duration::from_secs(60), s.sign_host_certificate(&rt, &state))).await {
                                 Ok(Ok(Ok(()))) => (),
                                 Ok(Ok(Err(e))) => {
                                     error!("An error occurred in host ssh certificate generation for {}: {:?}", s.hostname, e);
@@ -332,15 +342,19 @@ impl HostClient {
         }
     }
 
-    async fn sign_host_certificate(self: &Arc<Self>, state: &State) -> Result<()> {
+    async fn sign_host_certificate(self: &Arc<Self>, rt: &RunToken, state: &State) -> Result<()> {
         info!("Signing SSH host certificate for {}", self.hostname);
         // TODO(jakobt) ADD  Read file command
+        rt.set_location(file!(), line!());
         let host_key = self
             .run_shell("cat /etc/ssh/ssh_host_ed25519_key.pub".into())
             .await?;
+        rt.set_location(file!(), line!());
         let r = db::get_root_variables(state).await?;
+        rt.set_location(file!(), line!());
         if let Some(ssh_host_ca_key) = r.get("sshHostCaKey") {
             const VALIDITY_DAYS: u32 = 7;
+            rt.set_location(file!(), line!());
             let ssh_crt: String = crt::generate_ssh_crt(
                 &format!("{} sadmin host", self.hostname),
                 &format!(
@@ -353,11 +367,14 @@ impl HostClient {
                 crt::Type::Host,
             )
             .await?;
+            rt.set_location(file!(), line!());
             self.write_small_text_file("/etc/ssh/ssh_host_ed25519_key-cert.pub".into(), ssh_crt)
                 .await?;
             // TODO add exec command
+            rt.set_location(file!(), line!());
             self.run_shell("systemctl reload 'ssh*.service'".into())
                 .await?;
+            rt.set_location(file!(), line!());
         }
         Ok(())
     }
