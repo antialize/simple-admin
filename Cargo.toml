@@ -34,6 +34,7 @@ daemon = [
     "tempfile",
     "tokio-rustls",
     "tokio-tasks",
+    "futures",
 ]
 nix = ["dep:nix"]
 
@@ -52,7 +53,6 @@ cgroups-rs = {version = "0.2", optional=true}
 chrono = {version = "0.4", default-features = false, features = ["std", "clock"], optional=true}
 clap = {version = "4", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}
 dirs = "6"
-features = "0.10.0"
 futures = {version = "0.3", optional = true}
 futures-util = "0.3"
 hex = {version = "0.4", optional = true}
