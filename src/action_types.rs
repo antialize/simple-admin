@@ -30,6 +30,7 @@ pub enum DeploymentStatus {
     ComputingChanges = 3,
     ReviewChanges = 4,
     Deploying = 5,
+    Stopping = 6,
 }
 
 impl TS for DeploymentStatus {
@@ -48,6 +49,7 @@ impl TS for DeploymentStatus {
             ComputingChanges = 3,\
             ReviewChanges = 4,\
             Deploying = 5,\
+            Stopping = 6,\
         }"
         .to_string()
     }

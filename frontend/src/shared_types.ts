@@ -179,6 +179,7 @@ export enum DEPLOYMENT_STATUS {
     ComputingChanges = 3,
     ReviewChanges = 4,
     Deploying = 5,
+    Stopping = 6,
 }
 
 export enum DEPLOYMENT_OBJECT_STATUS {
