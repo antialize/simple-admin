@@ -32,6 +32,8 @@ mod run;
 mod service_control;
 mod service_deploy;
 #[cfg(feature = "daemon")]
+mod state;
+#[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;
 
