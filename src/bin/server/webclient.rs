@@ -924,8 +924,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 if let Some(tcs) = &type_content.content {
                     for r in tcs {
                         let ITypeProp::Password(r) = r else { continue };
-                        let Some(serde_json::Value::String(ref mut v)) = content.get_mut(&r.name)
-                        else {
+                        let Some(serde_json::Value::String(v)) = content.get_mut(&r.name) else {
                             continue;
                         };
                         // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it
