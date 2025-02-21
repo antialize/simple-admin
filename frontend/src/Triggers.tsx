@@ -1,5 +1,6 @@
 import { MenuItem, Select, TextField } from "@mui/material";
 import { observer } from "mobx-react";
+import type { JSX } from "react";
 import derivedState from "./derivedState";
 import { TypePropType } from "./shared_types";
 import type { ITrigger } from "./type_types";
