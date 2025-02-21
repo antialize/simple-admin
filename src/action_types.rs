@@ -232,7 +232,7 @@ pub enum Ref {
 impl Ref {
     pub fn random() -> Ref {
         use rand::Rng;
-        Ref::Number(rand::thread_rng().gen_range(0..(1 << 48)))
+        Ref::Number(rand::rng().random_range(0..(1 << 48)))
     }
 }
 

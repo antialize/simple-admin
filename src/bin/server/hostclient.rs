@@ -191,7 +191,7 @@ impl HostClient {
         let mut ping_time = tokio::time::Instant::now() + PING_INTERVAL;
         let mut pong_time = ping_time + FOREVER;
         let mut sign_time = tokio::time::Instant::now();
-        let mut ping_id: u32 = rand::thread_rng().gen();
+        let mut ping_id: u32 = rand::rng().random();
 
         loop {
             let read_fut = reader.read_buf(&mut buf);
@@ -471,7 +471,7 @@ async fn handle_host_client(
     };
     info!("Host authorized {:?} {} ({})", peer_address, hostname, id);
 
-    let j: u32 = rand::thread_rng().gen();
+    let j: u32 = rand::rng().random();
 
     let hc = Arc::new(HostClient {
         id,
