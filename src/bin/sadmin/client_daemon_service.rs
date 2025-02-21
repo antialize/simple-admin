@@ -19,22 +19,22 @@ use crate::{
     tokio_passfd::MyAsFd,
 };
 
-use anyhow::{bail, Context, Result};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use anyhow::{Context, Result, bail};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::BytesMut;
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use log::{debug, error, info, warn};
 use nix::{
-    sys::memfd::{memfd_create, MemFdCreateFlag},
+    sys::memfd::{MemFdCreateFlag, memfd_create},
     unistd::User,
 };
 use serde::{Deserialize, Serialize};
 use tokio::{
-    io::{unix::AsyncFd, AsyncReadExt, AsyncWriteExt},
+    io::{AsyncReadExt, AsyncWriteExt, unix::AsyncFd},
     net::UnixDatagram,
     net::UnixStream,
 };
-use tokio_tasks::{cancelable, RunToken, Task, TaskBase, TaskBuilder};
+use tokio_tasks::{RunToken, Task, TaskBase, TaskBuilder, cancelable};
 
 const SERVICES_BUF_SIZE: usize = 1024 * 64;
 
@@ -167,7 +167,7 @@ fn parse_metrics(metrics: &str) -> Result<Vec<MetricItem<'_>>> {
                     Some((start, _)) => loop {
                         match it.peek() {
                             Some((o, v)) if *v == ' ' || *v == ',' || *v == '}' => {
-                                break &metrics[start..*o]
+                                break &metrics[start..*o];
                             }
                             Some(_) => it.next(),
                             None => bail!("Unexpected end of file"),
@@ -2484,9 +2484,10 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 "name: {}\nstate: {:?}\nstatus: {}\ndeployed by: {}\ndeployed at: {}\ninstance_id: {}\n",
                 self.name,
                 status.state,
-                if running {&status.status} else {"stopped"},
+                if running { &status.status } else { "stopped" },
                 status.deploy_user,
-                chrono::DateTime::<chrono::Utc>::from(status.deploy_time).format("%Y-%m-%d %H:%M:%S"),
+                chrono::DateTime::<chrono::Utc>::from(status.deploy_time)
+                    .format("%Y-%m-%d %H:%M:%S"),
                 status.instance_id
             );
             if let Some(image) = &status.image {

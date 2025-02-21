@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::io::Write;
 use tempfile::{NamedTempFile, TempDir};
 
@@ -71,7 +71,11 @@ pub async fn generate_ca_crt(key: &str) -> Result<String> {
 
 pub async fn generate_srs(key: &str, cn: &str) -> Result<String> {
     let mut t1 = NamedTempFile::new()?;
-    write!(&mut t1, "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN={}\n", cn)?;
+    write!(
+        &mut t1,
+        "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN={}\n",
+        cn
+    )?;
     let mut t2 = NamedTempFile::new()?;
     t2.write_all(key.as_bytes())?;
     let res = tokio::process::Command::new("openssl")

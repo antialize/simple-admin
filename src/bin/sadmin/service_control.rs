@@ -1,12 +1,12 @@
-use anyhow::{bail, Context, Result};
-use base64::prelude::BASE64_STANDARD;
+use anyhow::{Context, Result, bail};
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use chrono::prelude::*;
 use chrono::{DateTime, TimeZone};
 use nix::libc::SIGPIPE;
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{stderr, stdout, BufRead, Write},
+    io::{BufRead, Write, stderr, stdout},
     os::unix::process::ExitStatusExt,
     path::PathBuf,
 };

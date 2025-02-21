@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::{Query, State as WState};
 use axum::response::{IntoResponse, Response};
-use base64::{prelude::BASE64_URL_SAFE, Engine};
+use base64::{Engine, prelude::BASE64_URL_SAFE};
 use log::error;
 use serde::Deserialize;
 
@@ -15,7 +15,7 @@ use crate::{
     webclient,
 };
 
-use sadmin2::type_types::{ValueMap, HOST_ID};
+use sadmin2::type_types::{HOST_ID, ValueMap};
 
 #[derive(Deserialize)]
 pub struct SetupQuery {

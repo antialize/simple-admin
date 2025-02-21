@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use sadmin2::action_types::{
     HostEnum, IClientAction, IDockerDeployEnd, IDockerDeployLog, IServerAction,
     IServiceDeployStart, IServiceRedeployStart, Ref,

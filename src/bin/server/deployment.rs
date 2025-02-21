@@ -19,18 +19,18 @@ use crate::ordered_json::JsonCmp;
 use crate::state::State;
 use crate::variabels::Variables;
 use crate::webclient;
-use anyhow::{anyhow, bail, Context, Result};
-use base64::prelude::BASE64_STANDARD;
+use anyhow::{Context, Result, anyhow, bail};
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use futures::pin_mut;
 use log::{error, info};
 use sadmin2::client_message::{
     ClientHostMessage, HostClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
 };
 use sadmin2::type_types::{
-    IBoolTypeProp, IChoiceTypeProp, IContainsIter, IDependsIter, IDocumentTypeProp,
-    INumberTypeProp, IPasswordTypeProp, ITextTypeProp, ITriggersIter, IType, ITypeProp,
-    IVariablesIter, KindType, COLLECTION_ID, COMPLEX_COLLECTION_ID, HOST_ID, HOST_VARIABLE_ID,
+    COLLECTION_ID, COMPLEX_COLLECTION_ID, HOST_ID, HOST_VARIABLE_ID, IBoolTypeProp,
+    IChoiceTypeProp, IContainsIter, IDependsIter, IDocumentTypeProp, INumberTypeProp,
+    IPasswordTypeProp, ITextTypeProp, ITriggersIter, IType, ITypeProp, IVariablesIter, KindType,
     PACKAGE_ID, ROOT_INSTANCE_ID, TYPE_ID,
 };
 use serde::{Deserialize, Serialize};
@@ -1112,11 +1112,7 @@ async fn setup_deployment_host<'a, M>(
                 .content
                 .deployment_order
                 .cmp(&rc.content.deployment_order);
-            if o.is_ne() {
-                o
-            } else {
-                ln.cmp(rn)
-            }
+            if o.is_ne() { o } else { ln.cmp(rn) }
         });
 
         for (name, v) in values {

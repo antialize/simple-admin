@@ -1,15 +1,15 @@
 use std::sync::{Arc, Weak};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use axum::{
     extract::{
-        ws::{Message, WebSocket},
         Query, State as WState, WebSocketUpgrade,
+        ws::{Message, WebSocket},
     },
     response::Response,
 };
-use base64::{prelude::BASE64_STANDARD, Engine};
-use futures::{pin_mut, select, FutureExt, SinkExt, StreamExt};
+use base64::{Engine, prelude::BASE64_STANDARD};
+use futures::{FutureExt, SinkExt, StreamExt, pin_mut, select};
 use log::error;
 use sadmin2::client_message::{
     ClientHostMessage, DataMessage, HostClientMessage, RunScriptMessage, RunScriptOutType,

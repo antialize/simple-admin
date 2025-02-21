@@ -42,7 +42,12 @@ pub async fn get_full_text(state: &State, id: i64) -> Result<Option<String>> {
 }
 
 pub async fn get_count(state: &State) -> Result<i64> {
-    let row = query!("SELECT count(*) as `count` FROM `messages` WHERE NOT `dismissed` AND `message` IS NOT NULL").fetch_one(&state.db).await.context("Query failed in get_count")?;
+    let row = query!(
+        "SELECT count(*) as `count` FROM `messages` WHERE NOT `dismissed` AND `message` IS NOT NULL"
+    )
+    .fetch_one(&state.db)
+    .await
+    .context("Query failed in get_count")?;
     Ok(row.count)
 }
 

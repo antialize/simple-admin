@@ -1,5 +1,5 @@
-use anyhow::{bail, Context, Result};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use anyhow::{Context, Result, bail};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use sadmin2::action_types::{
     IClientAction, IGenerateKey, ILogin, IRequestAuthStatus, IServerAction, Ref,

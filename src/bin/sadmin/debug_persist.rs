@@ -1,5 +1,5 @@
 use crate::persist_daemon;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Debug persist daemon

@@ -11,12 +11,12 @@ use std::{
     },
     path::Path,
     process::Stdio,
-    sync::{atomic::AtomicU64, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicU64},
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, ensure, Context, Result};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use anyhow::{Context, Result, bail, ensure};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::BytesMut;
 use futures::{future, pin_mut};
 use log::{debug, error, info, warn};
@@ -25,19 +25,19 @@ use serde::Deserialize;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::{
-        unix::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream, UnixStream,
+        unix::{OwnedReadHalf, OwnedWriteHalf},
     },
     process::ChildStdin,
     select,
     sync::{
-        mpsc::{UnboundedReceiver, UnboundedSender},
         Notify,
+        mpsc::{UnboundedReceiver, UnboundedSender},
     },
     time::timeout,
 };
-use tokio_rustls::{client::TlsStream, rustls, TlsConnector};
-use tokio_tasks::{cancelable, CancelledError, RunToken, TaskBase, TaskBuilder};
+use tokio_rustls::{TlsConnector, client::TlsStream, rustls};
+use tokio_tasks::{CancelledError, RunToken, TaskBase, TaskBuilder, cancelable};
 
 use sadmin2::client_message::{
     ClientHostMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
@@ -1376,7 +1376,7 @@ impl Client {
                     Err(e) => {
                         return Ok(hyper::Response::builder()
                             .status(500)
-                            .body(format!("Invalid url:\n{e:?}").into())?)
+                            .body(format!("Invalid url:\n{e:?}").into())?);
                     }
                 };
                 if !url
