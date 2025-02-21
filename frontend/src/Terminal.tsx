@@ -3,7 +3,7 @@ import { Button, Chip } from "@mui/material";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import Cookies from "js-cookie";
-import { useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 
 class Connection {
     connected = false;

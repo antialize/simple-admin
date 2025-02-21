@@ -1,5 +1,6 @@
 import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
+import type { JSX } from "react";
 import Box from "./Box";
 import Message from "./Message";
 import MessageGroup from "./MessageGroup";

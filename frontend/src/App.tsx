@@ -1,4 +1,5 @@
 import { observer } from "mobx-react";
+import type { JSX } from "react";
 import Login from "./Login";
 import { MainPage } from "./MainPage";
 import Menu from "./Menu";

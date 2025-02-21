@@ -1,6 +1,7 @@
 import Items from "./deployment/Items";
 import Log from "./deployment/Log";
 
+import type { JSX } from "react";
 import Buttons from "./deployment/Buttons";
 import Header from "./deployment/Header";
 import Message from "./deployment/Message";
