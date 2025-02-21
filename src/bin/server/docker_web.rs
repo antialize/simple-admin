@@ -1,20 +1,20 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{FromRequestParts, Query, Request, State as WState};
 use axum::http::request::Parts;
 use axum::http::{Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::Router;
-use axum::{extract::Path, Json};
-use base64::prelude::BASE64_STANDARD;
+use axum::{Json, extract::Path};
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use futures::StreamExt;
 use log::info;
 use sadmin2::finite_float::ToFinite;
@@ -555,9 +555,15 @@ async fn put_blob_upload(
         }
         if let Some(expected_size) = &expected_size {
             if end - start != *expected_size {
-                api_error!(BAD_REQUEST, SizeInvalid,
+                api_error!(
+                    BAD_REQUEST,
+                    SizeInvalid,
                     "Inconsistent content-range and content-length uuid={}, start={}, end={}, expected_size={}",
-                    uuid, start, end, expected_size);
+                    uuid,
+                    start,
+                    end,
+                    expected_size
+                );
             }
         } else {
             expected_size = Some(end - start);
@@ -856,7 +862,15 @@ async fn patch_blob_upload(
         }
         if let Some(expected_size) = &expected_size {
             if end - start != *expected_size {
-                api_error!(NOT_FOUND, SizeInvalid, "Inconsistent content-range and content-length uuid={}, start={}, end={}, expected_size={}", uuid, start, end, expected_size);
+                api_error!(
+                    NOT_FOUND,
+                    SizeInvalid,
+                    "Inconsistent content-range and content-length uuid={}, start={}, end={}, expected_size={}",
+                    uuid,
+                    start,
+                    end,
+                    expected_size
+                );
             }
         } else {
             expected_size = Some(end - start);

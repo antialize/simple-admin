@@ -1,9 +1,9 @@
-use anyhow::{bail, Context, Result};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use anyhow::{Context, Result, bail};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::Bytes;
 use futures::{
-    stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
+    stream::{SplitSink, SplitStream},
 };
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ use std::{
     time::Duration,
 };
 use tokio::net::TcpListener;
-use tokio_tasks::{cancelable, RunToken, TaskBuilder};
+use tokio_tasks::{RunToken, TaskBuilder, cancelable};
 use tokio_tungstenite::tungstenite;
 
 use crate::{
@@ -40,19 +40,19 @@ use crate::{
     modified_files, msg, setup,
     state::State,
     terminal,
-    web_util::{request_logger, ClientIp, WebError},
+    web_util::{ClientIp, WebError, request_logger},
 };
 
 use axum::{
-    extract::{ws::CloseFrame, State as WState},
-    response::{IntoResponse, Response},
+    Json, Router,
+    extract::{
+        Query, WebSocketUpgrade,
+        ws::{Message, WebSocket},
+    },
 };
 use axum::{
-    extract::{
-        ws::{Message, WebSocket},
-        Query, WebSocketUpgrade,
-    },
-    Json, Router,
+    extract::{State as WState, ws::CloseFrame},
+    response::{IntoResponse, Response},
 };
 use sadmin2::{
     action_types::{
@@ -65,8 +65,8 @@ use sadmin2::{
     finite_float::ToFinite,
     page_types::{IObjectPage, IPage},
     type_types::{
-        IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, ValueMap, HOST_ID, TYPE_ID,
-        USER_ID,
+        HOST_ID, IContainsIter, IDependsIter, ISudoOnIter, IType, ITypeProp, TYPE_ID, USER_ID,
+        ValueMap,
     },
 };
 use tokio::sync::Mutex as TMutex;
@@ -924,8 +924,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 if let Some(tcs) = &type_content.content {
                     for r in tcs {
                         let ITypeProp::Password(r) = r else { continue };
-                        let Some(serde_json::Value::String(ref mut v)) = content.get_mut(&r.name)
-                        else {
+                        let Some(serde_json::Value::String(v)) = content.get_mut(&r.name) else {
                             continue;
                         };
                         // HACK HACK HACK crypt passwords that does not start with $6$, we belive we have allready bcrypt'ed it

@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use sadmin2::{action_types, page_types, type_types};
 use std::{collections::HashSet, io::Write};

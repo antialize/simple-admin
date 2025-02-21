@@ -20,8 +20,8 @@ use sadmin2::{
     service_description::{ServiceDescription, Subcert},
 };
 
-use anyhow::{bail, Context, Result};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use anyhow::{Context, Result, bail};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::future::join_all;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -30,10 +30,10 @@ use sqlx_type::{query, query_as};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    sync::{atomic::AtomicI64, Arc},
+    sync::{Arc, atomic::AtomicI64},
     time::Duration,
 };
-use tokio_tasks::{cancelable, RunToken};
+use tokio_tasks::{RunToken, cancelable};
 
 pub const DOCKER_BLOBS_PATH: &str = "/var/simpleadmin_docker_blobs/";
 

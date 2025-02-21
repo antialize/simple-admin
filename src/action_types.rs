@@ -1,5 +1,5 @@
 use anyhow::bail;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
 use ts_rs::TS;
@@ -232,7 +232,7 @@ pub enum Ref {
 impl Ref {
     pub fn random() -> Ref {
         use rand::Rng;
-        Ref::Number(rand::thread_rng().gen_range(0..(1 << 48)))
+        Ref::Number(rand::rng().random_range(0..(1 << 48)))
     }
 }
 

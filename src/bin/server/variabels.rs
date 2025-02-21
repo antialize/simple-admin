@@ -1,5 +1,5 @@
 use crate::mustache::VarsMap;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::{borrow::Cow, ops::Deref};
 
 type StackEntry<'a> = (Cow<'a, str>, Option<Cow<'a, str>>);

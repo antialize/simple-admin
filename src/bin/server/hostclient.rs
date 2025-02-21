@@ -1,15 +1,15 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use bytes::{Buf, BytesMut};
 use log::{error, info, warn};
 use rand::Rng;
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
 use serde::Deserialize;
 use serde_json::Value;
 use sqlx_type::query;
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     net::SocketAddr,
-    sync::{atomic::AtomicU64, Arc, Mutex, Weak},
+    sync::{Arc, Mutex, Weak, atomic::AtomicU64},
     time::Duration,
 };
 use tokio::{io::WriteHalf, sync::Mutex as TMutex};
@@ -21,8 +21,8 @@ use tokio::{
     net::TcpStream,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
-use tokio_tasks::{cancelable, RunToken, TaskBuilder};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_tasks::{RunToken, TaskBuilder, cancelable};
 
 use sadmin2::client_message::{
     ClientHostMessage, HostClientMessage, RunInstantMessage, RunInstantStdinOutputType,
@@ -191,7 +191,7 @@ impl HostClient {
         let mut ping_time = tokio::time::Instant::now() + PING_INTERVAL;
         let mut pong_time = ping_time + FOREVER;
         let mut sign_time = tokio::time::Instant::now();
-        let mut ping_id: u32 = rand::thread_rng().gen();
+        let mut ping_id: u32 = rand::rng().random();
 
         loop {
             let read_fut = reader.read_buf(&mut buf);
@@ -471,7 +471,7 @@ async fn handle_host_client(
     };
     info!("Host authorized {:?} {} ({})", peer_address, hostname, id);
 
-    let j: u32 = rand::thread_rng().gen();
+    let j: u32 = rand::rng().random();
 
     let hc = Arc::new(HostClient {
         id,

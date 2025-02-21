@@ -1,6 +1,6 @@
 use std::{
     str::FromStr,
-    sync::{atomic::AtomicI64, Arc},
+    sync::{Arc, atomic::AtomicI64},
     time::Duration,
 };
 
@@ -11,10 +11,10 @@ use hostclient::run_host_server;
 use log::LevelFilter;
 use modified_files::modified_files_scan;
 use simple_logger::SimpleLogger;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use sqlx::ConnectOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use state::State;
-use tokio_tasks::{run_tasks, shutdown, TaskBuilder};
+use tokio_tasks::{TaskBuilder, run_tasks, shutdown};
 
 use sadmin2::action_types;
 mod arena;

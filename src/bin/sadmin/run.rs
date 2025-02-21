@@ -1,11 +1,11 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use futures_util::{SinkExt, StreamExt};
 use sadmin2::action_types::{IClientAction, IRequestInitialState, IServerAction, ObjectType};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::signal;
-use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
 
 use crate::connection::{Config, Connection};
 
@@ -78,7 +78,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
 
     #[cfg(feature = "nix")]
     unsafe {
-        use nix::libc::{ioctl, winsize, STDIN_FILENO, TIOCGWINSZ};
+        use nix::libc::{STDIN_FILENO, TIOCGWINSZ, ioctl, winsize};
         let mut res: winsize = std::mem::zeroed();
         if ioctl(STDIN_FILENO, TIOCGWINSZ, &mut res) != -1 {
             lines = res.ws_row.into();

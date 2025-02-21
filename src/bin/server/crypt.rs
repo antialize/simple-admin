@@ -1,19 +1,19 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use libc::{size_t, ssize_t};
 use std::{
     ffi::{CStr, CString},
     os::raw::{c_char, c_int, c_uint, c_ulong, c_void},
 };
 
-extern "C" {
-    pub fn crypt_rn(
+unsafe extern "C" {
+    pub unsafe fn crypt_rn(
         __phrase: *const c_char,
         __setting: *const c_char,
         __data: *mut c_void,
         __size: c_int,
     ) -> *mut c_char;
 
-    pub fn crypt_gensalt_rn(
+    pub unsafe fn crypt_gensalt_rn(
         __prefix: *const c_char,
         __count: c_ulong,
         __rbytes: *const c_char,
@@ -22,7 +22,7 @@ extern "C" {
         __output_size: c_int,
     ) -> *mut c_char;
 
-    pub fn getrandom(__buf: *mut c_void, buflen: size_t, flags: c_uint) -> ssize_t;
+    pub unsafe fn getrandom(__buf: *mut c_void, buflen: size_t, flags: c_uint) -> ssize_t;
 }
 
 const CRYPT_DATA_SIZE: usize = 384 + 384 + 512 + 767 + 1 + 30720 + 128;
