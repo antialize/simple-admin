@@ -11,7 +11,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future::join_all;
-use log::{error, info};
+use log::{error, info, warn};
 use sadmin2::{
     client_message::{
         ClientHostMessage, DataSource, FailureMessage, HostClientMessage, RunScriptMessage,
@@ -22,7 +22,7 @@ use sadmin2::{
 };
 use serde::Deserialize;
 use sqlx_type::query;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{borrow::Cow, collections::HashMap, sync::Arc, time::Duration};
 use tokio_tasks::{cancelable, RunToken};
 
 const FILE_ID: i64 = 6;
@@ -74,7 +74,9 @@ pub struct ModifiedFiles {
 
 #[derive(Deserialize)]
 struct FileContent<'a> {
-    data: &'a str,
+    #[serde(borrow)]
+    path: Cow<'a, str>,
+    data: Option<Cow<'a, str>>,
 }
 
 struct Obj {
@@ -210,7 +212,8 @@ pub async fn scan_inner(state: &State) -> Result<()> {
     for (host_id, objs) in &objects {
         let paths: Vec<_> = objs.iter().map(|v| v.path.clone()).collect();
         let Some(host) = state.host_clients.lock().unwrap().get(host_id).cloned() else {
-            bail!("Host {} not up", host_id)
+            warn!("Host {} not up", host_id);
+            continue;
         };
         futures.push(run_host_scan_job(*host_id, host, paths));
     }
@@ -227,22 +230,30 @@ pub async fn scan_inner(state: &State) -> Result<()> {
                         .with_context(|| format!("Failed getting host content on {}", host));
                 }
             };
-            let content: Vec<FileContent> =
-                serde_json::from_str(&content).context("Failed reading host content")?;
+            let content: Vec<FileContent> = serde_json::from_str(&content)
+                .with_context(|| format!("Failed reading host content:\n {}", content))?;
             let objs = objects
                 .remove(&host)
                 .context("Got content from unknown host")?;
             if objs.len() != content.len() {
-                bail!("Not all files there")
+                bail!("Not all files there {} {}", objs.len(), content.len());
             }
             let mut modified = HashMap::new();
             for (obj, content) in objs.into_iter().zip(content.iter()) {
-                if obj.data == content.data {
+                if obj.path != content.path {
+                    bail!("Paths do no match {} vs {}", obj.path, content.path);
+                }
+                if obj.data == content.data.as_deref().unwrap_or_default() {
                     continue;
                 }
                 modified.insert(
                     obj.path,
-                    (obj.data, obj.r#type, obj.object, content.data.to_string()),
+                    (
+                        obj.data,
+                        obj.r#type,
+                        obj.object,
+                        content.data.as_deref().unwrap_or_default().to_string(),
+                    ),
                 );
             }
             for (m, p) in &mut inner.modified_files {
@@ -350,12 +361,14 @@ pub async fn resolve(state: &State, client: &WebClient, act: IModifiedFilesResol
                 bail!("Host is not up");
             };
 
-            let script = "
-import sys
-o = ${JSON.stringify({ path: f2.path, content: f2.deployed })}
-with open(o['path'], 'w', encoding='utf-8') as f:
-f.write(o['content'])
-";
+            let script = format!(
+                "
+with open({}, 'w', encoding='utf-8') as f:
+  f.write({})
+",
+                serde_json::to_string(&f.path)?,
+                serde_json::to_string(&f.deployed)?
+            );
 
             let mut jh = host
                 .start_job(&HostClientMessage::RunScript(RunScriptMessage {
@@ -384,8 +397,11 @@ f.write(o['content'])
                     jh.done();
                     bail!("Failure in resolve job")
                 }
-                Some(_) => {
-                    bail!("Got unknown message in resolve");
+                Some(ClientHostMessage::Data(m)) => {
+                    info!("Unexpected data in resolve {:?}", m);
+                }
+                Some(msg) => {
+                    bail!("Got unknown message {} in resolve", msg.tag());
                 }
                 None => {
                     bail!("Host dissapeared")
@@ -506,7 +522,7 @@ async fn run_host_scan_job(
 async fn run_host_scan_job_inner(host: Arc<HostClient>, paths: Vec<String>) -> Result<String> {
     let script = "
 import sys, base64, json
-ans = {'content': []}
+ans = []
 for path in sys.argv[1:]:
     data = None
     try:
@@ -514,8 +530,8 @@ for path in sys.argv[1:]:
             data = f.read().decode('utf-8')
     except OSError:
         pass
-    ans['content'].append({'path': path, 'data': data})
-sys.stdout.write(json.dumps(ans))
+    ans.append({'path': path, 'data': data})
+sys.stdout.write(json.dumps(ans, indent=2))
 sys.stdout.flush()";
     let mut jh = host
         .start_job(&HostClientMessage::RunScript(RunScriptMessage {
