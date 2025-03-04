@@ -239,7 +239,7 @@ impl WebClient {
                     )
                     .await?,
                 );
-                res.ssh_host_ca = Some(ssh_host_ca_pub.clone());
+                res.ssh_host_ca = Some(ssh_host_ca_pub.to_string());
             }
         }
         self.send_message(rt, IServerAction::GenerateKeyRes(res))

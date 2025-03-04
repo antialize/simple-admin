@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 use crate::{
     action_types::{IObject2, ObjectType},
@@ -348,17 +351,19 @@ pub async fn get_newest_object_by_id<T: Clone + DeserializeOwned>(
     Ok(res)
 }
 
-pub async fn get_root_variables(state: &State) -> Result<HashMap<String, String>> {
+pub async fn get_root_variables(
+    state: &State,
+) -> Result<HashMap<Cow<'static, str>, Cow<'static, str>>> {
     let root_object = get_object_by_id_and_type::<ValueMap>(state, ROOT_INSTANCE_ID, ROOT_ID)
         .await
         .context("Getting root")?
         .context("Missing root object")?;
     let mut variables = HashMap::new();
     for (k, v) in root_object.content.variables_iter() {
-        variables.insert(k.to_string(), v.to_string());
+        variables.insert(k.to_string().into(), v.to_string().into());
     }
     for (k, v) in root_object.content.secrets_iter() {
-        variables.insert(k.to_string(), v.to_string());
+        variables.insert(k.to_string().into(), v.to_string().into());
     }
     Ok(variables)
 }
@@ -367,13 +372,16 @@ const COLLECTION_ID: i64 = 7;
 const COMPLEX_COLLECTION_ID: i64 = 8;
 const HOST_VARIABLE_ID: i64 = 10840;
 
-pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap<String, String>>> {
+pub async fn get_host_variables(
+    state: &State,
+    id: i64,
+) -> Result<Option<HashMap<Cow<'static, str>, Cow<'static, str>>>> {
     let host = get_object_by_id_and_type::<ValueMap>(state, id, HOST_ID)
         .await
         .with_context(|| format!("Getting host {}", id))?;
     let Some(host) = host else { return Ok(None) };
     let mut variables = get_root_variables(state).await?;
-    variables.insert("nodename".to_string(), host.name);
+    variables.insert("nodename".into(), host.name.into());
     let mut visited = HashSet::new();
     let mut to_visit: Vec<_> = host.content.contains_iter().collect();
     while let Some(id) = to_visit.pop() {
@@ -397,20 +405,24 @@ pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap
             }
             ObjectType::Id(HOST_VARIABLE_ID) => {
                 for (key, value) in o.content.variables_iter() {
-                    variables.insert(key.to_string(), value.to_string());
+                    let value = crate::mustache::render(value, None, &variables, true)
+                        .context("Unable to render value")?;
+                    variables.insert(key.to_string().into(), value.to_string().into());
                 }
                 for (key, value) in o.content.secrets_iter() {
-                    variables.insert(key.to_string(), value.to_string());
+                    let value = crate::mustache::render(value, None, &variables, true)
+                        .context("Unable to render secret")?;
+                    variables.insert(key.to_string().into(), value.to_string().into());
                 }
             }
             _ => (),
         }
     }
     for (key, value) in host.content.variables_iter() {
-        variables.insert(key.to_string(), value.to_string());
+        variables.insert(key.to_string().into(), value.to_string().into());
     }
     for (key, value) in host.content.secrets_iter() {
-        variables.insert(key.to_string(), value.to_string());
+        variables.insert(key.to_string().into(), value.to_string().into());
     }
     Ok(Some(variables))
 }
