@@ -397,10 +397,14 @@ pub async fn get_host_variables(state: &State, id: i64) -> Result<Option<HashMap
             }
             ObjectType::Id(HOST_VARIABLE_ID) => {
                 for (key, value) in o.content.variables_iter() {
-                    variables.insert(key.to_string(), value.to_string());
+                    let value_rendered = crate::mustache::render(value, None, &variables, true)
+                        .context("Unable to render value")?;
+                    variables.insert(key.to_string(), value_rendered.to_string());
                 }
                 for (key, value) in o.content.secrets_iter() {
-                    variables.insert(key.to_string(), value.to_string());
+                    let value_rendered = crate::mustache::render(value, None, &variables, true)
+                        .context("Unable to render secret")?;
+                    variables.insert(key.to_string(), value_rendered.to_string());
                 }
             }
             _ => (),
