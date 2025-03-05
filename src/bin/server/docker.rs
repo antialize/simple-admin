@@ -289,14 +289,10 @@ async fn deploy_server_inner2(
     info!("service deploy start ref: {:?}", r#ref);
     let auth = client.get_auth();
     let user = auth.user.context("Missing user")?;
-    let host_variables = db::get_host_variables(state, host_id)
+    let mut variables = db::get_host_variables(state, host_id)
         .await?
         .context("Could not find root or host")?;
 
-    let mut variables: HashMap<_, _> = host_variables
-        .iter()
-        .map(|(k, v)| (k.as_str().into(), v.as_str().into()))
-        .collect();
     for i in 0..10 {
         let mut buf = [0; 24];
         crypt::random_fill(&mut buf)?;
