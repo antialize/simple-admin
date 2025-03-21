@@ -9,7 +9,6 @@ import Password from "./Password";
 import Triggers from "./Triggers";
 import TypeContent from "./TypeContent";
 import Variables from "./Variables";
-import nullCheck from "./nullCheck";
 import { HOST_ID, ROOT_ID, TYPE_ID, TypePropType } from "./shared_types";
 import state from "./state";
 
@@ -124,10 +123,10 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                         setData={(v: string) => {
                             setProp(ct.name, v);
                         }}
-                        lang={ct.lang ?? c[nullCheck(ct.langName)]}
+                        lang={ct.lang ?? (ct.langName == null ? undefined : c[ct.langName])}
                         fixedLang={ct.lang != null && ct.lang !== ""}
                         setLang={(v: string) => {
-                            setProp(nullCheck(ct.langName), v);
+                            if (ct.langName != null) setProp(ct.langName, v);
                         }}
                     />,
                 );
