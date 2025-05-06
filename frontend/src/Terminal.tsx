@@ -3,7 +3,7 @@ import { Button, Chip } from "@mui/material";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import Cookies from "js-cookie";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 class Connection {
     connected = false;
@@ -196,7 +196,7 @@ export default function HostTerminals(props: { id: number }) {
 
     const ids = Array.from(names.keys());
     ids.sort((a, b) => a - b);
-    const terms: JSX.Element[] = ids.map((id) => {
+    const terms: React.ReactElement[] = ids.map((id) => {
         const style: React.CSSProperties = { margin: 4 };
         if (id === current) style.backgroundColor = "rgb(0, 188, 212)";
 

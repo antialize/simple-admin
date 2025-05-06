@@ -1,5 +1,4 @@
 import { FormControlLabel, MenuItem, Select, Switch, TextField, useTheme } from "@mui/material";
-import type { JSX } from "react";
 import { type ITypeProp, TypePropType } from "./shared_types";
 
 function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => void }) {
@@ -25,7 +24,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
             c[i] = Object.assign({}, r || {}, o) as ITypeProp;
             p.onChange(c.filter((c) => c.type !== TypePropType.none));
         };
-        let def: JSX.Element;
+        let def: React.ReactElement;
         if (
             r.type === TypePropType.none ||
             r.type === TypePropType.typeContent ||
@@ -74,7 +73,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                 />
             );
         }
-        let temp: JSX.Element;
+        let temp: React.ReactElement;
         if (r.type === TypePropType.text || r.type === TypePropType.document)
             temp = (
                 <Switch
@@ -86,7 +85,7 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                 />
             );
         else temp = <Switch key="template" checked={false} disabled={true} />;
-        let var_: JSX.Element;
+        let var_: React.ReactElement;
         if (
             r.type === TypePropType.text ||
             r.type === TypePropType.choice ||

@@ -1,12 +1,10 @@
-import Items from "./deployment/Items";
-import Log from "./deployment/Log";
-
-import type { JSX } from "react";
 import Buttons from "./deployment/Buttons";
 import Header from "./deployment/Header";
+import Items from "./deployment/Items";
+import Log from "./deployment/Log";
 import Message from "./deployment/Message";
 
-function Deployment(): JSX.Element {
+function Deployment(): React.ReactElement {
     return (
         <div className="deployment_container">
             <Header />

@@ -1,5 +1,5 @@
 import { observer } from "mobx-react";
-import { type JSX, useState } from "react";
+import { useState } from "react";
 import Box from "./Box";
 import { HostDockerContainers } from "./DockerServices";
 import Messages from "./Messages";
@@ -10,7 +10,7 @@ import { state } from "./state";
 const HostExtra = observer(function HostExtra({ id }: { id: number }) {
     const [expanded, setExpanded] = useState(false);
     const up = state.hostsUp.has(id);
-    let c: JSX.Element | null = null;
+    let c: React.ReactElement | null = null;
     if (up) {
         c = (
             <Box

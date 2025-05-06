@@ -1,7 +1,6 @@
 import { Button, Checkbox, Tooltip, styled, useTheme } from "@mui/material";
 import * as Diff from "diff";
 import { observer } from "mobx-react";
-import type { JSX } from "react";
 import DisplayError from "../Error";
 import {
     DEPLOYMENT_OBJECT_ACTION,
@@ -126,7 +125,7 @@ const Items = observer(function ItemImpl() {
             break;
     }
     const c = deployment.objects.length;
-    const rows: JSX.Element[] = [];
+    const rows: React.ReactElement[] = [];
 
     for (let i = 0; i < c; ++i) rows.push(<Item index={i} />);
 

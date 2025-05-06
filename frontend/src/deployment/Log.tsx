@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { type JSX, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 const fit = new FitAddon();
 const term = new Terminal({ cursorBlink: false, scrollback: 100000 });
@@ -14,7 +14,7 @@ export function add(bytes: string): void {
     term.write(bytes);
 }
 
-export default function Log(): JSX.Element {
+export default function Log(): React.ReactElement {
     const div = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
         if (div.current == null) return;

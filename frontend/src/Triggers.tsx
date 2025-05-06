@@ -1,6 +1,5 @@
 import { MenuItem, Select, TextField } from "@mui/material";
 import { observer } from "mobx-react";
-import type { JSX } from "react";
 import derivedState from "./derivedState";
 import { TypePropType } from "./shared_types";
 import type { ITrigger } from "./type_types";
@@ -12,7 +11,7 @@ interface TriggersProps {
 
 const Triggers = observer(function Triggers(p: TriggersProps) {
     const triggers = p.triggers.slice(0);
-    const rows: JSX.Element[] = [];
+    const rows: React.ReactElement[] = [];
     const setTriggers = () => {
         p.setTriggers(triggers.filter((t) => t.id !== 0));
     };
@@ -21,7 +20,7 @@ const Triggers = observer(function Triggers(p: TriggersProps) {
         const v = i < triggers.length && triggers[i];
 
         const t = v ? derivedState.triggers.find((t) => t.id === v.id) : null;
-        const fields: JSX.Element[] = [];
+        const fields: React.ReactElement[] = [];
         if (v && t?.content?.content) {
             for (const item of t.content.content) {
                 switch (item.type) {
