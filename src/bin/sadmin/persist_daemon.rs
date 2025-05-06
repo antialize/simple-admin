@@ -1,8 +1,11 @@
 use std::{
     collections::HashMap,
-    os::unix::{
-        prelude::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
-        process::ExitStatusExt,
+    os::{
+        fd::FromRawFd,
+        unix::{
+            prelude::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
+            process::ExitStatusExt,
+        },
     },
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -230,7 +233,9 @@ impl State {
                 let _ = nix::unistd::close(1);
                 let _ = nix::unistd::close(2);
                 for (newfd, oldfd) in &ofds {
-                    nix::unistd::dup2(oldfd.as_raw_fd(), *newfd)?;
+                    let mut newfd = OwnedFd::from_raw_fd(*newfd);
+                    nix::unistd::dup2(oldfd, &mut newfd)?;
+                    std::mem::forget(newfd);
                 }
                 if let Some(uid) = gid {
                     nix::unistd::setgid(nix::unistd::Gid::from_raw(uid))?;
@@ -447,7 +452,7 @@ impl State {
             UnixListener::bind(&path).with_context(|| format!("Unable to bind to {path:?}"))?;
         // The socket does not accept connections util listen in called so there is no race here
         nix::sys::stat::fchmodat(
-            None,
+            nix::fcntl::AT_FDCWD,
             &path,
             nix::sys::stat::Mode::from_bits_truncate(0o600),
             // Note, NoFollowSymlink is NOT implemented on 20.04,
@@ -487,7 +492,17 @@ pub async fn persist_daemon(args: PersistDaemon) -> Result<()> {
     )
     .context("Unable to create event fd")?;
     for fd in efd.as_raw_fd() + 1..20 {
-        nix::unistd::dup3(3, fd, nix::fcntl::OFlag::O_CLOEXEC).context("Dupping more")?;
+        // SAFETY: We are just reserving some fds
+        unsafe {
+            let mut fd = OwnedFd::from_raw_fd(fd);
+            nix::unistd::dup3(
+                BorrowedFd::borrow_raw(3),
+                &mut fd,
+                nix::fcntl::OFlag::O_CLOEXEC,
+            )
+            .context("Dupping more")?;
+            std::mem::forget(fd);
+        }
     }
     simple_logger::SimpleLogger::new()
         .with_level(args.log_level)

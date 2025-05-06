@@ -164,7 +164,7 @@ impl Serialize for ITypeProp {
         use serde::__private::ser::FlatMapSerializer;
         let mut s = serializer.serialize_map(None)?;
         match self {
-            ITypeProp::None {} => {
+            ITypeProp::None => {
                 s.serialize_entry("type", &0)?;
             }
             ITypeProp::Bool(t) => {
