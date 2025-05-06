@@ -25,7 +25,8 @@ use bytes::BytesMut;
 use cgroups_rs::cgroup_builder::CgroupBuilder;
 use log::{debug, error, info, warn};
 use nix::{
-    sys::memfd::{MemFdCreateFlag, memfd_create},
+    fcntl::AT_FDCWD,
+    sys::memfd::{MFdFlags, memfd_create},
     unistd::User,
 };
 use serde::{Deserialize, Serialize};
@@ -334,12 +335,11 @@ async fn send_journal_message(
     };
 
     // Slow path, send over memfd
-    let name = std::ffi::CString::new("logging")?;
-    let memfd = memfd_create(&name, MemFdCreateFlag::MFD_ALLOW_SEALING)?;
+    let memfd = memfd_create(c"logging", MFdFlags::MFD_ALLOW_SEALING)?;
     let mut memfd = std::fs::File::from(memfd);
     memfd.write_all(&msg)?;
     nix::fcntl::fcntl(
-        memfd.as_raw_fd(),
+        &memfd,
         nix::fcntl::FcntlArg::F_ADD_SEALS(nix::fcntl::SealFlag::all()),
     )?;
     loop {
@@ -1592,7 +1592,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 g = i.stdout.readable(), if i.go_stdout => {
                     let pfx = stdout_tail.len();
                     i.buf[..pfx].copy_from_slice(&stdout_tail);
-                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf[pfx..]).map_err(|v| v.into())){
+                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd, &mut i.buf[pfx..]).map_err(|v| v.into())){
                     Ok(Ok(rd)) => {
                         let v = rd + pfx;
                         log.stdout(&i.buf[pfx..v]).await?;
@@ -1629,7 +1629,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 g = i.stderr.readable(), if i.go_stderr => {
                     let pfx = stderr_tail.len();
                     i.buf[..pfx].copy_from_slice(&stderr_tail);
-                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd.as_raw_fd(), &mut i.buf[pfx..]).map_err(|v| v.into())){
+                    match g?.try_io::<usize>(|fd| nix::unistd::read(fd, &mut i.buf[pfx..]).map_err(|v| v.into())){
                     Ok(Ok(rd)) => {
                         let v = rd + pfx;
                         log.stderr(&i.buf[pfx..v]).await?;
@@ -1827,7 +1827,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
             }
 
             nix::sys::stat::fchmodat(
-                None,
+                AT_FDCWD,
                 Path::new(&mdir),
                 nix::sys::stat::Mode::from_bits_truncate(0o700),
                 // Note, NoFollowSymlink is NOT implemented on 20.04,
@@ -1843,7 +1843,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
         };
 
         nix::sys::stat::fchmodat(
-            None,
+            AT_FDCWD,
             Path::new(&notify_path),
             nix::sys::stat::Mode::from_bits_truncate(0o600),
             // Note, NoFollowSymlink is NOT implemented on 20.04,
@@ -1916,7 +1916,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
                         let socket = std::os::unix::net::UnixListener::bind(path)?;
                         socket.set_nonblocking(*nonblocking)?;
                         nix::sys::stat::fchmodat(
-                            None,
+                            AT_FDCWD,
                             Path::new(path),
                             nix::sys::stat::Mode::from_bits_truncate(0o777 ^ *umask),
                             // Note, NoFollowSymlink is NOT implemented on 20.04,

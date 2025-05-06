@@ -13,7 +13,7 @@ function Box({
     expanded?: boolean;
     children?: React.ReactNode;
     onChange?: (event: React.SyntheticEvent, expanded: boolean) => void;
-}): React.JSX.Element {
+}): React.ReactElement {
     return (
         <Accordion
             defaultExpanded={!collapsable || expanded}

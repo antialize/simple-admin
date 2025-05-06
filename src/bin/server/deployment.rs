@@ -865,7 +865,10 @@ async fn setup_deployment_host<'a, M>(
 
     for (node, sentinal) in visitor.nodes.values() {
         match deploy_id {
-            None => to_visit.push(sentinal),
+            None => {
+                to_visit.push(sentinal);
+                seen.insert(CmpRef(sentinal));
+            }
             Some(deploy_id) => {
                 let type_id = match access.ro(node) {
                     DagNode::Sentinal { .. } => continue,
