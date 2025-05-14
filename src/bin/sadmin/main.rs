@@ -9,7 +9,7 @@ use list_deployments::ListDeployments;
 use list_images::ListImages;
 #[cfg(feature = "daemon")]
 use persist_daemon::PersistDaemon;
-use sadmin2::action_types::{IClientAction, IDebug, ILogout};
+use sadmin2::action_types::{IClientAction, IDebug, IGetSecret, ILogout, IServerAction};
 #[cfg(feature = "daemon")]
 use service_control::Service;
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
@@ -73,6 +73,13 @@ struct Deauth {
     full: bool,
 }
 
+#[derive(clap::Parser)]
+struct GetSecret {
+    secret: String,
+    #[clap(long)]
+    host: Option<String>,
+}
+
 #[derive(clap::Subcommand)]
 enum Action {
     /// Authenticate your user
@@ -97,6 +104,7 @@ enum Action {
     Shell(Shell),
     Run(Run),
     DebugServer,
+    GetSecret(GetSecret),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -135,6 +143,27 @@ async fn debug_server(config: Config) -> Result<()> {
     let mut con = Connection::open(config, false).await?;
     con.send(&IClientAction::Debug(IDebug {})).await?;
     Ok(())
+}
+
+async fn get_secret(config: Config, args: GetSecret) -> Result<()> {
+    let mut con = Connection::open(config, false).await?;
+    con.send(&IClientAction::GetSecret(IGetSecret {
+        name: args.secret.clone(),
+        host: args.host.clone(),
+    }))
+    .await?;
+    loop {
+        if let IServerAction::GetSecretRes(r) = con.recv().await? {
+            if r.name == args.secret {
+                if let Some(v) = r.value {
+                    println!("{}", v);
+                    return Ok(());
+                } else {
+                    bail!("Secret {} not found", args.secret);
+                }
+            }
+        }
+    }
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
@@ -205,5 +234,6 @@ async fn main() -> Result<()> {
         Action::Shell(args) => run::shell(config, args).await,
         Action::Run(args) => run::run(config, args).await,
         Action::DebugServer => debug_server(config).await,
+        Action::GetSecret(args) => get_secret(config, args).await,
     }
 }

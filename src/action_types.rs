@@ -576,6 +576,21 @@ pub struct IToggleDeploymentObject {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct IGetSecret {
+    pub name: String,
+    pub host: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct IGetSecretRes {
+    pub name: String,
+    pub host: Option<String>,
+    pub value: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
 pub struct IStopDeployment {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -1115,6 +1130,7 @@ pub enum IServerAction {
     SetMessagesDismissed(ISetMessagesDismissed),
     SetPage(ISetPageAction),
     ToggleDeploymentObject(IToggleDeploymentObject),
+    GetSecretRes(IGetSecretRes),
 }
 
 impl IServerAction {
@@ -1137,6 +1153,7 @@ impl IServerAction {
             IServerAction::GenerateKeyRes(_) => "GenerateKeyRes",
             IServerAction::GetObjectHistoryRes(_) => "GetObjectHistoryRes",
             IServerAction::GetObjectIdRes(_) => "GetObjectIdRes",
+            IServerAction::GetSecretRes(_) => "GetSecretRes",
             IServerAction::HostDown(_) => "HostDown",
             IServerAction::HostUp(_) => "HostUp",
             IServerAction::MessageTextRep(_) => "MessageTextRep",
@@ -1196,6 +1213,7 @@ pub enum IClientAction {
     StartDeployment(IStartDeployment),
     StopDeployment(IStopDeployment),
     ToggleDeploymentObject(IToggleDeploymentObject),
+    GetSecret(IGetSecret),
 }
 
 impl IClientAction {
@@ -1237,6 +1255,7 @@ impl IClientAction {
             IClientAction::StopDeployment(_) => "StopDeployment",
             IClientAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
             IClientAction::MarkDeployed(_) => "MarkDeployed",
+            IClientAction::GetSecret(_) => "GetSecret",
         }
     }
 }
@@ -1338,6 +1357,8 @@ pub fn export_ts() -> Vec<String> {
         IRunCommandTerminate::export_to_string().unwrap(),
         IRunCommandOutput::export_to_string().unwrap(),
         IRunCommandFinished::export_to_string().unwrap(),
+        IGetSecret::export_to_string().unwrap(),
+        IGetObjectIdRes::export_to_string().unwrap(),
         IServerAction::export_to_string().unwrap(),
         IClientAction::export_to_string().unwrap(),
     ]

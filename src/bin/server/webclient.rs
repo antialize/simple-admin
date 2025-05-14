@@ -56,7 +56,8 @@ use axum::{
 };
 use sadmin2::{
     action_types::{
-        IClientAction, IRunCommand, IRunCommandFinished, IRunCommandOutput, IServerAction,
+        IClientAction, IGetSecretRes, IRunCommand, IRunCommandFinished, IRunCommandOutput,
+        IServerAction,
     },
     client_message::{
         ClientHostMessage, DataSource, HostClientMessage, RunScriptMessage, RunScriptOutType,
@@ -585,11 +586,11 @@ os.execv(sys.argv[1], sys.argv[1:])
                 };
                 rt.set_location(file!(), line!());
                 let rows = query_as!(ObjectRow,
-                    "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`,
+                            "SELECT `id`, `type`, `name`, `content`, `category`, `version`, `comment`,
                     strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `newest` ORDER BY `id`"
-                )
-                .fetch_all(&state.db)
-                .await.context("RequestInitialState query")?;
+                        )
+                        .fetch_all(&state.db)
+                        .await.context("RequestInitialState query")?;
                 rt.set_location(file!(), line!());
 
                 let hosts_up: Vec<_> = state.host_clients.lock().unwrap().keys().cloned().collect();
@@ -770,11 +771,11 @@ os.execv(sys.argv[1], sys.argv[1:])
                 };
                 rt.set_location(file!(), line!());
                 let rows = query!(
-                    "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
-                    act.id
-                )
-                .fetch_all(&state.db)
-                .await?;
+                            "SELECT `version`, strftime('%s', `time`) AS `time`, `author` FROM `objects` WHERE `id`=?",
+                            act.id
+                        )
+                        .fetch_all(&state.db)
+                        .await?;
                 let mut history: Vec<_> = Vec::new();
                 for row in rows {
                     history.push(IGetObjectHistoryResHistory {
@@ -982,10 +983,10 @@ os.execv(sys.argv[1], sys.argv[1:])
                 }
                 rt.set_location(file!(), line!());
                 let rows = query!(
-                    "SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest` ORDER BY `id`"
-                )
-                .fetch_all(&state.db)
-                .await?;
+                            "SELECT `id`, `type`, `name`, `content` FROM `objects` WHERE `newest` ORDER BY `id`"
+                        )
+                        .fetch_all(&state.db)
+                        .await?;
                 let mut conflicts = Vec::new();
                 for r in rows {
                     if r.r#type == act.id {
@@ -1099,22 +1100,22 @@ os.execv(sys.argv[1], sys.argv[1:])
                 let time = now - 14.0 * 24.0 * 60.0 * 60.0;
                 rt.set_location(file!(), line!());
                 let rows = match query_as!(
-                    DockerImageTagRow,
-                    "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed`
+                            DockerImageTagRow,
+                            "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`, `removed`
                     FROM `docker_images`
                     WHERE `id` IN (
                         SELECT MAX(`d`.`id`) FROM `docker_images` AS `d` GROUP BY `d`.`project`, `d`.`tag`
                     ) AND (`removed` > ? OR `removed` IS NULL)",
-                    time
-                )
-                .fetch_all(&state.db)
-                .await {
-                    Ok(v) => v,
-                    Err(e) => {
-                        error!("ERROR IN QUERY {:?}", e);
-                        return Err(e.into())
-                    }
-                };
+                            time
+                        )
+                        .fetch_all(&state.db)
+                        .await {
+                            Ok(v) => v,
+                            Err(e) => {
+                                error!("ERROR IN QUERY {:?}", e);
+                                return Err(e.into())
+                            }
+                        };
                 let mut tags = Vec::new();
                 for row in rows {
                     tags.push(row.try_into().context("Mapping row")?);
@@ -1484,6 +1485,44 @@ os.execv(sys.argv[1], sys.argv[1:])
                 if let Some(token) = self.command_tokens.lock().unwrap().get(&act.id) {
                     token.cancel();
                 }
+            }
+            IClientAction::GetSecret(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+
+                let vars = if let Some(hostname) = &act.host {
+                    let row = query!(
+                        "SELECT `id` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`",
+                        HOST_ID,
+                        hostname
+                    )
+                    .fetch_optional(&state.db)
+                    .await?;
+                    if let Some(row) = row {
+                        db::get_host_variables(state, row.id).await?
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                let vars = match vars {
+                    Some(v) => v,
+                    None => db::get_root_variables(state).await?,
+                };
+
+                let value = vars.get(&*act.name).map(|v| v.to_string());
+                self.send_message(
+                    &rt,
+                    IServerAction::GetSecretRes(IGetSecretRes {
+                        name: act.name,
+                        host: act.host,
+                        value,
+                    }),
+                )
+                .await?;
             }
         }
         Ok(())
