@@ -89,4 +89,4 @@ ts-rs = {version="10", features = ["serde-compat", "chrono-impl", "serde-json-im
 uuid = {version="1", features = ["v4", "serde"], optional = true}
 webpki = "0.22"
 webpki-roots = "1"
-zip = {version= "2",  default-features = false, features=['deflate']}
+zip = {version= "4",  default-features = false, features=['deflate']}
