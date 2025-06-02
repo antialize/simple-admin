@@ -299,7 +299,7 @@ pub async fn run_exec(args: Exec) -> Result<()> {
 #[derive(Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 struct LogLine<'a> {
-    message: Option<std::borrow::Cow<'a, String>>,
+    message: Option<std::borrow::Cow<'a, str>>,
     instance: Option<&'a str>,
     __realtime_timestamp: Option<&'a str>,
 }
