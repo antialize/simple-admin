@@ -1956,10 +1956,14 @@ It will be hard killed in {:?} if it does not stop before that. ",
             env.push((k.clone(), v.clone()));
         }
         for (k, v) in desc.env.iter() {
-            env.push((k.clone(), v.clone()));
+            if let Some(v) = v {
+                env.push((k.clone(), v.clone()));
+            }
         }
         for (k, v) in desc.pod_env.iter() {
-            env.push((k.clone(), v.clone()));
+            if let Some(v) = v {
+                env.push((k.clone(), v.clone()));
+            }
         }
         let (sp, pod_name) = if let Some(exec) = &desc.service_executable {
             env.push(("NOTIFY_SOCKET".to_string(), notify_path.clone()));
