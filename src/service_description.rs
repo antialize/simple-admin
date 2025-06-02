@@ -337,9 +337,9 @@ pub struct ServiceDescription {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pod_options: Vec<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub env: HashMap<String, String>,
+    pub env: HashMap<String, Option<String>>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub pod_env: HashMap<String, String>,
+    pub pod_env: HashMap<String, Option<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlap_stop_signal: Option<Signal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -365,7 +365,7 @@ mod tests {
     use crate::service_description::{ServiceDescription, Subcert};
 
     #[test]
-    fn service_escription() {
+    fn service_description() {
         let sd: ServiceDescription = serde_yaml::from_str(
             "
 name: Hat
@@ -390,5 +390,20 @@ ssl_subcert: a
         )
         .unwrap();
         assert_eq!(sd.ssl_subcert, Some(Subcert::One("a".to_string())));
+        let sd: ServiceDescription = serde_yaml::from_str(
+            "
+name: Hat
+service_type: plain
+pod_env:
+  a: null
+  b: \"null\"
+  c: none
+        ",
+        )
+        .unwrap();
+
+        assert_eq!(sd.pod_env["a"], None);
+        assert_eq!(sd.pod_env["b"].as_deref(), Some("null"));
+        assert_eq!(sd.pod_env["c"].as_deref(), Some("none"));
     }
 }
