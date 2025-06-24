@@ -36,6 +36,14 @@ pub struct UserContent {
     pub password: String,
     #[serde(rename = "otp_base32")]
     pub otp_base32: String,
+    #[serde(default)]
+    pub first_name: Option<String>,
+    #[serde(default)]
+    pub last_name: Option<String>,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub system: bool,
 }
 
 const USER_ID: i64 = 4;
