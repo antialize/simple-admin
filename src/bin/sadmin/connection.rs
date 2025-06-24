@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
+use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use sadmin2::action_types::{
     IClientAction, IGenerateKey, ILogin, IRequestAuthStatus, IServerAction, Ref,
@@ -11,6 +12,7 @@ use std::{
     fs::OpenOptions,
     io::{BufRead, Write},
     path::PathBuf,
+    sync::atomic::AtomicU64,
 };
 use tokio_tungstenite::tungstenite::Message as WSMessage;
 
@@ -36,6 +38,126 @@ pub struct Config {
 
 type Wss =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+pub struct ConnectionSend {
+    send: futures::stream::SplitSink<Wss, WSMessage>,
+}
+
+impl ConnectionSend {
+    pub async fn send_message_str(&mut self, msg: String) -> Result<()> {
+        self.send.send(WSMessage::text(msg)).await?;
+        Ok(())
+    }
+
+    pub async fn ping(&mut self) -> Result<()> {
+        self.send
+            .send(WSMessage::Ping(([42, 41]).as_slice().into()))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn pong(&mut self, v: Bytes) -> Result<()> {
+        self.send.send(WSMessage::Pong(v)).await?;
+        Ok(())
+    }
+
+    pub async fn close(&mut self) -> Result<()> {
+        self.send.close().await?;
+        Ok(())
+    }
+
+    pub fn into2(self) -> std::sync::Arc<ConnectionSend2> {
+        std::sync::Arc::new(ConnectionSend2 {
+            idc: AtomicU64::new(2),
+            response_handlers: Default::default(),
+            send: tokio::sync::Mutex::new(self),
+        })
+    }
+}
+
+pub struct ConnectionSend2 {
+    idc: AtomicU64,
+    response_handlers: std::sync::Mutex<
+        std::collections::HashMap<u64, tokio::sync::oneshot::Sender<IServerAction>>,
+    >,
+    send: tokio::sync::Mutex<ConnectionSend>,
+}
+
+impl ConnectionSend2 {
+    pub fn next_id(&self) -> u64 {
+        self.idc.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub async fn send_message_with_response(&self, msg: &IClientAction) -> Result<IServerAction> {
+        let msg_id = msg.msg_id().context("No message id")?;
+        let m = serde_json::to_string(msg)?;
+        let (s, r) = tokio::sync::oneshot::channel();
+        self.response_handlers.lock().unwrap().insert(msg_id, s);
+        self.send.lock().await.send_message_str(m).await?;
+        let r = r.await.context("r failed")?;
+        if let IServerAction::Response(r) = &r {
+            if let Some(e) = &r.error {
+                bail!("Remote error: {}", e);
+            }
+        }
+        Ok(r)
+    }
+
+    pub fn handle_response(&self, msg_id: u64, act: IServerAction) {
+        if let Some(v) = self.response_handlers.lock().unwrap().remove(&msg_id) {
+            let _ = v.send(act);
+        }
+    }
+
+    pub async fn ping(&self) -> Result<()> {
+        self.send.lock().await.ping().await
+    }
+
+    pub async fn pong(&self, v: Bytes) -> Result<()> {
+        self.send.lock().await.pong(v).await
+    }
+
+    pub async fn close(&self) -> Result<()> {
+        self.send.lock().await.close().await
+    }
+}
+
+#[allow(clippy::large_enum_variant)]
+pub enum ConnectionRecvRes {
+    Message(IServerAction),
+    SendPong(Bytes),
+}
+
+pub struct ConnectionRecv {
+    recv: futures::stream::SplitStream<Wss>,
+}
+
+impl ConnectionRecv {
+    pub async fn recv(&mut self) -> Result<ConnectionRecvRes> {
+        loop {
+            let msg = match self.recv.next().await.context("Expected package")?? {
+                WSMessage::Text(msg) => msg.into(),
+                WSMessage::Binary(msg) => msg,
+                WSMessage::Ping(v) => {
+                    return Ok(ConnectionRecvRes::SendPong(v));
+                }
+                WSMessage::Pong(_) => continue,
+                WSMessage::Close(_) => continue,
+                WSMessage::Frame(_) => continue,
+            };
+            match serde_json::from_slice(&msg) {
+                Ok(v) => break Ok(ConnectionRecvRes::Message(v)),
+                Err(e) => eprintln!(
+                    "Invalid message: {:?} at {}:{}\n{}",
+                    e,
+                    e.line(),
+                    e.column(),
+                    String::from_utf8_lossy(&msg)
+                ),
+            }
+        }
+    }
+}
 
 pub struct Connection {
     pub cookie_file: PathBuf,
@@ -362,5 +484,10 @@ impl Connection {
         self.user = Some(user);
 
         Ok(())
+    }
+
+    pub fn split(self) -> (ConnectionSend, ConnectionRecv) {
+        let (send, recv) = self.stream.split();
+        (ConnectionSend { send }, ConnectionRecv { recv })
     }
 }

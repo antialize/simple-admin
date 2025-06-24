@@ -20,6 +20,7 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::BytesMut;
 use futures::{future, pin_mut};
 use log::{debug, error, info, warn};
+use nix::{sys::signal::Signal, unistd::Pid};
 use reqwest::Url;
 use serde::Deserialize;
 use tokio::{
@@ -28,7 +29,8 @@ use tokio::{
         TcpStream, UnixStream,
         unix::{OwnedReadHalf, OwnedWriteHalf},
     },
-    process::ChildStdin,
+    pin,
+    process::{Child, ChildStdin},
     select,
     sync::{
         Notify,
@@ -37,12 +39,12 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::{TlsConnector, client::TlsStream, rustls};
-use tokio_tasks::{CancelledError, RunToken, TaskBase, TaskBuilder, cancelable};
+use tokio_tasks::{CancelledError, RunToken, Task, TaskBase, TaskBuilder, cancelable};
 
 use sadmin2::client_message::{
-    ClientHostMessage, DataMessage, DataSource, DeployServiceMessage, FailureMessage, FailureType,
-    HostClientMessage, RunInstantMessage, RunInstantStdinOutputType, RunScriptMessage,
-    RunScriptOutType, RunScriptStdinType, SuccessMessage,
+    ClientHostMessage, CommandSpawnMessage, DataMessage, DataSource, DeployServiceMessage,
+    FailureMessage, FailureType, HostClientMessage, RunInstantMessage, RunInstantStdinOutputType,
+    RunScriptMessage, RunScriptOutType, RunScriptStdinType, SuccessMessage,
 };
 
 use sadmin2::service_description::ServiceDescription;
@@ -103,6 +105,21 @@ pub struct ClientDaemon {
 pub type PersistMessageSender =
     tokio::sync::oneshot::Sender<(persist_daemon::Message, Option<OwnedFd>)>;
 
+enum SocketWrite {
+    Unix(tokio::net::unix::OwnedWriteHalf),
+    Tcp(tokio::net::tcp::OwnedWriteHalf),
+}
+
+enum SocketRead {
+    Unix(tokio::net::unix::OwnedReadHalf),
+    Tcp(tokio::net::tcp::OwnedReadHalf),
+}
+
+pub struct Socket {
+    task: Arc<Task<(), anyhow::Error>>,
+    write: tokio::sync::Mutex<Option<SocketWrite>>,
+}
+
 pub struct Client {
     connector: TlsConnector,
     pub config: Config,
@@ -119,6 +136,11 @@ pub struct Client {
     persist_sender: tokio::sync::Mutex<OwnedWriteHalf>,
     password: String,
     metrics_token: Option<String>,
+    sockets: Mutex<HashMap<u64, Arc<Socket>>>,
+
+    command_pids: Mutex<HashMap<u64, u32>>,
+    command_stdins: Mutex<HashMap<u64, Arc<tokio::sync::Mutex<ChildStdin>>>>,
+
     pub db: Mutex<rusqlite::Connection>,
     pub dead_process_handlers: Mutex<HashMap<String, tokio::sync::oneshot::Sender<i32>>>,
 
@@ -660,6 +682,392 @@ impl Client {
         }
     }
 
+    async fn send_result(self: Arc<Self>, id: u64, r: Result<()>) {
+        match r {
+            Ok(_) => {
+                self.send_message(ClientHostMessage::Success(SuccessMessage {
+                    id,
+                    ..Default::default()
+                }))
+                .await;
+            }
+            Err(e) => {
+                self.send_message(ClientHostMessage::Failure(FailureMessage {
+                    id,
+                    message: Some(format!("{:?}", e)),
+                    ..Default::default()
+                }))
+                .await;
+            }
+        }
+    }
+
+    async fn handle_socket(
+        self: Arc<Self>,
+        socket_id: u64,
+        rt: RunToken,
+        mut r: SocketRead,
+    ) -> Result<()> {
+        let mut buf = BytesMut::with_capacity(1024 * 64);
+        loop {
+            let r = match &mut r {
+                SocketRead::Unix(r) => cancelable(&rt, r.read_buf(&mut buf)).await,
+                SocketRead::Tcp(r) => cancelable(&rt, r.read_buf(&mut buf)).await,
+            };
+            match r {
+                Ok(Ok(0)) => break,
+                Ok(Ok(_)) => (),
+                Ok(Err(_)) => break,
+                Err(_) => {
+                    self.sockets.lock().unwrap().remove(&socket_id);
+                    return Ok(());
+                }
+            }
+            let data = BASE64_STANDARD.encode(&buf);
+            self.send_message(ClientHostMessage::SocketRecv {
+                socket_id,
+                data: Some(data),
+            })
+            .await;
+            buf.clear();
+        }
+        self.send_message(ClientHostMessage::SocketRecv {
+            socket_id,
+            data: None,
+        })
+        .await;
+        self.sockets.lock().unwrap().remove(&socket_id);
+        Ok(())
+    }
+
+    async fn handle_socket_connect_inner(
+        self: &Arc<Self>,
+        socket_id: u64,
+        dst: String,
+    ) -> Result<()> {
+        if self.sockets.lock().unwrap().contains_key(&socket_id) {
+            bail!("socket_id already in use");
+        }
+        let (r, w) = if dst.contains(':') && !dst.contains("/") {
+            let s = tokio::net::TcpStream::connect(&dst)
+                .await
+                .with_context(|| format!("Unable to connect to {}", dst))?;
+            let (r, w) = s.into_split();
+            (SocketRead::Tcp(r), SocketWrite::Tcp(w))
+        } else {
+            let s = tokio::net::UnixStream::connect(&dst)
+                .await
+                .with_context(|| format!("Unable to connect to {}", dst))?;
+            let (r, w) = s.into_split();
+            (SocketRead::Unix(r), SocketWrite::Unix(w))
+        };
+        let s2 = self.clone();
+        let task = TaskBuilder::new(format!("handle_tcp_socket_{}", socket_id))
+            .shutdown_order(-99)
+            .create(|rt| async move { s2.handle_socket(socket_id, rt, r).await });
+
+        self.sockets.lock().unwrap().insert(
+            socket_id,
+            Arc::new(Socket {
+                task,
+                write: tokio::sync::Mutex::new(Some(w)),
+            }),
+        );
+        Ok(())
+    }
+
+    async fn handle_socket_connect(self: Arc<Self>, id: u64, socket_id: u64, dst: String) {
+        let r = self.handle_socket_connect_inner(socket_id, dst).await;
+        self.send_result(id, r).await;
+    }
+
+    async fn handle_socket_close_inner(self: &Arc<Self>, socket_id: u64) -> Result<()> {
+        let conn = self
+            .sockets
+            .lock()
+            .unwrap()
+            .remove(&socket_id)
+            .with_context(|| format!("Unknown socket {}", socket_id))?;
+        conn.task.run_token().cancel();
+        if let Err(e) = conn.task.clone().wait().await {
+            match e {
+                tokio_tasks::WaitError::HandleUnset(e) => bail!("Handle unset {}", e),
+                tokio_tasks::WaitError::JoinError(e) => bail!("Join error {:?}", e),
+                tokio_tasks::WaitError::TaskFailure(_) => (),
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_socket_close(self: Arc<Self>, id: u64, socket_id: u64) {
+        let r = self.handle_socket_close_inner(socket_id).await;
+        self.send_result(id, r).await;
+    }
+
+    async fn handle_socket_send_inner(
+        self: &Arc<Self>,
+        socket_id: u64,
+        data: Option<String>,
+    ) -> Result<()> {
+        let conn = self
+            .sockets
+            .lock()
+            .unwrap()
+            .get(&socket_id)
+            .with_context(|| format!("Unknown socket {}", socket_id))?
+            .clone();
+        if let Some(data) = data {
+            let mut conn = conn.write.lock().await;
+            let Some(w) = &mut *conn else {
+                bail!("Write half closed");
+            };
+            match w {
+                SocketWrite::Unix(w) => {
+                    w.write_all(&BASE64_STANDARD.decode(&data)?).await?;
+                    w.flush().await?;
+                }
+                SocketWrite::Tcp(w) => {
+                    w.write_all(&BASE64_STANDARD.decode(&data)?).await?;
+                    w.flush().await?;
+                }
+            }
+        } else {
+            let w = conn.write.lock().await.take();
+            if let Some(mut w) = w {
+                match &mut w {
+                    SocketWrite::Unix(w) => w.shutdown().await?,
+                    SocketWrite::Tcp(w) => w.shutdown().await?,
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_socket_send(self: Arc<Self>, id: u64, socket_id: u64, data: Option<String>) {
+        let r = self.handle_socket_send_inner(socket_id, data).await;
+        self.send_result(id, r).await;
+    }
+
+    pub async fn handle_command(
+        self: Arc<Self>,
+        rt: RunToken,
+        mut child: Child,
+        command_id: u64,
+    ) -> Result<()> {
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+
+        let mut do_handle_stdout = true;
+        let s2: Arc<Client> = self.clone();
+        let handle_stdout = async move {
+            let Some(mut fd) = stdout else {
+                return Ok::<_, anyhow::Error>(());
+            };
+            let mut buf = BytesMut::with_capacity(64 * 1024);
+            loop {
+                buf.clear();
+                match fd.read_buf(&mut buf).await {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        s2.send_message(ClientHostMessage::CommandStdout {
+                            command_id,
+                            data: Some(BASE64_STANDARD.encode(&buf)),
+                        })
+                        .await;
+                    }
+                    Err(e) => bail!("Failed to read from child {:?}", e),
+                }
+            }
+            s2.send_message(ClientHostMessage::CommandStdout {
+                command_id,
+                data: None,
+            })
+            .await;
+            Ok(())
+        };
+
+        let mut do_handle_stderr = true;
+        let s2: Arc<Client> = self.clone();
+        let handle_stderr = async move {
+            let Some(mut fd) = stderr else {
+                return Ok::<_, anyhow::Error>(());
+            };
+            let mut buf = BytesMut::with_capacity(64 * 1024);
+            loop {
+                buf.clear();
+                match fd.read_buf(&mut buf).await {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        s2.send_message(ClientHostMessage::CommandStderr {
+                            command_id,
+                            data: Some(BASE64_STANDARD.encode(&buf)),
+                        })
+                        .await;
+                    }
+                    Err(e) => bail!("Failed to read from child {:?}", e),
+                }
+            }
+            s2.send_message(ClientHostMessage::CommandStderr {
+                command_id,
+                data: None,
+            })
+            .await;
+            Ok(())
+        };
+
+        pin!(handle_stdout, handle_stderr);
+
+        while do_handle_stdout || do_handle_stderr {
+            select! {
+                _ = rt.cancelled() => {
+                    return Ok(())
+                },
+                r = &mut handle_stdout, if do_handle_stdout => {
+                    r?;
+                    do_handle_stdout = false;
+                },
+                r = &mut handle_stderr, if do_handle_stderr => {
+                    r?;
+                    do_handle_stderr = false;
+                }
+            }
+        }
+
+        let r = cancelable(&rt, child.wait()).await;
+        self.command_pids.lock().unwrap().remove(&command_id);
+        self.command_stdins.lock().unwrap().remove(&command_id);
+        let w = r??;
+        let code = w.code().unwrap_or_default();
+        let signal = w.signal();
+
+        self.send_message(ClientHostMessage::CommandFinished {
+            command_id,
+            code,
+            signal,
+        })
+        .await;
+        Ok(())
+    }
+
+    pub async fn handle_command_spawn_inner(
+        self: &Arc<Self>,
+        msg: CommandSpawnMessage,
+    ) -> Result<()> {
+        if self
+            .command_pids
+            .lock()
+            .unwrap()
+            .contains_key(&msg.command_id)
+        {
+            bail!("command_id is is use");
+        }
+        let mut cmd = tokio::process::Command::new(msg.program);
+        cmd.args(msg.args);
+        if let Some(env) = msg.env {
+            cmd.envs(env);
+        }
+        if let Some(cwd) = msg.cwd {
+            cmd.current_dir(cwd);
+        }
+
+        if msg.forward_stdin {
+            cmd.stdin(Stdio::piped());
+        } else {
+            cmd.stdin(Stdio::null());
+        }
+        if msg.forward_stdout {
+            cmd.stdout(Stdio::piped());
+        } else {
+            cmd.stdout(Stdio::null());
+        }
+        if msg.forward_stderr {
+            cmd.stderr(Stdio::piped());
+        } else {
+            cmd.stderr(Stdio::null());
+        }
+        cmd.kill_on_drop(true);
+
+        let mut child = cmd.spawn().context("Failed to spawn command")?;
+
+        self.command_pids
+            .lock()
+            .unwrap()
+            .insert(msg.command_id, child.id().context("missing pid")?);
+        if let Some(stdin) = child.stdin.take() {
+            self.command_stdins
+                .lock()
+                .unwrap()
+                .insert(msg.command_id, Arc::new(tokio::sync::Mutex::new(stdin)));
+        }
+
+        let s2 = self.clone();
+        TaskBuilder::new(format!("handle_command_{}", msg.command_id))
+            .shutdown_order(0)
+            .create(|rt| async move { s2.handle_command(rt, child, msg.command_id).await });
+
+        Ok(())
+    }
+
+    pub async fn handle_command_spawn(self: Arc<Self>, msg: CommandSpawnMessage) {
+        let id = msg.id;
+        let r = self.handle_command_spawn_inner(msg).await;
+        self.send_result(id, r).await;
+    }
+
+    pub async fn handle_command_stdin_inner(
+        self: &Arc<Self>,
+        command_id: u64,
+        data: Option<String>,
+    ) -> Result<()> {
+        if let Some(data) = data {
+            let data = BASE64_STANDARD.decode(&data)?;
+            let Some(stdin) = self
+                .command_stdins
+                .lock()
+                .unwrap()
+                .get(&command_id)
+                .cloned()
+            else {
+                bail!("Stdin is closed");
+            };
+            let mut stdin = stdin.lock().await;
+            stdin.write_all(&data).await?;
+            stdin.flush().await?;
+        } else {
+            self.command_stdins.lock().unwrap().remove(&command_id);
+        }
+        Ok(())
+    }
+
+    pub async fn handle_command_stdin(
+        self: Arc<Self>,
+        id: u64,
+        command_id: u64,
+        data: Option<String>,
+    ) {
+        let r = self.handle_command_stdin_inner(command_id, data).await;
+        self.send_result(id, r).await;
+    }
+
+    pub async fn handle_command_signal_inner(
+        self: &Arc<Self>,
+        command_id: u64,
+        signal: i32,
+    ) -> Result<()> {
+        let Some(pid) = self.command_pids.lock().unwrap().get(&command_id).copied() else {
+            bail!("Command not found");
+        };
+        let signal = Signal::try_from(signal)?;
+        let pid = Pid::from_raw(pid as libc::pid_t);
+        nix::sys::signal::kill(pid, signal).context("Kill failed")?;
+        Ok(())
+    }
+
+    pub async fn handle_command_signal(self: Arc<Self>, id: u64, command_id: u64, signal: i32) {
+        let r = self.handle_command_signal_inner(command_id, signal).await;
+        self.send_result(id, r).await;
+    }
+
     fn handle_message(self: &Arc<Self>, message: HostClientMessage) {
         match message {
             HostClientMessage::Data(d) => {
@@ -721,6 +1129,36 @@ impl Client {
                 mode,
             } => {
                 tokio::spawn(self.clone().handle_write_file(id, path, content, mode));
+            }
+            HostClientMessage::SocketConnect { id, socket_id, dst } => {
+                tokio::spawn(self.clone().handle_socket_connect(id, socket_id, dst));
+            }
+            HostClientMessage::SocketClose { id, socket_id } => {
+                tokio::spawn(self.clone().handle_socket_close(id, socket_id));
+            }
+            HostClientMessage::SocketSend {
+                id,
+                socket_id,
+                data,
+            } => {
+                tokio::spawn(self.clone().handle_socket_send(id, socket_id, data));
+            }
+            HostClientMessage::CommandSpawn(msg) => {
+                tokio::spawn(self.clone().handle_command_spawn(msg));
+            }
+            HostClientMessage::CommandStdin {
+                id,
+                command_id,
+                data,
+            } => {
+                tokio::spawn(self.clone().handle_command_stdin(id, command_id, data));
+            }
+            HostClientMessage::CommandSignal {
+                id,
+                command_id,
+                signal,
+            } => {
+                tokio::spawn(self.clone().handle_command_signal(id, command_id, signal));
             }
         }
     }
@@ -1645,6 +2083,9 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
         journal_socket,
         password,
         metrics_token,
+        sockets: Default::default(),
+        command_pids: Default::default(),
+        command_stdins: Default::default(),
     });
 
     TaskBuilder::new("run_control")

@@ -7,7 +7,6 @@ edition = "2024"
 server = [
     "axum",
     "base32",
-    "futures",
     "hex",
     "libc",
     "log",
@@ -31,7 +30,6 @@ daemon = [
     "sdnotify",
     "tempfile",
     "tokio-tasks",
-    "futures",
 ]
 nix = ["dep:nix"]
 
@@ -52,7 +50,7 @@ cgroups-rs = {version = "0.2", optional=true}
 chrono = {version = "0.4", default-features = false, features = ["std", "clock"], optional=true}
 clap = {version = "4", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}
 dirs = "6"
-futures = {version = "0.3", optional = true}
+futures = {version = "0.3" }
 futures-util = "0.3"
 hex = {version = "0.4", optional = true}
 http-body-util = "0.1"

@@ -102,7 +102,7 @@ pub struct FailureMessage {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SuccessMessage {
     pub id: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -123,6 +123,21 @@ pub struct DeployServiceMessage {
     pub extra_env: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CommandSpawnMessage {
+    pub id: u64,
+    pub command_id: u64,
+    pub program: String,
+    pub args: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub env: Option<HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    pub forward_stdin: bool,
+    pub forward_stdout: bool,
+    pub forward_stderr: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -149,6 +164,31 @@ pub enum HostClientMessage {
         content: String,
         mode: Option<u32>,
     },
+    SocketConnect {
+        id: u64,
+        socket_id: u64,
+        dst: String,
+    },
+    SocketClose {
+        id: u64,
+        socket_id: u64,
+    },
+    SocketSend {
+        id: u64,
+        socket_id: u64,
+        data: Option<String>,
+    },
+    CommandSpawn(CommandSpawnMessage),
+    CommandStdin {
+        id: u64,
+        command_id: u64,
+        data: Option<String>,
+    },
+    CommandSignal {
+        id: u64,
+        command_id: u64,
+        signal: i32,
+    },
 }
 
 impl HostClientMessage {
@@ -164,6 +204,12 @@ impl HostClientMessage {
             HostClientMessage::Ping { .. } => None,
             HostClientMessage::ReadFile { id, .. } => Some(*id),
             HostClientMessage::WriteFile { id, .. } => Some(*id),
+            HostClientMessage::SocketConnect { id, .. } => Some(*id),
+            HostClientMessage::SocketClose { id, .. } => Some(*id),
+            HostClientMessage::SocketSend { id, .. } => Some(*id),
+            HostClientMessage::CommandSpawn(msg) => Some(msg.id),
+            HostClientMessage::CommandStdin { id, .. } => Some(*id),
+            HostClientMessage::CommandSignal { id, .. } => Some(*id),
         }
     }
 
@@ -177,6 +223,12 @@ impl HostClientMessage {
             HostClientMessage::DeployService(_) => "deploy_service",
             HostClientMessage::ReadFile { .. } => "read_file",
             HostClientMessage::WriteFile { .. } => "read_file",
+            HostClientMessage::SocketConnect { .. } => "socket_connect",
+            HostClientMessage::SocketClose { .. } => "socket_close",
+            HostClientMessage::SocketSend { .. } => "socket_send",
+            HostClientMessage::CommandSpawn(_) => "command_run",
+            HostClientMessage::CommandStdin { .. } => "command_stdin",
+            HostClientMessage::CommandSignal { .. } => "command_signal",
         }
     }
 }
@@ -199,6 +251,26 @@ pub enum ClientHostMessage {
         // Base64 encoded
         content: String,
     },
+    SocketRecv {
+        socket_id: u64,
+        // Base64 encoded
+        data: Option<String>,
+    },
+    CommandStdout {
+        command_id: u64,
+        // Base64 encoded
+        data: Option<String>,
+    },
+    CommandStderr {
+        command_id: u64,
+        // Base64 encoded
+        data: Option<String>,
+    },
+    CommandFinished {
+        command_id: u64,
+        code: i32,
+        signal: Option<i32>,
+    },
 }
 
 impl ClientHostMessage {
@@ -209,6 +281,10 @@ impl ClientHostMessage {
             ClientHostMessage::Data(data_message) => Some(data_message.id),
             ClientHostMessage::Auth { .. } | ClientHostMessage::Pong { .. } => None,
             ClientHostMessage::ReadFileResult { id, .. } => Some(*id),
+            ClientHostMessage::SocketRecv { .. } => None,
+            ClientHostMessage::CommandStdout { .. } => None,
+            ClientHostMessage::CommandStderr { .. } => None,
+            ClientHostMessage::CommandFinished { .. } => None,
         }
     }
 
@@ -220,6 +296,10 @@ impl ClientHostMessage {
             ClientHostMessage::Success(_) => "success",
             ClientHostMessage::Data(_) => "data",
             ClientHostMessage::ReadFileResult { .. } => "read_file_result",
+            ClientHostMessage::SocketRecv { .. } => "socket_recv",
+            ClientHostMessage::CommandStdout { .. } => "command_stdout",
+            ClientHostMessage::CommandStderr { .. } => "command_stderr",
+            ClientHostMessage::CommandFinished { .. } => "command_finished",
         }
     }
 }

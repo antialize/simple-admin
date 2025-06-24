@@ -9,9 +9,9 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use sqlx_type::{query, query_as};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
     time::Duration,
 };
 use tokio::net::TcpListener;
@@ -36,7 +36,7 @@ use crate::{
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     docker_web,
     get_auth::get_auth,
-    hostclient::JobHandle,
+    hostclient::{HostClient, JobHandle},
     modified_files, msg, setup,
     state::State,
     terminal,
@@ -56,12 +56,13 @@ use axum::{
 };
 use sadmin2::{
     action_types::{
-        IClientAction, IGetSecretRes, IRunCommand, IRunCommandFinished, IRunCommandOutput,
-        IServerAction,
+        IClientAction, ICommandFinished, ICommandSignal, ICommandSpawn, ICommandStderr,
+        ICommandStdin, ICommandStdout, IGetSecretRes, IResponse, IRunCommand, IRunCommandFinished,
+        IRunCommandOutput, IServerAction, ISocketClose, ISocketConnect, ISocketRecv, ISocketSend,
     },
     client_message::{
-        ClientHostMessage, DataSource, HostClientMessage, RunScriptMessage, RunScriptOutType,
-        RunScriptStdinType,
+        ClientHostMessage, CommandSpawnMessage, DataSource, HostClientMessage, RunScriptMessage,
+        RunScriptOutType, RunScriptStdinType,
     },
     finite_float::ToFinite,
     page_types::{IObjectPage, IPage},
@@ -98,6 +99,8 @@ pub struct WebClient {
     auth: Mutex<IAuthStatus>,
     run_token: RunToken,
     command_tokens: Mutex<HashMap<i64, RunToken>>,
+    pub sockets: Mutex<HashMap<u64, (u64, Weak<HostClient>)>>,
+    pub commands: Mutex<HashMap<u64, (u64, Weak<HostClient>)>>,
 }
 
 impl WebClient {
@@ -460,6 +463,353 @@ impl WebClient {
         }
     }
 
+    async fn handle_socket_messages_inner(
+        &self,
+        rt: RunToken,
+        socket_id: u64,
+        mut r: tokio::sync::mpsc::UnboundedReceiver<ClientHostMessage>,
+    ) -> Result<()> {
+        while let Ok(Ok(Some(m))) = cancelable(&self.run_token, cancelable(&rt, r.recv())).await {
+            if let ClientHostMessage::SocketRecv { data, .. } = m {
+                let end = data.is_none();
+                self.send_message(
+                    &rt,
+                    IServerAction::SocketRecv(ISocketRecv { socket_id, data }),
+                )
+                .await?;
+                if end {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_socket_messages(
+        self: Arc<Self>,
+        rt: RunToken,
+        r: tokio::sync::mpsc::UnboundedReceiver<ClientHostMessage>,
+        socket_id: u64,
+        host_socket_id: u64,
+        host: Weak<HostClient>,
+    ) -> Result<()> {
+        let r = self.handle_socket_messages_inner(rt, socket_id, r).await;
+        if let Some(host) = host.upgrade() {
+            host.socket_message_handlers
+                .lock()
+                .unwrap()
+                .remove(&host_socket_id);
+        }
+        r
+    }
+
+    pub async fn handle_socket_connect(
+        self: &Arc<Self>,
+        rt: &RunToken,
+        state: &State,
+        act: ISocketConnect,
+    ) -> Result<()> {
+        let mut host = None;
+        for hc in state.host_clients.lock().unwrap().values() {
+            if hc.hostname() == act.host {
+                host = Some(hc.clone());
+            }
+        }
+        let Some(host) = host else {
+            bail!("Unable to find host");
+        };
+        let socket_id = host.next_socket_id();
+        match self.sockets.lock().unwrap().entry(act.socket_id) {
+            Entry::Occupied(_) => bail!("Socket id in use"),
+            Entry::Vacant(e) => {
+                e.insert((socket_id, Arc::downgrade(&host)));
+            }
+        }
+
+        let (s, r) = tokio::sync::mpsc::unbounded_channel();
+        TaskBuilder::new("socket_message_forwarder")
+            .shutdown_order(-1)
+            .create(|rt| {
+                self.clone().handle_socket_messages(
+                    rt,
+                    r,
+                    act.socket_id,
+                    socket_id,
+                    Arc::downgrade(&host),
+                )
+            });
+
+        host.socket_message_handlers
+            .lock()
+            .unwrap()
+            .insert(socket_id, s);
+
+        let r = cancelable(
+            rt,
+            host.send_message_with_response(&HostClientMessage::SocketConnect {
+                id: host.next_job_id(),
+                socket_id,
+                dst: act.dst,
+            }),
+        )
+        .await;
+        if !matches!(r, Ok(Ok(_))) {
+            self.sockets.lock().unwrap().remove(&act.socket_id);
+            host.socket_message_handlers
+                .lock()
+                .unwrap()
+                .remove(&socket_id);
+        }
+        if let Ok(r) = r {
+            r?;
+        }
+        Ok(())
+    }
+
+    pub async fn handle_socket_close(
+        self: &Arc<Self>,
+        rt: &RunToken,
+        act: ISocketClose,
+    ) -> Result<()> {
+        let (socket_id, host) = self
+            .sockets
+            .lock()
+            .unwrap()
+            .remove(&act.socket_id)
+            .with_context(|| format!("Unknown socket_id {}", act.socket_id))?;
+        let host = host.upgrade().context("Dead host")?;
+        host.socket_message_handlers
+            .lock()
+            .unwrap()
+            .remove(&socket_id);
+        cancelable(
+            rt,
+            host.send_message_with_response(&HostClientMessage::SocketClose {
+                id: host.next_job_id(),
+                socket_id,
+            }),
+        )
+        .await??;
+        Ok(())
+    }
+
+    pub async fn handle_socket_send(
+        self: &Arc<Self>,
+        rt: &RunToken,
+        act: ISocketSend,
+    ) -> Result<()> {
+        let (socket_id, host) = match self.sockets.lock().unwrap().entry(act.socket_id) {
+            Entry::Occupied(mut e) => match e.get_mut().1.upgrade() {
+                Some(v) => (e.get().0, v),
+                None => {
+                    e.remove();
+                    bail!("Dead host")
+                }
+            },
+            Entry::Vacant(_) => bail!("Unknown socket_id {}", act.socket_id),
+        };
+        cancelable(
+            rt,
+            host.send_message_with_response(&HostClientMessage::SocketSend {
+                id: host.next_job_id(),
+                socket_id,
+                data: act.data,
+            }),
+        )
+        .await??;
+        Ok(())
+    }
+
+    async fn handle_command_messages_inner(
+        &self,
+        rt: RunToken,
+        mut r: tokio::sync::mpsc::UnboundedReceiver<ClientHostMessage>,
+        command_id: u64,
+    ) -> Result<()> {
+        while let Ok(Ok(Some(m))) = cancelable(&self.run_token, cancelable(&rt, r.recv())).await {
+            match m {
+                ClientHostMessage::CommandStdout { data, .. } => {
+                    self.send_message(
+                        &rt,
+                        IServerAction::CommandStdout(ICommandStdout { command_id, data }),
+                    )
+                    .await?;
+                }
+                ClientHostMessage::CommandStderr { data, .. } => {
+                    self.send_message(
+                        &rt,
+                        IServerAction::CommandStderr(ICommandStderr { command_id, data }),
+                    )
+                    .await?;
+                }
+                ClientHostMessage::CommandFinished { code, signal, .. } => {
+                    self.send_message(
+                        &rt,
+                        IServerAction::CommandFinished(ICommandFinished {
+                            command_id,
+                            code,
+                            signal,
+                        }),
+                    )
+                    .await?;
+                }
+                _ => (),
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn handle_command_messages(
+        self: Arc<Self>,
+        rt: RunToken,
+        r: tokio::sync::mpsc::UnboundedReceiver<ClientHostMessage>,
+        command_id: u64,
+        host_command_id: u64,
+        h: Weak<HostClient>,
+    ) -> Result<()> {
+        let r = self.handle_command_messages_inner(rt, r, command_id).await;
+        if let Some(h) = h.upgrade() {
+            h.command_message_handlers
+                .lock()
+                .unwrap()
+                .remove(&host_command_id);
+        }
+        r
+    }
+
+    pub async fn handle_command_spawn(
+        self: &Arc<Self>,
+        rt: &RunToken,
+        state: &State,
+        act: ICommandSpawn,
+    ) -> Result<()> {
+        let mut host = None;
+        for hc in state.host_clients.lock().unwrap().values() {
+            if hc.hostname() == act.host {
+                host = Some(hc.clone());
+            }
+        }
+        let Some(host) = host else {
+            bail!("Unable to find host");
+        };
+        let command_id = host.next_command_id();
+        match self.commands.lock().unwrap().entry(act.command_id) {
+            Entry::Occupied(_) => bail!("command_id in use"),
+            Entry::Vacant(e) => {
+                e.insert((command_id, Arc::downgrade(&host)));
+            }
+        }
+
+        let (s, r) = tokio::sync::mpsc::unbounded_channel();
+
+        TaskBuilder::new("command_message_forwarder")
+            .shutdown_order(-1)
+            .create(|rt| {
+                self.clone().handle_command_messages(
+                    rt,
+                    r,
+                    act.command_id,
+                    command_id,
+                    Arc::downgrade(&host),
+                )
+            });
+
+        host.command_message_handlers
+            .lock()
+            .unwrap()
+            .insert(command_id, s);
+
+        let r = cancelable(
+            rt,
+            host.send_message_with_response(&HostClientMessage::CommandSpawn(
+                CommandSpawnMessage {
+                    id: host.next_job_id(),
+                    command_id,
+                    program: act.program,
+                    args: act.args,
+                    env: act.env,
+                    cwd: act.cwd,
+                    forward_stdin: act.forward_stdin,
+                    forward_stdout: act.forward_stdout,
+                    forward_stderr: act.forward_stderr,
+                },
+            )),
+        )
+        .await;
+        if !matches!(r, Ok(Ok(_))) {
+            self.commands.lock().unwrap().remove(&act.command_id);
+            host.command_message_handlers
+                .lock()
+                .unwrap()
+                .remove(&command_id);
+        }
+        Ok(())
+    }
+
+    pub async fn handle_command_stdin(
+        self: &Arc<Self>,
+        rt: &RunToken,
+        act: ICommandStdin,
+    ) -> Result<()> {
+        let (command_id, host) = match self.commands.lock().unwrap().entry(act.command_id) {
+            Entry::Occupied(mut e) => match e.get_mut().1.upgrade() {
+                Some(v) => (e.get().0, v),
+                None => {
+                    e.remove();
+                    bail!("Dead host")
+                }
+            },
+            Entry::Vacant(_) => bail!("Unknown command_id {}", act.command_id),
+        };
+        cancelable(
+            rt,
+            host.send_message_with_response(&HostClientMessage::CommandStdin {
+                id: host.next_job_id(),
+                command_id,
+                data: act.data,
+            }),
+        )
+        .await??;
+        Ok(())
+    }
+
+    pub async fn handle_command_signal(
+        self: &Arc<Self>,
+        rt: &RunToken,
+        act: ICommandSignal,
+    ) -> Result<()> {
+        let (command_id, host) = match self.commands.lock().unwrap().entry(act.command_id) {
+            Entry::Occupied(mut e) => match e.get_mut().1.upgrade() {
+                Some(v) => (e.get().0, v),
+                None => {
+                    e.remove();
+                    bail!("Dead host")
+                }
+            },
+            Entry::Vacant(_) => bail!("Unknown command_id {}", act.command_id),
+        };
+        cancelable(
+            rt,
+            host.send_message_with_response(&HostClientMessage::CommandSignal {
+                id: host.next_job_id(),
+                command_id,
+                signal: act.signal,
+            }),
+        )
+        .await??;
+        Ok(())
+    }
+
+    pub async fn send_response(&self, rt: &RunToken, msg_id: u64, r: Result<()>) -> Result<()> {
+        let error = match r {
+            Ok(_) => None,
+            Err(e) => Some(format!("{:?}", e)),
+        };
+        self.send_message(rt, IServerAction::Response(IResponse { msg_id, error }))
+            .await?;
+        Ok(())
+    }
+
     pub async fn handle_run_command_inner(
         &self,
         state: &State,
@@ -572,7 +922,7 @@ os.execv(sys.argv[1], sys.argv[1:])
     }
 
     pub async fn handle_message(
-        &self,
+        self: &Arc<Self>,
         state: &State,
         rt: RunToken,
         act: IClientAction,
@@ -1524,6 +1874,84 @@ os.execv(sys.argv[1], sys.argv[1:])
                 )
                 .await?;
             }
+            IClientAction::SocketConnect(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                let r = self.handle_socket_connect(&rt, state, act).await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
+            IClientAction::SocketClose(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                let r = self.handle_socket_close(&rt, act).await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
+            IClientAction::SocketSend(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                let r = self.handle_socket_send(&rt, act).await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
+            IClientAction::CommandSpawn(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                let r = self.handle_command_spawn(&rt, state, act).await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
+            IClientAction::CommandSignal(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                let r = self.handle_command_signal(&rt, act).await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
+            IClientAction::CommandStdin(act) => {
+                if !self.get_auth().admin {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                if state.read_only {
+                    self.close(503).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                let r = self.handle_command_stdin(&rt, act).await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
         }
         Ok(())
     }
@@ -1593,8 +2021,10 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
         remote,
         sink: TMutex::new(sink),
         auth: Default::default(),
-        run_token,
+        run_token: run_token.clone(),
         command_tokens: Default::default(),
+        commands: Default::default(),
+        sockets: Default::default(),
     });
     state
         .web_clients
@@ -1604,7 +2034,46 @@ async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: Strin
 
     let e = webclient.handle_messages(&state, source).await;
     info!("Web client disconnected {}", webclient.remote);
+    let sockets = std::mem::take(&mut *webclient.sockets.lock().unwrap());
+    let commands = std::mem::take(&mut *webclient.commands.lock().unwrap());
     state.web_clients.lock().unwrap().remove(&CmpRef(webclient));
+    run_token.cancel();
+
+    for (socket_id, host) in sockets.into_values() {
+        if let Some(host) = host.upgrade() {
+            host.socket_message_handlers
+                .lock()
+                .unwrap()
+                .remove(&socket_id);
+            if let Err(e) = host
+                .send_message(&HostClientMessage::SocketClose {
+                    id: host.next_job_id(),
+                    socket_id,
+                })
+                .await
+            {
+                warn!("Unable to sent host socket close message {e}");
+            }
+        }
+    }
+    for (command_id, host) in commands.into_values() {
+        if let Some(host) = host.upgrade() {
+            host.command_message_handlers
+                .lock()
+                .unwrap()
+                .remove(&command_id);
+            if let Err(e) = host
+                .send_message(&HostClientMessage::CommandSignal {
+                    id: host.next_job_id(),
+                    command_id,
+                    signal: 2,
+                })
+                .await
+            {
+                warn!("Unable to send command kill {e}");
+            }
+        }
+    }
     e?;
     Ok(())
 }
