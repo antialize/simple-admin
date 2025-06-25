@@ -1058,7 +1058,7 @@ impl Client {
             bail!("Command not found");
         };
         let signal = Signal::try_from(signal)?;
-        let pid = Pid::from_raw(pid as libc::pid_t);
+        let pid = Pid::from_raw(pid as nix::libc::pid_t);
         nix::sys::signal::kill(pid, signal).context("Kill failed")?;
         Ok(())
     }
