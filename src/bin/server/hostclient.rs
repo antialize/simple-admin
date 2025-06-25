@@ -33,7 +33,7 @@ use crate::{
     action_types::{IHostDown, IHostUp, IServerAction},
     crt, crypt, db,
     state::State,
-    webclient,
+    webclient::{self},
 };
 use sadmin2::type_types::HOST_ID;
 
@@ -70,9 +70,16 @@ pub struct HostClient {
     hostname: String,
     writer: TMutex<tokio::io::WriteHalf<TlsStream<TcpStream>>>,
     job_sinks: Mutex<HashMap<u64, UnboundedSender<ClientHostMessage>>>,
+    message_handlers: Mutex<HashMap<u64, tokio::sync::oneshot::Sender<ClientHostMessage>>>,
     killed_jobs: Mutex<HashSet<u64>>,
     next_job_id: AtomicU64,
     run_token: RunToken,
+    next_command_id: AtomicU64,
+    next_socket_id: AtomicU64,
+    pub command_message_handlers:
+        Mutex<HashMap<u64, tokio::sync::mpsc::UnboundedSender<ClientHostMessage>>>,
+    pub socket_message_handlers:
+        Mutex<HashMap<u64, tokio::sync::mpsc::UnboundedSender<ClientHostMessage>>>,
 }
 
 async fn write_all_and_flush(v: &mut WriteHalf<TlsStream<TcpStream>>, data: &[u8]) -> Result<()> {
@@ -105,6 +112,16 @@ impl HostClient {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
+    pub fn next_command_id(&self) -> u64 {
+        self.next_command_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub fn next_socket_id(&self) -> u64 {
+        self.next_socket_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    }
+
     pub async fn send_message(&self, msg: &HostClientMessage) -> Result<()> {
         let mut msg = serde_json::to_vec(msg)?;
         msg.push(0x1e);
@@ -133,6 +150,76 @@ impl HostClient {
             }
         }
         Ok(())
+    }
+
+    pub async fn send_message_with_response(
+        &self,
+        msg: &HostClientMessage,
+    ) -> Result<ClientHostMessage> {
+        let id = msg.job_id().context("Missing job id")?;
+        let mut msg = serde_json::to_vec(msg)?;
+        msg.push(0x1e);
+        let mut writer = cancelable(&self.run_token, self.writer.lock()).await?;
+
+        let (send, recv) = tokio::sync::oneshot::channel();
+        self.message_handlers.lock().unwrap().insert(id, send);
+
+        match cancelable(
+            &self.run_token,
+            tokio::time::timeout(
+                Duration::from_secs(60),
+                write_all_and_flush(&mut writer, &msg),
+            ),
+        )
+        .await
+        {
+            Ok(Ok(Ok(()))) => (),
+            Ok(Ok(Err(e))) => {
+                self.run_token.cancel();
+                self.message_handlers.lock().unwrap().remove(&id);
+                bail!("Failure sending message to {}: {:?}", self.hostname, e);
+            }
+            Ok(Err(_)) => {
+                self.run_token.cancel();
+                self.message_handlers.lock().unwrap().remove(&id);
+                bail!("Timeout sending message to {}", self.hostname)
+            }
+            Err(_) => {
+                self.message_handlers.lock().unwrap().remove(&id);
+                bail!("Host client aborted");
+            }
+        }
+        std::mem::drop(writer);
+
+        match cancelable(
+            &self.run_token,
+            tokio::time::timeout(Duration::from_secs(60), recv),
+        )
+        .await
+        {
+            Ok(Ok(Ok(ClientHostMessage::Failure(f)))) => {
+                bail!(
+                    "failure on host {}: {}",
+                    self.hostname,
+                    f.message.as_deref().unwrap_or_default()
+                );
+            }
+            Ok(Ok(Ok(r))) => Ok(r),
+            Ok(Ok(Err(e))) => {
+                self.run_token.cancel();
+                self.message_handlers.lock().unwrap().remove(&id);
+                bail!("Failure receiving message from {}: {:?}", self.hostname, e);
+            }
+            Ok(Err(_)) => {
+                self.run_token.cancel();
+                self.message_handlers.lock().unwrap().remove(&id);
+                bail!("Timeout receiving message from {}", self.hostname)
+            }
+            Err(_) => {
+                self.message_handlers.lock().unwrap().remove(&id);
+                bail!("Host client aborted");
+            }
+        }
     }
 
     pub async fn start_job(self: &Arc<Self>, msg: &HostClientMessage) -> Result<JobHandle> {
@@ -219,10 +306,54 @@ impl HostClient {
                                     pong_time = ping_time + FOREVER;
                                 }
                             }
+                            ClientHostMessage::SocketRecv{ socket_id, data } => {
+                                match self.socket_message_handlers.lock().unwrap().get(&socket_id) {
+                                    None => warn!("Get recv for unknows socket {}", socket_id),
+                                    Some(v) => {
+                                        if let Err(e) = v.send(ClientHostMessage::SocketRecv{ socket_id, data }) {
+                                            warn!("Failed forwarding recv message for socket {}: {:?}", socket_id, e);
+                                        }
+                                    }
+                                }
+                            }
+                            ClientHostMessage::CommandStdout{ command_id, data } => {
+                                match self.command_message_handlers.lock().unwrap().get(&command_id) {
+                                    None => warn!("Get stdout for unknown command {}", command_id),
+                                    Some(v) => {
+                                        if let Err(e) = v.send(ClientHostMessage::CommandStdout{ command_id, data }) {
+                                            warn!("Failed forwarding stdout message to command {}: {:?}", command_id, e);
+                                        }
+                                    }
+                                }
+                            }
+                            ClientHostMessage::CommandStderr{ command_id, data } => {
+                                match self.command_message_handlers.lock().unwrap().get(&command_id) {
+                                    None => warn!("Get stderr for unknown command {}", command_id),
+                                    Some(v) => {
+                                        if let Err(e) = v.send(ClientHostMessage::CommandStderr{ command_id, data }) {
+                                            warn!("Failed forwarding stderr message to command {}: {:?}", command_id, e);
+                                        }
+                                    }
+                                }
+                            }
+                            ClientHostMessage::CommandFinished{ command_id, code, signal } => {
+                                match self.command_message_handlers.lock().unwrap().get(&command_id) {
+                                    None => warn!("Get finished for unknown command {}", command_id),
+                                    Some(v) => {
+                                        if let Err(e) = v.send(ClientHostMessage::CommandFinished{ command_id, code, signal }) {
+                                            warn!("Failed forwarding finished message to command {}: {:?}", command_id, e);
+                                        }
+                                    }
+                                }
+                            }
                             msg => {
                                 if let Some(id) = msg.job_id() {
                                     if let Some(job) = self.job_sinks.lock().unwrap().get(&id) {
                                         if let Err(e) = job.send(msg) {
+                                            error!("Unable to handle job message: {:?}", e);
+                                        }
+                                    } else if let Some(s) = self.message_handlers.lock().unwrap().remove(&id) {
+                                        if let Err(e) = s.send(msg) {
                                             error!("Unable to handle job message: {:?}", e);
                                         }
                                     } else if self.clone().spawn_kill_job(id) {
@@ -478,9 +609,14 @@ async fn handle_host_client(
         hostname,
         writer: TMutex::new(writer),
         job_sinks: Default::default(),
+        message_handlers: Default::default(),
         next_job_id: AtomicU64::new(j as u64),
         run_token: run_token.clone(),
         killed_jobs: Default::default(),
+        next_command_id: AtomicU64::new(1),
+        next_socket_id: AtomicU64::new(1),
+        command_message_handlers: Default::default(),
+        socket_message_handlers: Default::default(),
     });
     if let Some(c) = state.host_clients.lock().unwrap().insert(id, hc.clone()) {
         info!(

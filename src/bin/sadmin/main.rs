@@ -27,6 +27,7 @@ mod list_deployments;
 mod list_images;
 #[cfg(feature = "daemon")]
 mod persist_daemon;
+mod port;
 mod run;
 #[cfg(feature = "daemon")]
 mod service_control;
@@ -36,6 +37,8 @@ mod tokio_passfd;
 mod upgrade;
 
 use run::{Run, Shell};
+
+use crate::port::ProxySocket;
 
 #[derive(clap::Parser)]
 #[command(name = "sadmin")]
@@ -105,6 +108,7 @@ enum Action {
     Run(Run),
     DebugServer,
     GetSecret(GetSecret),
+    ProxySocket(ProxySocket),
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -235,5 +239,6 @@ async fn main() -> Result<()> {
         Action::Run(args) => run::run(config, args).await,
         Action::DebugServer => debug_server(config).await,
         Action::GetSecret(args) => get_secret(config, args).await,
+        Action::ProxySocket(act) => port::proxy(config, act).await,
     }
 }

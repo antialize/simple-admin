@@ -1095,6 +1095,94 @@ pub struct IRunCommandFinished {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ISocketConnect {
+    pub msg_id: u64,
+    pub socket_id: u64,
+    pub host: String,
+    pub dst: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IResponse {
+    pub msg_id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ISocketClose {
+    pub msg_id: u64,
+    pub socket_id: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ISocketSend {
+    pub msg_id: u64,
+    pub socket_id: u64,
+    // Base 64 encoded binary data to send on port, if non close the write part of the socket
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ISocketRecv {
+    pub socket_id: u64,
+    // Base 64 encoded binary data read, if none no more data will be sent
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ICommandSpawn {
+    pub msg_id: u64,
+    pub command_id: u64,
+    pub host: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub forward_stdin: bool,
+    pub forward_stdout: bool,
+    pub forward_stderr: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ICommandStdin {
+    pub msg_id: u64,
+    pub command_id: u64,
+    // Base64 encode binary data for fd, if none close fd
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ICommandSignal {
+    pub msg_id: u64,
+    pub command_id: u64,
+    pub signal: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ICommandStdout {
+    pub command_id: u64,
+    // Base64 encode binary data from fd, if none fd is closed
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ICommandStderr {
+    pub command_id: u64,
+    // Base64 encode binary data from fd, if none fd is closed
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct ICommandFinished {
+    pub command_id: u64,
+    pub code: i32,
+    pub signal: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(tag = "type", rename_all = "PascalCase")]
 pub enum IServerAction {
     AddDeploymentLog(IAddDeploymentLog),
@@ -1131,6 +1219,11 @@ pub enum IServerAction {
     SetPage(ISetPageAction),
     ToggleDeploymentObject(IToggleDeploymentObject),
     GetSecretRes(IGetSecretRes),
+    Response(IResponse),
+    SocketRecv(ISocketRecv),
+    CommandStdout(ICommandStdout),
+    CommandStderr(ICommandStderr),
+    CommandFinished(ICommandFinished),
 }
 
 impl IServerAction {
@@ -1170,6 +1263,11 @@ impl IServerAction {
             IServerAction::SetMessagesDismissed(_) => "SetMessagesDismissed",
             IServerAction::SetPage(_) => "SetPage",
             IServerAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
+            IServerAction::Response(_) => "Response",
+            IServerAction::SocketRecv(_) => "SocketRecv",
+            IServerAction::CommandStdout(_) => "CommandStdout",
+            IServerAction::CommandStderr(_) => "CommandStderr",
+            IServerAction::CommandFinished(_) => "CommandFinished",
         }
     }
 }
@@ -1214,6 +1312,12 @@ pub enum IClientAction {
     StopDeployment(IStopDeployment),
     ToggleDeploymentObject(IToggleDeploymentObject),
     GetSecret(IGetSecret),
+    SocketConnect(ISocketConnect),
+    SocketClose(ISocketClose),
+    SocketSend(ISocketSend),
+    CommandSpawn(ICommandSpawn),
+    CommandStdin(ICommandStdin),
+    CommandSignal(ICommandSignal),
 }
 
 impl IClientAction {
@@ -1256,6 +1360,60 @@ impl IClientAction {
             IClientAction::ToggleDeploymentObject(_) => "ToggleDeploymentObject",
             IClientAction::MarkDeployed(_) => "MarkDeployed",
             IClientAction::GetSecret(_) => "GetSecret",
+            IClientAction::SocketConnect(_) => "SocketConnect",
+            IClientAction::SocketClose(_) => "SocketClose",
+            IClientAction::SocketSend(_) => "SocketSend",
+            IClientAction::CommandSpawn(_) => "CommandSpawn",
+            IClientAction::CommandStdin(_) => "CommandStdin",
+            IClientAction::CommandSignal(_) => "CommandSignal",
+        }
+    }
+
+    pub fn msg_id(&self) -> Option<u64> {
+        match self {
+            IClientAction::CancelDeployment(_) => None,
+            IClientAction::Debug(_) => None,
+            IClientAction::DeleteObject(_) => None,
+            IClientAction::DeployObject(_) => None,
+            IClientAction::MarkDeployed(_) => None,
+            IClientAction::DockerContainerForget(_) => None,
+            IClientAction::DockerImageSetPin(_) => None,
+            IClientAction::DockerImageTagSetPin(_) => None,
+            IClientAction::DockerListDeploymentHistory(_) => None,
+            IClientAction::DockerListDeployments(_) => None,
+            IClientAction::DockerListImageByHash(_) => None,
+            IClientAction::DockerListImageTagHistory(_) => None,
+            IClientAction::DockerListImageTags(_) => None,
+            IClientAction::FetchObject(_) => None,
+            IClientAction::GenerateKey(_) => None,
+            IClientAction::GetObjectHistory(_) => None,
+            IClientAction::GetObjectId(_) => None,
+            IClientAction::Login(_) => None,
+            IClientAction::Logout(_) => None,
+            IClientAction::MessageTextReq(_) => None,
+            IClientAction::ModifiedFilesList(_) => None,
+            IClientAction::ModifiedFilesResolve(_) => None,
+            IClientAction::ModifiedFilesScan(_) => None,
+            IClientAction::RequestAuthStatus(_) => None,
+            IClientAction::RequestInitialState(_) => None,
+            IClientAction::ResetServerState(_) => None,
+            IClientAction::RunCommand(_) => None,
+            IClientAction::RunCommandTerminate(_) => None,
+            IClientAction::SaveObject(_) => None,
+            IClientAction::Search(_) => None,
+            IClientAction::ServiceDeployStart(_) => None,
+            IClientAction::ServiceRedeployStart(_) => None,
+            IClientAction::SetMessageDismissed(_) => None,
+            IClientAction::StartDeployment(_) => None,
+            IClientAction::StopDeployment(_) => None,
+            IClientAction::ToggleDeploymentObject(_) => None,
+            IClientAction::SocketConnect(act) => Some(act.msg_id),
+            IClientAction::SocketClose(act) => Some(act.msg_id),
+            IClientAction::SocketSend(act) => Some(act.msg_id),
+            IClientAction::CommandSpawn(act) => Some(act.msg_id),
+            IClientAction::CommandStdin(act) => Some(act.msg_id),
+            IClientAction::CommandSignal(act) => Some(act.msg_id),
+            IClientAction::GetSecret(_) => None,
         }
     }
 }
@@ -1361,6 +1519,17 @@ pub fn export_ts() -> Vec<String> {
         IGetObjectIdRes::export_to_string().unwrap(),
         IServerAction::export_to_string().unwrap(),
         IClientAction::export_to_string().unwrap(),
+        IResponse::export_to_string().unwrap(),
+        ISocketConnect::export_to_string().unwrap(),
+        ISocketClose::export_to_string().unwrap(),
+        ISocketSend::export_to_string().unwrap(),
+        ICommandSpawn::export_to_string().unwrap(),
+        ICommandStdin::export_to_string().unwrap(),
+        ICommandSignal::export_to_string().unwrap(),
+        ISocketRecv::export_to_string().unwrap(),
+        ICommandStdout::export_to_string().unwrap(),
+        ICommandStderr::export_to_string().unwrap(),
+        ICommandFinished::export_to_string().unwrap(),
     ]
 }
 
