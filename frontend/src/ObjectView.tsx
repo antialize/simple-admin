@@ -4,11 +4,11 @@ import Box from "./Box";
 import DisplayError from "./Error";
 import HostExtra from "./HostExtra";
 import { InformationList, InformationListRow } from "./InformationList";
+import { DEPLOYMENT_STATUS, HOST_ID, type IPage, PAGE_TYPE, USER_ID } from "./shared_types";
+import state from "./state";
 import Type from "./Type";
 import UnixTime from "./UnixTime";
 import UserExtra from "./UserExtra";
-import { DEPLOYMENT_STATUS, HOST_ID, type IPage, PAGE_TYPE, USER_ID } from "./shared_types";
-import state from "./state";
 
 const ObjectView = observer(function ObjectView({
     type,

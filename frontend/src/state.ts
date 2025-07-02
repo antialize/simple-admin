@@ -2,12 +2,12 @@ import { computed, makeObservable, observable } from "mobx";
 import type { ActionTargets } from "./ActionTargets";
 import type DockerImagesState from "./DockerImagesState";
 import type DockerrvicesState from "./DockerServicesState";
+import type DeploymentState from "./deployment/DeploymentState";
 import type LoginState from "./LoginState";
 import type ModifiedFilesState from "./ModifiedFilesState";
 import type ObjectState from "./ObjectState";
 import type PageState from "./PageState";
 import type SearchState from "./SearchState";
-import type DeploymentState from "./deployment/DeploymentState";
 import type { IClientAction, IMessage, IObject2, IObjectDigest, IType } from "./shared_types";
 
 export enum CONNECTION_STATUS {

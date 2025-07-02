@@ -37,10 +37,9 @@ function MenuDropdown({
 }) {
     const [open, setOpen] = useState(false);
     const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-    if (hotkey)
-        useHotkeys(hotkey, () => {
-            setOpen(true);
-        });
+    useHotkeys(hotkey ?? "", () => {
+        setOpen(true);
+    });
     return (
         <DropDownOpen.Provider value={{ open, setOpen }}>
             {title ? (

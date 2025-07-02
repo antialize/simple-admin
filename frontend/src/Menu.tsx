@@ -18,13 +18,13 @@ import {
 import { observer } from "mobx-react";
 import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import derivedState from "./derivedState";
 import DisplayError from "./Error";
 import MenuDropdown, { DropDownItem } from "./MenuDropdown";
 import SubMenu from "./SubMenu";
-import { ObjectMenuList } from "./TypeMenuItems";
-import derivedState from "./derivedState";
 import { PAGE_TYPE, ROOT_ID, ROOT_INSTANCE_ID } from "./shared_types";
 import state from "./state";
+import { ObjectMenuList } from "./TypeMenuItems";
 
 function matchText(text: string, key: string) {
     if (!key || key.length === 0) return false;
@@ -41,7 +41,11 @@ function MatchedText({
     search,
     text,
     primary,
-}: { search: string; text: string; primary: boolean }) {
+}: {
+    search: string;
+    text: string;
+    primary: boolean;
+}) {
     const ans = [];
     let ki = 0;
     let j = 0;
@@ -102,7 +106,7 @@ const TypeObjects = observer(function TypeObjects({
             </ListItem>,
         );
     }
-    if (ans.length === 0) return <> </>;
+    if (ans.length === 0) return null;
     const t = state.types.get(type);
     return (
         <>
@@ -134,16 +138,14 @@ function Search() {
         { enabled: key !== "", enableOnContentEditable: true, enableOnFormTags: true },
     );
 
-    const page = state.page;
-    if (!page) return <DisplayError>Missing state.page</DisplayError>;
-
     const typeFind = [];
     let goto: [number, number] | null = null;
+    const page = state.page;
 
     useHotkeys(
         ["return"],
         () => {
-            if (goto && searchInput) {
+            if (goto && searchInput && page) {
                 page.set({ type: PAGE_TYPE.Object, objectType: goto[0], id: goto[1] });
                 setKey("");
                 searchInput.blur();
@@ -151,6 +153,8 @@ function Search() {
         },
         { enabled: key !== "", enableOnContentEditable: true, enableOnFormTags: true },
     );
+
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
 
     const keyLc = key.toLowerCase();
     if (keyLc !== "") {
@@ -238,128 +242,127 @@ function Search() {
 
 const Menu = observer(function Menu() {
     const page = state.page;
-    if (!page) return <DisplayError>Missing state.page</DisplayError>;
     const login = state.login;
-    if (!login) return <DisplayError>Missing state.login</DisplayError>;
     const types = derivedState.menuTypes;
     useHotkeys("d", () => {
-        page.set({ type: PAGE_TYPE.Dashbord });
+        page!.set({ type: PAGE_TYPE.Dashbord });
     });
     useHotkeys("i", () => {
-        page.set({ type: PAGE_TYPE.DockerImages });
+        page!.set({ type: PAGE_TYPE.DockerImages });
     });
     useHotkeys("c", () => {
-        page.set({ type: PAGE_TYPE.DockerServices });
+        page!.set({ type: PAGE_TYPE.DockerServices });
     });
+    if (!page) return <DisplayError>Missing state.page</DisplayError>;
+    if (!login) return <DisplayError>Missing state.login</DisplayError>;
+
     return (
         <AppBar color="primary" enableColorOnDark>
             <Toolbar>
-                <>
-                    <MenuDropdown hotkey="m">
-                        {types.map((t) =>
-                            t.id === ROOT_ID ? (
-                                <DropDownItem
-                                    key={ROOT_INSTANCE_ID}
-                                    onClick={(e) => {
-                                        page.onClick(e, {
-                                            type: PAGE_TYPE.Object,
-                                            objectType: ROOT_ID,
-                                            id: ROOT_INSTANCE_ID,
-                                        });
-                                    }}
-                                    href={page.link({
+                <MenuDropdown hotkey="m">
+                    {types.map((t) =>
+                        t.id === ROOT_ID ? (
+                            <DropDownItem
+                                key={ROOT_INSTANCE_ID}
+                                onClick={(e) => {
+                                    page.onClick(e, {
                                         type: PAGE_TYPE.Object,
                                         objectType: ROOT_ID,
                                         id: ROOT_INSTANCE_ID,
-                                    })}
-                                >
-                                    Root
-                                </DropDownItem>
-                            ) : (
-                                <SubMenu title={t.name} key={t.name}>
-                                    {" "}
-                                    <ObjectMenuList type={t.id} />{" "}
-                                </SubMenu>
-                            ),
-                        )}
-                    </MenuDropdown>
-                    <Badge color="secondary" badgeContent={state.activeMessages}>
-                        <Button
-                            color="inherit"
-                            onClick={(e) => {
-                                page.onClick(e, { type: PAGE_TYPE.Dashbord });
-                            }}
-                            href={page.link({ type: PAGE_TYPE.Dashbord })}
-                        >
-                            Dashbord
-                        </Button>
-                    </Badge>
+                                    });
+                                }}
+                                href={page.link({
+                                    type: PAGE_TYPE.Object,
+                                    objectType: ROOT_ID,
+                                    id: ROOT_INSTANCE_ID,
+                                })}
+                            >
+                                Root
+                            </DropDownItem>
+                        ) : (
+                            <SubMenu title={t.name} key={t.name}>
+                                {" "}
+                                <ObjectMenuList type={t.id} />{" "}
+                            </SubMenu>
+                        ),
+                    )}
+                </MenuDropdown>
+                <Badge color="secondary" badgeContent={state.activeMessages}>
                     <Button
                         color="inherit"
                         onClick={(e) => {
-                            page.onClick(e, { type: PAGE_TYPE.Deployment });
+                            page.onClick(e, { type: PAGE_TYPE.Dashbord });
                         }}
-                        href={page.link({ type: PAGE_TYPE.Deployment })}
+                        href={page.link({ type: PAGE_TYPE.Dashbord })}
                     >
-                        Deployment
+                        Dashbord
                     </Button>
-                    <div style={{ width: "10px" }} />
-                    <Button
-                        color="inherit"
-                        onClick={(e) => {
-                            page.onClick(e, { type: PAGE_TYPE.DockerImages });
-                        }}
-                        href={page.link({ type: PAGE_TYPE.DockerImages })}
-                    >
-                        Images
-                    </Button>
-                    <Button
-                        color="inherit"
-                        onClick={(e) => {
-                            page.onClick(e, { type: PAGE_TYPE.DockerServices });
-                        }}
-                        href={page.link({ type: PAGE_TYPE.DockerServices })}
-                    >
-                        Services
-                    </Button>
-                    <Button
-                        color="inherit"
-                        onClick={(e) => {
-                            page.onClick(e, { type: PAGE_TYPE.ModifiedFiles });
-                        }}
-                        href={page.link({ type: PAGE_TYPE.ModifiedFiles })}
-                    >
-                        Modified Files
-                    </Button>
-                    <Button
-                        color="inherit"
-                        onClick={(e) => {
-                            page.onClick(e, { type: PAGE_TYPE.Search });
-                        }}
-                        href={page.link({ type: PAGE_TYPE.Search })}
-                    >
-                        Search
-                    </Button>
-                    <div style={{ flexGrow: 1 }} />
-                    <Search />
-                    <div style={{ width: "10px" }} />
-                    <Button
-                        color="inherit"
-                        onClick={() => {
-                            login.logout(false);
-                        }}
-                    >
-                        Logout
-                    </Button>
-                    <Button
-                        color="inherit"
-                        onClick={() => {
-                            login.logout(true);
-                        }}
-                    >
-                        Full logout
-                    </Button>
-                </>
+                </Badge>
+                <Button
+                    color="inherit"
+                    onClick={(e) => {
+                        page.onClick(e, { type: PAGE_TYPE.Deployment });
+                    }}
+                    href={page.link({ type: PAGE_TYPE.Deployment })}
+                >
+                    Deployment
+                </Button>
+                <div style={{ width: "10px" }} />
+                <Button
+                    color="inherit"
+                    onClick={(e) => {
+                        page.onClick(e, { type: PAGE_TYPE.DockerImages });
+                    }}
+                    href={page.link({ type: PAGE_TYPE.DockerImages })}
+                >
+                    Images
+                </Button>
+                <Button
+                    color="inherit"
+                    onClick={(e) => {
+                        page.onClick(e, { type: PAGE_TYPE.DockerServices });
+                    }}
+                    href={page.link({ type: PAGE_TYPE.DockerServices })}
+                >
+                    Services
+                </Button>
+                <Button
+                    color="inherit"
+                    onClick={(e) => {
+                        page.onClick(e, { type: PAGE_TYPE.ModifiedFiles });
+                    }}
+                    href={page.link({ type: PAGE_TYPE.ModifiedFiles })}
+                >
+                    Modified Files
+                </Button>
+                <Button
+                    color="inherit"
+                    onClick={(e) => {
+                        page.onClick(e, { type: PAGE_TYPE.Search });
+                    }}
+                    href={page.link({ type: PAGE_TYPE.Search })}
+                >
+                    Search
+                </Button>
+                <div style={{ flexGrow: 1 }} />
+                <Search />
+                <div style={{ width: "10px" }} />
+                <Button
+                    color="inherit"
+                    onClick={() => {
+                        login.logout(false);
+                    }}
+                >
+                    Logout
+                </Button>
+                <Button
+                    color="inherit"
+                    onClick={() => {
+                        login.logout(true);
+                    }}
+                >
+                    Full logout
+                </Button>
             </Toolbar>
         </AppBar>
     );

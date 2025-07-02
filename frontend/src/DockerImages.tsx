@@ -3,12 +3,12 @@ import { observer } from "mobx-react";
 import React from "react";
 import Box from "./Box";
 import DisplayError from "./Error";
-import InfoTable, { InfoTableHeader } from "./InfoTable";
-import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
+import InfoTable, { InfoTableHeader } from "./InfoTable";
 import nullCheck from "./nullCheck";
 import { type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
+import UnixTime from "./UnixTime";
 
 export const DockerImages = observer(function DockerImages() {
     const dockerImages = state.dockerImages;

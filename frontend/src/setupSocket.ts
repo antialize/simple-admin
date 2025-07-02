@@ -1,10 +1,10 @@
 import Cookies from "js-cookie";
 import { runInAction } from "mobx";
-import ObjectState from "./ObjectState";
 import { add, clear } from "./deployment/Log";
 import getOrInsert from "./getOrInsert";
 import { getReferences } from "./getReferences";
 import nullCheck from "./nullCheck";
+import ObjectState from "./ObjectState";
 import {
     type IClientAction,
     type IObjectDigest,

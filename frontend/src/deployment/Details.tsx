@@ -16,7 +16,11 @@ function CententInfo({
     prev,
     next,
     t,
-}: { prev: JsonMap | null; next: JsonMap | null; t: IObject2<IType> }) {
+}: {
+    prev: JsonMap | null;
+    next: JsonMap | null;
+    t: IObject2<IType>;
+}) {
     const rows = [];
     for (const p of t.content.content ?? []) {
         if (

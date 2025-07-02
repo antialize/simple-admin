@@ -1,9 +1,9 @@
 import * as $ from "jquery";
 import { action, makeObservable, observable, runInAction } from "mobx";
 import type * as React from "react";
-import ObjectState from "./ObjectState";
 import getOrInsert from "./getOrInsert";
 import nullCheck from "./nullCheck";
+import ObjectState from "./ObjectState";
 import { HOST_ID, type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 

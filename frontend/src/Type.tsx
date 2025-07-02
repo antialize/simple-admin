@@ -6,11 +6,11 @@ import DisplayError from "./Error";
 import { InformationList, InformationListRow } from "./InformationList";
 import ObjectSelector from "./ObjectSelector";
 import Password from "./Password";
+import { HOST_ID, ROOT_ID, TYPE_ID, TypePropType } from "./shared_types";
+import state from "./state";
 import Triggers from "./Triggers";
 import TypeContent from "./TypeContent";
 import Variables from "./Variables";
-import { HOST_ID, ROOT_ID, TYPE_ID, TypePropType } from "./shared_types";
-import state from "./state";
 
 const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id: number }) {
     const obj = state.objects.get(id);

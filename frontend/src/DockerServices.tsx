@@ -2,12 +2,12 @@ import { Button, Typography } from "@mui/material";
 import { observer } from "mobx-react";
 import Box from "./Box";
 import DisplayError from "./Error";
-import InfoTable, { InfoTableHeader } from "./InfoTable";
-import { InformationList, InformationListRow } from "./InformationList";
-import UnixTime from "./UnixTime";
 import extractRemote from "./extractRemote";
+import { InformationList, InformationListRow } from "./InformationList";
+import InfoTable, { InfoTableHeader } from "./InfoTable";
 import { HOST_ID, type IPage, PAGE_TYPE } from "./shared_types";
 import state from "./state";
+import UnixTime from "./UnixTime";
 
 export const HostDockerContainers = observer(function DockerContainers(p: {
     host: number;
@@ -118,7 +118,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
         );
 
     if (containers.length === 0) {
-        return <></>;
+        return null;
     }
     return (
         <>
