@@ -279,22 +279,86 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
     };
     pin!(process_stdin);
 
-    let send2 = send.clone();
-    let mut do_process_ctrl_c: bool = true;
-    let process_ctrl_c = async move {
-        signal::ctrl_c().await.context("Reading ctrl+c")?;
-        let msg_id = next_msg_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        send2
-            .send_message_with_response(&IClientAction::CommandSignal(ICommandSignal {
+    #[cfg(not(feature = "nix"))]
+    struct Forever;
+    #[cfg(not(feature = "nix"))]
+    impl Future for Forever {
+        type Output = Result<std::convert::Infallible, anyhow::Error>;
+        fn poll(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Self::Output> {
+            std::task::Poll::Pending
+        }
+    }
+    #[cfg(not(feature = "nix"))]
+    let forward_sighub = Forever;
+    #[cfg(not(feature = "nix"))]
+    let forward_sigterm = Forever;
+    #[cfg(not(feature = "nix"))]
+    let forward_sigusr1 = Forever;
+    #[cfg(not(feature = "nix"))]
+    let forward_sigusr2 = Forever;
+
+    #[cfg(feature = "nix")]
+    async fn forward_signal(
+        signal: i32,
+        send: std::sync::Arc<crate::connection::ConnectionSend2>,
+        command_id: u64,
+        next_msg_id: &AtomicU64,
+    ) -> Result<()> {
+        loop {
+            signal::unix::signal(tokio::signal::unix::SignalKind::from_raw(signal))?
+                .recv()
+                .await;
+            let msg_id = next_msg_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            send.send_message_with_response(&IClientAction::CommandSignal(ICommandSignal {
                 msg_id,
                 command_id,
-                signal: 2,
+                signal,
             }))
             .await
-            .context("Failed sending sigint to remote command")?;
+            .context("Failed sending signal to remote command")?;
+        }
+    }
+
+    #[cfg(feature = "nix")]
+    let forward_sighub = forward_signal(nix::libc::SIGHUP, send.clone(), command_id, next_msg_id);
+
+    #[cfg(feature = "nix")]
+    let forward_sigterm = forward_signal(nix::libc::SIGTERM, send.clone(), command_id, next_msg_id);
+
+    #[cfg(feature = "nix")]
+    let forward_sigusr1 = forward_signal(nix::libc::SIGUSR1, send.clone(), command_id, next_msg_id);
+
+    #[cfg(feature = "nix")]
+    let forward_sigusr2 = forward_signal(nix::libc::SIGUSR2, send.clone(), command_id, next_msg_id);
+
+    let send2 = send.clone();
+    let forward_ctrlc = async move {
+        loop {
+            tokio::signal::ctrl_c().await?;
+            let msg_id = next_msg_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            send2
+                .send_message_with_response(&IClientAction::CommandSignal(ICommandSignal {
+                    msg_id,
+                    command_id,
+                    signal: 2,
+                }))
+                .await
+                .context("Failed sending sigint to remote command")?;
+        }
+        #[expect(unreachable_code)]
         Ok::<_, anyhow::Error>(())
     };
-    pin!(process_ctrl_c);
+
+    pin!(
+        forward_sighub,
+        forward_sigterm,
+        forward_sigusr1,
+        forward_sigusr2,
+        forward_ctrlc
+    );
 
     loop {
         select! {
@@ -320,9 +384,7 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
                     },
                     ConnectionRecvRes::Message(IServerAction::CommandFinished(a)) => {
                         if let Some(signal) = a.signal {
-                            if signal != 2 || do_process_ctrl_c {
-                                eprintln!("Command finished with signal: {signal}");
-                            }
+                            eprintln!("Command finished with signal: {signal}");
                         }
                         std::process::exit(a.code);
                     }
@@ -346,9 +408,20 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
                     ConnectionRecvRes::SendPong(v) => send.pong(v).await?,
                 }
             }
-            r = &mut process_ctrl_c, if do_process_ctrl_c => {
+            r = &mut forward_sighub => {
                 r?;
-                do_process_ctrl_c = false;
+            }
+            r = &mut forward_sigterm => {
+                r?;
+            }
+            r = &mut forward_sigusr1 => {
+                r?;
+            }
+            r = &mut forward_sigusr2 => {
+                r?;
+            }
+            r = &mut forward_ctrlc => {
+                r?;
             }
         }
     }
