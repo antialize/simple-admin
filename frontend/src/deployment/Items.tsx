@@ -1,4 +1,4 @@
-import { Button, Checkbox, Tooltip, styled, useTheme } from "@mui/material";
+import { Button, Checkbox, styled, Tooltip, useTheme } from "@mui/material";
 import * as Diff from "diff";
 import { observer } from "mobx-react";
 import DisplayError from "../Error";

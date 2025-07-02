@@ -1,7 +1,7 @@
 import { action, makeObservable, observable } from "mobx";
-import type Remote from "./Remote";
 import getOrInsert from "./getOrInsert";
 import nullCheck from "./nullCheck";
+import type Remote from "./Remote";
 import type {
     DockerImageTag,
     IDockerListImageTagHistoryRes,

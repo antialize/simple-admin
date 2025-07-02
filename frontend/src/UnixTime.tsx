@@ -6,7 +6,7 @@ class UnixTime extends React.Component<{ time: number }, { delta: number }> {
 
     constructor(props: { time: number }) {
         super(props);
-        this.state = { delta: +new Date() / 1000 - this.props.time };
+        this.state = { delta: Date.now() / 1000 - this.props.time };
     }
 
     scheduleTimer() {
@@ -22,7 +22,7 @@ class UnixTime extends React.Component<{ time: number }, { delta: number }> {
         }
         if (wait)
             this.timer = setTimeout(() => {
-                this.setState({ delta: +new Date() / 1000 - this.props.time });
+                this.setState({ delta: Date.now() / 1000 - this.props.time });
                 this.scheduleTimer();
             }, wait);
     }

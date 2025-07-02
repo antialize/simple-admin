@@ -19,6 +19,14 @@ pub struct Config {
     pub used_images_token: Option<String>,
     #[serde(default)]
     pub status_token: Option<String>,
+    #[serde(default)]
+    pub vanta_client_id: Option<String>,
+    #[serde(default)]
+    pub vanta_client_secret: Option<String>,
+    #[serde(default)]
+    pub vanta_users_resource: Option<String>,
+    #[serde(default)]
+    pub vanta_hosts_resource: Option<String>,
 }
 
 pub fn read_config() -> Result<Config> {

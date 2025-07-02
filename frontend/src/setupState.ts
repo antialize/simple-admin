@@ -1,11 +1,11 @@
 import { ActionTargets } from "./ActionTargets";
 import DockerImagesState from "./DockerImagesState";
 import DockerrvicesState from "./DockerServicesState";
+import DeploymentState from "./deployment/DeploymentState";
 import LoginState from "./LoginState";
 import ModifiedFilesState from "./ModifiedFilesState";
 import PageState from "./PageState";
 import SearchState from "./SearchState";
-import DeploymentState from "./deployment/DeploymentState";
 import state from "./state";
 
 function setupState() {

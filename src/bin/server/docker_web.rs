@@ -150,14 +150,14 @@ macro_rules! api_error {
 pub async fn init_upload() -> Result<(), anyhow::Error> {
     tokio::fs::remove_dir_all(DOCKER_UPLOAD_PATH)
         .await
-        .with_context(|| format!("Failure removing {}", DOCKER_UPLOAD_PATH))?;
+        .with_context(|| format!("Failure removing {DOCKER_UPLOAD_PATH}"))?;
     tokio::fs::create_dir(DOCKER_UPLOAD_PATH)
         .await
-        .with_context(|| format!("Failure creating {}", DOCKER_UPLOAD_PATH))?;
+        .with_context(|| format!("Failure creating {DOCKER_UPLOAD_PATH}"))?;
     match tokio::fs::create_dir(DOCKER_BLOBS_PATH).await {
         Ok(()) => (),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
-        Err(e) => return Err(e).context(format!("Failure creating {}", DOCKER_BLOBS_PATH)),
+        Err(e) => return Err(e).context(format!("Failure creating {DOCKER_BLOBS_PATH}")),
     }
     Ok(())
 }
@@ -608,10 +608,7 @@ async fn put_blob_upload(
         );
     }
 
-    info!(
-        "Docker put blob uuid={} total_size={} digest={}",
-        uuid, count, actual_digest
-    );
+    info!("Docker put blob uuid={uuid} total_size={count} digest={actual_digest}");
     tokio::fs::rename(
         std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string()),
         std::path::Path::new(DOCKER_BLOBS_PATH).join(&actual_digest),
@@ -623,7 +620,7 @@ async fn put_blob_upload(
         StatusCode::CREATED,
         [
             ("ContentLength", "0".to_string()),
-            ("Location", format!("/v2/{}/blobs/{}", name, actual_digest)),
+            ("Location", format!("/v2/{name}/blobs/{actual_digest}")),
             ("Docker-Content-Digest", actual_digest),
         ],
         "Created",
@@ -641,7 +638,7 @@ async fn put_manifest(
     if state.read_only {
         api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
     }
-    info!("Docker put manifest name={} tag={}", name, reference);
+    info!("Docker put manifest name={name} tag={reference}");
 
     // Validate that manifest is JSON.
     let manifest: crate::docker::Manifest = match serde_json::from_str(&body) {
@@ -804,7 +801,7 @@ async fn put_manifest(
         StatusCode::CREATED,
         [
             ("ContentLength", "0".to_string()),
-            ("Location", format!("/v2/{}/manifests/{}", name, hash)),
+            ("Location", format!("/v2/{name}/manifests/{hash}")),
             ("Docker-Content-Digest", hash),
         ],
         (),
@@ -900,7 +897,7 @@ async fn patch_blob_upload(
     Ok((
         StatusCode::ACCEPTED,
         [
-            ("Location", format!("/v2/{}/blobs/uploads/{}", name, uuid)),
+            ("Location", format!("/v2/{name}/blobs/uploads/{uuid}")),
             ("Range", format!("0-{}", inner.count - 1)),
             ("Content-Length", "0".to_string()),
             ("Docker-Upload-UUID", uuid.to_string()),
@@ -925,7 +922,7 @@ async fn post_blob_upload(
     let path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
     let file = tokio::fs::File::create_new(&path)
         .await
-        .with_context(|| format!("Unable to create file {:?}", path))
+        .with_context(|| format!("Unable to create file {path:?}"))
         .to_api_error("File creation failed")?;
 
     // TODO(jakobt) we should add some timeout here to not have the file there forever
@@ -946,7 +943,7 @@ async fn post_blob_upload(
         StatusCode::ACCEPTED,
         [
             ("Content-Length", "0".to_string()),
-            ("Location", format!("/v2/{}/blobs/uploads/{}", name, uuid)),
+            ("Location", format!("/v2/{name}/blobs/uploads/{uuid}")),
             ("Range", "0-0".to_string()),
             ("Docker-Upload-UUID", uuid.to_string()),
         ],

@@ -1,6 +1,6 @@
-import { ObservableMap, action, makeObservable, observable } from "mobx";
-import type Remote from "./Remote";
+import { action, makeObservable, ObservableMap, observable } from "mobx";
 import getOrInsert from "./getOrInsert";
+import type Remote from "./Remote";
 import type {
     DockerDeployment,
     IDockerDeploymentsChanged,

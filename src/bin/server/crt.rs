@@ -73,8 +73,7 @@ pub async fn generate_srs(key: &str, cn: &str) -> Result<String> {
     let mut t1 = NamedTempFile::new()?;
     write!(
         &mut t1,
-        "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN={}\n",
-        cn
+        "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nCN={cn}\n"
     )?;
     let mut t2 = NamedTempFile::new()?;
     t2.write_all(key.as_bytes())?;
@@ -129,7 +128,7 @@ keyUsage = critical, keyCertSign, cRLSign, digitalSignature, nonRepudiation, key
 subjectKeyIdentifier = hash
 nameConstraints = critical")?;
         for v in subcerts {
-            write!(&mut t3, ", permitted;DNS:{}", v)?;
+            write!(&mut t3, ", permitted;DNS:{v}")?;
         }
         cmd.arg("-extfile");
         cmd.arg(t3.path());
@@ -171,8 +170,7 @@ pub async fn generate_ssh_crt(
     let output_certificate_path = tmp_dir.path().join("thing-cert.pub");
     writeln!(
         ssh_host_ca_key_file,
-        "-----BEGIN OPENSSH PRIVATE KEY-----\n{}\n-----END OPENSSH PRIVATE KEY-----",
-        ca_private_key
+        "-----BEGIN OPENSSH PRIVATE KEY-----\n{ca_private_key}\n-----END OPENSSH PRIVATE KEY-----"
     )?;
     ssh_host_ca_key_file.flush()?;
 
@@ -187,7 +185,7 @@ pub async fn generate_ssh_crt(
     cmd.arg("-n");
     cmd.arg(principal);
     cmd.arg("-V");
-    cmd.arg(format!("-5m:+{}d", validity_days));
+    cmd.arg(format!("-5m:+{validity_days}d"));
     cmd.arg("-z");
     cmd.arg("42");
     cmd.arg(&client_public_key_path);

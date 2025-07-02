@@ -3,6 +3,7 @@ import { observer } from "mobx-react";
 import Deployment from "./Deployment";
 import { DockerImageHistory, DockerImages } from "./DockerImages";
 import { DockerServiceDetails, DockerServiceHistory, DockerServices } from "./DockerServices";
+import DeploymentDetails from "./deployment/Details";
 import DisplayError from "./Error";
 import Messages from "./Messages";
 import { ModifiedFileRevolver, ModifiedFiles } from "./ModifiedFiles";
@@ -10,7 +11,6 @@ import ObjectList from "./ObjectList";
 import ObjectView from "./ObjectView";
 import Search from "./Search";
 import Statuses from "./Statuses";
-import DeploymentDetails from "./deployment/Details";
 import { PAGE_TYPE } from "./shared_types";
 import state from "./state";
 

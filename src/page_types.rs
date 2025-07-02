@@ -73,6 +73,8 @@ pub enum IPage {
 }
 impl ::ts_rs::TS for IPage {
     type WithoutGenerics = IPage;
+    type OptionInnerType = Self;
+
     fn ident() -> String {
         "IPage".to_owned()
     }
@@ -113,8 +115,8 @@ impl ::ts_rs::TS for IPage {
     {
     }
 
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("IPage.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("IPage.ts"))
     }
 
     fn visit_dependencies(_: &mut impl ::ts_rs::TypeVisitor)
@@ -220,7 +222,7 @@ impl<'de> serde::Deserialize<'de> for IPage {
                 10 => IPage::Object(Deserialize::deserialize(value).map_err(D::Error::custom)?),
                 11 => IPage::ObjectList(Deserialize::deserialize(value).map_err(D::Error::custom)?),
                 12 => IPage::Search,
-                type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
+                type_ => return Err(D::Error::custom(format!("Unsupported type {type_}"))),
             },
         )
     }

@@ -153,7 +153,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             let path = std::path::Path::new(DOCKER_BLOBS_PATH).join(p);
             async move {
                 if let Err(e) = tokio::fs::remove_file(&path).await {
-                    warn!("Unable to remove {:?}: {:?}", path, e);
+                    warn!("Unable to remove {path:?}: {e:?}");
                 }
             }
         })
@@ -177,7 +177,7 @@ pub async fn docker_prune(state: Arc<State>, run_token: RunToken) -> Result<()> 
         // TODO(jakobt) make prune_inner cancable
         // prune docker images every 12 houers
         if let Err(e) = prune_inner(&state).await {
-            error!("Error pruning docker blobs: {:?}", e);
+            error!("Error pruning docker blobs: {e:?}");
         }
     }
     Ok(())
@@ -286,7 +286,7 @@ async fn deploy_server_inner2(
     project: Option<String>,
     do_template: bool,
 ) -> Result<(), anyhow::Error> {
-    info!("service deploy start ref: {:?}", r#ref);
+    info!("service deploy start ref: {ref:?}");
     let auth = client.get_auth();
     let user = auth.user.context("Missing user")?;
     let mut variables = db::get_host_variables(state, host_id)
@@ -297,7 +297,7 @@ async fn deploy_server_inner2(
         let mut buf = [0; 24];
         crypt::random_fill(&mut buf)?;
         variables.insert(
-            format!("token_{}", i).into(),
+            format!("token_{i}").into(),
             BASE64_STANDARD.encode(buf).into(),
         );
     }
@@ -309,17 +309,15 @@ async fn deploy_server_inner2(
         let description_str =
             crate::mustache::render(&description_template, None, &variables, true)
                 .context("Unable to render description template 1")?;
-        let description: ServiceDescription =
-            serde_yaml::from_str(&description_str).with_context(|| {
-                format!("Deserializing service description 1 '{}'", description_str)
-            })?;
+        let description: ServiceDescription = serde_yaml::from_str(&description_str)
+            .with_context(|| format!("Deserializing service description 1 '{description_str}'"))?;
         if let (Some(ssl_service), Some(ssl_identity)) =
             (description.ssl_service, description.ssl_identity)
         {
             let ca_key = &state.docker.ca_key;
             let ca_crt = &state.docker.ca_crt;
             let my_key = crt::generate_key().await.context("generate_key")?;
-            let my_srs = crt::generate_srs(&my_key, &format!("{}.{}", ssl_identity, ssl_service))
+            let my_srs = crt::generate_srs(&my_key, &format!("{ssl_identity}.{ssl_service}"))
                 .await
                 .context("generate_srs")?;
 
@@ -336,14 +334,8 @@ async fn deploy_server_inner2(
             variables.insert("ssl_pem".into(), crt::strip(&my_crt).to_string().into());
             extra_env.insert("CA_PEM".to_string(), crt::strip(ca_crt).to_string());
             let service_uc = ssl_service.to_uppercase();
-            extra_env.insert(
-                format!("{}_KEY", service_uc),
-                crt::strip(&my_key).to_string(),
-            );
-            extra_env.insert(
-                format!("{}_PEM", service_uc),
-                crt::strip(&my_crt).to_string(),
-            );
+            extra_env.insert(format!("{service_uc}_KEY"), crt::strip(&my_key).to_string());
+            extra_env.insert(format!("{service_uc}_PEM"), crt::strip(&my_crt).to_string());
         } else {
             variables.remove("ca_pem");
             variables.remove("ssl_key");
@@ -357,7 +349,7 @@ async fn deploy_server_inner2(
         description_template.into()
     };
     let description: ServiceDescription = serde_yaml::from_str(&description_str)
-        .with_context(|| format!("Deserializing service description 2 '{}'", description_str))?;
+        .with_context(|| format!("Deserializing service description 2 '{description_str}'"))?;
     let name = description.name;
     let (project, hash, image) = if let Some(project) = project {
         (project, hash, image)
@@ -390,7 +382,7 @@ async fn deploy_server_inner2(
             (image, hash)
         };
         let hash = hash.context("Could not find image to deploy")?;
-        let image = format!("{}@{}", project, hash);
+        let image = format!("{project}@{hash}");
 
         if let Some(p) = &description.project {
             if p != project {
@@ -491,7 +483,7 @@ async fn deploy_server_inner3(
             description: description_str.to_string(),
             extra_env,
             image,
-            docker_auth: Some(BASE64_STANDARD.encode(format!("docker_client:{}", session))),
+            docker_auth: Some(BASE64_STANDARD.encode(format!("docker_client:{session}"))),
             user: Some(user.clone()),
         }))
         .await?;
@@ -657,14 +649,14 @@ pub async fn redploy_service(
     let rt = RunToken::new();
     let r#ref = act.r#ref.clone();
     if let Err(e) = redploy_service_inner(state, client, act).await {
-        error!("Service redeployment failed: {:?}", e);
+        error!("Service redeployment failed: {e:?}");
         client
             .send_message(
                 &rt,
                 IServerAction::DockerDeployEnd(IDockerDeployEnd {
                     r#ref,
                     status: false,
-                    message: format!("Deployment failed {}", e),
+                    message: format!("Deployment failed {e}"),
                     id: None,
                 }),
             )
@@ -704,14 +696,14 @@ pub async fn deploy_service(
     .await
     {
         let rt = RunToken::new();
-        error!("Service deployment failed: {:?}", e);
+        error!("Service deployment failed: {e:?}");
         client
             .send_message(
                 &rt,
                 IServerAction::DockerDeployEnd(IDockerDeployEnd {
                     r#ref: act.r#ref,
                     status: false,
-                    message: format!("Deployment failed {}", e),
+                    message: format!("Deployment failed {e}"),
                     id: None,
                 }),
             )

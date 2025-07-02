@@ -36,6 +36,7 @@ mod ordered_json;
 mod setup;
 mod state;
 mod terminal;
+mod vanta;
 mod variabels;
 mod web_util;
 mod webclient;
@@ -43,6 +44,8 @@ mod webclient;
 use anyhow::Result;
 use clap::Parser;
 use webclient::run_web_clients;
+
+use crate::vanta::run_vanta;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -123,6 +126,13 @@ async fn main() -> Result<()> {
         .main()
         .shutdown_order(1)
         .create(|rt| run_web_clients(state.clone(), rt));
+
+    if state.config.vanta_client_id.is_some() {
+        TaskBuilder::new("vanta_loop")
+            .main()
+            .shutdown_order(1)
+            .create(|rt| run_vanta(state.clone(), rt));
+    }
 
     TaskBuilder::new("user2")
         .main()

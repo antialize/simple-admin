@@ -119,6 +119,7 @@ pub enum ITypeProp {
 
 impl TS for ITypeProp {
     type WithoutGenerics = ITypeProp;
+    type OptionInnerType = Self;
     fn ident() -> String {
         "ITypeProp".to_owned()
     }
@@ -146,8 +147,8 @@ impl TS for ITypeProp {
     fn inline_flattened() -> String {
         todo!()
     }
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("ITypeProp.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("ITypeProp.ts"))
     }
     fn visit_dependencies(_: &mut impl ::ts_rs::TypeVisitor)
     where
@@ -240,7 +241,7 @@ impl<'de> serde::Deserialize<'de> for ITypeProp {
                     INumberTypeProp::deserialize(value).map_err(D::Error::custom)?,
                 ),
                 8 => ITypeProp::Monitor,
-                type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
+                type_ => return Err(D::Error::custom(format!("Unsupported type {type_}"))),
             },
         )
     }

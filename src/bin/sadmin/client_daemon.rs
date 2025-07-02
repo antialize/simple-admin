@@ -171,7 +171,7 @@ impl Client {
                     val = write_all => {
                         if let Err(e) = val {
                             // The send errored out, notify the recv half so we can try to initiate a new connection
-                            error!("Failed sending message to backend: {}", e);
+                            error!("Failed sending message to backend: {e}");
                             self.send_failure_notify.notify_one();
                             *s = None
                         }
@@ -195,7 +195,7 @@ impl Client {
     }
 
     async fn handle_ping(self: Arc<Self>, id: u64) {
-        debug!("Ping from server {}", id);
+        debug!("Ping from server {id}");
         self.send_message(ClientHostMessage::Pong { id }).await;
     }
 
@@ -230,8 +230,8 @@ impl Client {
                 "Instant command failed {} failed with code {:?}",
                 msg.id, code
             );
-            debug!("stdout: '{}'", stdout);
-            debug!("stderr: '{}'", stderr);
+            debug!("stdout: '{stdout}'");
+            debug!("stderr: '{stderr}'");
             return Ok(ClientHostMessage::Failure(FailureMessage {
                 id: msg.id,
                 code,
@@ -267,7 +267,7 @@ impl Client {
         let m = match self.handle_run_instant_inner(&run_token, msg).await {
             Ok(v) => v,
             Err(e) => {
-                error!("Error in instant command {}: {}", id, e);
+                error!("Error in instant command {id}: {e}");
                 ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::Exception),
@@ -280,7 +280,7 @@ impl Client {
         self.send_message(m).await;
         run_token.set_location(file!(), line!());
         self.command_tasks.lock().unwrap().remove(&id);
-        debug!("Finished instant command {}", id);
+        debug!("Finished instant command {id}");
         Ok(())
     }
 
@@ -522,7 +522,7 @@ impl Client {
         self.send_message(m).await;
         self.command_tasks.lock().unwrap().remove(&id);
         self.script_stdin.lock().unwrap().remove(&id);
-        debug!("Finished run script {}", id);
+        debug!("Finished run script {id}");
         Ok(())
     }
 
@@ -583,7 +583,7 @@ impl Client {
         let m = match self.handle_deploy_service_inner(msg).await {
             Ok(m) => m,
             Err(e) => {
-                error!("Error in deploy service: {:?}", e);
+                error!("Error in deploy service: {e:?}");
                 self.send_message(ClientHostMessage::Data(DataMessage {
                     id,
                     source: Some(DataSource::Stderr),
@@ -632,7 +632,7 @@ impl Client {
                 self.send_message(ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::UnknownTask),
-                    message: Some(format!("Unable to read file {}: {:?}", path, e)),
+                    message: Some(format!("Unable to read file {path}: {e:?}")),
                     ..Default::default()
                 }))
                 .await;
@@ -674,7 +674,7 @@ impl Client {
                 self.send_message(ClientHostMessage::Failure(FailureMessage {
                     id,
                     failure_type: Some(FailureType::UnknownTask),
-                    message: Some(format!("Unable to write file {}: {:?}", path, e)),
+                    message: Some(format!("Unable to write file {path}: {e:?}")),
                     ..Default::default()
                 }))
                 .await;
@@ -694,7 +694,7 @@ impl Client {
             Err(e) => {
                 self.send_message(ClientHostMessage::Failure(FailureMessage {
                     id,
-                    message: Some(format!("{:?}", e)),
+                    message: Some(format!("{e:?}")),
                     ..Default::default()
                 }))
                 .await;
@@ -751,18 +751,18 @@ impl Client {
         let (r, w) = if dst.contains(':') && !dst.contains("/") {
             let s = tokio::net::TcpStream::connect(&dst)
                 .await
-                .with_context(|| format!("Unable to connect to {}", dst))?;
+                .with_context(|| format!("Unable to connect to {dst}"))?;
             let (r, w) = s.into_split();
             (SocketRead::Tcp(r), SocketWrite::Tcp(w))
         } else {
             let s = tokio::net::UnixStream::connect(&dst)
                 .await
-                .with_context(|| format!("Unable to connect to {}", dst))?;
+                .with_context(|| format!("Unable to connect to {dst}"))?;
             let (r, w) = s.into_split();
             (SocketRead::Unix(r), SocketWrite::Unix(w))
         };
         let s2 = self.clone();
-        let task = TaskBuilder::new(format!("handle_tcp_socket_{}", socket_id))
+        let task = TaskBuilder::new(format!("handle_tcp_socket_{socket_id}"))
             .shutdown_order(-99)
             .create(|rt| async move { s2.handle_socket(socket_id, rt, r).await });
 
@@ -787,7 +787,7 @@ impl Client {
             .lock()
             .unwrap()
             .remove(&socket_id)
-            .with_context(|| format!("Unknown socket {}", socket_id))?;
+            .with_context(|| format!("Unknown socket {socket_id}"))?;
         conn.task.run_token().cancel();
         if let Err(e) = conn.task.clone().wait().await {
             match e {
@@ -814,7 +814,7 @@ impl Client {
             .lock()
             .unwrap()
             .get(&socket_id)
-            .with_context(|| format!("Unknown socket {}", socket_id))?
+            .with_context(|| format!("Unknown socket {socket_id}"))?
             .clone();
         if let Some(data) = data {
             let mut conn = conn.write.lock().await;
@@ -1288,7 +1288,7 @@ impl Client {
     }
 
     pub async fn persist_close_fd(&self, key: &str, loc: &str) -> Result<()> {
-        info!("persist_close_fd {} @ {}", key, loc);
+        info!("persist_close_fd {key} @ {loc}");
         self.send_persist_request_success(
             persist_daemon::Message::CloseFd {
                 id: self.next_persist_idc(),
@@ -1405,7 +1405,7 @@ impl Client {
                     read
                 }
                 Ok(Ok(Err(e))) => {
-                    info!("Error connecting to upstream: {:?}", e);
+                    info!("Error connecting to upstream: {e:?}");
                     if let Some(notifier) = &notifier {
                         if first {
                             notifier.notify_ready()?;
@@ -1455,7 +1455,7 @@ impl Client {
                             }
                             Ok(_) => {}
                             Err(e) => {
-                                error!("Failure reading from server: {}", e);
+                                error!("Failure reading from server: {e}");
                                 break
                             }
                         }
@@ -1558,7 +1558,7 @@ impl Client {
                 Err(_) => return Ok(()),
             };
             if let persist_daemon::Message::ProcessDied { key, code } = message {
-                info!("Process died {}: {}", key, code);
+                info!("Process died {key}: {code}");
                 if let Some(send) = self.dead_process_handlers.lock().unwrap().remove(&key) {
                     let _ = send.send(code);
                 }
@@ -1757,7 +1757,7 @@ impl Client {
             .handle_control_client_inner(&run_token, &mut socket)
             .await
         {
-            error!("Error in handle control client: {:?}", e);
+            error!("Error in handle control client: {e:?}");
             Self::send_daemon_control_message(
                 &mut socket,
                 DaemonControlMessage::Stderr {
@@ -1895,7 +1895,7 @@ async fn connect_to_persist(retry: usize) -> Result<tokio::net::UnixStream> {
                     bail!("Unable to connect to persist daemon: {}", e);
                 }
                 i += 1;
-                warn!("Unable to connect to persist daemon: {}, retry", e);
+                warn!("Unable to connect to persist daemon: {e}, retry");
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         }
@@ -1979,12 +1979,12 @@ async fn handle_usr2(client: Arc<Client>) -> Result<()> {
 
         info!("Script stdin:");
         for k in client.script_stdin.lock().unwrap().keys() {
-            info!("  {}", k);
+            info!("  {k}");
         }
 
         info!("persist_responses:");
         for k in client.persist_responses.lock().unwrap().keys() {
-            info!("  {}", k);
+            info!("  {k}");
         }
 
         info!("Command_tasks:");
@@ -1994,12 +1994,12 @@ async fn handle_usr2(client: Arc<Client>) -> Result<()> {
 
         info!("dead_process_handlers:");
         for k in client.dead_process_handlers.lock().unwrap().keys() {
-            info!("  {}", k);
+            info!("  {k}");
         }
 
         info!("services:");
         for (k, v) in client.services.lock().unwrap().iter() {
-            info!("  {}:", k);
+            info!("  {k}:");
             v.debug();
         }
     }
@@ -2055,8 +2055,7 @@ pub async fn client_daemon(config: Config, args: ClientDaemon) -> Result<()> {
                 format!("Could not find '{auth_path}', so we expect a password in the config file")
             })?;
             warn!(
-                "Having the password in the config file is insecure, consider moving it to '{}'",
-                auth_path
+                "Having the password in the config file is insecure, consider moving it to '{auth_path}'"
             );
             (password, None)
         }

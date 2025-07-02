@@ -80,10 +80,10 @@ tempfile = {version="3", optional=true}
 tokio = { version = "1", default-features = false, features=['rt', 'net', 'fs', 'sync', 'macros', 'time', 'process', 'signal', 'io-std', 'rt-multi-thread'] }
 tokio-rustls = "0.26"
 tokio-tasks = {version = "0.2", optional=true}
-tokio-tungstenite = { version = "0.26", features=['rustls-tls-webpki-roots']}
+tokio-tungstenite = { version = "0.27", features=['rustls-tls-webpki-roots']}
 tokio-util = {version = "0.7", features = ["io"], optional = true}
 totp-rs= {version="5", features = ["otpauth"], optional = true}
-ts-rs = {version="10", features = ["serde-compat", "chrono-impl", "serde-json-impl", "no-serde-warnings", "indexmap-impl"]}
+ts-rs = {version="11", features = ["serde-compat", "chrono-impl", "serde-json-impl", "no-serde-warnings", "indexmap-impl"]}
 uuid = {version="1", features = ["v4", "serde"], optional = true}
 webpki = "0.22"
 webpki-roots = "1"

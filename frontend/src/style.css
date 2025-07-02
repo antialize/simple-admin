@@ -79,6 +79,10 @@
         "lb   right";
 }
 
+div.CodeMirror {
+    height: 750px;
+}
+
 .modified_container div.CodeMirror {
     height: calc(100vh - 20em);
     width: calc(50vw - 2em);
@@ -104,10 +108,6 @@ main {
 
 th {
     text-align: left;
-}
-
-div.CodeMirror {
-    height: 750px;
 }
 
 main {

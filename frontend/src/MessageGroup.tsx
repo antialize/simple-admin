@@ -35,7 +35,7 @@ const MessageGroup = observer(function MessageGroup({
 
     const newDate = new Date(end * 1000);
     const actions = [];
-    let c: string | undefined = undefined;
+    let c: string | undefined;
     if (dismissed !== 0) {
         actions.push(
             <Button

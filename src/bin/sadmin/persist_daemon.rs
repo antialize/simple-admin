@@ -166,14 +166,14 @@ impl State {
 
     async fn handle_process(self: Arc<Self>, key: String, mut child: tokio::process::Child) {
         let ret = child.wait().await;
-        info!("Child process {} finished {:?}", key, ret);
+        info!("Child process {key} finished {ret:?}");
         self.processes.lock().unwrap().remove(&key);
         let cons: Vec<_> = self.connections.lock().unwrap().values().cloned().collect();
         let code = match ret {
             Err(_) => -99,
             Ok(v) => v.into_raw(),
         };
-        info!("Child process {} finished with code: {}", key, code);
+        info!("Child process {key} finished with code: {code}");
         for con in cons {
             let _ = Self::send_message(
                 &con,
@@ -246,7 +246,7 @@ impl State {
                 Ok(())
             });
         }
-        info!("Spawning {:?}", cmd);
+        info!("Spawning {cmd:?}");
         let child = cmd.spawn().context("Unable to spawn")?;
         let pid = child.id().context("Expected pid")?;
         info!("Started process key {}, pid {}", sp.key, pid);
@@ -384,7 +384,7 @@ impl State {
     ) {
         let id = message.id();
         if let Err(e) = self.handle_client_message_inner(message, &stream, fd).await {
-            error!("Error in handle_client_message info for message: {:?}", e);
+            error!("Error in handle_client_message info for message: {e:?}");
             if let Err(e) = Self::send_message(
                 &stream,
                 Message::Error {
@@ -395,7 +395,7 @@ impl State {
             )
             .await
             {
-                error!("Failed to write to stream: {}", e);
+                error!("Failed to write to stream: {e}");
             }
         }
     }
@@ -462,7 +462,7 @@ impl State {
         )
         .with_context(|| format!("Unable to chmod {path:?}"))?;
 
-        info!("Listining on {:?}", path);
+        info!("Listining on {path:?}");
 
         if let Ok(notifier) = sdnotify::SdNotify::from_env() {
             notifier.notify_ready()?;
@@ -477,7 +477,7 @@ impl State {
                     tokio::spawn(self.clone().handle_client(stream, connection_id));
                 }
                 Err(e) => {
-                    error!("Failed to accept connection {}", e);
+                    error!("Failed to accept connection {e}");
                 }
             }
         }

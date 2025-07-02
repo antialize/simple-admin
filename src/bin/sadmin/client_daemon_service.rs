@@ -1098,7 +1098,7 @@ impl Service {
                                 .status()
                                 .await?;
                             if !status.success() {
-                                error!("Failed running podman kill {}", status);
+                                error!("Failed running podman kill {status}");
                                 log.stdout(b"Failed running podman kill").await?;
                             }
                         } else {
@@ -2299,17 +2299,16 @@ It will be hard killed in {:?} if it does not stop before that. ",
                         .await
                     {
                         Ok(e) if e.success() => {}
-                        Ok(e) => warn!("Failed running podman kill {}", e),
-                        Err(e) => warn!("Failed running podman kill {}", e),
+                        Ok(e) => warn!("Failed running podman kill {e}"),
+                        Err(e) => warn!("Failed running podman kill {e}"),
                     }
                 }
             }
-            Ok((status, Ok(_))) => warn!("Failed running podman container ls status: {}", status),
-            Ok((status, Err(e))) => warn!(
-                "Failed running podman container ls status: {}, invalid output: {}",
-                status, e
-            ),
-            Err(e) => warn!("Failed running podman container ls {}", e),
+            Ok((status, Ok(_))) => warn!("Failed running podman container ls status: {status}"),
+            Ok((status, Err(e))) => {
+                warn!("Failed running podman container ls status: {status}, invalid output: {e}")
+            }
+            Err(e) => warn!("Failed running podman container ls {e}"),
         };
         let _ = std::fs::remove_dir_all(format!("/run/simpleadmin/services/{}", self.name));
         Ok(())
@@ -2373,7 +2372,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 port,
                 path,
             }) => {
-                let response = reqwest::get(format!("http://127.0.0.1:{}{}", port, path)).await?;
+                let response = reqwest::get(format!("http://127.0.0.1:{port}{path}")).await?;
                 if !response.status().is_success() {
                     error!(
                         "Failure to get status from {} {}: {}",
@@ -2403,7 +2402,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
                     properties.push(("instance", &instance));
                 }
             }
-            writeln!(&mut res, "{}", line)?;
+            writeln!(&mut res, "{line}")?;
         }
         let start_time = start_time
             .duration_since(std::time::UNIX_EPOCH)?

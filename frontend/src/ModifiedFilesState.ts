@@ -1,6 +1,6 @@
 import { action, makeObservable, observable } from "mobx";
-import type Remote from "./Remote";
 import nullCheck from "./nullCheck";
+import type Remote from "./Remote";
 import { type IModifiedFilesChanged, type ModifiedFile, PAGE_TYPE } from "./shared_types";
 import state from "./state";
 
