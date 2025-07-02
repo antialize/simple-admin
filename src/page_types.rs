@@ -222,7 +222,7 @@ impl<'de> serde::Deserialize<'de> for IPage {
                 10 => IPage::Object(Deserialize::deserialize(value).map_err(D::Error::custom)?),
                 11 => IPage::ObjectList(Deserialize::deserialize(value).map_err(D::Error::custom)?),
                 12 => IPage::Search,
-                type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
+                type_ => return Err(D::Error::custom(format!("Unsupported type {type_}"))),
             },
         )
     }

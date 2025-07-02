@@ -97,7 +97,7 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
             continue;
         };
         if !email.contains("@") {
-            error!("Invalid email '{}'", email);
+            error!("Invalid email '{email}'");
             continue;
         }
         resources.push(VantaUser {
@@ -129,8 +129,8 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
     let r = client
         .post("https://api.vanta.com/oauth/token")
         .json(&VantaTokenRequest {
-            client_id: client_id,
-            client_secret: client_secret,
+            client_id,
+            client_secret,
             scope: "connectors.self:write-resource",
             grant_type: "client_credentials",
         })
@@ -144,7 +144,7 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
 
     if let Err(e) = r.error_for_status_ref() {
         let text = r.text().await?;
-        return Err(e).context(format!("Faild executing token request: {}", text));
+        return Err(e).context(format!("Faild executing token request: {text}"));
     }
 
     let token: VantaTokenResponse = r.json().await.context("Failed getting token")?;
@@ -167,7 +167,7 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
 
     if let Err(e) = r.error_for_status_ref() {
         let text = r.text().await?;
-        return Err(e).context(format!("Failed executing users request: {}", text));
+        return Err(e).context(format!("Failed executing users request: {text}"));
     }
 
     let response: VantaSyncResponse = r
@@ -236,8 +236,8 @@ async fn analyze_host(state: &State, id: i64) -> Result<AnalyzeHostResult, HostS
         .map_err(|_| HostStatus::Internal)?;
 
     match timeout(Duration::from_secs(60), jh.next_message()).await {
-        Err(_) => return Err(HostStatus::Timeout),
-        Ok(Err(_)) => return Err(HostStatus::HostDown),
+        Err(_) => Err(HostStatus::Timeout),
+        Ok(Err(_)) => Err(HostStatus::HostDown),
         Ok(Ok(Some(ClientHostMessage::Success(msg)))) => {
             if let Some(code) = msg.code {
                 if code != 0 {
@@ -250,11 +250,11 @@ async fn analyze_host(state: &State, id: i64) -> Result<AnalyzeHostResult, HostS
             let Ok(result) = serde_json::from_value::<AnalyzeHostResult>(data) else {
                 return Err(HostStatus::InvalidJson);
             };
-            return Ok(result);
+            Ok(result)
         }
-        Ok(Ok(Some(ClientHostMessage::Failure(_)))) => return Err(HostStatus::CommandFailed),
-        Ok(Ok(Some(_))) => return Err(HostStatus::WrongMessage),
-        Ok(Ok(None)) => return Err(HostStatus::HostDown),
+        Ok(Ok(Some(ClientHostMessage::Failure(_)))) => Err(HostStatus::CommandFailed),
+        Ok(Ok(Some(_))) => Err(HostStatus::WrongMessage),
+        Ok(Ok(None)) => Err(HostStatus::HostDown),
     }
 }
 
@@ -349,7 +349,7 @@ pub async fn push_hosts(state: &State) -> Result<()> {
                 custom_properties: VantaHostResourceCustom {
                     category: row.category,
                     firewall: false,
-                    status: status,
+                    status,
                     ufw_status: None,
                     distribution: None,
                     uname: None,
@@ -365,8 +365,8 @@ pub async fn push_hosts(state: &State) -> Result<()> {
     let r = client
         .post("https://api.vanta.com/oauth/token")
         .json(&VantaTokenRequest {
-            client_id: client_id,
-            client_secret: client_secret,
+            client_id,
+            client_secret,
             scope: "connectors.self:write-resource",
             grant_type: "client_credentials",
         })
@@ -380,7 +380,7 @@ pub async fn push_hosts(state: &State) -> Result<()> {
 
     if let Err(e) = r.error_for_status_ref() {
         let text = r.text().await?;
-        return Err(e).context(format!("Faild executing token request: {}", text));
+        return Err(e).context(format!("Faild executing token request: {text}"));
     }
 
     let token: VantaTokenResponse = r.json().await.context("Failed getting token")?;
@@ -404,7 +404,7 @@ pub async fn push_hosts(state: &State) -> Result<()> {
 
     if let Err(e) = r.error_for_status_ref() {
         let text = r.text().await?;
-        return Err(e).context(format!("Failed executing hosts request: {}", text));
+        return Err(e).context(format!("Failed executing hosts request: {text}"));
     }
 
     let response: VantaSyncResponse = r
@@ -424,11 +424,11 @@ pub async fn push_hosts(state: &State) -> Result<()> {
 pub async fn run_vanta(state: Arc<State>, run_token: RunToken) -> Result<()> {
     loop {
         if let Err(e) = push_users(&state.config, &state.db).await {
-            error!("Failed sending vanta users: {:?}", e);
+            error!("Failed sending vanta users: {e:?}");
         }
 
         if let Err(e) = push_hosts(&state).await {
-            error!("Failed sending vanta hosts: {:?}", e);
+            error!("Failed sending vanta hosts: {e:?}");
         }
 
         if cancelable(

@@ -305,13 +305,9 @@ impl<'a, M> Visitor<'a, M> {
             Ok(v) => v,
             Err(e) => {
                 self.errors.push(format!(
-                    "Template error in {} of {}: {:?}",
-                    name, deployment_title, e
+                    "Template error in {name} of {deployment_title}: {e:?}"
                 ));
-                error!(
-                    "Template error in {} of {}: {:?}",
-                    name, deployment_title, e
-                );
+                error!("Template error in {name} of {deployment_title}: {e:?}");
                 "".into()
             }
         }
@@ -502,8 +498,7 @@ impl<'a, M> Visitor<'a, M> {
                 }
                 Err(e) => {
                     self.errors.push(format!(
-                        "Error processing triger of type {} with content {:?}: {:?}",
-                        id, values, e
+                        "Error processing triger of type {id} with content {values:?}: {e:?}"
                     ));
                 }
             }
@@ -530,7 +525,7 @@ impl<'a, M> Visitor<'a, M> {
                     access.rw(sentinal).base_mut().prev.push(s);
                 }
                 Err(e) => {
-                    self.errors.push(format!("{:?}", e));
+                    self.errors.push(format!("{e:?}"));
                 }
             }
         }
@@ -568,9 +563,9 @@ impl<'a, M> Visitor<'a, M> {
             write!(&mut nw, ".")?;
         }
         for v in prefix.iter() {
-            write!(&mut nw, "{}.", v).context("num_len failed 1")?;
+            write!(&mut nw, "{v}.").context("num_len failed 1")?;
         }
-        write!(&mut nw, "{}", id).context("num_len faile 2")?;
+        write!(&mut nw, "{id}").context("num_len faile 2")?;
         let name = std::str::from_utf8(name).context("num_len failed 3")?;
 
         if let Some(v) = self.nodes.get(name) {
@@ -591,7 +586,7 @@ impl<'a, M> Visitor<'a, M> {
         let type_content = self
             .types
             .get(&type_id)
-            .with_context(|| format!("Missing type {} for object {}", type_id, id))?;
+            .with_context(|| format!("Missing type {type_id} for object {id}"))?;
         let type_obj = self.objects.get(&type_id).context("Missing type")?;
         if path.contains(&id) {
             bail!(
@@ -651,7 +646,7 @@ impl<'a, M> Visitor<'a, M> {
             if !nv.is_empty() {
                 if let Err(e) = vars.add_str(nv.as_str(), &obj.name) {
                     self.errors
-                        .push(format!("Failed to add varible {}: {:?}", nv, e));
+                        .push(format!("Failed to add varible {nv}: {e:?}"));
                 }
             }
         }
@@ -755,7 +750,7 @@ impl<'a, M> Visitor<'a, M> {
         let c = match self.visit(access, id, &mut path, &mut prefix, &mut vars) {
             Ok(v) => Some(v),
             Err(e) => {
-                self.errors.push(format!("Error visiting {}: {:?}", id, e));
+                self.errors.push(format!("Error visiting {id}: {e:?}"));
                 None
             }
         };
@@ -818,7 +813,7 @@ async fn setup_deployment_host<'a, M>(
     let objects = visitor.objects;
     let host_object = objects
         .get(&host_id)
-        .with_context(|| format!("Missing host {}", host_id))?;
+        .with_context(|| format!("Missing host {host_id}"))?;
 
     outer_vars.add_str("nodename", &host_object.name)?;
     let mut to_visit = vec![host_id];
@@ -1083,10 +1078,10 @@ async fn setup_deployment_host<'a, M>(
                 write!(&mut error, " -> ")?;
             }
             match access.ro(n) {
-                DagNode::Sentinal { name, .. } => write!(&mut error, "Sent {}", name)?,
+                DagNode::Sentinal { name, .. } => write!(&mut error, "Sent {name}")?,
                 DagNode::Normal {
                     deployment_title, ..
-                } => write!(&mut error, "{}", deployment_title)?,
+                } => write!(&mut error, "{deployment_title}")?,
             }
         }
         visitor.errors.push(String::from_utf8(error)?)
@@ -1424,11 +1419,11 @@ pub async fn setup_deployment(
         Err(e) => {
             mut_deployment(state, |deployment| {
                 deployment.set_status(DeploymentStatus::InvilidTree);
-                deployment.set_message(format!("{:?}", e));
+                deployment.set_message(format!("{e:?}"));
                 Ok(())
             })
             .await?;
-            error!("Error in setup deployment: {:?}", e);
+            error!("Error in setup deployment: {e:?}");
             return Ok(());
         }
     };
@@ -1454,11 +1449,11 @@ pub async fn setup_deployment(
     {
         mut_deployment(state, |deployment| {
             deployment.set_status(DeploymentStatus::InvilidTree);
-            deployment.set_message(format!("{:?}", e));
+            deployment.set_message(format!("{e:?}"));
             Ok(())
         })
         .await?;
-        error!("Error in setup deployment: {:?}", e);
+        error!("Error in setup deployment: {e:?}");
     }
     Ok(())
 }
@@ -1619,7 +1614,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                     for (i2, _) in &sum_objects {
                         deployment.set_object_status(*i2, DeploymentObjectStatus::Failure);
                     }
-                    deployment.add_log(format!("{:?}", e));
+                    deployment.add_log(format!("{e:?}"));
                     Ok(())
                 })
                 .await?;
@@ -1634,7 +1629,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 })
                 .await?;
                 for (_, o2) in sum_objects {
-                    info!("DEBUG SET DEPLOYMENT {:?} type_id={}", o2, type_id);
+                    info!("DEBUG SET DEPLOYMENT {o2:?} type_id={type_id}");
                     set_deployment(state, o2, type_id).await?;
                 }
             }
@@ -1673,7 +1668,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         if let Err(e) = ret {
             rt.set_location(file!(), line!());
             mut_deployment(state, move |deployment| {
-                deployment.add_log(format!("{:?}", e));
+                deployment.add_log(format!("{e:?}"));
                 Ok(())
             })
             .await?;

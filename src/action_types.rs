@@ -417,7 +417,7 @@ impl<'de> Deserialize<'de> for ObjectType {
                     v => {
                         let v = v
                             .parse()
-                            .map_err(|_| E::custom(format!("Invalid object type '{}'", v)))?;
+                            .map_err(|_| E::custom(format!("Invalid object type '{v}'")))?;
                         Ok(ObjectType::Id(v))
                     }
                 }
@@ -435,7 +435,7 @@ impl<'de> Deserialize<'de> for ObjectType {
                 E: serde::de::Error,
             {
                 Ok(ObjectType::Id(v.try_into().map_err(|_| {
-                    E::custom(format!("Invalid object type {}", v))
+                    E::custom(format!("Invalid object type {v}"))
                 })?))
             }
         }

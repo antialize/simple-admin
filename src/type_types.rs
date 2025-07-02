@@ -241,7 +241,7 @@ impl<'de> serde::Deserialize<'de> for ITypeProp {
                     INumberTypeProp::deserialize(value).map_err(D::Error::custom)?,
                 ),
                 8 => ITypeProp::Monitor,
-                type_ => return Err(D::Error::custom(format!("Unsupported type {}", type_))),
+                type_ => return Err(D::Error::custom(format!("Unsupported type {type_}"))),
             },
         )
     }

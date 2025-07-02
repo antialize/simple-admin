@@ -82,7 +82,7 @@ pub async fn handle_socket(
 ) {
     if let Err(e) = handle_socket_inner(socket_read, send, socket_id, cmd, writer_shutdown_s).await
     {
-        eprintln!("Error in handle socket inner {:?}", e);
+        eprintln!("Error in handle socket inner {e:?}");
     }
 }
 
@@ -117,7 +117,7 @@ pub async fn proxy(config: Config, cmd: ProxySocket) -> Result<()> {
                 let (socket_read, socket_write) = socket.into_split();
                 socket_write_halfs.insert(socket_id, socket_write);
                 tokio::task::spawn(handle_socket(socket_read, send.clone(), socket_id, cmd, writer_shutdown_s.clone()));
-                println!("Accepting proxy connection from {:?}", addr);
+                println!("Accepting proxy connection from {addr:?}");
             }
             r = recv.recv() => {
                 match r? {

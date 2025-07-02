@@ -214,7 +214,7 @@ pub async fn setup(db: &SqlitePool) -> Result<i64> {
         10000,
         id.and_then(|v| v.id).map(|v| v + 1).unwrap_or_default(),
     );
-    info!("Db inited next_object_id = {}", next_object_id);
+    info!("Db inited next_object_id = {next_object_id}");
     Ok(next_object_id)
 }
 
@@ -386,7 +386,7 @@ pub async fn get_host_variables(
 ) -> Result<Option<HashMap<Cow<'static, str>, Cow<'static, str>>>> {
     let host = get_object_by_id_and_type::<ValueMap>(state, id, HOST_ID)
         .await
-        .with_context(|| format!("Getting host {}", id))?;
+        .with_context(|| format!("Getting host {id}"))?;
     let Some(host) = host else { return Ok(None) };
     let mut variables = get_root_variables(state).await?;
     variables.insert("nodename".into(), host.name.into());
@@ -398,7 +398,7 @@ pub async fn get_host_variables(
         }
         let Some(o) = get_newest_object_by_id::<ValueMap>(state, id)
             .await
-            .with_context(|| format!("Getting object {}", id))?
+            .with_context(|| format!("Getting object {id}"))?
         else {
             continue;
         };

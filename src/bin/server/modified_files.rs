@@ -182,7 +182,7 @@ pub async fn scan_inner(state: &State) -> Result<()> {
                 let Some(c) = content.content else { continue };
                 (
                     c.unit,
-                    c.name.map(|v| format!("/etc/systemd/system/{}.service", v)),
+                    c.name.map(|v| format!("/etc/systemd/system/{v}.service")),
                     content.object,
                 )
             }
@@ -212,7 +212,7 @@ pub async fn scan_inner(state: &State) -> Result<()> {
     for (host_id, objs) in &objects {
         let paths: Vec<_> = objs.iter().map(|v| v.path.clone()).collect();
         let Some(host) = state.host_clients.lock().unwrap().get(host_id).cloned() else {
-            warn!("Host {} not up", host_id);
+            warn!("Host {host_id} not up");
             continue;
         };
         futures.push(run_host_scan_job(*host_id, host, paths));
@@ -227,11 +227,11 @@ pub async fn scan_inner(state: &State) -> Result<()> {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(e)
-                        .with_context(|| format!("Failed getting host content on {}", host));
+                        .with_context(|| format!("Failed getting host content on {host}"));
                 }
             };
             let content: Vec<FileContent> = serde_json::from_str(&content)
-                .with_context(|| format!("Failed reading host content:\n {}", content))?;
+                .with_context(|| format!("Failed reading host content:\n {content}"))?;
             let objs = objects
                 .remove(&host)
                 .context("Got content from unknown host")?;
@@ -273,7 +273,7 @@ pub async fn scan_inner(state: &State) -> Result<()> {
             for (path, (deployed, r#type, object, actual)) in modified.into_iter() {
                 messages.push((
                     host,
-                    format!("The file {} has been modified since it was deployed", path),
+                    format!("The file {path} has been modified since it was deployed"),
                 ));
                 let id = inner.idc;
                 inner.idc += 1;
@@ -398,7 +398,7 @@ with open({}, 'w', encoding='utf-8') as f:
                     bail!("Failure in resolve job")
                 }
                 Some(ClientHostMessage::Data(m)) => {
-                    info!("Unexpected data in resolve {:?}", m);
+                    info!("Unexpected data in resolve {m:?}");
                 }
                 Some(msg) => {
                     bail!("Got unknown message {} in resolve", msg.tag());
@@ -590,7 +590,7 @@ pub async fn modified_files_scan(state: Arc<State>, run_token: RunToken) -> Resu
         match cancelable(&run_token, scan(&state)).await {
             Ok(Ok(())) => (),
             Ok(Err(e)) => {
-                error!("Error in modified_files.scan {:?}", e);
+                error!("Error in modified_files.scan {e:?}");
             }
             Err(_) => break,
         }

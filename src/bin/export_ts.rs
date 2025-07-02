@@ -83,16 +83,16 @@ pub fn main() -> Result<()> {
     };
     let new_actions = output.stdout;
 
-    let actions = std::fs::read(p).with_context(|| format!("Failed reading {}", p))?;
+    let actions = std::fs::read(p).with_context(|| format!("Failed reading {p}"))?;
     if actions != new_actions {
         if args.validate {
             bail!("{} is not up to date", p);
         } else {
-            println!("{} generated", p);
-            std::fs::write(p, &new_actions).with_context(|| format!("Failed writing {}", p))?
+            println!("{p} generated");
+            std::fs::write(p, &new_actions).with_context(|| format!("Failed writing {p}"))?
         }
     } else {
-        println!("{} is up to date", p);
+        println!("{p} is up to date");
     }
     Ok(())
 }

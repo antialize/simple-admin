@@ -119,8 +119,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
 
     let (mut send, mut recv) = connect(config, args.host, lines, cols).await?.split();
     send.send(tungstenite::Message::text(format!(
-        "dexport LINES={} COLUMNS={}\n\0",
-        lines, cols
+        "dexport LINES={lines} COLUMNS={cols}\n\0"
     )))
     .await?;
 
@@ -322,7 +321,7 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
                     ConnectionRecvRes::Message(IServerAction::CommandFinished(a)) => {
                         if let Some(signal) = a.signal {
                             if signal != 2 || do_process_ctrl_c {
-                                eprintln!("Command finished with signal: {}", signal);
+                                eprintln!("Command finished with signal: {signal}");
                             }
                         }
                         std::process::exit(a.code);

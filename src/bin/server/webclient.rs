@@ -80,10 +80,10 @@ pub async fn alert_error(
     place: &str,
     webclient: Option<&WebClient>,
 ) -> Result<()> {
-    error!("An error occoured in {}: {:?}", place, err);
+    error!("An error occoured in {place}: {err:?}");
     let act = IServerAction::Alert(IAlert {
-        message: format!("An error occoured in {}: {:?}", place, err),
-        title: format!("Error in {}", place),
+        message: format!("An error occoured in {place}: {err:?}"),
+        title: format!("Error in {place}"),
     });
     if let Some(webclient) = webclient {
         webclient.send_message(rt, act).await?;
@@ -214,7 +214,7 @@ impl WebClient {
         let ca_key = &state.docker.ca_key;
         let ca_crt = &state.docker.ca_crt;
         let key = crt::generate_key().await?;
-        let srs = crt::generate_srs(&key, &format!("{}.user", sslname)).await?;
+        let srs = crt::generate_srs(&key, &format!("{sslname}.user")).await?;
         let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth.auth_days.unwrap_or(1)).await?;
         let mut res = IGenerateKeyRes {
             r#ref: act.r#ref,
@@ -234,7 +234,7 @@ impl WebClient {
             ) {
                 res.ssh_crt = Some(
                     crt::generate_ssh_crt(
-                        &format!("{} sadmin user", user),
+                        &format!("{user} sadmin user"),
                         &user,
                         ssh_host_ca_key,
                         &ssh_public_key,
@@ -804,7 +804,7 @@ impl WebClient {
     pub async fn send_response(&self, rt: &RunToken, msg_id: u64, r: Result<()>) -> Result<()> {
         let error = match r {
             Ok(_) => None,
-            Err(e) => Some(format!("{:?}", e)),
+            Err(e) => Some(format!("{e:?}")),
         };
         self.send_message(rt, IServerAction::Response(IResponse { msg_id, error }))
             .await?;
@@ -901,13 +901,13 @@ os.execv(sys.argv[1], sys.argv[1:])
         let status = match r {
             Ok(code) => code,
             Err(e) => {
-                error!("Failure in run command: {:?}", e);
+                error!("Failure in run command: {e:?}");
                 self.send_message(
                     rt,
                     IServerAction::RunCommandOutput(IRunCommandOutput {
                         id: act_id,
                         stdout: None,
-                        stderr: Some(BASE64_STANDARD.encode(format!("{:?}", e))),
+                        stderr: Some(BASE64_STANDARD.encode(format!("{e:?}"))),
                     }),
                 )
                 .await?;
@@ -1025,7 +1025,7 @@ os.execv(sys.argv[1], sys.argv[1:])
             IClientAction::Login(act) => {
                 rt.set_location(file!(), line!());
                 if let Err(e) = self.handle_login_inner(&rt, state, act).await {
-                    error!("Error in handle_login: {:?}", e);
+                    error!("Error in handle_login: {e:?}");
                     rt.set_location(file!(), line!());
                     self.send_message(
                         &rt,
@@ -1102,7 +1102,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                 let id = match self.get_object_id_inner(state, &act).await {
                     Ok(v) => Some(v),
                     Err(e) => {
-                        error!("Failure in getObjectId {:?}", e);
+                        error!("Failure in getObjectId {e:?}");
                         None
                     }
                 };
@@ -1463,7 +1463,7 @@ os.execv(sys.argv[1], sys.argv[1:])
                         .await {
                             Ok(v) => v,
                             Err(e) => {
-                                error!("ERROR IN QUERY {:?}", e);
+                                error!("ERROR IN QUERY {e:?}");
                                 return Err(e.into())
                             }
                         };
@@ -2106,7 +2106,7 @@ async fn sysadmin_handler(
 ) -> Response {
     ws.on_upgrade(move |socket| async move {
         if let Err(e) = handle_webclient(socket, state, remote).await {
-            error!("Error in websocket connection: {:?}", e);
+            error!("Error in websocket connection: {e:?}");
         }
     })
 }
@@ -2144,7 +2144,7 @@ async fn metrics_handler(WState(state): WState<Arc<State>>) -> Result<Response, 
     let v = msg::get_count(&state).await?;
     Ok((
         [("Content-Type", "text/plain; version=0.0.4")],
-        format!("simpleadmin_messages {}\n", v),
+        format!("simpleadmin_messages {v}\n"),
     )
         .into_response())
 }

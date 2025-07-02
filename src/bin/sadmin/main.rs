@@ -160,7 +160,7 @@ async fn get_secret(config: Config, args: GetSecret) -> Result<()> {
         if let IServerAction::GetSecretRes(r) = con.recv().await? {
             if r.name == args.secret {
                 if let Some(v) = r.value {
-                    println!("{}", v);
+                    println!("{v}");
                     return Ok(());
                 } else {
                     bail!("Secret {} not found", args.secret);

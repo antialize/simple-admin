@@ -260,7 +260,7 @@ impl HostClient {
 
     async fn send_ping(self: Arc<Self>, _rt: RunToken, id: u64) -> Result<()> {
         if let Err(e) = self.send_message(&HostClientMessage::Ping { id }).await {
-            error!("Failed sending ping: {:?}", e)
+            error!("Failed sending ping: {e:?}")
         }
         Ok(())
     }
@@ -308,40 +308,40 @@ impl HostClient {
                             }
                             ClientHostMessage::SocketRecv{ socket_id, data } => {
                                 match self.socket_message_handlers.lock().unwrap().get(&socket_id) {
-                                    None => warn!("Get recv for unknows socket {}", socket_id),
+                                    None => warn!("Get recv for unknows socket {socket_id}"),
                                     Some(v) => {
                                         if let Err(e) = v.send(ClientHostMessage::SocketRecv{ socket_id, data }) {
-                                            warn!("Failed forwarding recv message for socket {}: {:?}", socket_id, e);
+                                            warn!("Failed forwarding recv message for socket {socket_id}: {e:?}");
                                         }
                                     }
                                 }
                             }
                             ClientHostMessage::CommandStdout{ command_id, data } => {
                                 match self.command_message_handlers.lock().unwrap().get(&command_id) {
-                                    None => warn!("Get stdout for unknown command {}", command_id),
+                                    None => warn!("Get stdout for unknown command {command_id}"),
                                     Some(v) => {
                                         if let Err(e) = v.send(ClientHostMessage::CommandStdout{ command_id, data }) {
-                                            warn!("Failed forwarding stdout message to command {}: {:?}", command_id, e);
+                                            warn!("Failed forwarding stdout message to command {command_id}: {e:?}");
                                         }
                                     }
                                 }
                             }
                             ClientHostMessage::CommandStderr{ command_id, data } => {
                                 match self.command_message_handlers.lock().unwrap().get(&command_id) {
-                                    None => warn!("Get stderr for unknown command {}", command_id),
+                                    None => warn!("Get stderr for unknown command {command_id}"),
                                     Some(v) => {
                                         if let Err(e) = v.send(ClientHostMessage::CommandStderr{ command_id, data }) {
-                                            warn!("Failed forwarding stderr message to command {}: {:?}", command_id, e);
+                                            warn!("Failed forwarding stderr message to command {command_id}: {e:?}");
                                         }
                                     }
                                 }
                             }
                             ClientHostMessage::CommandFinished{ command_id, code, signal } => {
                                 match self.command_message_handlers.lock().unwrap().get(&command_id) {
-                                    None => warn!("Get finished for unknown command {}", command_id),
+                                    None => warn!("Get finished for unknown command {command_id}"),
                                     Some(v) => {
                                         if let Err(e) = v.send(ClientHostMessage::CommandFinished{ command_id, code, signal }) {
-                                            warn!("Failed forwarding finished message to command {}: {:?}", command_id, e);
+                                            warn!("Failed forwarding finished message to command {command_id}: {e:?}");
                                         }
                                     }
                                 }
@@ -350,11 +350,11 @@ impl HostClient {
                                 if let Some(id) = msg.job_id() {
                                     if let Some(job) = self.job_sinks.lock().unwrap().get(&id) {
                                         if let Err(e) = job.send(msg) {
-                                            error!("Unable to handle job message: {:?}", e);
+                                            error!("Unable to handle job message: {e:?}");
                                         }
                                     } else if let Some(s) = self.message_handlers.lock().unwrap().remove(&id) {
                                         if let Err(e) = s.send(msg) {
-                                            error!("Unable to handle job message: {:?}", e);
+                                            error!("Unable to handle job message: {e:?}");
                                         }
                                     } else if self.clone().spawn_kill_job(id) {
                                         error!("Got message from unknown job {} on host {}", id, self.hostname);
@@ -572,7 +572,7 @@ async fn handle_host_client(
     )
     .await???;
 
-    info!("Host connected {:?}", peer_address);
+    info!("Host connected {peer_address:?}");
     let (mut reader, writer) = tokio::io::split(stream);
     let mut buf = BytesMut::with_capacity(1024 * 128);
     let (id, hostname) = match cancelable(
@@ -586,12 +586,12 @@ async fn handle_host_client(
     {
         Ok(Ok(Ok(id))) => id,
         Ok(Ok(Err(e))) => {
-            warn!("Host auth error for {:?}: {:?}", peer_address, e);
+            warn!("Host auth error for {peer_address:?}: {e:?}");
             reader.unsplit(writer);
             return Ok(());
         }
         Ok(Err(_)) => {
-            warn!("Host auth timeout for {:?}", peer_address);
+            warn!("Host auth timeout for {peer_address:?}");
             reader.unsplit(writer);
             return Ok(());
         }
@@ -600,7 +600,7 @@ async fn handle_host_client(
             return Ok(());
         }
     };
-    info!("Host authorized {:?} {} ({})", peer_address, hostname, id);
+    info!("Host authorized {peer_address:?} {hostname} ({id})");
 
     let j: u32 = rand::rng().random();
 
@@ -695,7 +695,7 @@ pub async fn run_host_server(state: Arc<State>, run_token: RunToken) -> Result<(
         tokio::select! {
             accept_res = accept_fut => {
                 let (stream, peer_address) = accept_res?;
-                TaskBuilder::new(format!("host_client_{:?}", peer_address))
+                TaskBuilder::new(format!("host_client_{peer_address:?}"))
                     .shutdown_order(2)
                     .create(|rt|handle_host_client(state.clone(), rt, stream, peer_address, acceptor.clone()));
             }
