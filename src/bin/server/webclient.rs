@@ -743,6 +743,7 @@ impl WebClient {
                 .unwrap()
                 .remove(&command_id);
         }
+        r??;
         Ok(())
     }
 
