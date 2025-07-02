@@ -284,7 +284,7 @@ export type IStartLog = {
     host: number;
     logtype: IStartLogLogType;
     id: number;
-    unit: string | null;
+    unit?: string | null;
 };
 
 export type IEndLog = { host: number; id: number };
@@ -299,7 +299,7 @@ export type IAddMessage = { message: IMessage };
 
 export type ISetMessagesDismissed = { ids: Array<number>; dismissed: boolean; source: ISource };
 
-export type ISaveObject = { id: number; obj: IObject2<{ [key in string]?: JsonValue }> | null };
+export type ISaveObject = { id: number; obj?: IObject2<{ [key in string]?: JsonValue }> | null };
 
 export type ISearch = { ref: Ref; pattern: string };
 
@@ -551,6 +551,10 @@ export type IRunCommandOutput = { id: number; stdout?: string; stderr?: string }
 
 export type IRunCommandFinished = { id: number; status: number };
 
+export type IGetSecret = { name: string; host: string | null };
+
+export type IGetSecretRes = { ref: Ref; id: number | null };
+
 export type IServerAction =
     | ({ type: "AddDeploymentLog" } & IAddDeploymentLog)
     | ({ type: "AddMessage" } & IAddMessage)
@@ -584,7 +588,13 @@ export type IServerAction =
     | ({ type: "SetInitialState" } & ISetInitialState)
     | ({ type: "SetMessagesDismissed" } & ISetMessagesDismissed)
     | ({ type: "SetPage" } & ISetPageAction)
-    | ({ type: "ToggleDeploymentObject" } & IToggleDeploymentObject);
+    | ({ type: "ToggleDeploymentObject" } & IToggleDeploymentObject)
+    | ({ type: "GetSecretRes" } & IGetSecretRes)
+    | ({ type: "Response" } & IResponse)
+    | ({ type: "SocketRecv" } & ISocketRecv)
+    | ({ type: "CommandStdout" } & ICommandStdout)
+    | ({ type: "CommandStderr" } & ICommandStderr)
+    | ({ type: "CommandFinished" } & ICommandFinished);
 
 export type IClientAction =
     | ({ type: "CancelDeployment" } & ICancelDeployment)
@@ -622,4 +632,44 @@ export type IClientAction =
     | ({ type: "SetMessageDismissed" } & ISetMessagesDismissed)
     | ({ type: "StartDeployment" } & IStartDeployment)
     | ({ type: "StopDeployment" } & IStopDeployment)
-    | ({ type: "ToggleDeploymentObject" } & IToggleDeploymentObject);
+    | ({ type: "ToggleDeploymentObject" } & IToggleDeploymentObject)
+    | ({ type: "GetSecret" } & IGetSecret)
+    | ({ type: "SocketConnect" } & ISocketConnect)
+    | ({ type: "SocketClose" } & ISocketClose)
+    | ({ type: "SocketSend" } & ISocketSend)
+    | ({ type: "CommandSpawn" } & ICommandSpawn)
+    | ({ type: "CommandStdin" } & ICommandStdin)
+    | ({ type: "CommandSignal" } & ICommandSignal);
+
+export type IResponse = { msg_id: number; error: string | null };
+
+export type ISocketConnect = { msg_id: number; socket_id: number; host: string; dst: string };
+
+export type ISocketClose = { msg_id: number; socket_id: number };
+
+export type ISocketSend = { msg_id: number; socket_id: number; data: string | null };
+
+export type ICommandSpawn = {
+    msg_id: number;
+    command_id: number;
+    host: string;
+    program: string;
+    args: Array<string>;
+    forward_stdin: boolean;
+    forward_stdout: boolean;
+    forward_stderr: boolean;
+    env: { [key in string]?: string } | null;
+    cwd: string | null;
+};
+
+export type ICommandStdin = { msg_id: number; command_id: number; data: string | null };
+
+export type ICommandSignal = { msg_id: number; command_id: number; signal: number };
+
+export type ISocketRecv = { socket_id: number; data: string | null };
+
+export type ICommandStdout = { command_id: number; data: string | null };
+
+export type ICommandStderr = { command_id: number; data: string | null };
+
+export type ICommandFinished = { command_id: number; code: number; signal: number | null };

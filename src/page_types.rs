@@ -73,6 +73,8 @@ pub enum IPage {
 }
 impl ::ts_rs::TS for IPage {
     type WithoutGenerics = IPage;
+    type OptionInnerType = Self;
+
     fn ident() -> String {
         "IPage".to_owned()
     }
@@ -113,8 +115,8 @@ impl ::ts_rs::TS for IPage {
     {
     }
 
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("IPage.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("IPage.ts"))
     }
 
     fn visit_dependencies(_: &mut impl ::ts_rs::TypeVisitor)

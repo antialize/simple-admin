@@ -35,6 +35,7 @@ pub enum DeploymentStatus {
 
 impl TS for DeploymentStatus {
     type WithoutGenerics = DeploymentStatus;
+    type OptionInnerType = Self;
     fn name() -> String {
         "DEPLOYMENT_STATUS".to_owned()
     }
@@ -59,8 +60,8 @@ impl TS for DeploymentStatus {
     fn inline_flattened() -> String {
         todo!();
     }
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("DeploymentStatus.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("DeploymentStatus.ts"))
     }
 }
 
@@ -75,6 +76,7 @@ pub enum DeploymentObjectStatus {
 
 impl TS for DeploymentObjectStatus {
     type WithoutGenerics = DeploymentStatus;
+    type OptionInnerType = Self;
     fn name() -> String {
         "DEPLOYMENT_OBJECT_STATUS".to_owned()
     }
@@ -96,8 +98,8 @@ impl TS for DeploymentObjectStatus {
     fn inline_flattened() -> String {
         todo!();
     }
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("DeploymentObjectStatus.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("DeploymentObjectStatus.ts"))
     }
 }
 
@@ -112,6 +114,7 @@ pub enum DeploymentObjectAction {
 
 impl TS for DeploymentObjectAction {
     type WithoutGenerics = DeploymentStatus;
+    type OptionInnerType = Self;
     fn name() -> String {
         "DEPLOYMENT_OBJECT_ACTION".to_owned()
     }
@@ -133,8 +136,8 @@ impl TS for DeploymentObjectAction {
     fn inline_flattened() -> String {
         todo!();
     }
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("DeploymentObjectAction.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("DeploymentObjectAction.ts"))
     }
 }
 
@@ -369,6 +372,7 @@ pub enum ObjectType {
 
 impl ::ts_rs::TS for ObjectType {
     type WithoutGenerics = ObjectType;
+    type OptionInnerType = Self;
     fn name() -> String {
         "ObjectType".to_owned()
     }
@@ -384,8 +388,8 @@ impl ::ts_rs::TS for ObjectType {
     fn inline_flattened() -> String {
         todo!()
     }
-    fn output_path() -> Option<&'static std::path::Path> {
-        Some(std::path::Path::new("ObjectType.ts"))
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from("ObjectType.ts"))
     }
 }
 

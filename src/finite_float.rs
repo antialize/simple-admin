@@ -97,6 +97,7 @@ impl Ord for FiniteF64 {
 
 impl TS for FiniteF64 {
     type WithoutGenerics = Self;
+    type OptionInnerType = Self;
 
     fn decl() -> String {
         panic!("FiniteF64 cannot be declared")
