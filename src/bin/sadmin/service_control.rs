@@ -325,13 +325,20 @@ pub async fn run_logs(args: Logs) -> Result<()> {
     let mut child = cmd.spawn()?;
     let stdout = child.stdout.take().unwrap();
     let mut stdout = std::io::BufReader::new(stdout);
-    let mut line = String::new();
+    let mut line = Vec::new();
     let mut instances = std::collections::HashMap::new();
     let mut print_date = None;
     let now: DateTime<Local> = Local::now();
-    while stdout.read_line(&mut line)? != 0 {
-        let l: LogLine = serde_json::from_str(line.trim())
-            .with_context(|| format!("Parsing log line {line}"))?;
+
+    loop {
+        line.clear();
+        stdout.read_until(b'\n', &mut line)?;
+        if line.is_empty() {
+            break;
+        }
+        let l = line.trim_ascii();
+        let l: LogLine = serde_json::from_slice(l)
+            .with_context(|| format!("Parsing log line '{}'", String::from_utf8_lossy(l)))?;
         let t: DateTime<Local> = match l.__realtime_timestamp {
             Some(v) => {
                 let t: i64 = v
