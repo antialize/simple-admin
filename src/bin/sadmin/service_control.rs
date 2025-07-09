@@ -296,10 +296,17 @@ pub async fn run_exec(args: Exec) -> Result<()> {
     bail!("Unable to run command {}", status)
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum Message<'a> {
+    String(std::borrow::Cow<'a, str>),
+    Bytes(Vec<u8>),
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 struct LogLine<'a> {
-    message: Option<std::borrow::Cow<'a, str>>,
+    message: Option<Message<'a>>,
     instance: Option<&'a str>,
     __realtime_timestamp: Option<&'a str>,
 }
@@ -370,7 +377,11 @@ pub async fn run_logs(args: Logs) -> Result<()> {
             },
             None => 0,
         };
-        let message = l.message.unwrap_or_default();
+        let message = match &l.message {
+            Some(Message::Bytes(v)) => String::from_utf8_lossy(v),
+            Some(Message::String(v)) => v.as_ref().into(),
+            None => "".into(),
+        };
         if print_date {
             println!(
                 "{:02}/{:02} {:02}:{:02}:{:02}.{:03} {:2}: {}",
