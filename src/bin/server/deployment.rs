@@ -358,10 +358,10 @@ impl<'a, M> Visitor<'a, M> {
                             .get(name)
                             .and_then(|v| v.as_bool())
                             .unwrap_or(*default);
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_bool(variable, v)?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_bool(variable, v)?;
                         }
                         content.insert(name.to_string(), Value::Bool(v));
                     }
@@ -386,10 +386,10 @@ impl<'a, M> Visitor<'a, M> {
                             Cow::Borrowed(v) => v,
                             Cow::Owned(v) => self.string_arena.alloc_str(access, v),
                         };
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_str(variable, vv)?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_str(variable, vv)?;
                         }
                         if deploy_title.unwrap_or_default() {
                             deployment_title = vv;
@@ -418,10 +418,10 @@ impl<'a, M> Visitor<'a, M> {
                         } else {
                             v.into()
                         };
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_str(variable, v.clone())?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_str(variable, v.clone())?;
                         }
                         content.insert(name.to_string(), Value::String(v.into_owned()));
                     }
@@ -435,10 +435,10 @@ impl<'a, M> Visitor<'a, M> {
                             .get(name)
                             .and_then(|v| v.as_str())
                             .unwrap_or(default);
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_str(variable, v)?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_str(variable, v)?;
                         }
                         content.insert(name.to_string(), Value::String(v.to_owned()));
                     }
@@ -642,13 +642,12 @@ impl<'a, M> Visitor<'a, M> {
         if type_content.has_variables.unwrap_or_default() {
             self.add_variabels(vars, obj);
         }
-        if let Some(nv) = &type_content.name_variable {
-            if !nv.is_empty() {
-                if let Err(e) = vars.add_str(nv.as_str(), &obj.name) {
-                    self.errors
-                        .push(format!("Failed to add varible {nv}: {e:?}"));
-                }
-            }
+        if let Some(nv) = &type_content.name_variable
+            && !nv.is_empty()
+            && let Err(e) = vars.add_str(nv.as_str(), &obj.name)
+        {
+            self.errors
+                .push(format!("Failed to add varible {nv}: {e:?}"));
         }
         let mut v = self.visit_content(access, &obj.name, &obj.content, type_content, vars)?;
 
@@ -1000,13 +999,13 @@ async fn setup_deployment_host<'a, M>(
             deployment_order: base.type_order,
         };
 
-        if let Some(v) = old_content.remove(*name) {
-            if !redeploy {
-                let content = v.content;
-                o.prev_content = content.content;
-                o.prev_script = content.script;
-                o.action = DeploymentObjectAction::Modify;
-            }
+        if let Some(v) = old_content.remove(*name)
+            && !redeploy
+        {
+            let content = v.content;
+            o.prev_content = content.content;
+            o.prev_script = content.script;
+            o.action = DeploymentObjectAction::Modify;
         }
         host_deployment_objects.push(o);
     }
@@ -1584,10 +1583,10 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 if o2.prev_content.is_some() {
                     next_objects.remove(&o2.name);
                 }
-                if let Some(c) = o2.next_content.clone() {
-                    if !c.is_empty() {
-                        next_objects.insert(o2.name.clone(), c.into());
-                    }
+                if let Some(c) = o2.next_content.clone()
+                    && !c.is_empty()
+                {
+                    next_objects.insert(o2.name.clone(), c.into());
                 }
             }
 

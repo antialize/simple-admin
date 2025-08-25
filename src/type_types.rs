@@ -389,9 +389,9 @@ impl<'a> Iterator for VariableExtractor<'a> {
             if let serde_json::Value::Object(o) = v
                 && let (Some(serde_json::Value::String(k)), Some(serde_json::Value::String(v))) =
                     (o.get("key"), o.get("value"))
-                {
-                    return Some((k.as_str(), v.as_str()));
-                }
+            {
+                return Some((k.as_str(), v.as_str()));
+            }
         }
         None
     }
@@ -440,9 +440,9 @@ impl<'a> Iterator for TriggersExtractor<'a> {
             if let serde_json::Value::Object(o) = v
                 && let (Some(serde_json::Value::Number(k)), Some(serde_json::Value::Object(v))) =
                     (o.get("id"), o.get("values"))
-                {
-                    return Some((k.as_i64().unwrap_or_default(), v));
-                }
+            {
+                return Some((k.as_i64().unwrap_or_default(), v));
+            }
         }
         None
     }

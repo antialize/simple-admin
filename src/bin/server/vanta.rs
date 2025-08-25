@@ -239,10 +239,10 @@ async fn analyze_host(state: &State, id: i64) -> Result<AnalyzeHostResult, HostS
         Err(_) => Err(HostStatus::Timeout),
         Ok(Err(_)) => Err(HostStatus::HostDown),
         Ok(Ok(Some(ClientHostMessage::Success(msg)))) => {
-            if let Some(code) = msg.code {
-                if code != 0 {
-                    return Err(HostStatus::CommandFailed);
-                }
+            if let Some(code) = msg.code
+                && code != 0
+            {
+                return Err(HostStatus::CommandFailed);
             }
             let Some(data) = msg.data else {
                 return Err(HostStatus::InvalidJson);

@@ -423,10 +423,10 @@ impl HostClient {
         match jh.next_message().await? {
             Some(ClientHostMessage::Success(msg)) => {
                 jh.done();
-                if let Some(code) = msg.code {
-                    if code != 0 {
-                        bail!("Command failed with code  {}", code);
-                    }
+                if let Some(code) = msg.code
+                    && code != 0
+                {
+                    bail!("Command failed with code  {}", code);
                 }
                 let Some(Value::String(v)) = msg.data else {
                     bail!("Missing data");
@@ -457,10 +457,10 @@ impl HostClient {
         match jh.next_message().await? {
             Some(ClientHostMessage::Success(msg)) => {
                 jh.done();
-                if let Some(code) = msg.code {
-                    if code != 0 {
-                        bail!("Command failed with code {}", code);
-                    }
+                if let Some(code) = msg.code
+                    && code != 0
+                {
+                    bail!("Command failed with code {}", code);
                 }
                 Ok(())
             }
@@ -640,10 +640,10 @@ async fn handle_host_client(
     }
     run_token.cancel();
 
-    if let Entry::Occupied(e) = state.host_clients.lock().unwrap().entry(id) {
-        if Arc::as_ptr(e.get()) == Arc::as_ptr(&hc) {
-            e.remove();
-        }
+    if let Entry::Occupied(e) = state.host_clients.lock().unwrap().entry(id)
+        && Arc::as_ptr(e.get()) == Arc::as_ptr(&hc)
+    {
+        e.remove();
     }
 
     webclient::broadcast(&state, IServerAction::HostDown(IHostDown { id }))?;

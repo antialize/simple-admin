@@ -214,16 +214,12 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
         })
         .and_then(|v| BASE64_STANDARD.decode(v).ok())
         .and_then(|v| String::from_utf8(v).ok())
+        && let Some((user, sid)) = auth.split_once(":")
+        && let Ok(a) = get_auth(state, None, Some(sid)).await
+        && a.user.as_deref() == Some(user)
+        && let Some(v) = cb(a)
     {
-        if let Some((user, sid)) = auth.split_once(":") {
-            if let Ok(a) = get_auth(state, None, Some(sid)).await {
-                if a.user.as_deref() == Some(user) {
-                    if let Some(v) = cb(a) {
-                        return Ok(v);
-                    }
-                }
-            }
-        }
+        return Ok(v);
     }
     Err((
         StatusCode::FORBIDDEN,
@@ -574,17 +570,17 @@ async fn put_blob_upload(
         .await
         .to_api_error("Upload failed")?;
 
-    if let Some(expected_size) = expected_size {
-        if inner.count != start_size + expected_size {
-            api_error!(
-                BAD_REQUEST,
-                SizeInvalid,
-                "Inconsistent size uuid={}, got={}, expected_size={}",
-                uuid,
-                inner.count - start_size,
-                expected_size
-            );
-        }
+    if let Some(expected_size) = expected_size
+        && inner.count != start_size + expected_size
+    {
+        api_error!(
+            BAD_REQUEST,
+            SizeInvalid,
+            "Inconsistent size uuid={}, got={}, expected_size={}",
+            uuid,
+            inner.count - start_size,
+            expected_size
+        );
     }
     state.docker_uploads.lock().unwrap().remove(&uuid);
 
@@ -876,17 +872,17 @@ async fn patch_blob_upload(
     handle_upload(body, inner, &u.shadow_range)
         .await
         .to_api_error("Upload failed")?;
-    if let Some(expected_size) = expected_size {
-        if inner.count != start_size + expected_size {
-            api_error!(
-                BAD_REQUEST,
-                SizeInvalid,
-                "Uploaded bytes does not match expected size uuid={} recieved={} expected={}",
-                uuid,
-                inner.count - start_size,
-                expected_size
-            );
-        }
+    if let Some(expected_size) = expected_size
+        && inner.count != start_size + expected_size
+    {
+        api_error!(
+            BAD_REQUEST,
+            SizeInvalid,
+            "Uploaded bytes does not match expected size uuid={} recieved={} expected={}",
+            uuid,
+            inner.count - start_size,
+            expected_size
+        );
     }
     info!(
         "Docker patch uuid={} uploaded={} end={}",

@@ -461,7 +461,12 @@ impl RemoteLogTarget<'_> {
     }
 }
 
-async fn run_script(name: String, src: &String, log: &mut RemoteLogTarget<'_>, envs: &[(&str, &str)]) -> Result<()> {
+async fn run_script(
+    name: String,
+    src: &String,
+    log: &mut RemoteLogTarget<'_>,
+    envs: &[(&str, &str)],
+) -> Result<()> {
     let (first, _) = src
         .split_once('\n')
         .with_context(|| format!("Expected two lines in script {name}"))?;
@@ -473,16 +478,12 @@ async fn run_script(name: String, src: &String, log: &mut RemoteLogTarget<'_>, e
     f.flush()?;
     let mut cmd = tokio::process::Command::new(interperter);
     cmd.arg(f.path());
-    for (k,v) in envs {
-        cmd.env(k,v);
+    for (k, v) in envs {
+        cmd.env(k, v);
     }
-    let result = forward_command(
-        &mut cmd,
-        &None,
-        log,
-    )
-    .await
-    .context("Failed running script")?;
+    let result = forward_command(&mut cmd, &None, log)
+        .await
+        .context("Failed running script")?;
     if !result.success() {
         bail!("Error running script {}: {:?}", name, result);
     }
@@ -1252,23 +1253,23 @@ impl Service {
         }
 
         // Enable linger if required
-        if let Some(user) = &user {
-            if desc.enable_linger == Some(true) {
-                forward_command(
-                    tokio::process::Command::new("/usr/bin/loginctl")
-                        .arg("enable-linger")
-                        .arg(&user.name),
-                    &None,
-                    log,
+        if let Some(user) = &user
+            && desc.enable_linger == Some(true)
+        {
+            forward_command(
+                tokio::process::Command::new("/usr/bin/loginctl")
+                    .arg("enable-linger")
+                    .arg(&user.name),
+                &None,
+                log,
+            )
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed running /usr/bin/loginctl enable-linger {}",
+                    user.name
                 )
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed running /usr/bin/loginctl enable-linger {}",
-                        user.name
-                    )
-                })?;
-            }
+            })?;
         }
 
         let t = tempfile::TempDir::new()?;
@@ -1322,7 +1323,7 @@ impl Service {
         }
 
         let mut env = Vec::new();
-        for (k,v) in &extra_env {
+        for (k, v) in &extra_env {
             env.push((k.as_str(), v.as_str()));
         }
         if let Some(image) = &image {
@@ -1814,7 +1815,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
         }
 
         let mut script_env = Vec::new();
-        for (k,v) in extra_env {
+        for (k, v) in extra_env {
             script_env.push((k.as_str(), v.as_str()));
         }
         let image_for_env = image.clone();

@@ -1406,12 +1406,12 @@ impl Client {
                 }
                 Ok(Ok(Err(e))) => {
                     info!("Error connecting to upstream: {e:?}");
-                    if let Some(notifier) = &notifier {
-                        if first {
-                            notifier.notify_ready()?;
-                            notifier.set_status("Disconnected".to_string())?;
-                            first = false;
-                        }
+                    if let Some(notifier) = &notifier
+                        && first
+                    {
+                        notifier.notify_ready()?;
+                        notifier.set_status("Disconnected".to_string())?;
+                        first = false;
                     }
 
                     if cancelable(&run_token, tokio::time::sleep(Duration::from_millis(1234)))

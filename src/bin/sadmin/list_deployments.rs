@@ -430,13 +430,15 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
             return false;
         }
         if let Some(image) = &args.image
-            && &d.image != image {
-                return false;
-            }
+            && &d.image != image
+        {
+            return false;
+        }
         if let Some(container) = &args.container
-            && &d.name != container {
-                return false;
-            }
+            && &d.name != container
+        {
+            return false;
+        }
         true
     });
     list_deployment_groups(

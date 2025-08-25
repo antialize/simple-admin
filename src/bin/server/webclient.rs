@@ -286,11 +286,11 @@ impl WebClient {
             if let Some(content) = content {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 pwd = crypt::validate_password(&act.pwd, &content.password)?;
-                if let Some(otp_token) = &act.otp {
-                    if !otp_token.is_empty() {
-                        otp = crypt::validate_otp(otp_token, &content.otp_base32)?;
-                        new_otp = true;
-                    }
+                if let Some(otp_token) = &act.otp
+                    && !otp_token.is_empty()
+                {
+                    otp = crypt::validate_otp(otp_token, &content.otp_base32)?;
+                    new_otp = true;
                 }
                 found = true;
             }

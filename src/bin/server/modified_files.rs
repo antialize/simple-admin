@@ -387,10 +387,10 @@ with open({}, 'w', encoding='utf-8') as f:
             match jh.next_message().await? {
                 Some(ClientHostMessage::Success(SuccessMessage { code, .. })) => {
                     jh.done();
-                    if let Some(code) = code {
-                        if code != 0 {
-                            bail!("Resolve job failed with code {}", code);
-                        }
+                    if let Some(code) = code
+                        && code != 0
+                    {
+                        bail!("Resolve job failed with code {}", code);
                     }
                 }
                 Some(ClientHostMessage::Failure(FailureMessage { .. })) => {
@@ -557,10 +557,10 @@ sys.stdout.flush()";
             }
             Some(ClientHostMessage::Success(m)) => {
                 jh.done();
-                if let Some(code) = m.code {
-                    if code != 0 {
-                        bail!("Script returned {}", code);
-                    }
+                if let Some(code) = m.code
+                    && code != 0
+                {
+                    bail!("Script returned {}", code);
                 }
                 break;
             }
