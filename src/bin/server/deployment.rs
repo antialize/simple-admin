@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx_type::{query, query_as};
 use tokio::select;
-use tokio_tasks::RunToken;
+use tokio_tasks::{RunToken, set_location};
 
 type ValueMap = serde_json::Map<String, Value>;
 
@@ -358,10 +358,10 @@ impl<'a, M> Visitor<'a, M> {
                             .get(name)
                             .and_then(|v| v.as_bool())
                             .unwrap_or(*default);
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_bool(variable, v)?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_bool(variable, v)?;
                         }
                         content.insert(name.to_string(), Value::Bool(v));
                     }
@@ -386,10 +386,10 @@ impl<'a, M> Visitor<'a, M> {
                             Cow::Borrowed(v) => v,
                             Cow::Owned(v) => self.string_arena.alloc_str(access, v),
                         };
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_str(variable, vv)?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_str(variable, vv)?;
                         }
                         if deploy_title.unwrap_or_default() {
                             deployment_title = vv;
@@ -418,10 +418,10 @@ impl<'a, M> Visitor<'a, M> {
                         } else {
                             v.into()
                         };
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_str(variable, v.clone())?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_str(variable, v.clone())?;
                         }
                         content.insert(name.to_string(), Value::String(v.into_owned()));
                     }
@@ -435,10 +435,10 @@ impl<'a, M> Visitor<'a, M> {
                             .get(name)
                             .and_then(|v| v.as_str())
                             .unwrap_or(default);
-                        if let Some(variable) = variable {
-                            if !variable.is_empty() {
-                                vars.add_str(variable, v)?;
-                            }
+                        if let Some(variable) = variable
+                            && !variable.is_empty()
+                        {
+                            vars.add_str(variable, v)?;
                         }
                         content.insert(name.to_string(), Value::String(v.to_owned()));
                     }
@@ -642,13 +642,12 @@ impl<'a, M> Visitor<'a, M> {
         if type_content.has_variables.unwrap_or_default() {
             self.add_variabels(vars, obj);
         }
-        if let Some(nv) = &type_content.name_variable {
-            if !nv.is_empty() {
-                if let Err(e) = vars.add_str(nv.as_str(), &obj.name) {
-                    self.errors
-                        .push(format!("Failed to add varible {nv}: {e:?}"));
-                }
-            }
+        if let Some(nv) = &type_content.name_variable
+            && !nv.is_empty()
+            && let Err(e) = vars.add_str(nv.as_str(), &obj.name)
+        {
+            self.errors
+                .push(format!("Failed to add varible {nv}: {e:?}"));
         }
         let mut v = self.visit_content(access, &obj.name, &obj.content, type_content, vars)?;
 
@@ -1000,13 +999,13 @@ async fn setup_deployment_host<'a, M>(
             deployment_order: base.type_order,
         };
 
-        if let Some(v) = old_content.remove(*name) {
-            if !redeploy {
-                let content = v.content;
-                o.prev_content = content.content;
-                o.prev_script = content.script;
-                o.action = DeploymentObjectAction::Modify;
-            }
+        if let Some(v) = old_content.remove(*name)
+            && !redeploy
+        {
+            let content = v.content;
+            o.prev_content = content.content;
+            o.prev_script = content.script;
+            o.action = DeploymentObjectAction::Modify;
         }
         host_deployment_objects.push(o);
     }
@@ -1288,7 +1287,7 @@ async fn deploy_single_inner(
     script: String,
     content: Value,
 ) -> Result<()> {
-    rt.set_location(file!(), line!());
+    set_location!(rt);
     let mut jh = host_client
         .start_job(&HostClientMessage::RunScript(RunScriptMessage {
             id: host_client.next_job_id(),
@@ -1303,7 +1302,7 @@ async fn deploy_single_inner(
         }))
         .await?;
     loop {
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         let msg = jh.next_message().await?.context("Host went away")?;
         match msg {
             ClientHostMessage::Failure(msg) => {
@@ -1318,7 +1317,7 @@ async fn deploy_single_inner(
                 bail!("Command failed with code {:?}", msg.code)
             }
             ClientHostMessage::Data(msg) => {
-                rt.set_location(file!(), line!());
+                set_location!(rt);
                 mut_deployment(state, move |deployment| {
                     let data = msg.data.as_str().context("Expected string")?;
                     let line = String::from_utf8(BASE64_STANDARD.decode(data)?)?;
@@ -1472,7 +1471,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
     else {
         return Ok(());
     };
-    rt.set_location(file!(), line!());
+    set_location!(rt);
     let rows = query_as!(
         ObjectRow,
         "SELECT `id`, `name`, `content`, `category`, `version`, `comment`,
@@ -1501,7 +1500,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         if object.host != cur_host {
             bad_host = false;
             cur_host = object.host;
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             mut_deployment(state, |deployment| {
                 deployment.add_header(&object.host_name, true);
                 Ok(())
@@ -1509,7 +1508,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
             .await?;
 
             host_objects.clear();
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             let res = query!(
                 "SELECT `name`, `content`, `type`, `title` FROM `deployments` WHERE `host`=?",
                 cur_host
@@ -1526,7 +1525,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         }
 
         if bad_host {
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             mut_deployment(state, |deployment| {
                 deployment.set_object_status(index, DeploymentObjectStatus::Failure);
                 Ok(())
@@ -1546,7 +1545,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 .cloned()
             else {
                 bad_host = true;
-                rt.set_location(file!(), line!());
+                set_location!(rt);
                 mut_deployment(state, |deployment| {
                     deployment.add_log(format!("Host {} is down\r\n", object.host_name));
                     deployment.set_object_status(index, DeploymentObjectStatus::Failure);
@@ -1561,7 +1560,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         let type_id = object.type_id;
         let t = types.get(&type_id);
         let type_kind = t.as_ref().and_then(|v| v.content.kind.clone());
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         if type_kind == Some(KindType::Sum) {
             let next_objects = host_objects.entry(type_id).or_default();
             // Temp workaronud for broken objects
@@ -1584,17 +1583,17 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 if o2.prev_content.is_some() {
                     next_objects.remove(&o2.name);
                 }
-                if let Some(c) = o2.next_content.clone() {
-                    if !c.is_empty() {
-                        next_objects.insert(o2.name.clone(), c.into());
-                    }
+                if let Some(c) = o2.next_content.clone()
+                    && !c.is_empty()
+                {
+                    next_objects.insert(o2.name.clone(), c.into());
                 }
             }
 
             if rt.is_cancelled() {
                 break;
             }
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             mut_deployment(state, |deployment| {
                 for (i2, _) in &sum_objects {
                     deployment.set_object_status(*i2, DeploymentObjectStatus::Deplying);
@@ -1605,11 +1604,11 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
 
             let mut m = ValueMap::new();
             m.insert("objects".to_string(), Value::Object(next_objects.clone()));
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             let ret = deploy_single(rt, state, host_client, script, Value::Object(m)).await;
 
             if let Err(e) = ret {
-                rt.set_location(file!(), line!());
+                set_location!(rt);
                 mut_deployment(state, |deployment| {
                     for (i2, _) in &sum_objects {
                         deployment.set_object_status(*i2, DeploymentObjectStatus::Failure);
@@ -1620,7 +1619,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 .await?;
                 bad_host = true;
             } else {
-                rt.set_location(file!(), line!());
+                set_location!(rt);
                 mut_deployment(state, |deployment| {
                     for (i2, _) in &sum_objects {
                         deployment.set_object_status(*i2, DeploymentObjectStatus::Success);
@@ -1639,7 +1638,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         if rt.is_cancelled() {
             break;
         }
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         mut_deployment(state, |deployment| {
             deployment.add_header(&format!("{} ({})", &object.title, &object.type_name), false);
             deployment.set_object_status(index, DeploymentObjectStatus::Deplying);
@@ -1666,7 +1665,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         };
         let ok = ret.is_ok();
         if let Err(e) = ret {
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             mut_deployment(state, move |deployment| {
                 deployment.add_log(format!("{e:?}"));
                 Ok(())
@@ -1676,10 +1675,10 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
                 bad_host = true;
             }
         } else if type_kind != Some(KindType::Trigger) && type_kind.is_some() {
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             set_deployment(state, object, type_id).await?;
         }
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         mut_deployment(state, |deployment| {
             deployment.set_object_status(
                 index,
@@ -1693,14 +1692,14 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         })
         .await?;
     }
-    rt.set_location(file!(), line!());
+    set_location!(rt);
     mut_deployment(state, |deployment| {
         deployment.add_log("Done".to_string());
         deployment.set_status(DeploymentStatus::Done);
         Ok(())
     })
     .await?;
-    rt.set_location(file!(), line!());
+    set_location!(rt);
     Ok(())
 }
 

@@ -146,11 +146,10 @@ pub async fn proxy(config: Config, cmd: ProxySocket) -> Result<()> {
                 }
             }
             r = writer_shutdown_r.recv() => {
-                if let Some((socket_id, read_half)) = r {
-                    if let Some(write_half) = socket_write_halfs.remove(&socket_id) {
+                if let Some((socket_id, read_half)) = r
+                    && let Some(write_half) = socket_write_halfs.remove(&socket_id) {
                         read_half.reunite(write_half)?.shutdown().await?;
                     }
-                }
             }
             _ = interval.tick() => {
                 send.ping().await?;

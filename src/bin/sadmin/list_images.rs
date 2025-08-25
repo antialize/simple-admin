@@ -115,12 +115,10 @@ pub async fn list_images(config: Config, args: ListImages) -> Result<()> {
         if let Some(image) = &args.image {
             images.retain(|i| &i.image == image);
         }
-        if full {
-            if let Some(tail) = args.tail.as_ref().and_then(|l| l.last().cloned()) {
-                images.reverse();
-                images.truncate(tail);
-                images.reverse();
-            }
+        if full && let Some(tail) = args.tail.as_ref().and_then(|l| l.last().cloned()) {
+            images.reverse();
+            images.truncate(tail);
+            images.reverse();
         }
 
         let mut stdout = std::io::stdout();

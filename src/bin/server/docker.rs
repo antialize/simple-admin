@@ -384,10 +384,10 @@ async fn deploy_server_inner2(
         let hash = hash.context("Could not find image to deploy")?;
         let image = format!("{project}@{hash}");
 
-        if let Some(p) = &description.project {
-            if p != project {
-                bail!("roject and image does not match")
-            }
+        if let Some(p) = &description.project
+            && p != project
+        {
+            bail!("roject and image does not match")
         }
         (project.to_string(), Some(hash), Some(image))
     } else if let Some(project) = description.project {
@@ -540,17 +540,17 @@ async fn deploy_server_inner3(
     .fetch_optional(&state.db)
     .await
     .context("Query 1")?;
-    if let Some(old_deployment) = old_deployment {
-        if old_deployment.endTime.is_none() {
-            query!(
-                "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
-                now,
-                old_deployment.id,
-            )
-            .execute(&state.db)
-            .await
-            .context("Query 2")?;
-        }
+    if let Some(old_deployment) = old_deployment
+        && old_deployment.endTime.is_none()
+    {
+        query!(
+            "UPDATE `docker_deployments` SET `endTime` = ? WHERE `id`=?",
+            now,
+            old_deployment.id,
+        )
+        .execute(&state.db)
+        .await
+        .context("Query 2")?;
     }
     let id2 = query!(
         "INSERT INTO `docker_deployments` (
@@ -771,15 +771,15 @@ pub async fn list_deployments(
     .context("Running main query")?;
     let mut deployments = Vec::new();
     for row in rows {
-        if let Some(host) = act.host {
-            if host != row.host {
-                continue;
-            }
+        if let Some(host) = act.host
+            && host != row.host
+        {
+            continue;
         }
-        if let Some(image) = &act.image {
-            if image != &row.project {
-                continue;
-            }
+        if let Some(image) = &act.image
+            && image != &row.project
+        {
+            continue;
         }
         deployments.push(row_to_deployment(row).context("In row_to_deployment")?);
     }

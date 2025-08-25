@@ -429,15 +429,15 @@ pub async fn list_deployments(config: Config, args: ListDeployments) -> Result<(
         if !host_names.contains_key(&d.host) {
             return false;
         }
-        if let Some(image) = &args.image {
-            if &d.image != image {
-                return false;
-            }
+        if let Some(image) = &args.image
+            && &d.image != image
+        {
+            return false;
         }
-        if let Some(container) = &args.container {
-            if &d.name != container {
-                return false;
-            }
+        if let Some(container) = &args.container
+            && &d.name != container
+        {
+            return false;
         }
         true
     });

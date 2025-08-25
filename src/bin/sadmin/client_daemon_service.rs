@@ -461,7 +461,12 @@ impl RemoteLogTarget<'_> {
     }
 }
 
-async fn run_script(name: String, src: &String, log: &mut RemoteLogTarget<'_>) -> Result<()> {
+async fn run_script(
+    name: String,
+    src: &String,
+    log: &mut RemoteLogTarget<'_>,
+    envs: &[(&str, &str)],
+) -> Result<()> {
     let (first, _) = src
         .split_once('\n')
         .with_context(|| format!("Expected two lines in script {name}"))?;
@@ -471,13 +476,14 @@ async fn run_script(name: String, src: &String, log: &mut RemoteLogTarget<'_>) -
     let mut f = tempfile::Builder::new().prefix(&name).tempfile()?;
     f.write_all(src.as_bytes())?;
     f.flush()?;
-    let result = forward_command(
-        tokio::process::Command::new(interperter).arg(f.path()),
-        &None,
-        log,
-    )
-    .await
-    .context("Failed running script")?;
+    let mut cmd = tokio::process::Command::new(interperter);
+    cmd.arg(f.path());
+    for (k, v) in envs {
+        cmd.env(k, v);
+    }
+    let result = forward_command(&mut cmd, &None, log)
+        .await
+        .context("Failed running script")?;
     if !result.success() {
         bail!("Error running script {}: {:?}", name, result);
     }
@@ -1247,23 +1253,23 @@ impl Service {
         }
 
         // Enable linger if required
-        if let Some(user) = &user {
-            if desc.enable_linger == Some(true) {
-                forward_command(
-                    tokio::process::Command::new("/usr/bin/loginctl")
-                        .arg("enable-linger")
-                        .arg(&user.name),
-                    &None,
-                    log,
+        if let Some(user) = &user
+            && desc.enable_linger == Some(true)
+        {
+            forward_command(
+                tokio::process::Command::new("/usr/bin/loginctl")
+                    .arg("enable-linger")
+                    .arg(&user.name),
+                &None,
+                log,
+            )
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed running /usr/bin/loginctl enable-linger {}",
+                    user.name
                 )
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed running /usr/bin/loginctl enable-linger {}",
-                        user.name
-                    )
-                })?;
-            }
+            })?;
         }
 
         let t = tempfile::TempDir::new()?;
@@ -1316,9 +1322,17 @@ impl Service {
             }
         }
 
+        let mut env = Vec::new();
+        for (k, v) in &extra_env {
+            env.push((k.as_str(), v.as_str()));
+        }
+        if let Some(image) = &image {
+            env.push(("image", image.as_str()));
+        }
+
         // Run pre_deploy
         for (idx, src) in desc.pre_deploy.iter().enumerate() {
-            run_script(format!("predeploy {idx}"), src, log)
+            run_script(format!("predeploy {idx}"), src, log, &env)
                 .await
                 .with_context(|| format!("Failed running predeploy script {idx}"))?;
         }
@@ -1800,9 +1814,17 @@ It will be hard killed in {:?} if it does not stop before that. ",
                 .build(Box::new(cgroups_rs::hierarchies::V2::new()));
         }
 
+        let mut script_env = Vec::new();
+        for (k, v) in extra_env {
+            script_env.push((k.as_str(), v.as_str()));
+        }
+        let image_for_env = image.clone();
+        if let Some(image) = &image_for_env {
+            script_env.push(("image", image.as_str()));
+        }
         // Run run prestart
         for (idx, src) in desc.pre_start.iter().enumerate() {
-            run_script(format!("prestart {idx}"), src, log).await?;
+            run_script(format!("prestart {idx}"), src, log, &script_env).await?;
         }
 
         let dir = format!("/run/simpleadmin/services/{}/{}", desc.name, instance_id);
@@ -2226,7 +2248,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
             } else {
                 src.clone()
             };
-            run_script(format!("poststart {idx}"), &src, log).await?;
+            run_script(format!("poststart {idx}"), &src, log, &script_env).await?;
         }
 
         Ok((instance, status.into_inner().unwrap()))
