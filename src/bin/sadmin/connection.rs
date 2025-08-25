@@ -95,11 +95,10 @@ impl ConnectionSend2 {
         self.response_handlers.lock().unwrap().insert(msg_id, s);
         self.send.lock().await.send_message_str(m).await?;
         let r = r.await.context("r failed")?;
-        if let IServerAction::Response(r) = &r {
-            if let Some(e) = &r.error {
+        if let IServerAction::Response(r) = &r
+            && let Some(e) = &r.error {
                 bail!("Remote error: {}", e);
             }
-        }
         Ok(r)
     }
 

@@ -386,13 +386,12 @@ impl<'a> Iterator for VariableExtractor<'a> {
     type Item = (&'a str, &'a str);
     fn next(&mut self) -> Option<Self::Item> {
         for v in self.0.by_ref() {
-            if let serde_json::Value::Object(o) = v {
-                if let (Some(serde_json::Value::String(k)), Some(serde_json::Value::String(v))) =
+            if let serde_json::Value::Object(o) = v
+                && let (Some(serde_json::Value::String(k)), Some(serde_json::Value::String(v))) =
                     (o.get("key"), o.get("value"))
                 {
                     return Some((k.as_str(), v.as_str()));
                 }
-            }
         }
         None
     }
@@ -438,13 +437,12 @@ impl<'a> Iterator for TriggersExtractor<'a> {
     type Item = (i64, &'a ValueMap);
     fn next(&mut self) -> Option<Self::Item> {
         for v in self.0.by_ref() {
-            if let serde_json::Value::Object(o) = v {
-                if let (Some(serde_json::Value::Number(k)), Some(serde_json::Value::Object(v))) =
+            if let serde_json::Value::Object(o) = v
+                && let (Some(serde_json::Value::Number(k)), Some(serde_json::Value::Object(v))) =
                     (o.get("id"), o.get("values"))
                 {
                     return Some((k.as_i64().unwrap_or_default(), v));
                 }
-            }
         }
         None
     }
