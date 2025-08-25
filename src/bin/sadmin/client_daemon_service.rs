@@ -1817,7 +1817,8 @@ It will be hard killed in {:?} if it does not stop before that. ",
         for (k,v) in extra_env {
             script_env.push((k.as_str(), v.as_str()));
         }
-        if let Some(image) = &image {
+        let image_for_env = image.clone();
+        if let Some(image) = &image_for_env {
             script_env.push(("image", image.as_str()));
         }
         // Run run prestart
