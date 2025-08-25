@@ -39,7 +39,9 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::{TlsConnector, client::TlsStream, rustls};
-use tokio_tasks::{CancelledError, RunToken, Task, TaskBase, TaskBuilder, cancelable};
+use tokio_tasks::{
+    CancelledError, RunToken, Task, TaskBase, TaskBuilder, cancelable, set_location,
+};
 
 use sadmin2::client_message::{
     ClientHostMessage, CommandSpawnMessage, DataMessage, DataSource, DeployServiceMessage,
@@ -216,9 +218,9 @@ impl Client {
         }
         cmd.stdin(Stdio::null());
         cmd.kill_on_drop(true);
-        run_token.set_location(file!(), line!());
+        set_location!(run_token);
         let output = cmd.output().await?;
-        run_token.set_location(file!(), line!());
+        set_location!(run_token);
         if !output.status.success() {
             let code = output
                 .status
@@ -263,7 +265,7 @@ impl Client {
     ) -> Result<()> {
         debug!("Start instant command {}: {}", msg.id, msg.name);
         let id = msg.id;
-        run_token.set_location(file!(), line!());
+        set_location!(run_token);
         let m = match self.handle_run_instant_inner(&run_token, msg).await {
             Ok(v) => v,
             Err(e) => {
@@ -276,9 +278,9 @@ impl Client {
                 })
             }
         };
-        run_token.set_location(file!(), line!());
+        set_location!(run_token);
         self.send_message(m).await;
-        run_token.set_location(file!(), line!());
+        set_location!(run_token);
         self.command_tasks.lock().unwrap().remove(&id);
         debug!("Finished instant command {id}");
         Ok(())
@@ -1387,7 +1389,7 @@ impl Client {
         let notifier = SdNotify::from_env().ok();
         let mut first = true;
         loop {
-            run_token.set_location(file!(), line!());
+            set_location!(run_token);
             let mut read = match cancelable(
                 &run_token,
                 timeout(Duration::from_secs(60), self.connect_to_upstream()),
@@ -1428,7 +1430,7 @@ impl Client {
                 }
                 Err(_) => return Ok(()),
             };
-            run_token.set_location(file!(), line!());
+            set_location!(run_token);
             info!("Connected to server");
             let mut last_ping_time = Instant::now();
             let mut buffer = BytesMut::with_capacity(40960);
@@ -1445,7 +1447,7 @@ impl Client {
                 let read = read.read_buf(&mut buffer);
                 let send_failure = self.send_failure_notify.notified();
                 let sleep = tokio::time::sleep(Duration::from_secs(120));
-                run_token.set_location(file!(), line!());
+                set_location!(run_token);
                 tokio::select! {
                     val = read => {
                         match val {
@@ -1498,7 +1500,7 @@ impl Client {
                 }
             }
             info!("Trying to take sender for disconnect");
-            run_token.set_location(file!(), line!());
+            set_location!(run_token);
             {
                 let f = async {
                     loop {
@@ -1514,7 +1516,7 @@ impl Client {
                     () = f => {panic!()}
                 }
             }
-            run_token.set_location(file!(), line!());
+            set_location!(run_token);
             info!("Took sender for disconnect");
             if let Some(notifier) = &notifier {
                 notifier.set_status("Disconnected".to_string())?;

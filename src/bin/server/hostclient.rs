@@ -22,7 +22,7 @@ use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
-use tokio_tasks::{RunToken, TaskBuilder, cancelable};
+use tokio_tasks::{RunToken, TaskBuilder, cancelable, set_location};
 
 use sadmin2::client_message::{
     ClientHostMessage, HostClientMessage, RunInstantMessage, RunInstantStdinOutputType,
@@ -386,7 +386,7 @@ impl HostClient {
                         .shutdown_order(-1)
                         .create(|rt| async move {
                             let s = s;
-                            rt.set_location(file!(), line!());
+                            set_location!(rt);
                             match cancelable(&rt, tokio::time::timeout(Duration::from_secs(60), s.sign_host_certificate(&rt, &state))).await {
                                 Ok(Ok(Ok(()))) => (),
                                 Ok(Ok(Err(e))) => {
@@ -476,16 +476,16 @@ impl HostClient {
     async fn sign_host_certificate(self: &Arc<Self>, rt: &RunToken, state: &State) -> Result<()> {
         info!("Signing SSH host certificate for {}", self.hostname);
         // TODO(jakobt) ADD  Read file command
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         let host_key = self
             .run_shell("cat /etc/ssh/ssh_host_ed25519_key.pub".into())
             .await?;
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         let r = db::get_root_variables(state).await?;
-        rt.set_location(file!(), line!());
+        set_location!(rt);
         if let Some(ssh_host_ca_key) = r.get("sshHostCaKey") {
             const VALIDITY_DAYS: u32 = 7;
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             let ssh_crt: String = crt::generate_ssh_crt(
                 &format!("{} sadmin host", self.hostname),
                 &format!(
@@ -498,14 +498,14 @@ impl HostClient {
                 crt::Type::Host,
             )
             .await?;
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             self.write_small_text_file("/etc/ssh/ssh_host_ed25519_key-cert.pub".into(), ssh_crt)
                 .await?;
             // TODO add exec command
-            rt.set_location(file!(), line!());
+            set_location!(rt);
             self.run_shell("systemctl reload 'ssh*.service'".into())
                 .await?;
-            rt.set_location(file!(), line!());
+            set_location!(rt);
         }
         Ok(())
     }
