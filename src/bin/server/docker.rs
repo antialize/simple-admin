@@ -24,9 +24,9 @@ use anyhow::{Context, Result, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use futures::future::join_all;
 use log::{error, info, warn};
+use qusql_sqlx_type::{query, query_as};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use sqlx_type::{query, query_as};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},

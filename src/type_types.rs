@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize, Serializer, de, ser::SerializeMap};
 use serde_json::Value;
-use ts_rs::TS;
+use ts_rs::{Config, TS};
 pub type ValueMap = serde_json::Map<String, Value>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
@@ -120,16 +120,16 @@ pub enum ITypeProp {
 impl TS for ITypeProp {
     type WithoutGenerics = ITypeProp;
     type OptionInnerType = Self;
-    fn ident() -> String {
+    fn ident(_config: &Config) -> String {
         "ITypeProp".to_owned()
     }
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "ITypeProp".to_owned()
     }
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         todo!();
     }
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         "type ITypeProp = | { type: TypePropType.none }\
             | ({ type: TypePropType.bool } & IBoolTypeProp)\
             | ({ type: TypePropType.text } & ITextTypeProp)\
@@ -141,10 +141,10 @@ impl TS for ITypeProp {
             | { type: TypePropType.monitor };"
             .to_string()
     }
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         todo!()
     }
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         todo!()
     }
     fn output_path() -> Option<std::path::PathBuf> {
@@ -470,7 +470,7 @@ pub const HOST_VARIABLE_ID: i64 = 10840;
 pub const PACKAGE_ID: i64 = 10;
 pub const ROOT_INSTANCE_ID: i64 = 100;
 
-pub fn export_ts() -> Vec<String> {
+pub fn export_ts(config: &Config) -> Vec<String> {
     vec![
         format!("export const {} = {};", "TYPE_ID", TYPE_ID),
         format!("export const {} = {};", "HOST_ID", HOST_ID),
@@ -502,16 +502,16 @@ pub fn export_ts() -> Vec<String> {
             monitor = 8,\
         }"
         .to_string(),
-        IBoolTypeProp::export_to_string().unwrap(),
-        ITextTypeProp::export_to_string().unwrap(),
-        IPasswordTypeProp::export_to_string().unwrap(),
-        IDocumentTypeProp::export_to_string().unwrap(),
-        IChoiceTypeProp::export_to_string().unwrap(),
-        INumberTypeProp::export_to_string().unwrap(),
-        ITypeContentTypeProp::export_to_string().unwrap(),
-        ITypeProp::export_to_string().unwrap(),
-        KindType::export_to_string().unwrap(),
-        IType::export_to_string().unwrap(),
-        IVariable::export_to_string().unwrap(),
+        IBoolTypeProp::export_to_string(config).unwrap(),
+        ITextTypeProp::export_to_string(config).unwrap(),
+        IPasswordTypeProp::export_to_string(config).unwrap(),
+        IDocumentTypeProp::export_to_string(config).unwrap(),
+        IChoiceTypeProp::export_to_string(config).unwrap(),
+        INumberTypeProp::export_to_string(config).unwrap(),
+        ITypeContentTypeProp::export_to_string(config).unwrap(),
+        ITypeProp::export_to_string(config).unwrap(),
+        KindType::export_to_string(config).unwrap(),
+        IType::export_to_string(config).unwrap(),
+        IVariable::export_to_string(config).unwrap(),
     ]
 }

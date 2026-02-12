@@ -12,6 +12,7 @@ use crate::{
 use anyhow::{Context, Result, anyhow, bail};
 use futures::future::join_all;
 use log::{error, info, warn};
+use qusql_sqlx_type::query;
 use sadmin2::{
     client_message::{
         ClientHostMessage, DataSource, FailureMessage, HostClientMessage, RunScriptMessage,
@@ -21,7 +22,6 @@ use sadmin2::{
     type_types::ValueMap,
 };
 use serde::Deserialize;
-use sqlx_type::query;
 use std::{borrow::Cow, collections::HashMap, sync::Arc, time::Duration};
 use tokio_tasks::{RunToken, cancelable};
 

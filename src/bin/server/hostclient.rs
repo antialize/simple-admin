@@ -1,11 +1,11 @@
 use anyhow::{Context, Result, bail};
 use bytes::{Buf, BytesMut};
 use log::{error, info, warn};
-use rand::Rng;
+use qusql_sqlx_type::query;
+use rand::RngExt;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
 use serde::Deserialize;
 use serde_json::Value;
-use sqlx_type::query;
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     net::SocketAddr,

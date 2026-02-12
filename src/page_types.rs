@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
-use ts_rs::TS;
+use ts_rs::{Config, TS};
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
@@ -75,16 +75,16 @@ impl ::ts_rs::TS for IPage {
     type WithoutGenerics = IPage;
     type OptionInnerType = Self;
 
-    fn ident() -> String {
+    fn ident(_config: &Config) -> String {
         "IPage".to_owned()
     }
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "IPage".to_owned()
     }
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         todo!();
     }
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         "type IPage = | { type: PAGE_TYPE.Dashbord }\
         | ({ type: PAGE_TYPE.Deployment } \
         | { type: PAGE_TYPE.DeploymentDetails } & IDeploymentDetailsPage)\
@@ -101,11 +101,11 @@ impl ::ts_rs::TS for IPage {
             .to_string()
     }
 
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         todo!();
     }
 
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         todo!()
     }
 
@@ -228,7 +228,7 @@ impl<'de> serde::Deserialize<'de> for IPage {
     }
 }
 
-pub fn export_ts() -> Vec<String> {
+pub fn export_ts(config: &Config) -> Vec<String> {
     vec![
         "export enum PAGE_TYPE { \
     Dashbord = 0, \
@@ -246,13 +246,13 @@ pub fn export_ts() -> Vec<String> {
     Search = 12, \
 }"
         .to_string(),
-        IObjectListPage::export_to_string().unwrap(),
-        IObjectPage::export_to_string().unwrap(),
-        IDeploymentDetailsPage::export_to_string().unwrap(),
-        IDockerImageHistory::export_to_string().unwrap(),
-        IDockerContainerDetails::export_to_string().unwrap(),
-        IDockerContainerHistory::export_to_string().unwrap(),
-        IModifiedFilePage::export_to_string().unwrap(),
-        IPage::export_to_string().unwrap(),
+        IObjectListPage::export_to_string(config).unwrap(),
+        IObjectPage::export_to_string(config).unwrap(),
+        IDeploymentDetailsPage::export_to_string(config).unwrap(),
+        IDockerImageHistory::export_to_string(config).unwrap(),
+        IDockerContainerDetails::export_to_string(config).unwrap(),
+        IDockerContainerHistory::export_to_string(config).unwrap(),
+        IModifiedFilePage::export_to_string(config).unwrap(),
+        IPage::export_to_string(config).unwrap(),
     ]
 }

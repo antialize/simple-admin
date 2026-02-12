@@ -24,6 +24,7 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use futures::pin_mut;
 use log::{error, info};
+use qusql_sqlx_type::{query, query_as};
 use sadmin2::client_message::{
     ClientHostMessage, HostClientMessage, RunScriptMessage, RunScriptOutType, RunScriptStdinType,
 };
@@ -35,7 +36,6 @@ use sadmin2::type_types::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx_type::{query, query_as};
 use tokio::select;
 use tokio_tasks::{RunToken, set_location};
 

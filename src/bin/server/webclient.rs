@@ -6,8 +6,8 @@ use futures::{
     stream::{SplitSink, SplitStream},
 };
 use log::{error, info, warn};
+use qusql_sqlx_type::{query, query_as};
 use serde::{Deserialize, Serialize};
-use sqlx_type::{query, query_as};
 use std::{
     collections::{HashMap, hash_map::Entry},
     net::SocketAddr,

@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use anyhow::{Context, Result, bail};
 use futures::future::join_all;
 use log::{error, info};
+use qusql_sqlx_type::query;
 use sadmin2::{
     client_message::{
         ClientHostMessage, HostClientMessage, RunInstantMessage, RunInstantStdinOutputType,
@@ -12,7 +13,6 @@ use sadmin2::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use sqlx_type::query;
 use tokio::time::timeout;
 use tokio_tasks::{RunToken, cancelable};
 

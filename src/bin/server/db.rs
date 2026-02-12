@@ -9,12 +9,12 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use log::info;
+use qusql_sqlx_type::query;
 use sadmin2::type_types::{
     HOST_ID, IContainsIter, IDependsIter, IVariablesIter, ROOT_ID, ROOT_INSTANCE_ID, ValueMap,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sqlx::{Executor, SqlitePool};
-use sqlx_type::query;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
