@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use ts_rs::{Config, TS};
 
 #[derive(Debug)]
 pub struct NotFiniteFloat;
@@ -99,23 +99,23 @@ impl TS for FiniteF64 {
     type WithoutGenerics = Self;
     type OptionInnerType = Self;
 
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         panic!("FiniteF64 cannot be declared")
     }
 
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         panic!("FiniteF64 cannot be declared")
     }
 
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "number".to_owned()
     }
 
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         "number".to_owned()
     }
 
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         panic!("FiniteF64 cannot be flattened")
     }
 }

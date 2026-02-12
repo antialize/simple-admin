@@ -2,7 +2,7 @@ use anyhow::bail;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::collections::HashMap;
-use ts_rs::TS;
+use ts_rs::{Config, TS};
 
 use crate::{
     finite_float::{FiniteF64, ToFinite},
@@ -36,13 +36,13 @@ pub enum DeploymentStatus {
 impl TS for DeploymentStatus {
     type WithoutGenerics = DeploymentStatus;
     type OptionInnerType = Self;
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "DEPLOYMENT_STATUS".to_owned()
     }
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         todo!();
     }
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         "enum DEPLOYMENT_STATUS {\
             Done = 0,\
             BuildingTree = 1,\
@@ -54,10 +54,10 @@ impl TS for DeploymentStatus {
         }"
         .to_string()
     }
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         todo!();
     }
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         todo!();
     }
     fn output_path() -> Option<std::path::PathBuf> {
@@ -77,13 +77,13 @@ pub enum DeploymentObjectStatus {
 impl TS for DeploymentObjectStatus {
     type WithoutGenerics = DeploymentStatus;
     type OptionInnerType = Self;
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "DEPLOYMENT_OBJECT_STATUS".to_owned()
     }
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         todo!();
     }
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         "enum DEPLOYMENT_OBJECT_STATUS {\
             Normal = 0,\
             Deplying = 1,\
@@ -92,10 +92,10 @@ impl TS for DeploymentObjectStatus {
         }"
         .to_string()
     }
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         todo!();
     }
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         todo!();
     }
     fn output_path() -> Option<std::path::PathBuf> {
@@ -115,13 +115,13 @@ pub enum DeploymentObjectAction {
 impl TS for DeploymentObjectAction {
     type WithoutGenerics = DeploymentStatus;
     type OptionInnerType = Self;
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "DEPLOYMENT_OBJECT_ACTION".to_owned()
     }
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         todo!();
     }
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         "enum DEPLOYMENT_OBJECT_ACTION {\
             Add = 0,\
             Modify = 1,\
@@ -130,10 +130,10 @@ impl TS for DeploymentObjectAction {
         }"
         .to_string()
     }
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         todo!();
     }
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         todo!();
     }
     fn output_path() -> Option<std::path::PathBuf> {
@@ -234,7 +234,7 @@ pub enum Ref {
 
 impl Ref {
     pub fn random() -> Ref {
-        use rand::Rng;
+        use rand::RngExt;
         Ref::Number(rand::rng().random_range(0..(1 << 48)))
     }
 }
@@ -373,19 +373,19 @@ pub enum ObjectType {
 impl ::ts_rs::TS for ObjectType {
     type WithoutGenerics = ObjectType;
     type OptionInnerType = Self;
-    fn name() -> String {
+    fn name(_config: &Config) -> String {
         "ObjectType".to_owned()
     }
-    fn decl_concrete() -> String {
+    fn decl_concrete(_config: &Config) -> String {
         todo!()
     }
-    fn decl() -> String {
+    fn decl(_config: &Config) -> String {
         "type ObjectType = number | \"root\" | \"type\";".to_string()
     }
-    fn inline() -> String {
+    fn inline(_config: &Config) -> String {
         todo!()
     }
-    fn inline_flattened() -> String {
+    fn inline_flattened(_config: &Config) -> String {
         todo!()
     }
     fn output_path() -> Option<std::path::PathBuf> {
@@ -1422,118 +1422,118 @@ impl IClientAction {
     }
 }
 
-pub fn export_ts() -> Vec<String> {
+pub fn export_ts(config: &Config) -> Vec<String> {
     vec![
-        DeploymentStatus::export_to_string().unwrap(),
-        DeploymentObjectStatus::export_to_string().unwrap(),
-        DeploymentObjectAction::export_to_string().unwrap(),
-        IObjectDigest::export_to_string().unwrap(),
-        IDeploymentTrigger::export_to_string().unwrap(),
-        IDeploymentObject::export_to_string().unwrap(),
-        IObject2::<()>::export_to_string().unwrap(),
-        Ref::export_to_string().unwrap(),
-        IFetchObject::export_to_string().unwrap(),
-        IObjectChanged::export_to_string().unwrap(),
-        ISetPageAction::export_to_string().unwrap(),
-        IMessage::export_to_string().unwrap(),
-        ISetInitialState::export_to_string().unwrap(),
-        IStartLogLogType::export_to_string().unwrap(),
-        IStartLog::export_to_string().unwrap(),
-        IEndLog::export_to_string().unwrap(),
-        IAddLogLines::export_to_string().unwrap(),
-        IMessageTextReqAction::export_to_string().unwrap(),
-        IMessageTextRepAction::export_to_string().unwrap(),
-        IAddMessage::export_to_string().unwrap(),
-        ISetMessagesDismissed::export_to_string().unwrap(),
-        ISaveObject::export_to_string().unwrap(),
-        ISearch::export_to_string().unwrap(),
-        ObjectType::export_to_string().unwrap(),
-        ISearchResObject::export_to_string().unwrap(),
-        ISearchRes::export_to_string().unwrap(),
-        IHostDown::export_to_string().unwrap(),
-        IHostUp::export_to_string().unwrap(),
-        IDeployObject::export_to_string().unwrap(),
-        IMarkDeployed::export_to_string().unwrap(),
-        IDeleteObject::export_to_string().unwrap(),
-        ISetDeploymentStatus::export_to_string().unwrap(),
-        IResetServerState::export_to_string().unwrap(),
-        ISetDeploymentMessage::export_to_string().unwrap(),
-        ISetDeploymentObjects::export_to_string().unwrap(),
-        IClearDeploymentLog::export_to_string().unwrap(),
-        IAddDeploymentLog::export_to_string().unwrap(),
-        ISetDeploymentObjectStatus::export_to_string().unwrap(),
-        ISource::export_to_string().unwrap(),
-        IToggleDeploymentObject::export_to_string().unwrap(),
-        IStopDeployment::export_to_string().unwrap(),
-        IStartDeployment::export_to_string().unwrap(),
-        ICancelDeployment::export_to_string().unwrap(),
-        IAlert::export_to_string().unwrap(),
-        IRequestAuthStatus::export_to_string().unwrap(),
-        IAuthStatus::export_to_string().unwrap(),
-        ILogin::export_to_string().unwrap(),
-        ILogout::export_to_string().unwrap(),
-        IRequestInitialState::export_to_string().unwrap(),
-        ISubscribeStatValues::export_to_string().unwrap(),
-        IStatValueChanges::export_to_string().unwrap(),
-        HostEnum::export_to_string().unwrap(),
-        IServiceDeployStart::export_to_string().unwrap(),
-        IServiceRedeployStart::export_to_string().unwrap(),
-        IDockerDeployLog::export_to_string().unwrap(),
-        IDockerDeployEnd::export_to_string().unwrap(),
-        IGenerateKey::export_to_string().unwrap(),
-        IGenerateKeyRes::export_to_string().unwrap(),
-        IGetObjectId::export_to_string().unwrap(),
-        IGetObjectIdRes::export_to_string().unwrap(),
-        IGetObjectHistory::export_to_string().unwrap(),
-        IGetObjectHistoryResHistory::export_to_string().unwrap(),
-        IGetObjectHistoryRes::export_to_string().unwrap(),
-        IDockerListImageTags::export_to_string().unwrap(),
-        DockerImageTag::export_to_string().unwrap(),
-        IDockerListImageTagsResTag::export_to_string().unwrap(),
-        IDockerListImageTagsRes::export_to_string().unwrap(),
-        IDockerImageTagsChargedRemoved::export_to_string().unwrap(),
-        IDockerImageTagsChargedImageTagPin::export_to_string().unwrap(),
-        IDockerListImageTagsCharged::export_to_string().unwrap(),
-        IDockerListDeployments::export_to_string().unwrap(),
-        DockerDeployment::export_to_string().unwrap(),
-        IDockerListDeploymentsRes::export_to_string().unwrap(),
-        IDockerDeploymentsChangedRemoved::export_to_string().unwrap(),
-        IDockerDeploymentsChanged::export_to_string().unwrap(),
-        IDockerContainerForget::export_to_string().unwrap(),
-        IDockerListImageByHash::export_to_string().unwrap(),
-        IDockerListImageByHashRes::export_to_string().unwrap(),
-        IDockerImageSetPin::export_to_string().unwrap(),
-        IDockerImageTagSetPin::export_to_string().unwrap(),
-        IDockerListDeploymentHistory::export_to_string().unwrap(),
-        IDockerListDeploymentHistoryRes::export_to_string().unwrap(),
-        IDockerListImageTagHistory::export_to_string().unwrap(),
-        IDockerListImageTagHistoryRes::export_to_string().unwrap(),
-        ModifiedFile::export_to_string().unwrap(),
-        IModifiedFilesScan::export_to_string().unwrap(),
-        IModifiedFilesList::export_to_string().unwrap(),
-        IModifiedFilesChanged::export_to_string().unwrap(),
-        IModifiedFilesResolveAction::export_to_string().unwrap(),
-        IModifiedFilesResolve::export_to_string().unwrap(),
-        IDebug::export_to_string().unwrap(),
-        IRunCommand::export_to_string().unwrap(),
-        IRunCommandTerminate::export_to_string().unwrap(),
-        IRunCommandOutput::export_to_string().unwrap(),
-        IRunCommandFinished::export_to_string().unwrap(),
-        IGetSecret::export_to_string().unwrap(),
-        IGetObjectIdRes::export_to_string().unwrap(),
-        IServerAction::export_to_string().unwrap(),
-        IClientAction::export_to_string().unwrap(),
-        IResponse::export_to_string().unwrap(),
-        ISocketConnect::export_to_string().unwrap(),
-        ISocketClose::export_to_string().unwrap(),
-        ISocketSend::export_to_string().unwrap(),
-        ICommandSpawn::export_to_string().unwrap(),
-        ICommandStdin::export_to_string().unwrap(),
-        ICommandSignal::export_to_string().unwrap(),
-        ISocketRecv::export_to_string().unwrap(),
-        ICommandStdout::export_to_string().unwrap(),
-        ICommandStderr::export_to_string().unwrap(),
-        ICommandFinished::export_to_string().unwrap(),
+        DeploymentStatus::export_to_string(config).unwrap(),
+        DeploymentObjectStatus::export_to_string(config).unwrap(),
+        DeploymentObjectAction::export_to_string(config).unwrap(),
+        IObjectDigest::export_to_string(config).unwrap(),
+        IDeploymentTrigger::export_to_string(config).unwrap(),
+        IDeploymentObject::export_to_string(config).unwrap(),
+        IObject2::<()>::export_to_string(config).unwrap(),
+        Ref::export_to_string(config).unwrap(),
+        IFetchObject::export_to_string(config).unwrap(),
+        IObjectChanged::export_to_string(config).unwrap(),
+        ISetPageAction::export_to_string(config).unwrap(),
+        IMessage::export_to_string(config).unwrap(),
+        ISetInitialState::export_to_string(config).unwrap(),
+        IStartLogLogType::export_to_string(config).unwrap(),
+        IStartLog::export_to_string(config).unwrap(),
+        IEndLog::export_to_string(config).unwrap(),
+        IAddLogLines::export_to_string(config).unwrap(),
+        IMessageTextReqAction::export_to_string(config).unwrap(),
+        IMessageTextRepAction::export_to_string(config).unwrap(),
+        IAddMessage::export_to_string(config).unwrap(),
+        ISetMessagesDismissed::export_to_string(config).unwrap(),
+        ISaveObject::export_to_string(config).unwrap(),
+        ISearch::export_to_string(config).unwrap(),
+        ObjectType::export_to_string(config).unwrap(),
+        ISearchResObject::export_to_string(config).unwrap(),
+        ISearchRes::export_to_string(config).unwrap(),
+        IHostDown::export_to_string(config).unwrap(),
+        IHostUp::export_to_string(config).unwrap(),
+        IDeployObject::export_to_string(config).unwrap(),
+        IMarkDeployed::export_to_string(config).unwrap(),
+        IDeleteObject::export_to_string(config).unwrap(),
+        ISetDeploymentStatus::export_to_string(config).unwrap(),
+        IResetServerState::export_to_string(config).unwrap(),
+        ISetDeploymentMessage::export_to_string(config).unwrap(),
+        ISetDeploymentObjects::export_to_string(config).unwrap(),
+        IClearDeploymentLog::export_to_string(config).unwrap(),
+        IAddDeploymentLog::export_to_string(config).unwrap(),
+        ISetDeploymentObjectStatus::export_to_string(config).unwrap(),
+        ISource::export_to_string(config).unwrap(),
+        IToggleDeploymentObject::export_to_string(config).unwrap(),
+        IStopDeployment::export_to_string(config).unwrap(),
+        IStartDeployment::export_to_string(config).unwrap(),
+        ICancelDeployment::export_to_string(config).unwrap(),
+        IAlert::export_to_string(config).unwrap(),
+        IRequestAuthStatus::export_to_string(config).unwrap(),
+        IAuthStatus::export_to_string(config).unwrap(),
+        ILogin::export_to_string(config).unwrap(),
+        ILogout::export_to_string(config).unwrap(),
+        IRequestInitialState::export_to_string(config).unwrap(),
+        ISubscribeStatValues::export_to_string(config).unwrap(),
+        IStatValueChanges::export_to_string(config).unwrap(),
+        HostEnum::export_to_string(config).unwrap(),
+        IServiceDeployStart::export_to_string(config).unwrap(),
+        IServiceRedeployStart::export_to_string(config).unwrap(),
+        IDockerDeployLog::export_to_string(config).unwrap(),
+        IDockerDeployEnd::export_to_string(config).unwrap(),
+        IGenerateKey::export_to_string(config).unwrap(),
+        IGenerateKeyRes::export_to_string(config).unwrap(),
+        IGetObjectId::export_to_string(config).unwrap(),
+        IGetObjectIdRes::export_to_string(config).unwrap(),
+        IGetObjectHistory::export_to_string(config).unwrap(),
+        IGetObjectHistoryResHistory::export_to_string(config).unwrap(),
+        IGetObjectHistoryRes::export_to_string(config).unwrap(),
+        IDockerListImageTags::export_to_string(config).unwrap(),
+        DockerImageTag::export_to_string(config).unwrap(),
+        IDockerListImageTagsResTag::export_to_string(config).unwrap(),
+        IDockerListImageTagsRes::export_to_string(config).unwrap(),
+        IDockerImageTagsChargedRemoved::export_to_string(config).unwrap(),
+        IDockerImageTagsChargedImageTagPin::export_to_string(config).unwrap(),
+        IDockerListImageTagsCharged::export_to_string(config).unwrap(),
+        IDockerListDeployments::export_to_string(config).unwrap(),
+        DockerDeployment::export_to_string(config).unwrap(),
+        IDockerListDeploymentsRes::export_to_string(config).unwrap(),
+        IDockerDeploymentsChangedRemoved::export_to_string(config).unwrap(),
+        IDockerDeploymentsChanged::export_to_string(config).unwrap(),
+        IDockerContainerForget::export_to_string(config).unwrap(),
+        IDockerListImageByHash::export_to_string(config).unwrap(),
+        IDockerListImageByHashRes::export_to_string(config).unwrap(),
+        IDockerImageSetPin::export_to_string(config).unwrap(),
+        IDockerImageTagSetPin::export_to_string(config).unwrap(),
+        IDockerListDeploymentHistory::export_to_string(config).unwrap(),
+        IDockerListDeploymentHistoryRes::export_to_string(config).unwrap(),
+        IDockerListImageTagHistory::export_to_string(config).unwrap(),
+        IDockerListImageTagHistoryRes::export_to_string(config).unwrap(),
+        ModifiedFile::export_to_string(config).unwrap(),
+        IModifiedFilesScan::export_to_string(config).unwrap(),
+        IModifiedFilesList::export_to_string(config).unwrap(),
+        IModifiedFilesChanged::export_to_string(config).unwrap(),
+        IModifiedFilesResolveAction::export_to_string(config).unwrap(),
+        IModifiedFilesResolve::export_to_string(config).unwrap(),
+        IDebug::export_to_string(config).unwrap(),
+        IRunCommand::export_to_string(config).unwrap(),
+        IRunCommandTerminate::export_to_string(config).unwrap(),
+        IRunCommandOutput::export_to_string(config).unwrap(),
+        IRunCommandFinished::export_to_string(config).unwrap(),
+        IGetSecret::export_to_string(config).unwrap(),
+        IGetObjectIdRes::export_to_string(config).unwrap(),
+        IServerAction::export_to_string(config).unwrap(),
+        IClientAction::export_to_string(config).unwrap(),
+        IResponse::export_to_string(config).unwrap(),
+        ISocketConnect::export_to_string(config).unwrap(),
+        ISocketClose::export_to_string(config).unwrap(),
+        ISocketSend::export_to_string(config).unwrap(),
+        ICommandSpawn::export_to_string(config).unwrap(),
+        ICommandStdin::export_to_string(config).unwrap(),
+        ICommandSignal::export_to_string(config).unwrap(),
+        ISocketRecv::export_to_string(config).unwrap(),
+        ICommandStdout::export_to_string(config).unwrap(),
+        ICommandStderr::export_to_string(config).unwrap(),
+        ICommandFinished::export_to_string(config).unwrap(),
     ]
 }
 

@@ -17,11 +17,11 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use futures::StreamExt;
 use log::info;
+use qusql_sqlx_type::query;
 use sadmin2::finite_float::ToFinite;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use sha2::Sha256;
-use sqlx_type::query;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex as TMutex;
 use tokio_util::io::ReaderStream;
@@ -308,7 +308,7 @@ pub async fn images_handler(
     WState(state): WState<Arc<State>>,
     Path(project): Path<String>,
 ) -> Result<Json<ImagesResult>, WebError> {
-    let rows = sqlx_type::query_as!(
+    let rows = qusql_sqlx_type::query_as!(
         DockerImageTagRow,
         "SELECT `id`, `hash`, `time`, `project`, `user`, `tag`, `pin`, `labels`,
         `removed` FROM `docker_images` WHERE `project` = ? ORDER BY `time`",

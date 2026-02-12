@@ -14,11 +14,13 @@ struct Args {
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
-    let mut exports = vec![serde_json::Value::export_to_string().unwrap()];
+    let config = ts_rs::Config::new();
+
+    let mut exports = vec![serde_json::Value::export_to_string(&config).unwrap()];
     exports.push("export type JsonMap = { [key in string]?: JsonValue };".to_string());
-    exports.extend(page_types::export_ts());
-    exports.extend(type_types::export_ts());
-    exports.extend(action_types::export_ts());
+    exports.extend(page_types::export_ts(&config));
+    exports.extend(type_types::export_ts(&config));
+    exports.extend(action_types::export_ts(&config));
 
     let mut imported = HashSet::new();
     let mut exported = HashSet::new();

@@ -1,6 +1,6 @@
 use crate::{action_types::IAuthStatus, db::get_user_content, state::State};
 use anyhow::{Context, Result};
-use sqlx_type::query;
+use qusql_sqlx_type::query;
 
 pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> Result<IAuthStatus> {
     let Some(sid) = sid else {
