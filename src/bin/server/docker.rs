@@ -83,6 +83,7 @@ async fn prune_inner(state: &State) -> Result<()> {
               `docker_images`.`tag`,
               `docker_images`.`time`,
               `docker_images`.`project`,
+              `docker_images`.`hash`,
               MIN(`docker_deployments`.`startTime`) AS `start`,
               MAX(`docker_deployments`.`endTime`) AS `end`,
               COUNT(`docker_deployments`.`startTime`) - COUNT(`docker_deployments`.`endTime`) AS `active`,
@@ -98,7 +99,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             GROUP BY `docker_images`.`id`").fetch_all(&state.db).await.context("Running query in docker prune")?;
 
     for row in rows {
-        let mut keep = row.pin
+        let keep = row.pin
             || (row.newest == Some(row.id) && row.tagPin)
             || ((&row.tag == "latest" || &row.tag == "master") && row.newest == Some(row.id))
             || row.active > 0
@@ -113,23 +114,31 @@ async fn prune_inner(state: &State) -> Result<()> {
         let manifest: Manifest =
             serde_json::from_str(&row.manifest).context("Deserializing manifest")?;
 
+        let mut missing = false;
         if !files.contains(&manifest.config.digest) {
-            keep = false;
+            warn!("Config {} missing from image {}", manifest.config.digest, row.hash);
+            missing = true;
         }
 
         for layer in &manifest.layers {
             if !files.contains(&layer.digest) {
-                keep = false;
+                warn!("Layer {} missing from image {}", layer.digest, row.hash);
+                missing = true;
                 break;
             }
         }
 
-        if keep {
+        if keep && ! missing {
             used.insert(manifest.config.digest);
             for layer in manifest.layers {
                 used.insert(layer.digest);
             }
         } else {
+            info!("Removing image {}", row.hash);
+            info!("  keep: {keep}, missing: {missing}, pin: {}", row.pin);
+            info!("  newest: {:?}, id: {}, tagPin: {}, tag: {}", row.newest, row.id, row.tagPin, row.tag);
+            info!("  active: {}, start: {:?}, end: {:?}, now: {}", row.active, row.start, row.end, now);
+            info!("  used: {:?}, time: {}, grace: {}", row.used, row.time, grace);
             query!(
                 "UPDATE `docker_images` SET `removed`=? WHERE `id`=?",
                 now,
@@ -301,6 +310,19 @@ async fn deploy_server_inner2(
             BASE64_STANDARD.encode(buf).into(),
         );
     }
+    if let Some(image_id) = &image_id {
+        variables.insert("image_id".into(), image_id.into());
+    }
+    if let Some(image) = &image {
+        variables.insert("image".into(), image.into());
+    }
+    if let Some(hash) = &hash {
+        variables.insert("hash".into(), hash.into());
+    }
+    if let Some(project) = &project {
+        variables.insert("project".into(), project.into());
+    }
+
     let mut extra_env = HashMap::new();
     if description_template.contains("ssl_service") {
         variables.insert("ca_pem".into(), "TEMP".into());
