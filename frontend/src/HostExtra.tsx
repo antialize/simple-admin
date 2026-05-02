@@ -4,7 +4,7 @@ import Box from "./Box";
 import { HostDockerContainers } from "./DockerServices";
 import Messages from "./Messages";
 import Setup from "./Setup";
-import { state } from "./state";
+import state from "./state";
 import HostTerminals from "./Terminal";
 
 const HostExtra = observer(function HostExtra({ id }: { id: number }) {

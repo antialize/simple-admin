@@ -30,12 +30,12 @@ use sadmin2::client_message::{
 };
 
 use crate::{
-    action_types::{IHostDown, IHostUp, IServerAction},
+    action_types::{IHostDown, IHostUp, IObject2, IObjectChanged, IServerAction, ObjectType},
     crt, crypt, db,
     state::{LoginAttempts, State},
     webclient::{self},
 };
-use sadmin2::type_types::HOST_ID;
+use sadmin2::type_types::{HOST_ID, ValueMap};
 
 pub struct JobHandle {
     client: Weak<HostClient>,
@@ -274,10 +274,12 @@ impl HostClient {
         const PING_INTERVAL: Duration = Duration::from_secs(80);
         const PONG_TIMEOUT: Duration = Duration::from_secs(40);
         const SIGN_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
+        const LAST_SEEN_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
         const FOREVER: Duration = Duration::from_secs(60 * 60 * 24);
         let mut ping_time = tokio::time::Instant::now() + PING_INTERVAL;
         let mut pong_time = ping_time + FOREVER;
         let mut sign_time = tokio::time::Instant::now();
+        let mut last_seen_time = tokio::time::Instant::now() + LAST_SEEN_INTERVAL;
         let mut ping_id: u32 = rand::rng().random();
 
         loop {
@@ -285,6 +287,7 @@ impl HostClient {
             let ping_timeout_fut = tokio::time::sleep_until(ping_time);
             let pong_timeout_fut = tokio::time::sleep_until(pong_time);
             let sign_timeout_fut = tokio::time::sleep_until(sign_time);
+            let last_seen_timeout_fut = tokio::time::sleep_until(last_seen_time);
             let cancelled = self.run_token.cancelled();
             tokio::select! {
                 r = read_fut => {
@@ -376,6 +379,57 @@ impl HostClient {
                 }
                 () = pong_timeout_fut => {
                     bail!("Ping timeout")
+                }
+                () = last_seen_timeout_fut => {
+                    last_seen_time += LAST_SEEN_INTERVAL;
+                    let id = self.id;
+                    let hostname = self.hostname.clone();
+                    let state_ls = state.clone();
+                    TaskBuilder::new(format!("update_last_seen_{}", self.hostname))
+                        .shutdown_order(-1)
+                        .create(move |_| async move {
+                            let now_secs = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs() as i64;
+                            match query!(
+                                "SELECT `content` FROM `objects` WHERE `id` = ? AND `newest`",
+                                id
+                            )
+                            .fetch_optional(&state_ls.db)
+                            .await
+                            {
+                                Ok(Some(row)) => {
+                                    if let Ok(mut content) =
+                                        serde_json::from_str::<ValueMap>(&row.content)
+                                    {
+                                        content.insert(
+                                            "lastSeen".to_string(),
+                                            Value::Number(now_secs.into()),
+                                        );
+                                        if let Ok(new_content) = serde_json::to_string(&content) {
+                                            if let Err(e) = query!(
+                                                "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
+                                                new_content,
+                                                id
+                                            )
+                                            .execute(&state_ls.db)
+                                            .await
+                                            {
+                                                warn!("Failed to update lastSeen for {hostname}: {e:?}");
+                                            }
+                                        }
+                                    }
+                                }
+                                Ok(None) => {
+                                    warn!("Host object {id} not found for lastSeen update");
+                                }
+                                Err(e) => {
+                                    warn!("Failed to fetch host {id} content for lastSeen update: {e:?}");
+                                }
+                            }
+                            Ok::<(), ()>(())
+                        });
                 }
                 () = sign_timeout_fut => {
                     sign_time += SIGN_INTERVAL;
@@ -549,7 +603,7 @@ async fn auth_client(
     }
 
     let row = query!(
-        "SELECT `id`, `content` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`",
+        "SELECT `id`, `version`, `name`, `category`, `content`, `comment`, `author` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`",
         HOST_ID,
         hostname
     )
@@ -576,6 +630,77 @@ async fn auth_client(
     }
     // Successful auth: clear any accumulated backoff for this IP.
     state.login_attempts.lock().unwrap().remove(&ip);
+
+    // Check idle-time ban. Parse content JSON to inspect connectionDisabled and lastSeen.
+    let mut content: ValueMap =
+        serde_json::from_str(&row.content).context("Invalid host content")?;
+    let connection_disabled = content
+        .get("connectionDisabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    if connection_disabled {
+        bail!(
+            "Connection from host {} is disabled; re-enable it in the admin UI",
+            hostname
+        );
+    }
+
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    const MAX_IDLE_SECS: i64 = 7 * 24 * 60 * 60;
+
+    let last_seen = content.get("lastSeen").and_then(|v| v.as_i64());
+    if last_seen.map_or(false, |ls| now_secs - ls > MAX_IDLE_SECS) {
+        // Auto-disable: mark as disabled in-place and broadcast to connected admins.
+        content.insert("connectionDisabled".to_string(), Value::Bool(true));
+        let new_content = serde_json::to_string(&content)?;
+        query!(
+            "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
+            new_content,
+            row.id
+        )
+        .execute(&state.db)
+        .await?;
+        let obj = IObject2::<ValueMap> {
+            id: row.id,
+            r#type: ObjectType::Id(HOST_ID),
+            name: row.name.clone(),
+            category: row.category.clone().unwrap_or_default(),
+            content,
+            version: Some(row.version),
+            comment: row.comment.clone(),
+            author: row.author.clone(),
+            time: None,
+        };
+        if let Err(e) = webclient::broadcast(
+            state,
+            IServerAction::ObjectChanged(IObjectChanged {
+                id: row.id,
+                object: vec![obj],
+            }),
+        ) {
+            warn!("Failed to broadcast host auto-disable for {hostname}: {e:?}");
+        }
+        bail!(
+            "Host {} has not connected for over 7 days and has been disabled; re-enable it in the admin UI.",
+            hostname
+        );
+    }
+
+    // Update lastSeen timestamp on every successful connection.
+    content.insert("lastSeen".to_string(), Value::Number(now_secs.into()));
+    let new_content = serde_json::to_string(&content)?;
+    query!(
+        "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
+        new_content,
+        row.id
+    )
+    .execute(&state.db)
+    .await?;
+
     Ok((row.id, hostname))
 }
 

@@ -185,6 +185,26 @@ const Type = observer(function Type({ typeId: myType, id }: { typeId: number; id
                     </InformationListRow>
                 ) : null}
                 {rows}
+                {type.hasHostDisable ? (
+                    <InformationListRow name="Disable host" key="host_disable">
+                        <Switch
+                            color="warning"
+                            checked={c.connectionDisabled ?? false}
+                            onChange={(e) => {
+                                c.connectionDisabled = e.target.checked;
+                                if (!e.target.checked) c.lastSeen = Math.floor(Date.now() / 1000);
+                                obj.touched = true;
+                            }}
+                        />
+                        {c.connectionDisabled ? (
+                            <div style={{ marginLeft: 10 }}>
+                                This host has been disabled. It will not be able to connect until
+                                re-enabled. Hosts that have been disabled and not connected for over
+                                7 days will be automatically disabled.
+                            </div>
+                        ) : null}
+                    </InformationListRow>
+                ) : null}
                 {type.hasTriggers ? (
                     <InformationListRow name="Triggers" long={true} key="triggers">
                         <Triggers
