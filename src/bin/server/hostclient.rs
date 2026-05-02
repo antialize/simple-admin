@@ -10,7 +10,7 @@ use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     net::SocketAddr,
     sync::{Arc, Mutex, Weak, atomic::AtomicU64},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{io::WriteHalf, sync::Mutex as TMutex};
 use tokio::{
@@ -32,7 +32,7 @@ use sadmin2::client_message::{
 use crate::{
     action_types::{IHostDown, IHostUp, IServerAction},
     crt, crypt, db,
-    state::State,
+    state::{LoginAttempts, State},
     webclient::{self},
 };
 use sadmin2::type_types::HOST_ID;
@@ -513,6 +513,7 @@ impl HostClient {
 
 async fn auth_client(
     state: &State,
+    peer_address: SocketAddr,
     reader: &mut ReadHalf<TlsStream<TcpStream>>,
     buf: &mut BytesMut,
 ) -> Result<(i64, String)> {
@@ -532,6 +533,21 @@ async fn auth_client(
         bail!("Expected auth message");
     };
 
+    // IP-based exponential backoff: hosts should never send a wrong password in
+    // normal operation, so any failure is suspicious. We apply the same doubling
+    // delay as for web logins (1 s -> 2 -> 4 ... <= 300 s) keyed on the peer IP.
+    let ip = peer_address.ip().to_string();
+    {
+        let attempts = state.login_attempts.lock().unwrap();
+        if let Some(entry) = attempts.get(&ip) {
+            let now = Instant::now();
+            if now < entry.next_allowed {
+                let secs = (entry.next_allowed - now).as_secs() + 1;
+                bail!("Rate-limited host auth from {ip} ({hostname}), retry in {secs}s");
+            }
+        }
+    }
+
     let row = query!(
         "SELECT `id`, `content` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`",
         HOST_ID,
@@ -541,6 +557,7 @@ async fn auth_client(
     .await?;
 
     let Some(row) = row else {
+        record_host_auth_failure(&state.login_attempts, &ip);
         bail!("Unknown host {}", hostname)
     };
 
@@ -554,9 +571,24 @@ async fn auth_client(
     let valid = crypt::validate_password(&password, &password_content.password)
         .context("Unable to validate password")?;
     if !valid {
+        record_host_auth_failure(&state.login_attempts, &ip);
         bail!("Invalid password for {}", hostname)
     }
+    // Successful auth: clear any accumulated backoff for this IP.
+    state.login_attempts.lock().unwrap().remove(&ip);
     Ok((row.id, hostname))
+}
+
+/// Same exponential-backoff helper used by the web-login path.
+fn record_host_auth_failure(login_attempts: &Mutex<HashMap<String, LoginAttempts>>, ip: &str) {
+    let mut attempts = login_attempts.lock().unwrap();
+    let now = Instant::now();
+    let entry = attempts.entry(ip.to_string()).or_insert(LoginAttempts {
+        next_allowed: now,
+        delay: Duration::from_secs(1),
+    });
+    entry.next_allowed = now + entry.delay;
+    entry.delay = entry.delay.saturating_mul(2).min(Duration::from_secs(300));
 }
 
 async fn handle_host_client(
@@ -579,7 +611,7 @@ async fn handle_host_client(
         &run_token,
         tokio::time::timeout(
             Duration::from_secs(2),
-            auth_client(&state, &mut reader, &mut buf),
+            auth_client(&state, peer_address, &mut reader, &mut buf),
         ),
     )
     .await
