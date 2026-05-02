@@ -2175,6 +2175,23 @@ async fn messages_handler(
 pub async fn run_web_clients(state: Arc<State>, run_token: RunToken) -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 8182));
 
+    // Restrict cross-origin requests to the configured hostname only.
+    // The server is only ever accessed through the nginx reverse-proxy at
+    // https://<hostname>, so no other origin should be making requests.
+    let allowed_origin: HeaderValue = format!("https://{}", state.config.hostname)
+        .parse()
+        .context("Invalid CORS origin from hostname")?;
+    let cors = tower_http::cors::CorsLayer::new()
+        .allow_origin(allowed_origin)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::PATCH,
+        ])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT]);
+
     use axum::routing::{any, get, post};
     let app = Router::new()
         .route("/sysadmin", any(sysadmin_handler))
@@ -2186,6 +2203,7 @@ pub async fn run_web_clients(state: Arc<State>, run_token: RunToken) -> Result<(
         .route("/usedImages", post(docker_web::used_images))
         .route("/setup.sh", get(setup::setup))
         .nest("/v2/", docker_web::docker_api_routes()?)
+        .layer(cors)
         .layer(axum::middleware::from_fn(request_logger))
         .with_state(state.clone());
 
