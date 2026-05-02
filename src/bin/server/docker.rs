@@ -116,7 +116,10 @@ async fn prune_inner(state: &State) -> Result<()> {
 
         let mut missing = false;
         if !files.contains(&manifest.config.digest) {
-            warn!("Config {} missing from image {}", manifest.config.digest, row.hash);
+            warn!(
+                "Config {} missing from image {}",
+                manifest.config.digest, row.hash
+            );
             missing = true;
         }
 
@@ -128,7 +131,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             }
         }
 
-        if keep && ! missing {
+        if keep && !missing {
             used.insert(manifest.config.digest);
             for layer in manifest.layers {
                 used.insert(layer.digest);
@@ -136,9 +139,18 @@ async fn prune_inner(state: &State) -> Result<()> {
         } else {
             info!("Removing image {}", row.hash);
             info!("  keep: {keep}, missing: {missing}, pin: {}", row.pin);
-            info!("  newest: {:?}, id: {}, tagPin: {}, tag: {}", row.newest, row.id, row.tagPin, row.tag);
-            info!("  active: {}, start: {:?}, end: {:?}, now: {}", row.active, row.start, row.end, now);
-            info!("  used: {:?}, time: {}, grace: {}", row.used, row.time, grace);
+            info!(
+                "  newest: {:?}, id: {}, tagPin: {}, tag: {}",
+                row.newest, row.id, row.tagPin, row.tag
+            );
+            info!(
+                "  active: {}, start: {:?}, end: {:?}, now: {}",
+                row.active, row.start, row.end, now
+            );
+            info!(
+                "  used: {:?}, time: {}, grace: {}",
+                row.used, row.time, grace
+            );
             query!(
                 "UPDATE `docker_images` SET `removed`=? WHERE `id`=?",
                 now,

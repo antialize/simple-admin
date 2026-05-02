@@ -62,7 +62,11 @@ export const setupSocket = () => {
                     state.authUser = d.user;
                 });
                 if (d.session !== null) {
-                    Cookies.set("simple-admin-session", d.session, { secure: true, expires: 365 });
+                    Cookies.set("simple-admin-session", d.session, {
+                        secure: true,
+                        expires: 365,
+                        sameSite: "strict",
+                    });
                 }
                 if (d.otp && d.pwd) {
                     state.sendMessage({ type: "RequestInitialState" });
