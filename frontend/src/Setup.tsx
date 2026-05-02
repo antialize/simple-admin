@@ -13,7 +13,8 @@ const Setup = observer(function Setup({ hostid }: { hostid: number }) {
     return (
         <Typography>
             <pre>
-                wget -q &quot;https://{host}/setup.sh?host={name}&token={pwd}&quot; -O - | sudo bash
+                curl -fsSL -H &quot;Authorization: Bearer {pwd}&quot; &quot;https://{host}
+                /setup.sh?host={name}&quot; | sudo bash
             </pre>
         </Typography>
     );
