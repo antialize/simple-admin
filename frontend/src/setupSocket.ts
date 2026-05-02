@@ -54,8 +54,14 @@ export const setupSocket = () => {
                 break;
             case "AuthStatus":
                 runInAction(() => {
-                    if (d.pwd && d.otp) state.connectionStatus = CONNECTION_STATUS.INITING;
-                    else state.connectionStatus = CONNECTION_STATUS.LOGIN;
+                    if (d.rateLimitDelay && d.rateLimitDelay > 0) {
+                        nullCheck(state.login).startRateLimit(d.rateLimitDelay);
+                        state.connectionStatus = CONNECTION_STATUS.LOGIN;
+                    } else if (d.pwd && d.otp) {
+                        state.connectionStatus = CONNECTION_STATUS.INITING;
+                    } else {
+                        state.connectionStatus = CONNECTION_STATUS.LOGIN;
+                    }
                     if (d.user) nullCheck(state.login).user = d.user;
                     state.authMessage = d.message;
                     state.authOtp = d.otp;

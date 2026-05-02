@@ -12,7 +12,7 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     net::SocketAddr,
     sync::{Arc, Mutex, Weak},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::net::TcpListener;
 use tokio_tasks::{RunToken, TaskBuilder, cancelable, set_location};
@@ -38,7 +38,7 @@ use crate::{
     get_auth::get_auth,
     hostclient::{HostClient, JobHandle},
     modified_files, msg, setup,
-    state::State,
+    state::{LoginAttempts, State},
     terminal,
     web_util::{ClientIp, WebError, request_logger},
 };
@@ -52,6 +52,7 @@ use axum::{
 };
 use axum::{
     extract::{State as WState, ws::CloseFrame},
+    http::{HeaderValue, Method, header},
     response::{IntoResponse, Response},
 };
 use sadmin2::{
@@ -264,6 +265,38 @@ impl WebClient {
             Default::default()
         };
 
+        // Enforce IP-based exponential backoff on failed login attempts.
+        // We do not lock out accounts (which would allow DoS against admins);
+        // instead we delay further attempts from the same IP address.
+        // We extract the wait duration and drop the lock before any await.
+        let rate_limit_secs: Option<u64> = {
+            let mut attempts = state.login_attempts.lock().unwrap();
+            let now = Instant::now();
+            // Purge stale entries (no failure from this IP for over an hour).
+            attempts.retain(|_, v| v.next_allowed + Duration::from_secs(3600) > now);
+            attempts.get(&self.remote).and_then(|entry| {
+                if now < entry.next_allowed {
+                    Some((entry.next_allowed - now).as_secs() + 1)
+                } else {
+                    None
+                }
+            })
+        };
+        if let Some(secs) = rate_limit_secs {
+            self.send_message(
+                rt,
+                IServerAction::AuthStatus(IAuthStatus {
+                    session,
+                    user: Some(act.user),
+                    message: Some("Too many failed login attempts from your IP.".to_string()),
+                    rate_limit_delay: Some(secs as u32),
+                    ..Default::default()
+                }),
+            )
+            .await?;
+            return Ok(());
+        }
+
         let mut found = false;
         let mut new_otp = false;
         let mut otp = auth.otp;
@@ -313,7 +346,13 @@ impl WebClient {
             )
             .await?;
             self.set_auth(IAuthStatus::default());
+            record_failed_login_attempt(&state.login_attempts, &self.remote);
         } else if !pwd || !otp {
+            // Wrong password: penalise. Correct password but missing OTP is not
+            // penalised so as not to slow down the normal two-step login flow.
+            if !pwd {
+                record_failed_login_attempt(&state.login_attempts, &self.remote);
+            }
             if otp && new_otp {
                 if let Some(session) = &session {
                     query!("UPDATE `sessions` SET `otp`=? WHERE `sid`=?", now, session)
@@ -354,6 +393,8 @@ impl WebClient {
             )
             .await?;
         } else {
+            // Successful login, clear any accumulated backoff for this IP.
+            state.login_attempts.lock().unwrap().remove(&self.remote);
             if let Some(session) = &session {
                 if new_otp {
                     query!(
@@ -2013,6 +2054,19 @@ os.execv(sys.argv[1], sys.argv[1:])
         }
         Ok(())
     }
+}
+
+/// Record a failed login attempt from `ip`, applying exponential backoff.
+/// The delay starts at 1 s and doubles on each subsequent failure up to 300 s.
+fn record_failed_login_attempt(login_attempts: &Mutex<HashMap<String, LoginAttempts>>, ip: &str) {
+    let mut attempts = login_attempts.lock().unwrap();
+    let now = Instant::now();
+    let entry = attempts.entry(ip.to_string()).or_insert(LoginAttempts {
+        next_allowed: now,
+        delay: Duration::from_secs(1),
+    });
+    entry.next_allowed = now + entry.delay;
+    entry.delay = entry.delay.saturating_mul(2).min(Duration::from_secs(300));
 }
 
 async fn handle_webclient(websocket: WebSocket, state: Arc<State>, remote: String) -> Result<()> {

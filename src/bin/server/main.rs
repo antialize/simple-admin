@@ -103,6 +103,7 @@ async fn main() -> Result<()> {
         web_clients: Default::default(),
         docker_uploads: Default::default(),
         read_only: args.read_only,
+        login_attempts: Default::default(),
     });
 
     docker_web::init_upload().await?;

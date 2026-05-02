@@ -640,6 +640,10 @@ pub struct IAuthStatus {
     pub sslname: Option<String>,
     #[serde(default)]
     pub auth_days: Option<u32>,
+    /// Number of seconds the client must wait before the next login attempt is
+    /// accepted (set when IP-based backoff is active, otherwise None/0).
+    #[serde(default)]
+    pub rate_limit_delay: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
