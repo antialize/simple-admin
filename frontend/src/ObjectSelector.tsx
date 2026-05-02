@@ -43,9 +43,9 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
             onChange={(_, values) => {
                 p.setSelected(values.map((i) => i.value));
             }}
-            renderTags={(tagValue, getTagProps) =>
+            renderValue={(tagValue, getItemProps) =>
                 tagValue.map((option, index) => {
-                    const { key, onDelete, ...tagProps } = getTagProps({ index });
+                    const { key, onDelete, ...itemProps } = getItemProps({ index });
                     let t = HOST_ID;
                     for (const [type, digests] of state.objectDigests) {
                         if (digests.has(option.value)) {
@@ -64,7 +64,7 @@ const ObjectSelector = observer(function ObjectSelector(p: IProps) {
                         <Chip
                             key={key}
                             label={option.label}
-                            {...tagProps}
+                            {...itemProps}
                             component="a"
                             onClick={(e) => {
                                 e.preventDefault();
