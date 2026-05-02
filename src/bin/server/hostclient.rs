@@ -407,17 +407,15 @@ impl HostClient {
                                             "lastSeen".to_string(),
                                             Value::Number(now_secs.into()),
                                         );
-                                        if let Ok(new_content) = serde_json::to_string(&content) {
-                                            if let Err(e) = query!(
+                                        if let Ok(new_content) = serde_json::to_string(&content) && let Err(e) = query!(
                                                 "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
                                                 new_content,
                                                 id
                                             )
                                             .execute(&state_ls.db)
                                             .await
-                                            {
-                                                warn!("Failed to update lastSeen for {hostname}: {e:?}");
-                                            }
+                                        {
+                                            warn!("Failed to update lastSeen for {hostname}: {e:?}");
                                         }
                                     }
                                 }
@@ -653,7 +651,7 @@ async fn auth_client(
     const MAX_IDLE_SECS: i64 = 7 * 24 * 60 * 60;
 
     let last_seen = content.get("lastSeen").and_then(|v| v.as_i64());
-    if last_seen.map_or(false, |ls| now_secs - ls > MAX_IDLE_SECS) {
+    if last_seen.is_some_and(|ls| now_secs - ls > MAX_IDLE_SECS) {
         // Auto-disable: mark as disabled in-place and broadcast to connected admins.
         content.insert("connectionDisabled".to_string(), Value::Bool(true));
         let new_content = serde_json::to_string(&content)?;
