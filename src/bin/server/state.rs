@@ -11,7 +11,18 @@ use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use uuid::Uuid;
+
+/// Per-IP login rate-limiting state.
+/// After each failed password attempt the delay doubles (1 s -> 2 -> 4 ... <= 300 s).
+/// A successful login clears the entry immediately.
+pub struct LoginAttempts {
+    /// Earliest time the next login attempt from this IP is allowed.
+    pub next_allowed: Instant,
+    /// Delay that will be applied after the *next* failure.
+    pub delay: Duration,
+}
 
 pub struct State {
     pub db: SqlitePool,
@@ -24,6 +35,9 @@ pub struct State {
     pub web_clients: Mutex<HashSet<CmpRef<Arc<WebClient>>>>,
     pub docker_uploads: Mutex<HashMap<Uuid, Arc<docker_web::Upload>>>,
     pub read_only: bool,
+    /// IP-address -> rate-limit state, used to enforce exponential backoff on
+    /// failed login attempts without locking accounts (which would allow DoS).
+    pub login_attempts: Mutex<HashMap<String, LoginAttempts>>,
 }
 
 impl State {

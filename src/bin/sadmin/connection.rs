@@ -435,9 +435,52 @@ impl Connection {
             otp,
         }))
         .await?;
-        let res = match self.recv().await? {
-            IServerAction::AuthStatus(res) => res,
-            res => bail!("Expected AuthStatus message got {}", res.tag()),
+        let res = loop {
+            let res = match self.recv().await? {
+                IServerAction::AuthStatus(res) => res,
+                res => bail!("Expected AuthStatus message got {}", res.tag()),
+            };
+            // If the server is rate-limiting our IP, wait the requested delay
+            // and retry automatically so the user does not have to re-run.
+            if let Some(secs) = res.rate_limit_delay.filter(|&s| s > 0) {
+                let mut err = std::io::stderr();
+                err.write_all(
+                    format!("Rate limited by server, retrying in {secs} second(s)...\n").as_bytes(),
+                )?;
+                err.flush()?;
+                tokio::time::sleep(std::time::Duration::from_secs(secs as u64)).await;
+                // Re-prompt for both password and OTP after the delay: the
+                // password may have been read from the environment (fine to
+                // re-read), but a TOTP code expires every 30 s so the one the
+                // user originally typed is almost certainly stale by now.
+                let retry_pwd = if let Ok(v) = std::env::var("SADMIN_PASS") {
+                    v
+                } else {
+                    rpassword::prompt_password(format!("Password for {user}: "))?
+                };
+                let retry_otp = if self.otp {
+                    None
+                } else {
+                    let mut err = std::io::stderr();
+                    err.write_all(b"One time password: ")?;
+                    err.flush()?;
+                    let mut buffer = String::new();
+                    std::io::stdin().read_line(&mut buffer)?;
+                    let otp = buffer.trim().to_string();
+                    if otp.is_empty() {
+                        bail!("No one time password provided")
+                    }
+                    Some(otp)
+                };
+                self.send(&IClientAction::Login(ILogin {
+                    user: user.clone(),
+                    pwd: retry_pwd,
+                    otp: retry_otp,
+                }))
+                .await?;
+                continue;
+            }
+            break res;
         };
 
         if res.session.is_none() || !res.pwd || !res.otp {

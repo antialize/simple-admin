@@ -1,4 +1,3 @@
-import * as $ from "jquery";
 import { action, makeObservable, observable, runInAction } from "mobx";
 import type * as React from "react";
 import getOrInsert from "./getOrInsert";
@@ -148,7 +147,7 @@ class PageState {
             default:
                 never(page, "Unhandled page");
         }
-        return `?${$.param(o)}`;
+        return `?${new URLSearchParams(o).toString()}`;
     }
 
     @action

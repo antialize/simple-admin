@@ -20,8 +20,8 @@ const ObjectView = observer(function ObjectView({
 }) {
     const deployment = state.deployment;
     if (!deployment) return <DisplayError>Missing state.deployment</DisplayError>;
-    const o = id && state.objects.get(id);
-    if (!id || !o || !o.current) return <CircularProgress />;
+    const o = id ? state.objects.get(id) : undefined;
+    if (!id || !o?.current) return <CircularProgress />;
     const stype = state.types.get(type);
     if (!stype) return <DisplayError>Missing type</DisplayError>;
 

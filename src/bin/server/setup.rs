@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Query, State as WState};
+use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
 use base64::{Engine, prelude::BASE64_URL_SAFE};
 use log::error;
@@ -20,20 +21,29 @@ use sadmin2::type_types::{HOST_ID, ValueMap};
 #[derive(Deserialize)]
 pub struct SetupQuery {
     host: String,
-    token: String,
 }
 
 pub async fn setup(
     WState(state): WState<Arc<State>>,
-    Query(SetupQuery { host, token }): Query<SetupQuery>,
+    headers: HeaderMap,
+    Query(SetupQuery { host }): Query<SetupQuery>,
 ) -> Result<Response, WebError> {
+    // The setup token is passed in the Authorization header as a Bearer token,
+    // not as a URL query parameter, to prevent it appearing in server logs and
+    // browser / proxy history.
+    let token = headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or_else(WebError::forbidden)?;
+
     let ho = db::get_object_by_name_and_type(&state, host.clone(), HOST_ID).await?;
     let Some(ho) = ho else {
         error!("Setup invalid host");
         return Err(WebError::not_found());
     };
     let mut ho: IObject2<ValueMap> = ho;
-    if ho.content.get("password").and_then(|v| v.as_str()) != Some(&token) {
+    if ho.content.get("password").and_then(|v| v.as_str()) != Some(token) {
         error!("Setup invalid token");
         return Err(WebError::not_found());
     }

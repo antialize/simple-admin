@@ -165,6 +165,7 @@ export type IType = {
     hasSudoOn?: boolean;
     hasTriggers?: boolean;
     hasDepends?: boolean;
+    hasHostDisable?: boolean;
     containsName?: string;
     content?: Array<ITypeProp>;
     nameVariable?: string;
@@ -367,6 +368,8 @@ export type IAuthStatus = {
     session: string | null;
     sslname: string | null;
     authDays: number | null;
+    /** Seconds the client must wait before the server will accept the next login attempt. */
+    rateLimitDelay: number | null;
 };
 
 export type ILogin = { user: string; pwd: string; otp: string | null };

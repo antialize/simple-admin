@@ -139,6 +139,7 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             session: Some(sid.to_string()),
             auth_days,
             message: None,
+            rate_limit_delay: None,
         })
     }
 }

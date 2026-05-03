@@ -17,6 +17,35 @@ class LoginState {
     @observable
     otp = "";
 
+    /** Wall-clock time (ms since epoch) until which the login form is locked by IP rate-limiting. */
+    @observable
+    rateLimitUntil = 0;
+
+    /** Seconds remaining in the rate-limit countdown (updated by a ticker). */
+    @observable
+    rateLimitSecondsLeft = 0;
+
+    private rateLimitTimer: ReturnType<typeof setInterval> | null = null;
+
+    @action
+    startRateLimit(delaySecs: number) {
+        this.rateLimitUntil = Date.now() + delaySecs * 1000;
+        this.rateLimitSecondsLeft = delaySecs;
+        if (this.rateLimitTimer !== null) clearInterval(this.rateLimitTimer);
+        this.rateLimitTimer = setInterval(
+            action(() => {
+                const left = Math.max(0, Math.ceil((this.rateLimitUntil - Date.now()) / 1000));
+                this.rateLimitSecondsLeft = left;
+                if (left === 0) {
+                    clearInterval(this.rateLimitTimer!);
+                    this.rateLimitTimer = null;
+                    state.connectionStatus = CONNECTION_STATUS.LOGIN;
+                }
+            }),
+            500,
+        );
+    }
+
     @action
     login() {
         const l: IClientAction = {

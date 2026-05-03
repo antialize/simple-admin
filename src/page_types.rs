@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
+use serde_json::Value;
 use ts_rs::{Config, TS};
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
@@ -126,12 +127,20 @@ impl ::ts_rs::TS for IPage {
     }
 }
 
+fn flatten_into<T: Serialize, M: SerializeMap>(v: &T, m: &mut M) -> Result<(), M::Error> {
+    if let Value::Object(fields) = serde_json::to_value(v).map_err(serde::ser::Error::custom)? {
+        for (k, val) in fields {
+            m.serialize_entry(&k, &val)?;
+        }
+    }
+    Ok(())
+}
+
 impl Serialize for IPage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        use serde::__private::ser::FlatMapSerializer;
         let mut s = serializer.serialize_map(None)?;
         match self {
             IPage::Dashbord => {
@@ -142,40 +151,40 @@ impl Serialize for IPage {
             }
             IPage::DeploymentDetails(t) => {
                 s.serialize_entry("type", &2)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::DockerContainerDetails(t) => {
                 s.serialize_entry("type", &3)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::DockerContainerHistory(t) => {
                 s.serialize_entry("type", &4)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::DockerServices => {
                 s.serialize_entry("type", &5)?;
             }
             IPage::DockerImageHistory(t) => {
                 s.serialize_entry("type", &6)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::DockerImages => {
                 s.serialize_entry("type", &7)?;
             }
             IPage::ModifiedFile(t) => {
                 s.serialize_entry("type", &8)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::ModifiedFiles => {
                 s.serialize_entry("type", &9)?;
             }
             IPage::Object(t) => {
                 s.serialize_entry("type", &10)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::ObjectList(t) => {
                 s.serialize_entry("type", &11)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             IPage::Search => {
                 s.serialize_entry("type", &12)?;

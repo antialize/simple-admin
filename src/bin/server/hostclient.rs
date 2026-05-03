@@ -10,7 +10,7 @@ use std::{
     collections::{HashMap, HashSet, hash_map::Entry},
     net::SocketAddr,
     sync::{Arc, Mutex, Weak, atomic::AtomicU64},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::{io::WriteHalf, sync::Mutex as TMutex};
 use tokio::{
@@ -30,12 +30,12 @@ use sadmin2::client_message::{
 };
 
 use crate::{
-    action_types::{IHostDown, IHostUp, IServerAction},
+    action_types::{IHostDown, IHostUp, IObject2, IObjectChanged, IServerAction, ObjectType},
     crt, crypt, db,
-    state::State,
+    state::{LoginAttempts, State},
     webclient::{self},
 };
-use sadmin2::type_types::HOST_ID;
+use sadmin2::type_types::{HOST_ID, ValueMap};
 
 pub struct JobHandle {
     client: Weak<HostClient>,
@@ -274,10 +274,12 @@ impl HostClient {
         const PING_INTERVAL: Duration = Duration::from_secs(80);
         const PONG_TIMEOUT: Duration = Duration::from_secs(40);
         const SIGN_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
+        const LAST_SEEN_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24);
         const FOREVER: Duration = Duration::from_secs(60 * 60 * 24);
         let mut ping_time = tokio::time::Instant::now() + PING_INTERVAL;
         let mut pong_time = ping_time + FOREVER;
         let mut sign_time = tokio::time::Instant::now();
+        let mut last_seen_time = tokio::time::Instant::now() + LAST_SEEN_INTERVAL;
         let mut ping_id: u32 = rand::rng().random();
 
         loop {
@@ -285,6 +287,7 @@ impl HostClient {
             let ping_timeout_fut = tokio::time::sleep_until(ping_time);
             let pong_timeout_fut = tokio::time::sleep_until(pong_time);
             let sign_timeout_fut = tokio::time::sleep_until(sign_time);
+            let last_seen_timeout_fut = tokio::time::sleep_until(last_seen_time);
             let cancelled = self.run_token.cancelled();
             tokio::select! {
                 r = read_fut => {
@@ -376,6 +379,55 @@ impl HostClient {
                 }
                 () = pong_timeout_fut => {
                     bail!("Ping timeout")
+                }
+                () = last_seen_timeout_fut => {
+                    last_seen_time += LAST_SEEN_INTERVAL;
+                    let id = self.id;
+                    let hostname = self.hostname.clone();
+                    let state_ls = state.clone();
+                    TaskBuilder::new(format!("update_last_seen_{}", self.hostname))
+                        .shutdown_order(-1)
+                        .create(move |_| async move {
+                            let now_secs = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs() as i64;
+                            match query!(
+                                "SELECT `content` FROM `objects` WHERE `id` = ? AND `newest`",
+                                id
+                            )
+                            .fetch_optional(&state_ls.db)
+                            .await
+                            {
+                                Ok(Some(row)) => {
+                                    if let Ok(mut content) =
+                                        serde_json::from_str::<ValueMap>(&row.content)
+                                    {
+                                        content.insert(
+                                            "lastSeen".to_string(),
+                                            Value::Number(now_secs.into()),
+                                        );
+                                        if let Ok(new_content) = serde_json::to_string(&content) && let Err(e) = query!(
+                                                "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
+                                                new_content,
+                                                id
+                                            )
+                                            .execute(&state_ls.db)
+                                            .await
+                                        {
+                                            warn!("Failed to update lastSeen for {hostname}: {e:?}");
+                                        }
+                                    }
+                                }
+                                Ok(None) => {
+                                    warn!("Host object {id} not found for lastSeen update");
+                                }
+                                Err(e) => {
+                                    warn!("Failed to fetch host {id} content for lastSeen update: {e:?}");
+                                }
+                            }
+                            Ok::<(), ()>(())
+                        });
                 }
                 () = sign_timeout_fut => {
                     sign_time += SIGN_INTERVAL;
@@ -513,6 +565,7 @@ impl HostClient {
 
 async fn auth_client(
     state: &State,
+    peer_address: SocketAddr,
     reader: &mut ReadHalf<TlsStream<TcpStream>>,
     buf: &mut BytesMut,
 ) -> Result<(i64, String)> {
@@ -532,8 +585,23 @@ async fn auth_client(
         bail!("Expected auth message");
     };
 
+    // IP-based exponential backoff: hosts should never send a wrong password in
+    // normal operation, so any failure is suspicious. We apply the same doubling
+    // delay as for web logins (1 s -> 2 -> 4 ... <= 300 s) keyed on the peer IP.
+    let ip = peer_address.ip().to_string();
+    {
+        let attempts = state.login_attempts.lock().unwrap();
+        if let Some(entry) = attempts.get(&ip) {
+            let now = Instant::now();
+            if now < entry.next_allowed {
+                let secs = (entry.next_allowed - now).as_secs() + 1;
+                bail!("Rate-limited host auth from {ip} ({hostname}), retry in {secs}s");
+            }
+        }
+    }
+
     let row = query!(
-        "SELECT `id`, `content` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`",
+        "SELECT `id`, `version`, `name`, `category`, `content`, `comment`, `author` FROM `objects` WHERE `type` = ? AND `name`=? AND `newest`",
         HOST_ID,
         hostname
     )
@@ -541,6 +609,7 @@ async fn auth_client(
     .await?;
 
     let Some(row) = row else {
+        record_host_auth_failure(&state.login_attempts, &ip);
         bail!("Unknown host {}", hostname)
     };
 
@@ -554,9 +623,95 @@ async fn auth_client(
     let valid = crypt::validate_password(&password, &password_content.password)
         .context("Unable to validate password")?;
     if !valid {
+        record_host_auth_failure(&state.login_attempts, &ip);
         bail!("Invalid password for {}", hostname)
     }
+    // Successful auth: clear any accumulated backoff for this IP.
+    state.login_attempts.lock().unwrap().remove(&ip);
+
+    // Check idle-time ban. Parse content JSON to inspect connectionDisabled and lastSeen.
+    let mut content: ValueMap =
+        serde_json::from_str(&row.content).context("Invalid host content")?;
+    let connection_disabled = content
+        .get("connectionDisabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    if connection_disabled {
+        bail!(
+            "Connection from host {} is disabled; re-enable it in the admin UI",
+            hostname
+        );
+    }
+
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    const MAX_IDLE_SECS: i64 = 7 * 24 * 60 * 60;
+
+    let last_seen = content.get("lastSeen").and_then(|v| v.as_i64());
+    if last_seen.is_some_and(|ls| now_secs - ls > MAX_IDLE_SECS) {
+        // Auto-disable: mark as disabled in-place and broadcast to connected admins.
+        content.insert("connectionDisabled".to_string(), Value::Bool(true));
+        let new_content = serde_json::to_string(&content)?;
+        query!(
+            "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
+            new_content,
+            row.id
+        )
+        .execute(&state.db)
+        .await?;
+        let obj = IObject2::<ValueMap> {
+            id: row.id,
+            r#type: ObjectType::Id(HOST_ID),
+            name: row.name.clone(),
+            category: row.category.clone().unwrap_or_default(),
+            content,
+            version: Some(row.version),
+            comment: row.comment.clone(),
+            author: row.author.clone(),
+            time: None,
+        };
+        if let Err(e) = webclient::broadcast(
+            state,
+            IServerAction::ObjectChanged(IObjectChanged {
+                id: row.id,
+                object: vec![obj],
+            }),
+        ) {
+            warn!("Failed to broadcast host auto-disable for {hostname}: {e:?}");
+        }
+        bail!(
+            "Host {} has not connected for over 7 days and has been disabled; re-enable it in the admin UI.",
+            hostname
+        );
+    }
+
+    // Update lastSeen timestamp on every successful connection.
+    content.insert("lastSeen".to_string(), Value::Number(now_secs.into()));
+    let new_content = serde_json::to_string(&content)?;
+    query!(
+        "UPDATE `objects` SET `content` = ? WHERE `id` = ? AND `newest`",
+        new_content,
+        row.id
+    )
+    .execute(&state.db)
+    .await?;
+
     Ok((row.id, hostname))
+}
+
+/// Same exponential-backoff helper used by the web-login path.
+fn record_host_auth_failure(login_attempts: &Mutex<HashMap<String, LoginAttempts>>, ip: &str) {
+    let mut attempts = login_attempts.lock().unwrap();
+    let now = Instant::now();
+    let entry = attempts.entry(ip.to_string()).or_insert(LoginAttempts {
+        next_allowed: now,
+        delay: Duration::from_secs(1),
+    });
+    entry.next_allowed = now + entry.delay;
+    entry.delay = entry.delay.saturating_mul(2).min(Duration::from_secs(300));
 }
 
 async fn handle_host_client(
@@ -579,7 +734,7 @@ async fn handle_host_client(
         &run_token,
         tokio::time::timeout(
             Duration::from_secs(2),
-            auth_client(&state, &mut reader, &mut buf),
+            auth_client(&state, peer_address, &mut reader, &mut buf),
         ),
     )
     .await

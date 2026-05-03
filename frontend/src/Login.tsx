@@ -15,6 +15,7 @@ import state, { CONNECTION_STATUS } from "./state";
 const Login = observer(function Login() {
     const l = state.login;
     if (!l) return <DisplayError>Missing state.login</DisplayError>;
+    const rateLimitLeft = l.rateLimitSecondsLeft;
     let message = "";
     switch (state.connectionStatus) {
         case CONNECTION_STATUS.AUTHENTICATING:
@@ -30,7 +31,9 @@ const Login = observer(function Login() {
             message = "Loading initial state";
             break;
         case CONNECTION_STATUS.LOGIN:
-            message = state.authMessage ?? "Error";
+            if (rateLimitLeft > 0)
+                message = `Too many failed attempts. Please wait ${rateLimitLeft} second${rateLimitLeft === 1 ? "" : "s"}.`;
+            else message = state.authMessage ?? "Error";
             break;
         case CONNECTION_STATUS.WAITING:
             message = "Waiting";
@@ -39,7 +42,7 @@ const Login = observer(function Login() {
     let progress = null;
     if (state.connectionStatus !== CONNECTION_STATUS.LOGIN) progress = <CircularProgress />;
 
-    const dis = state.connectionStatus !== CONNECTION_STATUS.LOGIN;
+    const dis = state.connectionStatus !== CONNECTION_STATUS.LOGIN || rateLimitLeft > 0;
     const o = state.authUser === l.user && state.authOtp;
     const dlog = dis || !l.user || !l.pwd || (!l.otp && !o);
 
