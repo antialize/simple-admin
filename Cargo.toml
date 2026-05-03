@@ -69,7 +69,7 @@ rpassword = "7"
 rusqlite = { version = "0.32", features = ["bundled"], optional=true}
 rustls = {version = "0.23", features=["aws_lc_rs"]}
 sdnotify = {version = "0.2", default-features = false, optional=true}
-serde = { version = "=1.0.224", default-features = false, features=['std', 'derive']}
+serde = { version = "1", default-features = false, features=['std', 'derive']}
 serde_json = { version = "1", default-features = false, features=['std', "float_roundtrip", "preserve_order"] }
 serde_repr = {version = "0.1"}
 serde_yaml = "0.9"

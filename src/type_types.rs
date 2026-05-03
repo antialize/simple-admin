@@ -157,12 +157,20 @@ impl TS for ITypeProp {
     }
 }
 
+fn flatten_into<T: Serialize, M: SerializeMap>(v: &T, m: &mut M) -> Result<(), M::Error> {
+    if let Value::Object(fields) = serde_json::to_value(v).map_err(serde::ser::Error::custom)? {
+        for (k, val) in fields {
+            m.serialize_entry(&k, &val)?;
+        }
+    }
+    Ok(())
+}
+
 impl Serialize for ITypeProp {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        use serde::__private::ser::FlatMapSerializer;
         let mut s = serializer.serialize_map(None)?;
         match self {
             ITypeProp::None => {
@@ -170,31 +178,31 @@ impl Serialize for ITypeProp {
             }
             ITypeProp::Bool(t) => {
                 s.serialize_entry("type", &1)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::Text(t) => {
                 s.serialize_entry("type", &2)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::Password(t) => {
                 s.serialize_entry("type", &3)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::Document(t) => {
                 s.serialize_entry("type", &4)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::Choice(t) => {
                 s.serialize_entry("type", &5)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::TypeContent(t) => {
                 s.serialize_entry("type", &6)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::Number(t) => {
                 s.serialize_entry("type", &7)?;
-                t.serialize(FlatMapSerializer(&mut s))?;
+                flatten_into(t, &mut s)?;
             }
             ITypeProp::Monitor => {
                 s.serialize_entry("type", &8)?;
