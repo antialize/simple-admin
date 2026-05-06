@@ -377,7 +377,10 @@ impl WebClient {
                     info!("OTP hard limit reached for session {sid}, pwd bit revoked");
                 }
             }
-            if otp && new_otp {
+            // Only persist a fresh OTP timestamp when the password is also valid.
+            // Saving OTP without pwd would let an attacker "bank" a stolen TOTP code
+            // and then brute-force the password separately.
+            if otp && new_otp && pwd {
                 if let Some(session) = &session {
                     query!("UPDATE `sessions` SET `otp`=? WHERE `sid`=?", now, session)
                         .execute(&state.db)
