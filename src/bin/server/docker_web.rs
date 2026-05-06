@@ -949,6 +949,11 @@ async fn patch_blob_upload(
         .into_response())
 }
 
+#[derive(Deserialize)]
+struct PostBlobUploadQuery {
+    digest: Option<String>,
+}
+
 // POST /v2/<name>/blobs/uploads/ Initiate Blob Upload Initiate a resumable blob upload.
 // If successful, an upload location will be provided to complete the upload.
 // Optionally, if the digest parameter is present, the request body will be used to complete the upload in a single request.
@@ -956,10 +961,75 @@ async fn post_blob_upload(
     _: DockerAuthPush,
     WState(state): WState<Arc<State>>,
     Path(name): Path<String>,
+    Query(PostBlobUploadQuery { digest }): Query<PostBlobUploadQuery>,
+    body: Body,
 ) -> Result<Response, ApiError> {
     if state.read_only {
         api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
     }
+
+    // Single-shot upload: digest provided in query string, full blob is in the body.
+    if let Some(digest) = digest {
+        if !is_docker_hash(&digest) {
+            api_error!(BAD_REQUEST, DigestInvalid, "Bad digest {}", digest);
+        }
+        let dest = std::path::Path::new(DOCKER_BLOBS_PATH).join(&digest);
+        // Fast-path: blob already exists.
+        if tokio::fs::metadata(&dest).await.is_ok() {
+            return Ok((
+                StatusCode::CREATED,
+                [
+                    ("Content-Length", "0".to_string()),
+                    ("Location", format!("/v2/{name}/blobs/{digest}")),
+                    ("Docker-Content-Digest", digest),
+                ],
+                (),
+            )
+                .into_response());
+        }
+        let uuid = uuid::Uuid::new_v4();
+        let tmp_path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
+        let mut file = tokio::fs::File::create_new(&tmp_path)
+            .await
+            .to_api_error("Failed to create temp file")?;
+        let mut hasher = Sha256::new();
+        let mut body = body.into_data_stream();
+        let mut count: u64 = 0;
+        while let Some(frame) = body.next().await {
+            let frame = frame.to_api_error("Reading body failed")?;
+            file.write_all(&frame).await.to_api_error("Write failed")?;
+            hasher.update(&frame);
+            count += frame.len() as u64;
+        }
+        file.flush().await.to_api_error("Flush failed")?;
+        drop(file);
+        let actual_digest = format!("sha256:{}", hex::encode(hasher.finalize()));
+        if actual_digest != digest {
+            let _ = tokio::fs::remove_file(&tmp_path).await;
+            api_error!(
+                BAD_REQUEST,
+                DigestInvalid,
+                "Digest mismatch: expected {} got {}",
+                digest,
+                actual_digest
+            );
+        }
+        info!("Docker post blob (single-shot) total_size={count} digest={actual_digest}");
+        tokio::fs::rename(&tmp_path, &dest)
+            .await
+            .to_api_error("Rename failed")?;
+        return Ok((
+            StatusCode::CREATED,
+            [
+                ("Content-Length", "0".to_string()),
+                ("Location", format!("/v2/{name}/blobs/{actual_digest}")),
+                ("Docker-Content-Digest", actual_digest),
+            ],
+            (),
+        )
+            .into_response());
+    }
+
     let uuid = uuid::Uuid::new_v4();
     let path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
     let file = tokio::fs::File::create_new(&path)
