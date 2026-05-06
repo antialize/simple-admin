@@ -753,31 +753,40 @@ async fn put_manifest(
         .to_api_error("Invalid unix time")?
         .as_secs_f64();
 
-    query!(
-        "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
-        name,
-        reference,
-        hash,
-    )
-    .execute(&state.db)
-    .await
-    .to_api_error("Database query failed")?;
-    let id = query!(
-        "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`,
-        `user`, `time`, `pin`, `labels`)
-        VALUES (?, ?, ?, ?, ?, ?, false, ?)",
-        name,
-        reference,
-        body,
-        hash,
-        user,
-        time,
-        labels_string,
-    )
-    .execute(&state.db)
-    .await
-    .to_api_error("Database query failed")?
-    .last_insert_rowid();
+    let id = {
+        let mut tx = state
+            .db
+            .begin()
+            .await
+            .to_api_error("Database transaction failed")?;
+        query!(
+            "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
+            name,
+            reference,
+            hash,
+        )
+        .execute(&mut *tx)
+        .await
+        .to_api_error("Database query failed")?;
+        let id = query!(
+            "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`,
+            `user`, `time`, `pin`, `labels`)
+            VALUES (?, ?, ?, ?, ?, ?, false, ?)",
+            name,
+            reference,
+            body,
+            hash,
+            user,
+            time,
+            labels_string,
+        )
+        .execute(&mut *tx)
+        .await
+        .to_api_error("Database query failed")?
+        .last_insert_rowid();
+        tx.commit().await.to_api_error("Database commit failed")?;
+        id
+    };
 
     webclient::broadcast(
         &state,
