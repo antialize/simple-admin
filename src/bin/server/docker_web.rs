@@ -408,7 +408,7 @@ async fn get_blob_upload_status(
         StatusCode::ACCEPTED,
         [
             ("Location", req.uri().to_string()),
-            ("Range", format!("0-{}", range - 1)),
+            ("Range", format!("0-{}", range.saturating_sub(1))),
             ("Docker-Upload-UUID", uuid.to_string()),
         ],
     )
@@ -901,7 +901,7 @@ async fn patch_blob_upload(
         StatusCode::ACCEPTED,
         [
             ("Location", format!("/v2/{name}/blobs/uploads/{uuid}")),
-            ("Range", format!("0-{}", inner.count - 1)),
+            ("Range", format!("0-{}", inner.count.saturating_sub(1))),
             ("Content-Length", "0".to_string()),
             ("Docker-Upload-UUID", uuid.to_string()),
         ],
