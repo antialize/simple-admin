@@ -169,6 +169,8 @@ struct UploadInner {
 
 pub struct Upload {
     shadow_range: AtomicU64,
+    /// Unix timestamp (seconds) of the last byte written. Used by the reaper task.
+    last_activity: AtomicU64,
     inner: TMutex<Option<UploadInner>>,
 }
 
@@ -281,6 +283,7 @@ async fn handle_upload(
     body: Body,
     inner: &mut UploadInner,
     shadow_range: &AtomicU64,
+    last_activity: &AtomicU64,
 ) -> Result<(), anyhow::Error> {
     use sha2::Digest;
     let mut body = body.into_data_stream();
@@ -293,9 +296,17 @@ async fn handle_upload(
             .context("File write failed")?;
         inner.hash.update(&frame);
         shadow_range.fetch_add(frame.len() as u64, std::sync::atomic::Ordering::SeqCst);
+        last_activity.store(now_secs(), std::sync::atomic::Ordering::Relaxed);
         inner.count += frame.len() as u64;
     }
     Ok(())
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 #[derive(Serialize)]
@@ -585,7 +596,7 @@ async fn put_blob_upload(
         }
     }
 
-    handle_upload(body, &mut inner, &u.shadow_range)
+    handle_upload(body, &mut inner, &u.shadow_range, &u.last_activity)
         .await
         .to_api_error("Upload failed")?;
 
@@ -915,7 +926,7 @@ async fn patch_blob_upload(
             expected_size = Some(end - start);
         }
     }
-    handle_upload(body, inner, &u.shadow_range)
+    handle_upload(body, inner, &u.shadow_range, &u.last_activity)
         .await
         .to_api_error("Upload failed")?;
     if let Some(expected_size) = expected_size
@@ -1037,12 +1048,11 @@ async fn post_blob_upload(
         .with_context(|| format!("Unable to create file {path:?}"))
         .to_api_error("File creation failed")?;
 
-    // TODO(jakobt) we should add some timeout here to not have the file there forever
-
     state.docker_uploads.lock().unwrap().insert(
         uuid,
         Arc::new(Upload {
             shadow_range: Default::default(),
+            last_activity: AtomicU64::new(now_secs()),
             inner: TMutex::new(Some(UploadInner {
                 count: 0,
                 hash: Default::default(),
@@ -1091,4 +1101,50 @@ pub fn docker_api_routes() -> Result<Router<Arc<State>>, anyhow::Error> {
         .route("/{name}/blobs/uploads/", post(post_blob_upload))
         .layer(axum::middleware::from_fn(docker_api_middleware));
     Ok(router)
+}
+
+const UPLOAD_TIMEOUT_SECS: u64 = 10 * 60; // 10 minutes
+
+/// Background task that evicts stale in-progress blob uploads.
+pub async fn upload_reaper(
+    state: Arc<State>,
+    run_token: tokio_tasks::RunToken,
+) -> Result<(), anyhow::Error> {
+    loop {
+        if tokio_tasks::cancelable(
+            &run_token,
+            tokio::time::sleep(std::time::Duration::from_secs(60)),
+        )
+        .await
+        .is_err()
+        {
+            break;
+        }
+        let now = now_secs();
+        let stale: Vec<(Uuid, Arc<Upload>)> = state
+            .docker_uploads
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, u)| {
+                let last = u.last_activity.load(std::sync::atomic::Ordering::Relaxed);
+                now.saturating_sub(last) >= UPLOAD_TIMEOUT_SECS
+            })
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+
+        for (uuid, upload) in stale {
+            // Only remove if the inner lock is not held (i.e. not mid-write).
+            if upload.inner.try_lock().is_ok() {
+                state.docker_uploads.lock().unwrap().remove(&uuid);
+                let path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
+                if let Err(e) = tokio::fs::remove_file(&path).await {
+                    log::warn!("upload_reaper: failed to remove {path:?}: {e:?}");
+                } else {
+                    log::info!("upload_reaper: removed stale upload uuid={uuid}");
+                }
+            }
+        }
+    }
+    Ok(())
 }

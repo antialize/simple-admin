@@ -118,6 +118,11 @@ async fn main() -> Result<()> {
         .shutdown_order(1)
         .create(|rt| docker_prune(state.clone(), rt));
 
+    TaskBuilder::new("docker_upload_reaper")
+        .main()
+        .shutdown_order(1)
+        .create(|rt| docker_web::upload_reaper(state.clone(), rt));
+
     TaskBuilder::new("run_host_server")
         .main()
         .shutdown_order(1)
