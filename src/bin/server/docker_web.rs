@@ -653,7 +653,9 @@ async fn put_manifest(
                 layer.digest
             );
         }
-        if layer.media_type != "application/vnd.docker.image.rootfs.diff.tar.gzip" {
+        let is_foreign =
+            layer.media_type == "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip";
+        if !is_foreign && layer.media_type != "application/vnd.docker.image.rootfs.diff.tar.gzip" {
             api_error!(
                 BAD_REQUEST,
                 ManifestInvalid,
@@ -662,9 +664,12 @@ async fn put_manifest(
             );
         }
 
-        let size =
-            match tokio::fs::metadata(std::path::Path::new(DOCKER_BLOBS_PATH).join(&layer.digest))
-                .await
+        // Foreign layers (e.g. Windows base OS layers) are hosted externally and not stored locally.
+        if !is_foreign {
+            let size = match tokio::fs::metadata(
+                std::path::Path::new(DOCKER_BLOBS_PATH).join(&layer.digest),
+            )
+            .await
             {
                 Ok(v) => v.size(),
                 Err(e) => {
@@ -677,15 +682,16 @@ async fn put_manifest(
                     );
                 }
             };
-        if size != layer.size {
-            api_error!(
-                BAD_REQUEST,
-                ManifestInvalid,
-                "Blob has wrong size {} vs {} for {}",
-                size,
-                layer.size,
-                layer.digest
-            );
+            if size != layer.size {
+                api_error!(
+                    BAD_REQUEST,
+                    ManifestInvalid,
+                    "Blob has wrong size {} vs {} for {}",
+                    size,
+                    layer.size,
+                    layer.digest
+                );
+            }
         }
     }
 
@@ -717,7 +723,7 @@ async fn put_manifest(
     #[derive(Deserialize)]
     struct ConfigConfig {
         #[serde(default, alias = "Labels")]
-        labels: HashMap<String, String>,
+        labels: Option<HashMap<String, String>>,
     }
 
     #[derive(Deserialize)]
@@ -736,8 +742,9 @@ async fn put_manifest(
             );
         }
     };
-    let labels_string = serde_json::to_string(&config.config.labels)
-        .to_api_error("Unable to convert labels to string")?;
+    let labels = config.config.labels.unwrap_or_default();
+    let labels_string =
+        serde_json::to_string(&labels).to_api_error("Unable to convert labels to string")?;
     let digest = sha2::Sha256::digest(&body);
     let hash = format!("sha256:{}", hex::encode(digest));
 
@@ -783,7 +790,7 @@ async fn put_manifest(
                 time: time.to_finite().to_api_error("Invalid float")?,
                 user,
                 pin: false,
-                labels: config.config.labels,
+                labels,
                 removed: None,
                 pinned_image_tag: false,
             }],
