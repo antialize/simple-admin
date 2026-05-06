@@ -9,9 +9,10 @@ function Password(props: IProps) {
     return (
         <TextField
             variant="standard"
-            type="password"
+            type="text"
             value={props.value}
-            autoComplete="new-password"
+            autoComplete="off"
+            sx={{ "& input": { WebkitTextSecurity: "disc" } }}
             onChange={(e) => {
                 props.onChange(e.target.value);
             }}
