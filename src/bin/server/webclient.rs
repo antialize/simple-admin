@@ -348,12 +348,39 @@ impl WebClient {
             self.set_auth(IAuthStatus::default());
             record_failed_login_attempt(&state.login_attempts, &self.remote);
         } else if !pwd || !otp {
-            // Wrong password: penalise. Correct password but missing OTP is not
-            // penalised so as not to slow down the normal two-step login flow.
-            if !pwd {
+            // Wrong password: always penalise.
+            // Wrong OTP (i.e. a token was submitted but didn't validate): also penalise,
+            // to prevent brute-forcing TOTP with a known password.
+            // Absent OTP (empty string, normal two-step flow) is not penalised.
+            let otp_was_submitted = act.otp.as_deref().is_some_and(|s| !s.is_empty());
+            if !pwd || (!otp && otp_was_submitted) {
                 record_failed_login_attempt(&state.login_attempts, &self.remote);
             }
-            if otp && new_otp {
+            // Hard limit: 5 wrong OTP submissions on the same session resets the
+            // pwd bit, forcing the user to re-enter their password.
+            if pwd
+                && !otp
+                && otp_was_submitted
+                && let Some(sid) = &session
+            {
+                let count = {
+                    let mut failures = state.otp_failures.lock().unwrap();
+                    let count = failures.entry(sid.clone()).or_default();
+                    *count += 1;
+                    *count
+                };
+                if count >= 5 {
+                    state.otp_failures.lock().unwrap().remove(sid);
+                    query!("UPDATE `sessions` SET `pwd`=NULL WHERE `sid`=?", sid)
+                        .execute(&state.db)
+                        .await?;
+                    info!("OTP hard limit reached for session {sid}, pwd bit revoked");
+                }
+            }
+            // Only persist a fresh OTP timestamp when the password is also valid.
+            // Saving OTP without pwd would let an attacker "bank" a stolen TOTP code
+            // and then brute-force the password separately.
+            if otp && new_otp && pwd {
                 if let Some(session) = &session {
                     query!("UPDATE `sessions` SET `otp`=? WHERE `sid`=?", now, session)
                         .execute(&state.db)
@@ -393,8 +420,11 @@ impl WebClient {
             )
             .await?;
         } else {
-            // Successful login, clear any accumulated backoff for this IP.
+            // Successful login, clear any accumulated backoff and OTP failure count for this IP/session.
             state.login_attempts.lock().unwrap().remove(&self.remote);
+            if let Some(sid) = &session {
+                state.otp_failures.lock().unwrap().remove(sid);
+            }
             if let Some(session) = &session {
                 if new_otp {
                     query!(
