@@ -6,46 +6,16 @@ interface IProps {
 }
 
 function Password(props: IProps) {
-    // Note we put a dummy username and password field in front in order to make chrome not autocomplete the password
     return (
-        <span>
-            <form method="post">
-                <input
-                    type="text"
-                    name="name"
-                    value="cookie"
-                    readOnly={true}
-                    style={{ width: 1, border: 0, visibility: "hidden" }}
-                />
-                <input
-                    type="password"
-                    name="password1"
-                    readOnly={true}
-                    style={{ width: 1, border: 0, visibility: "hidden" }}
-                />
-                <input
-                    type="password"
-                    name="password2"
-                    readOnly={true}
-                    style={{ width: 1, border: 0, visibility: "hidden" }}
-                />
-                <input
-                    type="password"
-                    name="password3"
-                    readOnly={true}
-                    style={{ width: 1, border: 0, visibility: "hidden" }}
-                />
-                <TextField
-                    variant="standard"
-                    className="no_fill_password"
-                    type="password"
-                    value={props.value}
-                    onChange={(e) => {
-                        props.onChange(e.target.value);
-                    }}
-                />
-            </form>
-        </span>
+        <TextField
+            variant="standard"
+            type="password"
+            value={props.value}
+            autoComplete="new-password"
+            onChange={(e) => {
+                props.onChange(e.target.value);
+            }}
+        />
     );
 }
 
