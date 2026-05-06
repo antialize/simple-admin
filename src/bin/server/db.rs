@@ -118,6 +118,9 @@ pub async fn setup(db: &SqlitePool) -> Result<i64> {
     let _ = con
         .execute("ALTER TABLE `docker_images` ADD COLUMN `used` INTEGER")
         .await;
+    let _ = con
+        .execute("ALTER TABLE `docker_images` ADD COLUMN `content_type` TEXT")
+        .await;
 
     con.execute("CREATE INDEX IF NOT EXISTS `docker_images_hash` ON `docker_images` (`hash`)")
         .await?;

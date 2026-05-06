@@ -169,6 +169,8 @@ struct UploadInner {
 
 pub struct Upload {
     shadow_range: AtomicU64,
+    /// Unix timestamp (seconds) of the last byte written. Used by the reaper task.
+    last_activity: AtomicU64,
     inner: TMutex<Option<UploadInner>>,
 }
 
@@ -281,6 +283,7 @@ async fn handle_upload(
     body: Body,
     inner: &mut UploadInner,
     shadow_range: &AtomicU64,
+    last_activity: &AtomicU64,
 ) -> Result<(), anyhow::Error> {
     use sha2::Digest;
     let mut body = body.into_data_stream();
@@ -293,9 +296,17 @@ async fn handle_upload(
             .context("File write failed")?;
         inner.hash.update(&frame);
         shadow_range.fetch_add(frame.len() as u64, std::sync::atomic::Ordering::SeqCst);
+        last_activity.store(now_secs(), std::sync::atomic::Ordering::Relaxed);
         inner.count += frame.len() as u64;
     }
     Ok(())
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 #[derive(Serialize)]
@@ -408,7 +419,7 @@ async fn get_blob_upload_status(
         StatusCode::ACCEPTED,
         [
             ("Location", req.uri().to_string()),
-            ("Range", format!("0-{}", range - 1)),
+            ("Range", format!("0-{}", range.saturating_sub(1))),
             ("Docker-Upload-UUID", uuid.to_string()),
         ],
     )
@@ -469,9 +480,10 @@ async fn get_manifest(
     _: DockerAuthPull,
     WState(state): WState<Arc<State>>,
     Path((name, reference)): Path<(String, String)>,
+    method: Method,
 ) -> Result<Response, ApiError> {
     let row = query!(
-        "SELECT `manifest` FROM `docker_images`
+        "SELECT `manifest`, `hash`, `content_type` FROM `docker_images`
         WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
         name,
         reference,
@@ -487,13 +499,31 @@ async fn get_manifest(
             "Docker get manifest: not found project: {}, identifer: {}"
         );
     };
+    let content_type = row
+        .content_type
+        .unwrap_or_else(|| "application/vnd.docker.distribution.manifest.v2+json".to_string());
+    let digest = row.hash;
+    let manifest = row.manifest;
+    if method == Method::HEAD {
+        return Ok((
+            StatusCode::OK,
+            [
+                ("Content-Type", content_type),
+                ("Docker-Content-Digest", digest),
+                ("Content-Length", manifest.len().to_string()),
+            ],
+            (),
+        )
+            .into_response());
+    }
     Ok((
         StatusCode::OK,
-        [(
-            "Content-Type",
-            "application/vnd.docker.distribution.manifest.v2+json",
-        )],
-        row.manifest,
+        [
+            ("Content-Type", content_type),
+            ("Docker-Content-Digest", digest),
+            ("Content-Length", manifest.len().to_string()),
+        ],
+        manifest,
     )
         .into_response())
 }
@@ -566,7 +596,7 @@ async fn put_blob_upload(
         }
     }
 
-    handle_upload(body, &mut inner, &u.shadow_range)
+    handle_upload(body, &mut inner, &u.shadow_range, &u.last_activity)
         .await
         .to_api_error("Upload failed")?;
 
@@ -629,8 +659,18 @@ async fn put_manifest(
     DockerAuthPush { user }: DockerAuthPush,
     WState(state): WState<Arc<State>>,
     Path((name, reference)): Path<(String, String)>,
-    body: String,
+    req: Request,
 ) -> Result<Response, ApiError> {
+    let content_type = req
+        .headers()
+        .get("Content-Type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/vnd.docker.distribution.manifest.v2+json")
+        .to_string();
+    let body = axum::body::to_bytes(req.into_body(), 16 * 1024 * 1024)
+        .await
+        .to_api_error("Failed to read manifest body")?;
+    let body = String::from_utf8(body.to_vec()).to_api_error("Manifest is not valid UTF-8")?;
     if state.read_only {
         api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
     }
@@ -653,7 +693,9 @@ async fn put_manifest(
                 layer.digest
             );
         }
-        if layer.media_type != "application/vnd.docker.image.rootfs.diff.tar.gzip" {
+        let is_foreign =
+            layer.media_type == "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip";
+        if !is_foreign && layer.media_type != "application/vnd.docker.image.rootfs.diff.tar.gzip" {
             api_error!(
                 BAD_REQUEST,
                 ManifestInvalid,
@@ -662,9 +704,12 @@ async fn put_manifest(
             );
         }
 
-        let size =
-            match tokio::fs::metadata(std::path::Path::new(DOCKER_BLOBS_PATH).join(&layer.digest))
-                .await
+        // Foreign layers (e.g. Windows base OS layers) are hosted externally and not stored locally.
+        if !is_foreign {
+            let size = match tokio::fs::metadata(
+                std::path::Path::new(DOCKER_BLOBS_PATH).join(&layer.digest),
+            )
+            .await
             {
                 Ok(v) => v.size(),
                 Err(e) => {
@@ -677,15 +722,16 @@ async fn put_manifest(
                     );
                 }
             };
-        if size != layer.size {
-            api_error!(
-                BAD_REQUEST,
-                ManifestInvalid,
-                "Blob has wrong size {} vs {} for {}",
-                size,
-                layer.size,
-                layer.digest
-            );
+            if size != layer.size {
+                api_error!(
+                    BAD_REQUEST,
+                    ManifestInvalid,
+                    "Blob has wrong size {} vs {} for {}",
+                    size,
+                    layer.size,
+                    layer.digest
+                );
+            }
         }
     }
 
@@ -717,12 +763,13 @@ async fn put_manifest(
     #[derive(Deserialize)]
     struct ConfigConfig {
         #[serde(default, alias = "Labels")]
-        labels: HashMap<String, String>,
+        labels: Option<HashMap<String, String>>,
     }
 
     #[derive(Deserialize)]
     struct Config {
-        config: ConfigConfig,
+        #[serde(default)]
+        config: Option<ConfigConfig>,
     }
     let config: Config = match serde_json::from_str(&config) {
         Ok(v) => v,
@@ -736,8 +783,9 @@ async fn put_manifest(
             );
         }
     };
-    let labels_string = serde_json::to_string(&config.config.labels)
-        .to_api_error("Unable to convert labels to string")?;
+    let labels = config.config.and_then(|c| c.labels).unwrap_or_default();
+    let labels_string =
+        serde_json::to_string(&labels).to_api_error("Unable to convert labels to string")?;
     let digest = sha2::Sha256::digest(&body);
     let hash = format!("sha256:{}", hex::encode(digest));
 
@@ -746,31 +794,41 @@ async fn put_manifest(
         .to_api_error("Invalid unix time")?
         .as_secs_f64();
 
-    query!(
-        "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
-        name,
-        reference,
-        hash,
-    )
-    .execute(&state.db)
-    .await
-    .to_api_error("Database query failed")?;
-    let id = query!(
-        "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`,
-        `user`, `time`, `pin`, `labels`)
-        VALUES (?, ?, ?, ?, ?, ?, false, ?)",
-        name,
-        reference,
-        body,
-        hash,
-        user,
-        time,
-        labels_string,
-    )
-    .execute(&state.db)
-    .await
-    .to_api_error("Database query failed")?
-    .last_insert_rowid();
+    let id = {
+        let mut tx = state
+            .db
+            .begin()
+            .await
+            .to_api_error("Database transaction failed")?;
+        query!(
+            "DELETE FROM `docker_images` WHERE `project`=? AND `tag`=? AND `hash`=?",
+            name,
+            reference,
+            hash,
+        )
+        .execute(&mut *tx)
+        .await
+        .to_api_error("Database query failed")?;
+        let id = query!(
+            "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`,
+            `user`, `time`, `pin`, `labels`, `content_type`)
+            VALUES (?, ?, ?, ?, ?, ?, false, ?, ?)",
+            name,
+            reference,
+            body,
+            hash,
+            user,
+            time,
+            labels_string,
+            content_type,
+        )
+        .execute(&mut *tx)
+        .await
+        .to_api_error("Database query failed")?
+        .last_insert_rowid();
+        tx.commit().await.to_api_error("Database commit failed")?;
+        id
+    };
 
     webclient::broadcast(
         &state,
@@ -783,7 +841,7 @@ async fn put_manifest(
                 time: time.to_finite().to_api_error("Invalid float")?,
                 user,
                 pin: false,
-                labels: config.config.labels,
+                labels,
                 removed: None,
                 pinned_image_tag: false,
             }],
@@ -869,7 +927,7 @@ async fn patch_blob_upload(
             expected_size = Some(end - start);
         }
     }
-    handle_upload(body, inner, &u.shadow_range)
+    handle_upload(body, inner, &u.shadow_range, &u.last_activity)
         .await
         .to_api_error("Upload failed")?;
     if let Some(expected_size) = expected_size
@@ -894,13 +952,18 @@ async fn patch_blob_upload(
         StatusCode::ACCEPTED,
         [
             ("Location", format!("/v2/{name}/blobs/uploads/{uuid}")),
-            ("Range", format!("0-{}", inner.count - 1)),
+            ("Range", format!("0-{}", inner.count.saturating_sub(1))),
             ("Content-Length", "0".to_string()),
             ("Docker-Upload-UUID", uuid.to_string()),
         ],
         (),
     )
         .into_response())
+}
+
+#[derive(Deserialize)]
+struct PostBlobUploadQuery {
+    digest: Option<String>,
 }
 
 // POST /v2/<name>/blobs/uploads/ Initiate Blob Upload Initiate a resumable blob upload.
@@ -910,10 +973,75 @@ async fn post_blob_upload(
     _: DockerAuthPush,
     WState(state): WState<Arc<State>>,
     Path(name): Path<String>,
+    Query(PostBlobUploadQuery { digest }): Query<PostBlobUploadQuery>,
+    body: Body,
 ) -> Result<Response, ApiError> {
     if state.read_only {
         api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
     }
+
+    // Single-shot upload: digest provided in query string, full blob is in the body.
+    if let Some(digest) = digest {
+        if !is_docker_hash(&digest) {
+            api_error!(BAD_REQUEST, DigestInvalid, "Bad digest {}", digest);
+        }
+        let dest = std::path::Path::new(DOCKER_BLOBS_PATH).join(&digest);
+        // Fast-path: blob already exists.
+        if tokio::fs::metadata(&dest).await.is_ok() {
+            return Ok((
+                StatusCode::CREATED,
+                [
+                    ("Content-Length", "0".to_string()),
+                    ("Location", format!("/v2/{name}/blobs/{digest}")),
+                    ("Docker-Content-Digest", digest),
+                ],
+                (),
+            )
+                .into_response());
+        }
+        let uuid = uuid::Uuid::new_v4();
+        let tmp_path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
+        let mut file = tokio::fs::File::create_new(&tmp_path)
+            .await
+            .to_api_error("Failed to create temp file")?;
+        let mut hasher = Sha256::new();
+        let mut body = body.into_data_stream();
+        let mut count: u64 = 0;
+        while let Some(frame) = body.next().await {
+            let frame = frame.to_api_error("Reading body failed")?;
+            file.write_all(&frame).await.to_api_error("Write failed")?;
+            hasher.update(&frame);
+            count += frame.len() as u64;
+        }
+        file.flush().await.to_api_error("Flush failed")?;
+        drop(file);
+        let actual_digest = format!("sha256:{}", hex::encode(hasher.finalize()));
+        if actual_digest != digest {
+            let _ = tokio::fs::remove_file(&tmp_path).await;
+            api_error!(
+                BAD_REQUEST,
+                DigestInvalid,
+                "Digest mismatch: expected {} got {}",
+                digest,
+                actual_digest
+            );
+        }
+        info!("Docker post blob (single-shot) total_size={count} digest={actual_digest}");
+        tokio::fs::rename(&tmp_path, &dest)
+            .await
+            .to_api_error("Rename failed")?;
+        return Ok((
+            StatusCode::CREATED,
+            [
+                ("Content-Length", "0".to_string()),
+                ("Location", format!("/v2/{name}/blobs/{actual_digest}")),
+                ("Docker-Content-Digest", actual_digest),
+            ],
+            (),
+        )
+            .into_response());
+    }
+
     let uuid = uuid::Uuid::new_v4();
     let path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
     let file = tokio::fs::File::create_new(&path)
@@ -921,12 +1049,11 @@ async fn post_blob_upload(
         .with_context(|| format!("Unable to create file {path:?}"))
         .to_api_error("File creation failed")?;
 
-    // TODO(jakobt) we should add some timeout here to not have the file there forever
-
     state.docker_uploads.lock().unwrap().insert(
         uuid,
         Arc::new(Upload {
             shadow_range: Default::default(),
+            last_activity: AtomicU64::new(now_secs()),
             inner: TMutex::new(Some(UploadInner {
                 count: 0,
                 hash: Default::default(),
@@ -970,9 +1097,55 @@ pub fn docker_api_routes() -> Result<Router<Arc<State>>, anyhow::Error> {
         .route("/{name}/blobs/{digist}", get(get_blob))
         .route(
             "/{name}/manifests/{reference}",
-            get(get_manifest).put(put_manifest),
+            get(get_manifest).head(get_manifest).put(put_manifest),
         )
         .route("/{name}/blobs/uploads/", post(post_blob_upload))
         .layer(axum::middleware::from_fn(docker_api_middleware));
     Ok(router)
+}
+
+const UPLOAD_TIMEOUT_SECS: u64 = 10 * 60; // 10 minutes
+
+/// Background task that evicts stale in-progress blob uploads.
+pub async fn upload_reaper(
+    state: Arc<State>,
+    run_token: tokio_tasks::RunToken,
+) -> Result<(), anyhow::Error> {
+    loop {
+        if tokio_tasks::cancelable(
+            &run_token,
+            tokio::time::sleep(std::time::Duration::from_secs(60)),
+        )
+        .await
+        .is_err()
+        {
+            break;
+        }
+        let now = now_secs();
+        let stale: Vec<(Uuid, Arc<Upload>)> = state
+            .docker_uploads
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, u)| {
+                let last = u.last_activity.load(std::sync::atomic::Ordering::Relaxed);
+                now.saturating_sub(last) >= UPLOAD_TIMEOUT_SECS
+            })
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+
+        for (uuid, upload) in stale {
+            // Only remove if the inner lock is not held (i.e. not mid-write).
+            if upload.inner.try_lock().is_ok() {
+                state.docker_uploads.lock().unwrap().remove(&uuid);
+                let path = std::path::Path::new(DOCKER_UPLOAD_PATH).join(uuid.to_string());
+                if let Err(e) = tokio::fs::remove_file(&path).await {
+                    log::warn!("upload_reaper: failed to remove {path:?}: {e:?}");
+                } else {
+                    log::info!("upload_reaper: removed stale upload uuid={uuid}");
+                }
+            }
+        }
+    }
+    Ok(())
 }
