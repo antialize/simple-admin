@@ -348,9 +348,12 @@ impl WebClient {
             self.set_auth(IAuthStatus::default());
             record_failed_login_attempt(&state.login_attempts, &self.remote);
         } else if !pwd || !otp {
-            // Wrong password: penalise. Correct password but missing OTP is not
-            // penalised so as not to slow down the normal two-step login flow.
-            if !pwd {
+            // Wrong password: always penalise.
+            // Wrong OTP (i.e. a token was submitted but didn't validate): also penalise,
+            // to prevent brute-forcing TOTP with a known password.
+            // Absent OTP (empty string, normal two-step flow) is not penalised.
+            let otp_was_submitted = act.otp.as_deref().is_some_and(|s| !s.is_empty());
+            if !pwd || (!otp && otp_was_submitted) {
                 record_failed_login_attempt(&state.login_attempts, &self.remote);
             }
             if otp && new_otp {
