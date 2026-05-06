@@ -104,6 +104,7 @@ async fn main() -> Result<()> {
         docker_uploads: Default::default(),
         read_only: args.read_only,
         login_attempts: Default::default(),
+        otp_failures: Default::default(),
     });
 
     docker_web::init_upload().await?;

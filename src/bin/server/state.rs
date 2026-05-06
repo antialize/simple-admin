@@ -38,6 +38,9 @@ pub struct State {
     /// IP-address -> rate-limit state, used to enforce exponential backoff on
     /// failed login attempts without locking accounts (which would allow DoS).
     pub login_attempts: Mutex<HashMap<String, LoginAttempts>>,
+    /// Session-id -> consecutive wrong-OTP count. After 5 wrong submissions the
+    /// pwd bit of that session is revoked, forcing a full re-authentication.
+    pub otp_failures: Mutex<HashMap<String, u32>>,
 }
 
 impl State {

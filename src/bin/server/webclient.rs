@@ -356,6 +356,27 @@ impl WebClient {
             if !pwd || (!otp && otp_was_submitted) {
                 record_failed_login_attempt(&state.login_attempts, &self.remote);
             }
+            // Hard limit: 5 wrong OTP submissions on the same session resets the
+            // pwd bit, forcing the user to re-enter their password.
+            if pwd
+                && !otp
+                && otp_was_submitted
+                && let Some(sid) = &session
+            {
+                let count = {
+                    let mut failures = state.otp_failures.lock().unwrap();
+                    let count = failures.entry(sid.clone()).or_default();
+                    *count += 1;
+                    *count
+                };
+                if count >= 5 {
+                    state.otp_failures.lock().unwrap().remove(sid);
+                    query!("UPDATE `sessions` SET `pwd`=NULL WHERE `sid`=?", sid)
+                        .execute(&state.db)
+                        .await?;
+                    info!("OTP hard limit reached for session {sid}, pwd bit revoked");
+                }
+            }
             if otp && new_otp {
                 if let Some(session) = &session {
                     query!("UPDATE `sessions` SET `otp`=? WHERE `sid`=?", now, session)
@@ -396,8 +417,11 @@ impl WebClient {
             )
             .await?;
         } else {
-            // Successful login, clear any accumulated backoff for this IP.
+            // Successful login, clear any accumulated backoff and OTP failure count for this IP/session.
             state.login_attempts.lock().unwrap().remove(&self.remote);
+            if let Some(sid) = &session {
+                state.otp_failures.lock().unwrap().remove(sid);
+            }
             if let Some(session) = &session {
                 if new_otp {
                     query!(
