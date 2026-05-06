@@ -469,9 +469,10 @@ async fn get_manifest(
     _: DockerAuthPull,
     WState(state): WState<Arc<State>>,
     Path((name, reference)): Path<(String, String)>,
+    method: Method,
 ) -> Result<Response, ApiError> {
     let row = query!(
-        "SELECT `manifest` FROM `docker_images`
+        "SELECT `manifest`, `hash`, `content_type` FROM `docker_images`
         WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
         name,
         reference,
@@ -487,13 +488,31 @@ async fn get_manifest(
             "Docker get manifest: not found project: {}, identifer: {}"
         );
     };
+    let content_type = row
+        .content_type
+        .unwrap_or_else(|| "application/vnd.docker.distribution.manifest.v2+json".to_string());
+    let digest = row.hash;
+    let manifest = row.manifest;
+    if method == Method::HEAD {
+        return Ok((
+            StatusCode::OK,
+            [
+                ("Content-Type", content_type),
+                ("Docker-Content-Digest", digest),
+                ("Content-Length", manifest.len().to_string()),
+            ],
+            (),
+        )
+            .into_response());
+    }
     Ok((
         StatusCode::OK,
-        [(
-            "Content-Type",
-            "application/vnd.docker.distribution.manifest.v2+json",
-        )],
-        row.manifest,
+        [
+            ("Content-Type", content_type),
+            ("Docker-Content-Digest", digest),
+            ("Content-Length", manifest.len().to_string()),
+        ],
+        manifest,
     )
         .into_response())
 }
@@ -629,8 +648,18 @@ async fn put_manifest(
     DockerAuthPush { user }: DockerAuthPush,
     WState(state): WState<Arc<State>>,
     Path((name, reference)): Path<(String, String)>,
-    body: String,
+    req: Request,
 ) -> Result<Response, ApiError> {
+    let content_type = req
+        .headers()
+        .get("Content-Type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/vnd.docker.distribution.manifest.v2+json")
+        .to_string();
+    let body = axum::body::to_bytes(req.into_body(), 16 * 1024 * 1024)
+        .await
+        .to_api_error("Failed to read manifest body")?;
+    let body = String::from_utf8(body.to_vec()).to_api_error("Manifest is not valid UTF-8")?;
     if state.read_only {
         api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
     }
@@ -770,8 +799,8 @@ async fn put_manifest(
         .to_api_error("Database query failed")?;
         let id = query!(
             "INSERT INTO `docker_images` (`project`, `tag`, `manifest`, `hash`,
-            `user`, `time`, `pin`, `labels`)
-            VALUES (?, ?, ?, ?, ?, ?, false, ?)",
+            `user`, `time`, `pin`, `labels`, `content_type`)
+            VALUES (?, ?, ?, ?, ?, ?, false, ?, ?)",
             name,
             reference,
             body,
@@ -779,6 +808,7 @@ async fn put_manifest(
             user,
             time,
             labels_string,
+            content_type,
         )
         .execute(&mut *tx)
         .await
@@ -986,7 +1016,7 @@ pub fn docker_api_routes() -> Result<Router<Arc<State>>, anyhow::Error> {
         .route("/{name}/blobs/{digist}", get(get_blob))
         .route(
             "/{name}/manifests/{reference}",
-            get(get_manifest).put(put_manifest),
+            get(get_manifest).head(get_manifest).put(put_manifest),
         )
         .route("/{name}/blobs/uploads/", post(post_blob_upload))
         .layer(axum::middleware::from_fn(docker_api_middleware));

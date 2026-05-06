@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS `docker_images` (
     `pin` BOOLEAN NOT NULL DEFAULT false,
     `labels` TEXT,
     `removed` REAL,
-    `used` REAL
+    `used` REAL,
+    `content_type` TEXT
 ) STRICT;
 
       
