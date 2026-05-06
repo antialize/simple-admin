@@ -768,7 +768,8 @@ async fn put_manifest(
 
     #[derive(Deserialize)]
     struct Config {
-        config: ConfigConfig,
+        #[serde(default)]
+        config: Option<ConfigConfig>,
     }
     let config: Config = match serde_json::from_str(&config) {
         Ok(v) => v,
@@ -782,7 +783,7 @@ async fn put_manifest(
             );
         }
     };
-    let labels = config.config.labels.unwrap_or_default();
+    let labels = config.config.and_then(|c| c.labels).unwrap_or_default();
     let labels_string =
         serde_json::to_string(&labels).to_api_error("Unable to convert labels to string")?;
     let digest = sha2::Sha256::digest(&body);
