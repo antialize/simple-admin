@@ -287,7 +287,19 @@ async fn handle_upload(
 ) -> Result<(), anyhow::Error> {
     use sha2::Digest;
     let mut body = body.into_data_stream();
-    while let Some(frame) = body.next().await {
+    let idle_timeout = std::time::Duration::from_secs(UPLOAD_IDLE_TIMEOUT_SECS);
+    loop {
+        let frame = match tokio::time::timeout(idle_timeout, body.next()).await {
+            Ok(Some(f)) => f,
+            Ok(None) => break,
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "Upload idle timeout: no data received for {} seconds ({} bytes uploaded so far)",
+                    UPLOAD_IDLE_TIMEOUT_SECS,
+                    inner.count,
+                ));
+            }
+        };
         let frame = frame.context("Reading frame failed")?;
         inner
             .file
@@ -1079,7 +1091,22 @@ async fn post_blob_upload(
         let mut hasher = Sha256::new();
         let mut body = body.into_data_stream();
         let mut count: u64 = 0;
-        while let Some(frame) = body.next().await {
+        let idle_timeout = std::time::Duration::from_secs(UPLOAD_IDLE_TIMEOUT_SECS);
+        loop {
+            let frame = match tokio::time::timeout(idle_timeout, body.next()).await {
+                Ok(Some(f)) => f,
+                Ok(None) => break,
+                Err(_) => {
+                    let _ = tokio::fs::remove_file(&tmp_path).await;
+                    api_error!(
+                        BAD_REQUEST,
+                        BlobUploadInvalid,
+                        "Upload idle timeout after {} seconds ({} bytes received)",
+                        UPLOAD_IDLE_TIMEOUT_SECS,
+                        count,
+                    );
+                }
+            };
             let frame = frame.to_api_error("Reading body failed")?;
             file.write_all(&frame).await.to_api_error("Write failed")?;
             hasher.update(&frame);
