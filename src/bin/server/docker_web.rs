@@ -666,21 +666,6 @@ async fn put_blob_upload(
         .into_response())
 }
 
-const FOREIGN_LAYER_MEDIA_TYPES: &[&str] = &[
-    "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
-    "application/vnd.oci.image.layer.nondistributable.v1.tar",
-    "application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
-    "application/vnd.oci.image.layer.nondistributable.v1.tar+zstd",
-];
-
-const LAYER_MEDIA_TYPES: &[&str] = &[
-    "application/vnd.docker.image.rootfs.diff.tar.gzip",
-    "application/vnd.oci.image.layer.v1.tar",
-    "application/vnd.oci.image.layer.v1.tar+gzip",
-    "application/vnd.oci.image.layer.v1.tar+zstd",
-    "application/vnd.in-toto+json",
-];
-
 async fn validate_image_manifest(
     _state: &Arc<State>,
     _name: &str,
@@ -695,15 +680,13 @@ async fn validate_image_manifest(
                 layer.digest
             );
         }
-        let is_foreign = FOREIGN_LAYER_MEDIA_TYPES.contains(&layer.media_type.as_str());
-        if !is_foreign && !LAYER_MEDIA_TYPES.contains(&layer.media_type.as_str()) {
-            api_error!(
-                BAD_REQUEST,
-                ManifestInvalid,
-                "Layer has invalid media type {}",
-                layer.media_type
-            );
-        }
+        let is_foreign = matches!(
+            layer.media_type.as_str(),
+            "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip"
+                | "application/vnd.oci.image.layer.nondistributable.v1.tar"
+                | "application/vnd.oci.image.layer.nondistributable.v1.tar+gzip"
+                | "application/vnd.oci.image.layer.nondistributable.v1.tar+zstd"
+        );
 
         // Foreign layers (e.g. Windows base OS layers) are hosted externally and not stored locally.
         if !is_foreign {
