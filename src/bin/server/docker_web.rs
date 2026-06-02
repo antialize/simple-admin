@@ -654,37 +654,27 @@ async fn put_blob_upload(
         .into_response())
 }
 
-// PUT /v2/<name>/manifests/<reference> Manifest Put the manifest identified by name and reference where reference can be a tag or digest.
-async fn put_manifest(
-    DockerAuthPush { user }: DockerAuthPush,
-    WState(state): WState<Arc<State>>,
-    Path((name, reference)): Path<(String, String)>,
-    req: Request,
-) -> Result<Response, ApiError> {
-    let content_type = req
-        .headers()
-        .get("Content-Type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/vnd.docker.distribution.manifest.v2+json")
-        .to_string();
-    let body = axum::body::to_bytes(req.into_body(), 16 * 1024 * 1024)
-        .await
-        .to_api_error("Failed to read manifest body")?;
-    let body = String::from_utf8(body.to_vec()).to_api_error("Manifest is not valid UTF-8")?;
-    if state.read_only {
-        api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
-    }
-    info!("Docker put manifest name={name} tag={reference}");
+const FOREIGN_LAYER_MEDIA_TYPES: &[&str] = &[
+    "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
+    "application/vnd.oci.image.layer.nondistributable.v1.tar",
+    "application/vnd.oci.image.layer.nondistributable.v1.tar+gzip",
+    "application/vnd.oci.image.layer.nondistributable.v1.tar+zstd",
+];
 
-    // Validate that manifest is JSON.
-    let manifest: crate::docker::Manifest = match serde_json::from_str(&body) {
-        Ok(v) => v,
-        Err(e) => {
-            api_error!(BAD_REQUEST, ManifestInvalid, "Invalid manifest {:?}", e);
-        }
-    };
+const LAYER_MEDIA_TYPES: &[&str] = &[
+    "application/vnd.docker.image.rootfs.diff.tar.gzip",
+    "application/vnd.oci.image.layer.v1.tar",
+    "application/vnd.oci.image.layer.v1.tar+gzip",
+    "application/vnd.oci.image.layer.v1.tar+zstd",
+    "application/vnd.in-toto+json",
+];
 
-    for layer in manifest.layers {
+async fn validate_image_manifest(
+    _state: &Arc<State>,
+    _name: &str,
+    manifest: &crate::docker::Manifest,
+) -> Result<HashMap<String, String>, ApiError> {
+    for layer in &manifest.layers {
         if !is_docker_hash(&layer.digest) {
             api_error!(
                 BAD_REQUEST,
@@ -693,13 +683,12 @@ async fn put_manifest(
                 layer.digest
             );
         }
-        let is_foreign =
-            layer.media_type == "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip";
-        if !is_foreign && layer.media_type != "application/vnd.docker.image.rootfs.diff.tar.gzip" {
+        let is_foreign = FOREIGN_LAYER_MEDIA_TYPES.contains(&layer.media_type.as_str());
+        if !is_foreign && !LAYER_MEDIA_TYPES.contains(&layer.media_type.as_str()) {
             api_error!(
                 BAD_REQUEST,
                 ManifestInvalid,
-                "Layer has invalid media type media type {}",
+                "Layer has invalid media type {}",
                 layer.media_type
             );
         }
@@ -735,7 +724,6 @@ async fn put_manifest(
         }
     }
 
-    // Read config
     if !is_docker_hash(&manifest.config.digest) {
         api_error!(
             BAD_REQUEST,
@@ -771,19 +759,103 @@ async fn put_manifest(
         #[serde(default)]
         config: Option<ConfigConfig>,
     }
+
     let config: Config = match serde_json::from_str(&config) {
         Ok(v) => v,
         Err(e) => {
             api_error!(
                 BAD_REQUEST,
-                ManifestBlobUnknown,
-                "Docker put manifest: Unable to read config {}: {:?}",
-                manifest.config.digest,
+                ManifestInvalid,
+                "Config blob is not valid JSON {}: {:?}",
+                digest,
                 e
             );
         }
     };
-    let labels = config.config.and_then(|c| c.labels).unwrap_or_default();
+    Ok(config.config.and_then(|c| c.labels).unwrap_or_default())
+}
+
+async fn validate_image_index(
+    state: &Arc<State>,
+    name: &str,
+    index: &crate::docker::ImageIndex,
+) -> Result<(), ApiError> {
+    for sub in &index.manifests {
+        if !is_docker_hash(&sub.digest) {
+            api_error!(
+                BAD_REQUEST,
+                ManifestInvalid,
+                "Bad sub-manifest digest {}",
+                sub.digest
+            );
+        }
+        // Sub-manifest may be stored as a manifest (in docker_images) or as a blob.
+        let blob_exists =
+            tokio::fs::try_exists(std::path::Path::new(DOCKER_BLOBS_PATH).join(&sub.digest))
+                .await
+                .unwrap_or(false);
+        if blob_exists {
+            continue;
+        }
+        let row = query!(
+            "SELECT `id` FROM `docker_images` WHERE `project`=? AND `hash`=? LIMIT 1",
+            name,
+            sub.digest
+        )
+        .fetch_optional(&state.db)
+        .await
+        .to_api_error("Query failed")?;
+        if row.is_none() {
+            api_error!(
+                NOT_FOUND,
+                ManifestBlobUnknown,
+                "Sub-manifest {} not found",
+                sub.digest
+            );
+        }
+    }
+    Ok(())
+}
+
+// PUT /v2/<name>/manifests/<reference> Manifest Put the manifest identified by name and reference where reference can be a tag or digest.
+async fn put_manifest(
+    DockerAuthPush { user }: DockerAuthPush,
+    WState(state): WState<Arc<State>>,
+    Path((name, reference)): Path<(String, String)>,
+    req: Request,
+) -> Result<Response, ApiError> {
+    let content_type = req
+        .headers()
+        .get("Content-Type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/vnd.docker.distribution.manifest.v2+json")
+        .to_string();
+    let body = axum::body::to_bytes(req.into_body(), 16 * 1024 * 1024)
+        .await
+        .to_api_error("Failed to read manifest body")?;
+    let body = String::from_utf8(body.to_vec()).to_api_error("Manifest is not valid UTF-8")?;
+    if state.read_only {
+        api_error!(SERVICE_UNAVAILABLE, Unsupported, "Service read only",);
+    }
+    info!("Docker put manifest name={name} tag={reference}");
+
+    // Validate that manifest is JSON.
+    let parsed: crate::docker::ManifestOrIndex = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            api_error!(BAD_REQUEST, ManifestInvalid, "Invalid manifest {:?}", e);
+        }
+    };
+
+    let labels = match parsed {
+        crate::docker::ManifestOrIndex::Image(manifest) => {
+            validate_image_manifest(&state, &name, &manifest).await?
+        }
+        crate::docker::ManifestOrIndex::Index(index) => {
+            validate_image_index(&state, &name, &index).await?;
+            HashMap::new()
+        }
+    };
     let labels_string =
         serde_json::to_string(&labels).to_api_error("Unable to convert labels to string")?;
     let digest = sha2::Sha256::digest(&body);
@@ -1104,7 +1176,9 @@ pub fn docker_api_routes() -> Result<Router<Arc<State>>, anyhow::Error> {
     Ok(router)
 }
 
-const UPLOAD_TIMEOUT_SECS: u64 = 10 * 60; // 10 minutes
+const UPLOAD_TIMEOUT_SECS: u64 = 10 * 60 * 60; // 10 hours
+/// Maximum time to wait for the next chunk during an active upload before aborting.
+const UPLOAD_IDLE_TIMEOUT_SECS: u64 = 20 * 60; // 20 minutes
 
 /// Background task that evicts stale in-progress blob uploads.
 pub async fn upload_reaper(
@@ -1144,6 +1218,10 @@ pub async fn upload_reaper(
                 } else {
                     log::info!("upload_reaper: removed stale upload uuid={uuid}");
                 }
+            } else {
+                log::warn!(
+                    "upload_reaper: stale upload uuid={uuid} is locked (upload in progress?), will retry next cycle"
+                );
             }
         }
     }

@@ -56,6 +56,24 @@ pub struct Manifest {
     pub layers: Vec<ManifestLayer>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexManifestEntry {
+    pub digest: String,
+}
+
+#[derive(Deserialize)]
+pub struct ImageIndex {
+    pub manifests: Vec<IndexManifestEntry>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum ManifestOrIndex {
+    Image(Manifest),
+    Index(ImageIndex),
+}
+
 async fn prune_inner(state: &State) -> Result<()> {
     info!("Prune started");
     let mut files = HashSet::new();
@@ -98,7 +116,7 @@ async fn prune_inner(state: &State) -> Result<()> {
             WHERE `removed` IS NULL
             GROUP BY `docker_images`.`id`").fetch_all(&state.db).await.context("Running query in docker prune")?;
 
-    for row in rows {
+    for row in &rows {
         let keep = row.pin
             || (row.newest == Some(row.id) && row.tagPin)
             || ((&row.tag == "latest" || &row.tag == "master") && row.newest == Some(row.id))
@@ -111,31 +129,89 @@ async fn prune_inner(state: &State) -> Result<()> {
                 && 2.0 * (row.used.unwrap() - row.time) + grace > now - row.used.unwrap())
             || row.time + grace > now;
 
-        let manifest: Manifest =
-            serde_json::from_str(&row.manifest).context("Deserializing manifest")?;
-
+        // Collect references reachable from this manifest/index, recursing into sub-manifests as needed.
+        let mut refs: HashSet<String> = HashSet::new();
+        let mut stack: Vec<String> = vec![row.manifest.clone()];
         let mut missing = false;
-        if !files.contains(&manifest.config.digest) {
-            warn!(
-                "Config {} missing from image {}",
-                manifest.config.digest, row.hash
-            );
-            missing = true;
-        }
+        while let Some(json) = stack.pop() {
+            let parsed: ManifestOrIndex = match serde_json::from_str(&json) {
+                Ok(v) => v,
+                Err(e) => {
+                    warn!("Failed to parse manifest for image {}: {e:?}", row.hash);
+                    missing = true;
+                    break;
+                }
+            };
+            match parsed {
+                ManifestOrIndex::Image(m) => {
+                    if !files.contains(&m.config.digest) {
+                        warn!("Config {} missing from image {}", m.config.digest, row.hash);
+                        missing = true;
+                        break;
+                    }
+                    refs.insert(m.config.digest);
+                    for layer in m.layers {
+                        if !files.contains(&layer.digest) {
+                            warn!("Layer {} missing from image {}", layer.digest, row.hash);
+                            missing = true;
+                            break;
+                        }
+                        refs.insert(layer.digest);
+                    }
+                }
+                ManifestOrIndex::Index(idx) => {
+                    for sub in idx.manifests {
+                        if files.contains(&sub.digest) {
+                            // Sub-manifest stored as a blob (e.g. attestation manifest).
+                            refs.insert(sub.digest.clone());
 
-        for layer in &manifest.layers {
-            if !files.contains(&layer.digest) {
-                warn!("Layer {} missing from image {}", layer.digest, row.hash);
-                missing = true;
-                break;
+                            match tokio::fs::read_to_string(
+                                std::path::Path::new(DOCKER_BLOBS_PATH).join(&sub.digest),
+                            )
+                            .await
+                            {
+                                Ok(sub_json) => stack.push(sub_json),
+                                Err(e) => {
+                                    warn!("Failed to read sub-manifest {}: {e:?}", sub.digest);
+                                    missing = true;
+                                    break;
+                                }
+                            }
+                            if missing {
+                                break;
+                            }
+                            continue;
+                        }
+                        // Otherwise look up the sub-manifest in docker_images by digest.
+                        let sub_row = query!(
+                            "SELECT `manifest` FROM `docker_images`
+                             WHERE `project`=? AND `hash`=? LIMIT 1",
+                            row.project,
+                            sub.digest
+                        )
+                        .fetch_optional(&state.db)
+                        .await
+                        .context("Looking up sub-manifest")?;
+                        if let Some(sr) = sub_row {
+                            stack.push(sr.manifest);
+                        } else {
+                            warn!(
+                                "Sub-manifest {} missing from index {}",
+                                sub.digest, row.hash
+                            );
+                            missing = true;
+                            break;
+                        }
+                    }
+                    if missing {
+                        break;
+                    }
+                }
             }
         }
 
         if keep && !missing {
-            used.insert(manifest.config.digest);
-            for layer in manifest.layers {
-                used.insert(layer.digest);
-            }
+            used.extend(refs);
         } else {
             info!("Removing image {}", row.hash);
             info!("  keep: {keep}, missing: {missing}, pin: {}", row.pin);
