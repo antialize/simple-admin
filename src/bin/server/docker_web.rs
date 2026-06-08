@@ -284,7 +284,7 @@ async fn handle_upload(
     inner: &mut UploadInner,
     shadow_range: &AtomicU64,
     last_activity: &AtomicU64,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), ApiError> {
     use sha2::Digest;
     let mut body = body.into_data_stream();
     let idle_timeout = std::time::Duration::from_secs(UPLOAD_IDLE_TIMEOUT_SECS);
@@ -293,19 +293,28 @@ async fn handle_upload(
             Ok(Some(f)) => f,
             Ok(None) => break,
             Err(_) => {
-                return Err(anyhow::anyhow!(
-                    "Upload idle timeout: no data received for {} seconds ({} bytes uploaded so far)",
-                    UPLOAD_IDLE_TIMEOUT_SECS,
-                    inner.count,
-                ));
+                return Err(ApiError {
+                    status_code: StatusCode::REQUEST_TIMEOUT,
+                    errors: RegistryErrors {
+                        errors: vec![RegistryError {
+                            code: RegistryErrorCode::BlobUploadInvalid,
+                            message: "Upload idle timeout".into(),
+                            detail: None,
+                        }],
+                    },
+                    internal_error: None,
+                });
             }
         };
-        let frame = frame.context("Reading frame failed")?;
+        let frame = frame
+            .context("Reading frame failed")
+            .to_api_error("handle upload")?;
         inner
             .file
             .write_all(&frame)
             .await
-            .context("File write failed")?;
+            .context("File write failed")
+            .to_api_error("handel_upload")?;
         inner.hash.update(&frame);
         shadow_range.fetch_add(frame.len() as u64, std::sync::atomic::Ordering::SeqCst);
         last_activity.store(now_secs(), std::sync::atomic::Ordering::Relaxed);
@@ -608,9 +617,7 @@ async fn put_blob_upload(
         }
     }
 
-    handle_upload(body, &mut inner, &u.shadow_range, &u.last_activity)
-        .await
-        .to_api_error("Upload failed")?;
+    handle_upload(body, &mut inner, &u.shadow_range, &u.last_activity).await?;
 
     if let Some(expected_size) = expected_size
         && inner.count != start_size + expected_size
@@ -1004,9 +1011,7 @@ async fn patch_blob_upload(
             expected_size = Some(end - start);
         }
     }
-    handle_upload(body, inner, &u.shadow_range, &u.last_activity)
-        .await
-        .to_api_error("Upload failed")?;
+    handle_upload(body, inner, &u.shadow_range, &u.last_activity).await?;
     if let Some(expected_size) = expected_size
         && inner.count != start_size + expected_size
     {
