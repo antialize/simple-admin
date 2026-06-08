@@ -736,30 +736,29 @@ async fn validate_image_manifest(
         }
     }
 
-    if !is_docker_hash(&manifest.config.digest) {
-        api_error!(
-            BAD_REQUEST,
-            ManifestInvalid,
-            "Bad config digest {}",
-            manifest.config.digest
-        );
+    extract_config_labels(&manifest.config.digest).await
+}
+
+/// Reads the image config blob identified by `digest` and extracts the labels
+/// stored under its `config.Labels` field.
+async fn extract_config_labels(digest: &str) -> Result<HashMap<String, String>, ApiError> {
+    if !is_docker_hash(digest) {
+        api_error!(BAD_REQUEST, ManifestInvalid, "Bad config digest {}", digest);
     }
-    let config = match tokio::fs::read_to_string(
-        std::path::Path::new(DOCKER_BLOBS_PATH).join(&manifest.config.digest),
-    )
-    .await
-    {
-        Ok(v) => v,
-        Err(e) => {
-            api_error!(
-                NOT_FOUND,
-                ManifestBlobUnknown,
-                "Unable to read config {}: {:?}",
-                manifest.config.digest,
-                e
-            );
-        }
-    };
+    let config =
+        match tokio::fs::read_to_string(std::path::Path::new(DOCKER_BLOBS_PATH).join(digest)).await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                api_error!(
+                    NOT_FOUND,
+                    ManifestBlobUnknown,
+                    "Unable to read config {}: {:?}",
+                    digest,
+                    e
+                );
+            }
+        };
     #[derive(Deserialize)]
     struct ConfigConfig {
         #[serde(default, alias = "Labels")]
@@ -791,7 +790,8 @@ async fn validate_image_index(
     state: &Arc<State>,
     name: &str,
     index: &crate::docker::ImageIndex,
-) -> Result<(), ApiError> {
+) -> Result<HashMap<String, String>, ApiError> {
+    let mut labels = HashMap::new();
     for sub in &index.manifests {
         if !is_docker_hash(&sub.digest) {
             api_error!(
@@ -806,27 +806,38 @@ async fn validate_image_index(
             tokio::fs::try_exists(std::path::Path::new(DOCKER_BLOBS_PATH).join(&sub.digest))
                 .await
                 .unwrap_or(false);
-        if blob_exists {
-            continue;
-        }
-        let row = query!(
-            "SELECT `id` FROM `docker_images` WHERE `project`=? AND `hash`=? LIMIT 1",
-            name,
-            sub.digest
-        )
-        .fetch_optional(&state.db)
-        .await
-        .to_api_error("Query failed")?;
-        if row.is_none() {
-            api_error!(
-                NOT_FOUND,
-                ManifestBlobUnknown,
-                "Sub-manifest {} not found",
+        let sub_manifest = if blob_exists {
+            tokio::fs::read_to_string(std::path::Path::new(DOCKER_BLOBS_PATH).join(&sub.digest))
+                .await
+                .to_api_error("Failed to read sub-manifest blob")?
+        } else {
+            let row = query!(
+                "SELECT `manifest` FROM `docker_images` WHERE `project`=? AND `hash`=? LIMIT 1",
+                name,
                 sub.digest
-            );
+            )
+            .fetch_optional(&state.db)
+            .await
+            .to_api_error("Query failed")?;
+            let Some(row) = row else {
+                api_error!(
+                    NOT_FOUND,
+                    ManifestBlobUnknown,
+                    "Sub-manifest {} not found",
+                    sub.digest
+                );
+            };
+            row.manifest
+        };
+        // Extract labels from platform-specific image manifests. Attestation or
+        // other non-image sub-manifests are tolerated and simply contribute no labels.
+        if let Ok(crate::docker::ManifestOrIndex::Image(manifest)) =
+            serde_json::from_str::<crate::docker::ManifestOrIndex>(&sub_manifest)
+        {
+            labels.extend(extract_config_labels(&manifest.config.digest).await?);
         }
     }
-    Ok(())
+    Ok(labels)
 }
 
 // PUT /v2/<name>/manifests/<reference> Manifest Put the manifest identified by name and reference where reference can be a tag or digest.
@@ -864,8 +875,7 @@ async fn put_manifest(
             validate_image_manifest(&state, &name, &manifest).await?
         }
         crate::docker::ManifestOrIndex::Index(index) => {
-            validate_image_index(&state, &name, &index).await?;
-            HashMap::new()
+            validate_image_index(&state, &name, &index).await?
         }
     };
     let labels_string =
