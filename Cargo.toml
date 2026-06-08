@@ -76,8 +76,8 @@ serde_repr = {version = "0.1"}
 serde_yaml = "0.9"
 sha2 = {version="0.11", optional = true}
 simple_logger = {version = "5", default-features=false}
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "chrono"], optional = true, default-features = false}
-qusql-sqlx-type = {version = "0.2.1", optional = true}
+sqlx = { version = "0.9", features = ["sqlite", "runtime-tokio", "chrono"], optional = true, default-features = false}
+qusql-sqlx-type = {version = "0.3", optional = true}
 tempfile = {version="3", optional=true}
 tokio = { version = "1", default-features = false, features=['rt', 'net', 'fs', 'sync', 'macros', 'time', 'process', 'signal', 'io-std', 'rt-multi-thread'] }
 tokio-rustls = "0.26"
