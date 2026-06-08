@@ -6,123 +6,54 @@ on:
 
 name: Upload Release Asset
 
+# Required so the release can be created/updated with the default GITHUB_TOKEN.
+permissions:
+  contents: write
+
 jobs:
-  create_release:
-    name: Create Release
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: true
-          prerelease: false
-      - run: echo "${{ steps.create_release.outputs.upload_url }}" > ./upload_url
-      - name: Store url
-        uses: actions/upload-artifact@v4
-        with:
-          name: upload_url
-          path: ./upload_url
   linux:
     name: Upload Release Asset Linux
     runs-on: ubuntu-22.04
-    needs: create_release
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: echo "${{ github.ref }}" > src/version.txt
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: echo "${{ github.ref_name }}" > src/version.txt
       - run: cargo build --release --features=daemon,nix
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client target/release/sadmin
-      - name: Get release url 1
-        uses: actions/download-artifact@v4.1.7
-        with:
-          name: upload_url
-      - name: Get release url 2
-        id: upload_url
-        uses: andstor/file-reader-action@v1
-        with:
-          path: upload_url
       - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.contents }}
-          asset_path: ./sadmin-client.zip
-          asset_name: sadmin-client.zip
-          asset_content_type: application/zip
+          draft: true
+          files: sadmin-client.zip
+
   osx:
     name: Upload Release Asset OSX
     runs-on: macos-latest
-    needs: create_release
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client-osx target/release/sadmin
-      - name: Get release url 1
-        uses: actions/download-artifact@v4.1.7
-        with:
-          name: upload_url
-      - name: Get release url 2
-        id: upload_url
-        uses: andstor/file-reader-action@v1
-        with:
-          path: upload_url
       - name: Upload Release Asset OSX
-        id: upload-release-asset-osx
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.contents }}
-          asset_path: ./sadmin-client-osx.zip
-          asset_name: sadmin-client-osx.zip
-          asset_content_type: application/zip
+          draft: true
+          files: sadmin-client-osx.zip
+
   win:
     name: Upload Release Asset Win
     runs-on: windows-latest
-    needs: create_release
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
-      - run: strip target/release/sadmin.exe
-      - name: Get release url 1
-        uses: actions/download-artifact@v4.1.7
-        with:
-          name: upload_url
-      - name: Get release url 2
-        id: upload_url
-        uses: andstor/file-reader-action@v1
-        with:
-          path: upload_url
       - name: Upload Release Asset Win
-        id: upload-release-asset-win
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.contents }}
-          asset_path: target/release/sadmin.exe
-          asset_name: sadmin.exe
-          asset_content_type: application/x-msdownload
+          draft: true
+          files: target/release/sadmin.exe

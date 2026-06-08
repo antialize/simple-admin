@@ -5,60 +5,39 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --features=daemon,nix,server
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --features=daemon,nix,server
 
   fmt:
     name: Rustfmt
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+          components: rustfmt
+      - run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --features=daemon,nix,,server -- -D warnings
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --features=daemon,nix,server -- -D warnings
 
   build:
     name: Build Linux
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --features=daemon,nix,server
       - run: strip target/release/sadmin
       - uses: actions/upload-artifact@v4
@@ -70,15 +49,11 @@ jobs:
     name: Build OSX
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
       - run: strip target/release/sadmin
-
       - uses: actions/upload-artifact@v4
         with:
           name: sadmin_osx
@@ -88,14 +63,10 @@ jobs:
     name: Build Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
-      - run: strip target/release/sadmin.exe
       - uses: actions/upload-artifact@v4
         with:
           name: sadmin_win
