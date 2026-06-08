@@ -9,12 +9,12 @@ const Setup = observer(function Setup({ hostid }: { hostid: number }) {
     if (typeof c.content.password !== "string") return <div>No password</div>;
     const host = window.location.hostname;
     const name = encodeURIComponent(c.name);
-    const pwd = encodeURIComponent(c.content.password);
+    const pwd = c.content.password;
     return (
         <Typography>
             <pre>
-                curl -fsSL -H &quot;Authorization: Bearer {pwd}&quot; &quot;https://{host}
-                /setup.sh?host={name}&quot; | sudo bash
+                curl -fsSL -H 'Authorization: Bearer {pwd}' 'https://{host}
+                /setup.sh?host={name}' | sudo bash
             </pre>
         </Typography>
     );

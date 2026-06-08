@@ -217,14 +217,23 @@ impl State {
             cmd.pre_exec(move || {
                 if let Some(cgroup) = &cgroup {
                     let pid = nix::unistd::getpid();
-                    cgroups_rs::Cgroup::load(Box::new(cgroups_rs::hierarchies::V2::new()), cgroup)
-                        .add_task((pid.as_raw() as u64).into())
-                        .map_err(|e| {
-                            std::io::Error::new(
-                                std::io::ErrorKind::AddrNotAvailable,
-                                format!("failed to put process into cgroup: {e}"),
-                            )
-                        })?
+                    // Use `add_task_by_tgid` (writes to `cgroup.procs`) rather than
+                    // `add_task`. Since cgroups-rs 0.3, `add_task` writes to
+                    // `cgroup.threads`, which is only permitted for threaded cgroups
+                    // and fails with a CgroupMode error on our domain cgroups (the
+                    // ones carrying the memory controller). `add_task_by_tgid` keeps
+                    // the old 0.2 process-level behaviour.
+                    cgroups_rs::fs::Cgroup::load(
+                        Box::new(cgroups_rs::fs::hierarchies::V2::new()),
+                        cgroup,
+                    )
+                    .add_task_by_tgid((pid.as_raw() as u64).into())
+                    .map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::AddrNotAvailable,
+                            format!("failed to put process into cgroup: {e}"),
+                        )
+                    })?
                 }
                 if let Some(umask) = umask {
                     nix::sys::stat::umask(nix::sys::stat::Mode::from_bits_truncate(umask));

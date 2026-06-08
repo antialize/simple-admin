@@ -43,9 +43,16 @@ pub async fn setup(
         return Err(WebError::not_found());
     };
     let mut ho: IObject2<ValueMap> = ho;
-    if ho.content.get("password").and_then(|v| v.as_str()) != Some(token) {
+    let stored_pw = ho
+        .content
+        .get("password")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let token_valid = crypt::cost_time_compare(token.as_bytes(), stored_pw.as_bytes());
+    if !token_valid {
         error!("Setup invalid token");
-        return Err(WebError::not_found());
+        return Err(WebError::forbidden());
     }
 
     let mut buf = [0; 18];
