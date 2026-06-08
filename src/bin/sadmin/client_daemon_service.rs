@@ -22,7 +22,7 @@ use crate::{
 use anyhow::{Context, Result, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::BytesMut;
-use cgroups_rs::cgroup_builder::CgroupBuilder;
+use cgroups_rs::fs::cgroup_builder::CgroupBuilder;
 use log::{debug, error, info, warn};
 use nix::{
     fcntl::AT_FDCWD,
@@ -1799,19 +1799,23 @@ It will be hard killed in {:?} if it does not stop before that. ",
             None => None,
         };
 
-        CgroupBuilder::new("sadmin").build(Box::new(cgroups_rs::hierarchies::V2::new()));
+        CgroupBuilder::new("sadmin")
+            .build(Box::new(cgroups_rs::fs::hierarchies::V2::new()))
+            .context("Failed to create sadmin cgroup")?;
         let cgroup_name = format!("sadmin/{}", desc.name);
         if let Some(v) = desc.max_memory {
             CgroupBuilder::new(&cgroup_name)
                 .memory()
                 .memory_hard_limit(u64::from(v).try_into()?)
                 .done()
-                .build(Box::new(cgroups_rs::hierarchies::V2::new()));
+                .build(Box::new(cgroups_rs::fs::hierarchies::V2::new()))
+                .context("Failed to create service cgroup")?;
         } else {
             CgroupBuilder::new(&cgroup_name)
                 .memory()
                 .done()
-                .build(Box::new(cgroups_rs::hierarchies::V2::new()));
+                .build(Box::new(cgroups_rs::fs::hierarchies::V2::new()))
+                .context("Failed to create service cgroup")?;
         }
 
         let mut script_env = Vec::new();

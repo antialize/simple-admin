@@ -48,7 +48,7 @@ axum = {version = "0.8",  default-features = false, features = ["ws", "tokio", "
 base32 = {version = "0.5", optional = true}
 base64 = "0.22"
 bytes = "1"
-cgroups-rs = {version = "0.2", optional=true}
+cgroups-rs = {version = "0.5", optional=true}
 chrono = {version = "0.4", default-features = false, features = ["std", "clock"], optional=true}
 clap = {version = "4", default-features = false, features=['std', 'derive', 'help', 'suggestions', 'usage', 'color']}
 dirs = "6"
