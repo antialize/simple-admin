@@ -19,6 +19,7 @@ server = [
     "totp-rs",
     "tower-http",
     "uuid",
+    "chrono",
 ]
 daemon = [
     "cgroups-rs",
