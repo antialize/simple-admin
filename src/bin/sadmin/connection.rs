@@ -300,10 +300,6 @@ impl Connection {
 
         let mut key = None;
         for k in [".ssh/id_ed25519", ".ssh/id_rsa"] {
-            let private = home_dir.join(k);
-            if !private.exists() {
-                continue;
-            }
             let public = home_dir.join(format!("{k}.pub"));
             let pk = match std::fs::read(public) {
                 Ok(v) => v,
