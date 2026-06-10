@@ -255,7 +255,7 @@ impl State {
                 Ok(())
             });
         }
-        info!("Spawning {cmd:?}");
+        info!("Spawning {:?} {:?}", cmd.as_std().get_program(), cmd.as_std().get_args().collect::<Vec<_>>());
         let child = cmd.spawn().context("Unable to spawn")?;
         let pid = child.id().context("Expected pid")?;
         info!("Started process key {}, pid {}", sp.key, pid);
