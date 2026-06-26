@@ -198,17 +198,13 @@ impl WebClient {
         Ok(())
     }
 
-    async fn handle_generate_key(
-        &self,
-        rt: &RunToken,
+    async fn handle_generate_key_inner(
+        auth_days: u32,
+        auth_user: Option<&str>,
+        sslname: String,
         state: &State,
         act: IGenerateKey,
-    ) -> Result<()> {
-        let auth = self.get_auth();
-        let Some(sslname) = auth.sslname else {
-            self.close(403).await?;
-            return Ok(());
-        };
+    ) -> Result<IGenerateKeyRes, anyhow::Error> {
         let (_uname, rem) = sslname.split_once(".").context("Missing . in sslname")?;
         let (_uid, caps_string) = rem.split_once(".").unwrap_or_default();
         let has_ssh_caps = caps_string.split("~").any(|v| v == "ssh");
@@ -216,7 +212,7 @@ impl WebClient {
         let ca_crt = &state.docker.ca_crt;
         let key = crt::generate_key().await?;
         let srs = crt::generate_srs(&key, &format!("{sslname}.user")).await?;
-        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth.auth_days.unwrap_or(1)).await?;
+        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth_days).await?;
         let mut res = IGenerateKeyRes {
             r#ref: act.r#ref,
             ca_pem: ca_crt.clone(),
@@ -231,7 +227,7 @@ impl WebClient {
             if let (Some(ssh_host_ca_pub), Some(ssh_host_ca_key), Some(user)) = (
                 root_variabels.get("sshHostCaPub"),
                 root_variabels.get("sshHostCaKey"),
-                auth.user,
+                auth_user,
             ) {
                 res.ssh_crt = Some(
                     crt::generate_ssh_crt(
@@ -247,6 +243,40 @@ impl WebClient {
                 res.ssh_host_ca = Some(ssh_host_ca_pub.to_string());
             }
         }
+        Ok(res)
+    }
+
+    async fn handle_generate_key(
+        &self,
+        rt: &RunToken,
+        state: &State,
+        act: IGenerateKey,
+    ) -> Result<()> {
+        let auth = self.get_auth();
+        let Some(sslname) = auth.sslname else {
+            error!(
+                "Client {} attempted to generate key without sslname in auth",
+                self.remote
+            );
+            self.close(403).await?;
+            return Ok(());
+        };
+        let res = match Self::handle_generate_key_inner(
+            auth.auth_days.unwrap_or(1),
+            auth.user.as_deref(),
+            sslname,
+            state,
+            act,
+        )
+        .await
+        {
+            Ok(res) => res,
+            Err(e) => {
+                error!("Failed to generate key for client {}: {:?}", self.remote, e);
+                self.close(500).await?;
+                return Ok(());
+            }
+        };
         self.send_message(rt, IServerAction::GenerateKeyRes(res))
             .await?;
         Ok(())
