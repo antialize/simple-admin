@@ -236,7 +236,7 @@ impl WebClient {
                 res.ssh_crt = Some(
                     crt::generate_ssh_crt(
                         &format!("{user} sadmin user"),
-                        &user,
+                        user,
                         ssh_host_ca_key,
                         &ssh_public_key,
                         1,

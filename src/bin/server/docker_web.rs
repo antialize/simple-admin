@@ -503,12 +503,18 @@ async fn get_manifest(
     Path((name, reference)): Path<(String, String)>,
     method: Method,
 ) -> Result<Response, ApiError> {
+    // Hashes may be stored either with or without the `sha256:` prefix (older
+    // images were stored without it), while clients always reference them with
+    // the prefix. Match both forms so pulling by digest works regardless.
+    let bare_hash = reference.strip_prefix("sha256:").unwrap_or(&reference);
+    let prefixed_hash = format!("sha256:{bare_hash}");
     let row = query!(
         "SELECT `manifest`, `hash`, `content_type` FROM `docker_images`
-        WHERE `project`=? AND (`tag`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
+        WHERE `project`=? AND (`tag`=? OR `hash`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
         name,
         reference,
-        reference
+        prefixed_hash,
+        bare_hash
     )
     .fetch_optional(&state.db)
     .await
@@ -517,7 +523,9 @@ async fn get_manifest(
         api_error!(
             NOT_FOUND,
             ManifestUnknown,
-            "Docker get manifest: not found project: {}, identifer: {}"
+            "Docker get manifest: not found project: {}, identifer: {}",
+            name,
+            reference
         );
     };
     let content_type = row
