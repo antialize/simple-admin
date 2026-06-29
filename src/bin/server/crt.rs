@@ -44,11 +44,22 @@ pub async fn generate_key() -> Result<String> {
 }
 
 pub async fn generate_ca_crt(key: &str) -> Result<String> {
+    generate_ca_crt_ex(key, false).await
+}
+
+pub async fn generate_ca_crt_ex(key: &str, nfs: bool) -> Result<String> {
     let mut t1 = NamedTempFile::new()?;
-    t1.write_all(
-        "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nC=US\n"
-            .as_bytes(),
-    )?;
+    if nfs {
+        t1.write_all(
+            "[req]\nprompt = no\ndistinguished_name = distinguished_name\nx509_extensions = v3_ca\n[distinguished_name]\nC=US\n[v3_ca]\nbasicConstraints = critical, CA:TRUE\nkeyUsage = critical, keyCertSign, cRLSign\nsubjectKeyIdentifier = hash\n"
+                .as_bytes(),
+        )?;
+    } else {
+        t1.write_all(
+            "[req]\nprompt = no\ndistinguished_name = distinguished_name\n[distinguished_name]\nC=US\n"
+                .as_bytes(),
+        )?;
+    }
 
     let mut t2 = NamedTempFile::new()?;
     t2.write_all(key.as_bytes())?;
@@ -100,6 +111,17 @@ pub async fn generate_crt(
     subcerts: &[String],
     timeout_days: u32,
 ) -> Result<String> {
+    generate_crt_san(ca_key, ca_crt, srs, subcerts, &[], timeout_days).await
+}
+
+pub async fn generate_crt_san(
+    ca_key: &str,
+    ca_crt: &str,
+    srs: &str,
+    subcerts: &[String],
+    sans: &[String],
+    timeout_days: u32,
+) -> Result<String> {
     let mut t1 = NamedTempFile::new()?;
     let mut t2 = NamedTempFile::new()?;
     let mut t3 = NamedTempFile::new()?;
@@ -129,6 +151,24 @@ subjectKeyIdentifier = hash
 nameConstraints = critical")?;
         for v in subcerts {
             write!(&mut t3, ", permitted;DNS:{v}")?;
+        }
+        cmd.arg("-extfile");
+        cmd.arg(t3.path());
+    } else if !sans.is_empty() {
+        write!(
+            &mut t3,
+            "basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment, keyAgreement
+extendedKeyUsage = serverAuth, clientAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid, issuer
+subjectAltName = "
+        )?;
+        for (i, v) in sans.iter().enumerate() {
+            if i != 0 {
+                write!(&mut t3, ", ")?;
+            }
+            write!(&mut t3, "DNS:{v}")?;
         }
         cmd.arg("-extfile");
         cmd.arg(t3.path());
