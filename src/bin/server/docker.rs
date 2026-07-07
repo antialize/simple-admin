@@ -878,6 +878,11 @@ pub async fn list_deployments(
         `docker_images`.`removed` AS `image_removed`
         FROM `docker_deployments`, `docker_images`
         WHERE `docker_images`.`hash`=`docker_deployments`.`hash`
+        AND `docker_images`.`id` = (
+            SELECT `x`.`id` FROM `docker_images` AS `x`
+            WHERE `x`.`hash`=`docker_deployments`.`hash`
+            ORDER BY (`x`.`tag` LIKE 'tmp\\_ci\\_%' ESCAPE '\\'), `x`.`id` DESC
+            LIMIT 1)
         AND `docker_deployments`.`id` IN (
             SELECT MAX(`d`.`id`) FROM `docker_deployments` as `d`
             GROUP BY `d`.`host`, `d`.`project`, `d`.`container`)"
@@ -937,6 +942,11 @@ pub async fn list_deployment_history(
         `docker_images`.`removed` AS `image_removed`
         FROM `docker_deployments`, `docker_images`
         WHERE `docker_images`.`hash`=`docker_deployments`.`hash`
+        AND `docker_images`.`id` = (
+            SELECT `x`.`id` FROM `docker_images` AS `x`
+            WHERE `x`.`hash`=`docker_deployments`.`hash`
+            ORDER BY (`x`.`tag` LIKE 'tmp\\_ci\\_%' ESCAPE '\\'), `x`.`id` DESC
+            LIMIT 1)
         AND `docker_deployments`.`host`=? AND `docker_deployments`.`container`=?",
         act.host,
         act.name
