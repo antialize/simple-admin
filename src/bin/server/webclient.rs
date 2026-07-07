@@ -1581,7 +1581,8 @@ os.execv(sys.argv[1], sys.argv[1:])
                     FROM `docker_images`
                     WHERE `id` IN (
                         SELECT MAX(`d`.`id`) FROM `docker_images` AS `d` GROUP BY `d`.`project`, `d`.`tag`
-                    ) AND (`removed` > ? OR `removed` IS NULL)",
+                    ) AND (`removed` > ? OR `removed` IS NULL)
+                    AND `tag` NOT LIKE 'tmp\\_ci\\_%' ESCAPE '\\'",
                             time
                         )
                         .fetch_all(&state.db)

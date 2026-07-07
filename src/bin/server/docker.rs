@@ -94,6 +94,7 @@ async fn prune_inner(state: &State) -> Result<()> {
         .as_secs_f64();
 
     let grace = 60.0 * 60.0 * 24.0 * 14.0; // Number of seconds to keep something around
+    let tmp_ci_grace = 60.0 * 60.0; // tmp_ci_* tags are pruned aggressively, once they are an hour old
 
     let rows = query!("SELECT
               `docker_images`.`manifest`,
@@ -117,17 +118,24 @@ async fn prune_inner(state: &State) -> Result<()> {
             GROUP BY `docker_images`.`id`").fetch_all(&state.db).await.context("Running query in docker prune")?;
 
     for row in &rows {
-        let keep = row.pin
-            || (row.newest == Some(row.id) && row.tagPin)
-            || ((&row.tag == "latest" || &row.tag == "master") && row.newest == Some(row.id))
-            || row.active > 0
-            || (row.start.is_some()
-                && row.end.is_some()
-                && 2.0 * (row.end.unwrap() - row.start.unwrap()) as f64 + grace
-                    > now - row.start.unwrap() as f64)
-            || (row.used.is_some()
-                && 2.0 * (row.used.unwrap() - row.time) + grace > now - row.used.unwrap())
-            || row.time + grace > now;
+        let keep = if row.tag.starts_with("tmp_ci_") {
+            // Tmp CI images are only ever meant to live for a short while before being
+            // re-tagged and pushed again, so we prune them aggressively instead of using
+            // the normal grace period.
+            row.pin || row.active > 0 || row.time + tmp_ci_grace > now
+        } else {
+            row.pin
+                || (row.newest == Some(row.id) && row.tagPin)
+                || ((&row.tag == "latest" || &row.tag == "master") && row.newest == Some(row.id))
+                || row.active > 0
+                || (row.start.is_some()
+                    && row.end.is_some()
+                    && 2.0 * (row.end.unwrap() - row.start.unwrap()) as f64 + grace
+                        > now - row.start.unwrap() as f64)
+                || (row.used.is_some()
+                    && 2.0 * (row.used.unwrap() - row.time) + grace > now - row.used.unwrap())
+                || row.time + grace > now
+        };
 
         // Collect references reachable from this manifest/index, recursing into sub-manifests as needed.
         let mut refs: HashSet<String> = HashSet::new();
@@ -262,17 +270,15 @@ async fn prune_inner(state: &State) -> Result<()> {
 
 pub async fn docker_prune(state: Arc<State>, run_token: RunToken) -> Result<()> {
     loop {
-        if cancelable(
-            &run_token,
-            tokio::time::sleep(Duration::from_secs(60 * 60 * 12)),
-        )
-        .await
-        .is_err()
+        if cancelable(&run_token, tokio::time::sleep(Duration::from_secs(60 * 60)))
+            .await
+            .is_err()
         {
             break;
         }
         // TODO(jakobt) make prune_inner cancable
-        // prune docker images every 12 houers
+        // Prune docker images every hour, so tmp_ci_* images (which are pruned
+        // aggressively, an hour after creation) don't pile up for too long.
         if let Err(e) = prune_inner(&state).await {
             error!("Error pruning docker blobs: {e:?}");
         }
@@ -872,6 +878,11 @@ pub async fn list_deployments(
         `docker_images`.`removed` AS `image_removed`
         FROM `docker_deployments`, `docker_images`
         WHERE `docker_images`.`hash`=`docker_deployments`.`hash`
+        AND `docker_images`.`id` = (
+            SELECT `x`.`id` FROM `docker_images` AS `x`
+            WHERE `x`.`hash`=`docker_deployments`.`hash`
+            ORDER BY (`x`.`tag` LIKE 'tmp\\_ci\\_%' ESCAPE '\\'), `x`.`id` DESC
+            LIMIT 1)
         AND `docker_deployments`.`id` IN (
             SELECT MAX(`d`.`id`) FROM `docker_deployments` as `d`
             GROUP BY `d`.`host`, `d`.`project`, `d`.`container`)"
@@ -931,6 +942,11 @@ pub async fn list_deployment_history(
         `docker_images`.`removed` AS `image_removed`
         FROM `docker_deployments`, `docker_images`
         WHERE `docker_images`.`hash`=`docker_deployments`.`hash`
+        AND `docker_images`.`id` = (
+            SELECT `x`.`id` FROM `docker_images` AS `x`
+            WHERE `x`.`hash`=`docker_deployments`.`hash`
+            ORDER BY (`x`.`tag` LIKE 'tmp\\_ci\\_%' ESCAPE '\\'), `x`.`id` DESC
+            LIMIT 1)
         AND `docker_deployments`.`host`=? AND `docker_deployments`.`container`=?",
         act.host,
         act.name
