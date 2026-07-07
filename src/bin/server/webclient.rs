@@ -1410,6 +1410,30 @@ os.execv(sys.argv[1], sys.argv[1:])
                         object: vec![obj],
                     }),
                 )?;
+                if object_type == HOST_ID {
+                    let hc = state.host_clients.lock().unwrap().get(&id).cloned();
+                    if let Some(hc) = hc {
+                        set_location!(rt);
+                        match cancelable(
+                            &rt,
+                            tokio::time::timeout(
+                                Duration::from_secs(60),
+                                hc.provision_nfs_tls(&rt, state),
+                            ),
+                        )
+                        .await
+                        {
+                            Ok(Ok(Ok(()))) => (),
+                            Ok(Ok(Err(e))) => {
+                                error!("Error provisioning NFS TLS for {}: {:?}", hc.hostname(), e);
+                            }
+                            Ok(Err(_)) => {
+                                error!("Timeout provisioning NFS TLS for {}", hc.hostname());
+                            }
+                            Err(_) => (),
+                        }
+                    }
+                }
                 set_location!(rt);
                 self.send_message(
                     &rt,

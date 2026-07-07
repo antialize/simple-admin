@@ -449,6 +449,16 @@ impl HostClient {
                                 },
                                 Err(_) => ()
                             }
+                            match cancelable(&rt, tokio::time::timeout(Duration::from_secs(60), s.provision_nfs_tls(&rt, &state))).await {
+                                Ok(Ok(Ok(()))) => (),
+                                Ok(Ok(Err(e))) => {
+                                    error!("An error occurred in nfs tls certificate provisioning for {}: {:?}", s.hostname, e);
+                                },
+                                Ok(Err(_)) =>  {
+                                    error!("Timeout provisioning nfs tls certs for {}", s.hostname);
+                                },
+                                Err(_) => ()
+                            }
                             Ok::<(),()>(())
                         });
                 }
@@ -561,6 +571,207 @@ impl HostClient {
         }
         Ok(())
     }
+
+    pub async fn provision_nfs_tls(self: &Arc<Self>, rt: &RunToken, state: &State) -> Result<()> {
+        info!("Running NFS TLS provisioning for {}", self.hostname);
+        set_location!(rt);
+        let row = query!(
+            "SELECT `content` FROM `objects` WHERE `id` = ? AND `newest`",
+            self.id
+        )
+        .fetch_optional(&state.db)
+        .await?;
+        let Some(row) = row else { return Ok(()) };
+        let content: ValueMap = serde_json::from_str(&row.content)?;
+        let nfs_group = content
+            .get("nfsGroup")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if nfs_group.is_empty() {
+            // nfs disabled: clean up sadmin-managed cert files if present
+            set_location!(rt);
+            let check = self
+                .run_shell(
+                    "if test -f /etc/nfs-tls/sadmin-server.crt || test -f /etc/nfs-tls/sadmin-ca.crt; \
+                     then echo yes; else echo no; fi"
+                        .into(),
+                )
+                .await?;
+            if check.trim() == "yes" {
+                info!("Removing NFS TLS certificates for {}", self.hostname);
+                set_location!(rt);
+                self.run_shell(
+                    "rm -f /etc/nfs-tls/sadmin-server.crt /etc/nfs-tls/sadmin-server.key \
+                     /etc/nfs-tls/sadmin-client.crt /etc/nfs-tls/sadmin-client.key \
+                     /etc/nfs-tls/sadmin-ca.crt /etc/nfs-tls/sadmin-group /etc/tlshd.conf"
+                        .into(),
+                )
+                .await?;
+                set_location!(rt);
+                self.run_shell(
+                    "! systemctl is-active tlshd 2>/dev/null || systemctl restart tlshd".into(),
+                )
+                .await?;
+            }
+            return Ok(());
+        }
+        info!(
+            "Provisioning NFS TLS certificates for {} (group {})",
+            self.hostname, nfs_group
+        );
+        set_location!(rt);
+        let check = self
+            .run_shell(
+                "if test -f /etc/nfs-tls/sadmin-server.crt && test -f /etc/nfs-tls/sadmin-server.key \
+                 && test -f /etc/nfs-tls/sadmin-client.crt && test -f /etc/nfs-tls/sadmin-client.key \
+                 && test -f /etc/nfs-tls/sadmin-ca.crt && test -f /etc/tlshd.conf; \
+                 then echo yes; else echo no; fi"
+                    .into(),
+            )
+            .await?;
+        if check.trim() == "yes" {
+            set_location!(rt);
+            let current_group = self
+                .run_shell("cat /etc/nfs-tls/sadmin-group 2>/dev/null || true".into())
+                .await?;
+            if current_group.trim() == nfs_group {
+                info!(
+                    "NFS TLS certificates already present for {} (group {}), skipping",
+                    self.hostname, nfs_group
+                );
+                return Ok(());
+            }
+        }
+        set_location!(rt);
+        let variables = db::get_host_variables(state, self.id)
+            .await?
+            .unwrap_or_default();
+        let nodename = match variables.get("nodename") {
+            Some(nodename) if !nodename.is_empty() => nodename.clone().into_owned(),
+            _ => self.hostname.clone(),
+        };
+        let cn = match variables.get("domain") {
+            Some(domain) if !domain.is_empty() => format!("{}.{}", nodename, domain),
+            _ => nodename.clone(),
+        };
+        const VALIDITY_DAYS: u32 = 9999;
+        set_location!(rt);
+        let (ca_key, ca_crt) = nfs_group_ca(state, &nfs_group).await?;
+        let mut sans = vec![self.hostname.clone(), nodename.clone(), cn.clone()];
+        sans.sort();
+        sans.dedup();
+        set_location!(rt);
+        let server_key = crt::generate_key().await?;
+        let server_srs = crt::generate_srs(&server_key, &cn).await?;
+        let server_crt =
+            crt::generate_crt_san(&ca_key, &ca_crt, &server_srs, &[], &sans, VALIDITY_DAYS).await?;
+        set_location!(rt);
+        let client_key = crt::generate_key().await?;
+        let client_srs = crt::generate_srs(&client_key, &cn).await?;
+        let client_crt =
+            crt::generate_crt_san(&ca_key, &ca_crt, &client_srs, &[], &sans, VALIDITY_DAYS).await?;
+        set_location!(rt);
+        self.run_shell("mkdir -p /etc/nfs-tls && chmod 700 /etc/nfs-tls".into())
+            .await?;
+        set_location!(rt);
+        self.write_small_text_file("/etc/nfs-tls/sadmin-server.crt".into(), server_crt)
+            .await?;
+        self.write_small_text_file("/etc/nfs-tls/sadmin-server.key".into(), server_key)
+            .await?;
+        self.write_small_text_file("/etc/nfs-tls/sadmin-client.crt".into(), client_crt)
+            .await?;
+        self.write_small_text_file("/etc/nfs-tls/sadmin-client.key".into(), client_key)
+            .await?;
+        self.write_small_text_file("/etc/nfs-tls/sadmin-ca.crt".into(), ca_crt.clone())
+            .await?;
+        self.write_small_text_file("/etc/nfs-tls/sadmin-group".into(), nfs_group.clone())
+            .await?;
+        let tlshd_conf = "[debug]
+loglevel=1
+tls=0
+nl=0
+        
+[authenticate]
+keyrings=.nfs
+
+[authenticate.client]
+x509.truststore=/etc/nfs-tls/sadmin-ca.crt
+x509.certificate=/etc/nfs-tls/sadmin-client.crt
+x509.private_key=/etc/nfs-tls/sadmin-client.key
+
+[authenticate.server]
+x509.truststore=/etc/nfs-tls/sadmin-ca.crt
+x509.certificate=/etc/nfs-tls/sadmin-server.crt
+x509.private_key=/etc/nfs-tls/sadmin-server.key
+";
+        self.write_small_text_file("/etc/tlshd.conf".into(), tlshd_conf.into())
+            .await?;
+        set_location!(rt);
+        self.run_shell(
+            "chmod 600 /etc/nfs-tls/sadmin-server.key /etc/nfs-tls/sadmin-client.key && \
+             chmod 644 /etc/nfs-tls/sadmin-server.crt /etc/nfs-tls/sadmin-client.crt /etc/nfs-tls/sadmin-ca.crt /etc/nfs-tls/sadmin-group && \
+             chmod 600 /etc/tlshd.conf"
+                .into(),
+        )
+        .await?;
+        set_location!(rt);
+        self.run_shell("systemctl restart tlshd".into()).await?;
+        set_location!(rt);
+        Ok(())
+    }
+}
+
+/// Fetch the NFS root CA (key, cert) for the given group, generating and storing
+/// a fresh CA in the kvp table the first time the group is seen. Each group gets
+/// its own CA so hosts in different groups cannot establish mutual TLS.
+async fn nfs_group_ca(state: &State, group: &str) -> Result<(String, String)> {
+    let key_kvp = format!("nfs_ca_key_{group}");
+    let crt_kvp = format!("nfs_ca_crt_{group}");
+    let ca_key = match query!("SELECT `value` FROM `kvp` WHERE `key` = ?", &key_kvp)
+        .fetch_optional(&state.db)
+        .await?
+    {
+        Some(r) => r.value,
+        None => {
+            info!("Generating NFS CA key for group {group}");
+            let generated = crt::generate_key().await?;
+            query!(
+                "INSERT IGNORE INTO kvp (`key`, `value`) VALUES (?,?)",
+                &key_kvp,
+                &generated
+            )
+            .execute(&state.db)
+            .await?;
+            query!("SELECT `value` FROM `kvp` WHERE `key` = ?", &key_kvp)
+                .fetch_one(&state.db)
+                .await?
+                .value
+        }
+    };
+    let ca_crt = match query!("SELECT `value` FROM `kvp` WHERE `key` = ?", &crt_kvp)
+        .fetch_optional(&state.db)
+        .await?
+    {
+        Some(r) => r.value,
+        None => {
+            info!("Generating NFS CA cert for group {group}");
+            let generated = crt::generate_ca_crt_ex(&ca_key, true).await?;
+            query!(
+                "INSERT IGNORE INTO kvp (`key`, `value`) VALUES (?,?)",
+                &crt_kvp,
+                &generated
+            )
+            .execute(&state.db)
+            .await?;
+            query!("SELECT `value` FROM `kvp` WHERE `key` = ?", &crt_kvp)
+                .fetch_one(&state.db)
+                .await?
+                .value
+        }
+    };
+    Ok((ca_key, ca_crt))
 }
 
 async fn auth_client(
