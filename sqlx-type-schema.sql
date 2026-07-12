@@ -98,3 +98,12 @@ CREATE TABLE IF NOT EXISTS `sessions` (
     `pwd` INTEGER,
     `otp` INTEGER) STRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`);
+
+CREATE TABLE IF NOT EXISTS `developer_machines` (
+    `host_uuid` TEXT NOT NULL PRIMARY KEY,
+    `secret_hash` TEXT NOT NULL,
+    `username` TEXT NOT NULL,
+    `user_email` TEXT,
+    `hostname` TEXT NOT NULL,
+    `last_status` TEXT,
+    `last_contact` INTEGER) STRICT;

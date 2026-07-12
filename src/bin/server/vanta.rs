@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use futures::future::join_all;
 use log::{error, info};
 use qusql_sqlx_type::query;
@@ -16,7 +16,12 @@ use sqlx::SqlitePool;
 use tokio::time::timeout;
 use tokio_tasks::{RunToken, cancelable};
 
-use crate::{config::Config, db::UserContent, state::State};
+use crate::{
+    config::Config,
+    db::UserContent,
+    state::State,
+    vanta_auth::{check_vanta_sync, get_vanta_token},
+};
 
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -41,24 +46,6 @@ struct VantaUser {
 struct VantaUserAccounts {
     resource_id: String,
     resources: Vec<VantaUser>,
-}
-
-#[derive(Serialize, Debug)]
-struct VantaTokenRequest<'a> {
-    client_id: &'a str,
-    client_secret: &'a str,
-    scope: &'a str,
-    grant_type: &'a str,
-}
-
-#[derive(Deserialize, Debug)]
-struct VantaTokenResponse {
-    access_token: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct VantaSyncResponse {
-    success: bool,
 }
 
 async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
@@ -126,28 +113,14 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
 
     let client = reqwest::Client::new();
 
-    let r = client
-        .post("https://api.vanta.com/oauth/token")
-        .json(&VantaTokenRequest {
-            client_id,
-            client_secret,
-            scope: "connectors.self:write-resource",
-            grant_type: "client_credentials",
-        })
-        .build()
-        .context("Failed building token request")?;
+    let access_token = get_vanta_token(
+        &client,
+        client_id,
+        client_secret,
+        "connectors.self:write-resource",
+    )
+    .await?;
 
-    let r = client
-        .execute(r)
-        .await
-        .context("Faild executing token request")?;
-
-    if let Err(e) = r.error_for_status_ref() {
-        let text = r.text().await?;
-        return Err(e).context(format!("Faild executing token request: {text}"));
-    }
-
-    let token: VantaTokenResponse = r.json().await.context("Failed getting token")?;
     let accounts = VantaUserAccounts {
         resource_id: resource_id.clone(),
         resources,
@@ -155,7 +128,7 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
 
     let request = client
         .put("https://api.vanta.com/v1/resources/user_account")
-        .bearer_auth(token.access_token)
+        .bearer_auth(access_token)
         .json(&accounts)
         .build()
         .context("Failed building users request")?;
@@ -165,19 +138,7 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
         .await
         .context("Failed executing users request")?;
 
-    if let Err(e) = r.error_for_status_ref() {
-        let text = r.text().await?;
-        return Err(e).context(format!("Failed executing users request: {text}"));
-    }
-
-    let response: VantaSyncResponse = r
-        .json()
-        .await
-        .context("Failed deserializing sync response")?;
-
-    if !response.success {
-        bail!("Failed syncing vanta users");
-    }
+    check_vanta_sync(r, "syncing vanta users").await?;
 
     info!("Successfully synced vanta users");
     Ok(())
@@ -362,28 +323,13 @@ pub async fn push_hosts(state: &State) -> Result<()> {
 
     let client = reqwest::Client::new();
 
-    let r = client
-        .post("https://api.vanta.com/oauth/token")
-        .json(&VantaTokenRequest {
-            client_id,
-            client_secret,
-            scope: "connectors.self:write-resource",
-            grant_type: "client_credentials",
-        })
-        .build()
-        .context("Failed building token request")?;
-
-    let r = client
-        .execute(r)
-        .await
-        .context("Faild executing token request")?;
-
-    if let Err(e) = r.error_for_status_ref() {
-        let text = r.text().await?;
-        return Err(e).context(format!("Faild executing token request: {text}"));
-    }
-
-    let token: VantaTokenResponse = r.json().await.context("Failed getting token")?;
+    let access_token = get_vanta_token(
+        &client,
+        client_id,
+        client_secret,
+        "connectors.self:write-resource",
+    )
+    .await?;
 
     let resources = VantaHostResources {
         resource_id: resource_id.clone(),
@@ -392,7 +338,7 @@ pub async fn push_hosts(state: &State) -> Result<()> {
 
     let request = client
         .put("https://api.vanta.com/v1/resources/custom_resource")
-        .bearer_auth(token.access_token)
+        .bearer_auth(access_token)
         .json(&resources)
         .build()
         .context("Failed building hosts request")?;
@@ -402,19 +348,7 @@ pub async fn push_hosts(state: &State) -> Result<()> {
         .await
         .context("Failed executing hosts request")?;
 
-    if let Err(e) = r.error_for_status_ref() {
-        let text = r.text().await?;
-        return Err(e).context(format!("Failed executing hosts request: {text}"));
-    }
-
-    let response: VantaSyncResponse = r
-        .json()
-        .await
-        .context("Failed deserializing sync response")?;
-
-    if !response.success {
-        bail!("Failed syncing vanta hosts");
-    }
+    check_vanta_sync(r, "syncing vanta hosts").await?;
 
     info!("Successfully synced vanta hosts");
 
@@ -429,6 +363,12 @@ pub async fn run_vanta(state: Arc<State>, run_token: RunToken) -> Result<()> {
 
         if let Err(e) = push_hosts(&state).await {
             error!("Failed sending vanta hosts: {e:?}");
+        }
+
+        if let Err(e) =
+            crate::vanta_developer::push_developer_machines(&state.config, &state.db).await
+        {
+            error!("Failed sending vanta developer machines: {e:?}");
         }
 
         if cancelable(
