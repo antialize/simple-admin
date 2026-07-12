@@ -24,6 +24,7 @@ export enum PAGE_TYPE {
     Object = 10,
     ObjectList = 11,
     Search = 12,
+    DeveloperMachines = 13,
 }
 
 export type IObjectListPage = { objectType: number };
@@ -55,7 +56,8 @@ export type IPage =
     | { type: PAGE_TYPE.ModifiedFiles }
     | ({ type: PAGE_TYPE.Object } & IObjectPage)
     | ({ type: PAGE_TYPE.ObjectList } & IObjectListPage)
-    | { type: PAGE_TYPE.Search };
+    | { type: PAGE_TYPE.Search }
+    | { type: PAGE_TYPE.DeveloperMachines };
 
 export const TYPE_ID = 1;
 
@@ -555,7 +557,7 @@ export type IRunCommandFinished = { id: number; status: number };
 
 export type IGetSecret = { name: string; host: string | null };
 
-export type IGetObjectIdRes = { ref: Ref; id: number | null };
+export type IGetSecretRes = { name: string; host: string | null; value: string | null };
 
 export type IServerAction =
     | ({ type: "AddDeploymentLog" } & IAddDeploymentLog)

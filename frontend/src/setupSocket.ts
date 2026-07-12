@@ -66,6 +66,7 @@ export const setupSocket = () => {
                     state.authMessage = d.message;
                     state.authOtp = d.otp;
                     state.authUser = d.user;
+                    state.authAdmin = d.admin;
                 });
                 if (d.session !== null) {
                     Cookies.set("simple-admin-session", d.session, {
@@ -216,6 +217,11 @@ export const setupSocket = () => {
                 break;
             case "ModifiedFilesChanged":
                 nullCheck(state.modifiedFiles).handleChange(d);
+                break;
+            case "VantaListMachinesRes":
+                runInAction(() => {
+                    nullCheck(state.developerMachines).setMachines(d.machines);
+                });
                 break;
         }
     };

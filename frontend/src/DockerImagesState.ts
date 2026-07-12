@@ -108,7 +108,7 @@ export default class DockerImagesState {
             const h1 = this.imageHistory.get(tag.image);
             if (!h1) continue;
             const h2 = h1.get(tag.tag);
-            if (!h2 || h2.state !== "data") continue;
+            if (h2?.state !== "data") continue;
             h2.data.set(tag.id, tag);
         }
         const c = act.imageTagPinChanged;

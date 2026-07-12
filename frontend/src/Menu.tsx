@@ -338,6 +338,15 @@ const Menu = observer(function Menu() {
                 <Button
                     color="inherit"
                     onClick={(e) => {
+                        page.onClick(e, { type: PAGE_TYPE.DeveloperMachines });
+                    }}
+                    href={page.link({ type: PAGE_TYPE.DeveloperMachines })}
+                >
+                    Dev Machines
+                </Button>
+                <Button
+                    color="inherit"
+                    onClick={(e) => {
                         page.onClick(e, { type: PAGE_TYPE.Search });
                     }}
                     href={page.link({ type: PAGE_TYPE.Search })}
