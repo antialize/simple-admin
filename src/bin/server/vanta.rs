@@ -36,31 +36,6 @@ struct VantaUser {
     updated_timestamp: String,
 }
 
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct VantaUserAccounts {
-    resource_id: String,
-    resources: Vec<VantaUser>,
-}
-
-#[derive(Serialize, Debug)]
-struct VantaTokenRequest<'a> {
-    client_id: &'a str,
-    client_secret: &'a str,
-    scope: &'a str,
-    grant_type: &'a str,
-}
-
-#[derive(Deserialize, Debug)]
-struct VantaTokenResponse {
-    access_token: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct VantaSyncResponse {
-    success: bool,
-}
-
 async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
     let Some(client_id) = &config.vanta_client_id else {
         return Ok(());
@@ -124,7 +99,33 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
         });
     }
 
+    vanta_sync(
+        client_id,
+        client_secret,
+        "user_account",
+        resource_id.clone(),
+        resources,
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn vanta_sync<T: Serialize + std::fmt::Debug>(
+    client_id: &str,
+    client_secret: &str,
+    resource_name: &str,
+    resource_id: String,
+    resources: Vec<T>,
+) -> Result<(), anyhow::Error> {
     let client = reqwest::Client::new();
+
+    #[derive(Serialize, Debug)]
+    struct VantaTokenRequest<'a> {
+        client_id: &'a str,
+        client_secret: &'a str,
+        scope: &'a str,
+        grant_type: &'a str,
+    }
 
     let r = client
         .post("https://api.vanta.com/oauth/token")
@@ -136,50 +137,61 @@ async fn push_users(config: &Config, db: &SqlitePool) -> Result<()> {
         })
         .build()
         .context("Failed building token request")?;
-
     let r = client
         .execute(r)
         .await
         .context("Faild executing token request")?;
-
     if let Err(e) = r.error_for_status_ref() {
         let text = r.text().await?;
         return Err(e).context(format!("Faild executing token request: {text}"));
     }
 
+    #[derive(Deserialize, Debug)]
+    struct VantaTokenResponse {
+        access_token: String,
+    }
     let token: VantaTokenResponse = r.json().await.context("Failed getting token")?;
-    let accounts = VantaUserAccounts {
-        resource_id: resource_id.clone(),
+
+    #[derive(Serialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct VantaSyncRequest<T: Serialize + std::fmt::Debug> {
+        resource_id: String,
+        resources: Vec<T>,
+    }
+
+    let request = VantaSyncRequest {
+        resource_id,
         resources,
     };
-
     let request = client
-        .put("https://api.vanta.com/v1/resources/user_account")
+        .put(format!(
+            "https://api.vanta.com/v1/resources/{}",
+            resource_name
+        ))
         .bearer_auth(token.access_token)
-        .json(&accounts)
+        .json(&request)
         .build()
-        .context("Failed building users request")?;
-
+        .with_context(|| format!("Failed building {resource_name} request"))?;
     let r = client
         .execute(request)
         .await
-        .context("Failed executing users request")?;
-
+        .with_context(|| format!("Failed executing {resource_name} request"))?;
     if let Err(e) = r.error_for_status_ref() {
         let text = r.text().await?;
-        return Err(e).context(format!("Failed executing users request: {text}"));
+        return Err(e).context(format!("Failed executing {resource_name} request: {text}"));
     }
-
+    #[derive(Deserialize, Debug)]
+    struct VantaSyncResponse {
+        success: bool,
+    }
     let response: VantaSyncResponse = r
         .json()
         .await
         .context("Failed deserializing sync response")?;
-
     if !response.success {
-        bail!("Failed syncing vanta users");
+        bail!("Failed syncing vanta {resource_name}");
     }
-
-    info!("Successfully synced vanta users");
+    info!("Successfully synced vanta {resource_name}");
     Ok(())
 }
 
@@ -280,13 +292,6 @@ struct VantaHostResource {
     custom_properties: VantaHostResourceCustom,
 }
 
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct VantaHostResources {
-    resource_id: String,
-    resources: Vec<VantaHostResource>,
-}
-
 pub async fn push_hosts(state: &State) -> Result<()> {
     let config = &state.config;
     let db = &state.db;
@@ -360,63 +365,14 @@ pub async fn push_hosts(state: &State) -> Result<()> {
         }
     }
 
-    let client = reqwest::Client::new();
-
-    let r = client
-        .post("https://api.vanta.com/oauth/token")
-        .json(&VantaTokenRequest {
-            client_id,
-            client_secret,
-            scope: "connectors.self:write-resource",
-            grant_type: "client_credentials",
-        })
-        .build()
-        .context("Failed building token request")?;
-
-    let r = client
-        .execute(r)
-        .await
-        .context("Faild executing token request")?;
-
-    if let Err(e) = r.error_for_status_ref() {
-        let text = r.text().await?;
-        return Err(e).context(format!("Faild executing token request: {text}"));
-    }
-
-    let token: VantaTokenResponse = r.json().await.context("Failed getting token")?;
-
-    let resources = VantaHostResources {
-        resource_id: resource_id.clone(),
+    vanta_sync(
+        client_id,
+        client_secret,
+        "custom_resource",
+        resource_id.clone(),
         resources,
-    };
-
-    let request = client
-        .put("https://api.vanta.com/v1/resources/custom_resource")
-        .bearer_auth(token.access_token)
-        .json(&resources)
-        .build()
-        .context("Failed building hosts request")?;
-
-    let r = client
-        .execute(request)
-        .await
-        .context("Failed executing hosts request")?;
-
-    if let Err(e) = r.error_for_status_ref() {
-        let text = r.text().await?;
-        return Err(e).context(format!("Failed executing hosts request: {text}"));
-    }
-
-    let response: VantaSyncResponse = r
-        .json()
-        .await
-        .context("Failed deserializing sync response")?;
-
-    if !response.success {
-        bail!("Failed syncing vanta hosts");
-    }
-
-    info!("Successfully synced vanta hosts");
+    )
+    .await?;
 
     Ok(())
 }
