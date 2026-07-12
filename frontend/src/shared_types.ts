@@ -165,6 +165,7 @@ export type IType = {
     hasSudoOn?: boolean;
     hasTriggers?: boolean;
     hasDepends?: boolean;
+    hasHostDisable?: boolean;
     containsName?: string;
     content?: Array<ITypeProp>;
     nameVariable?: string;
