@@ -15,26 +15,34 @@ use service_control::Service;
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
 use std::{borrow::Cow, path::PathBuf};
 use upgrade::{Setup, Upgrade};
+use vanta::{InstallServiceArgs, RemoveArgs};
 #[cfg(feature = "daemon")]
 mod client_daemon;
 #[cfg(feature = "daemon")]
 mod client_daemon_service;
+mod command;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
+mod disk_encryption;
 mod dyn_format;
+mod firewall;
 mod list_deployments;
 mod list_images;
 #[cfg(feature = "daemon")]
 mod persist_daemon;
 mod port;
+mod report;
 mod run;
+mod screen_lock;
 #[cfg(feature = "daemon")]
 mod service_control;
 mod service_deploy;
+mod system_info;
 #[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;
+mod vanta;
 
 use run::{Run, Shell};
 
@@ -109,6 +117,20 @@ enum Action {
     DebugServer,
     GetSecret(GetSecret),
     ProxySocket(ProxySocket),
+    /// Run Vanta compliance scans and print results (no auth needed)
+    VantaScan,
+    /// Register this machine with the server and install the compliance timer
+    VantaSetup,
+    /// Show registered machines and their last scan status
+    VantaStatus,
+    /// Remove a registered machine
+    VantaRemove(RemoveArgs),
+    /// Internal: write config and install systemd units (must run as root)
+    #[clap(hide = true)]
+    VantaInstallService(InstallServiceArgs),
+    /// Internal: daemon entry point invoked by the systemd service
+    #[clap(hide = true)]
+    VantaDaemon,
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -240,5 +262,11 @@ async fn main() -> Result<()> {
         Action::DebugServer => debug_server(config).await,
         Action::GetSecret(args) => get_secret(config, args).await,
         Action::ProxySocket(act) => port::proxy(config, act).await,
+        Action::VantaScan => vanta::scan().await,
+        Action::VantaSetup => vanta::setup(config).await,
+        Action::VantaStatus => vanta::status(config).await,
+        Action::VantaRemove(args) => vanta::remove(config, args).await,
+        Action::VantaInstallService(args) => vanta::install_service(args),
+        Action::VantaDaemon => vanta::daemon().await,
     }
 }
