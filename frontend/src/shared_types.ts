@@ -5,7 +5,7 @@ export type JsonValue =
     | string
     | boolean
     | Array<JsonValue>
-    | { [key in string]?: JsonValue }
+    | { [key in string]: JsonValue }
     | null;
 
 export type JsonMap = { [key in string]?: JsonValue };
@@ -165,7 +165,6 @@ export type IType = {
     hasSudoOn?: boolean;
     hasTriggers?: boolean;
     hasDepends?: boolean;
-    hasHostDisable?: boolean;
     containsName?: string;
     content?: Array<ITypeProp>;
     nameVariable?: string;
@@ -208,7 +207,7 @@ export type IObjectDigest = {
 export type IDeploymentTrigger = {
     typeId: number;
     script: string;
-    content: { [key in string]?: JsonValue };
+    content: { [key in string]: JsonValue };
     title: string;
 };
 
@@ -223,8 +222,8 @@ export type IDeploymentObject = {
     action: DEPLOYMENT_OBJECT_ACTION;
     script: string;
     prevScript: string | null;
-    nextContent: { [key in string]?: JsonValue } | null;
-    prevContent: { [key in string]?: JsonValue } | null;
+    nextContent: { [key in string]: JsonValue } | null;
+    prevContent: { [key in string]: JsonValue } | null;
     id: number | null;
     typeId: number;
     typeName: string;
@@ -250,7 +249,7 @@ export type IFetchObject = { id: number };
 
 export type IObjectChanged = {
     id: number;
-    object: Array<IObject2<{ [key in string]?: JsonValue }>>;
+    object: Array<IObject2<{ [key in string]: JsonValue }>>;
 };
 
 export type ISetPageAction = { page: IPage };
@@ -300,7 +299,7 @@ export type IAddMessage = { message: IMessage };
 
 export type ISetMessagesDismissed = { ids: Array<number>; dismissed: boolean; source: ISource };
 
-export type ISaveObject = { id: number; obj?: IObject2<{ [key in string]?: JsonValue }> | null };
+export type ISaveObject = { id: number; obj?: IObject2<{ [key in string]: JsonValue }> | null };
 
 export type ISearch = { ref: Ref; pattern: string };
 
@@ -323,7 +322,7 @@ export type IHostUp = { id: number };
 
 export type IDeployObject = { id: number | null; redeploy: boolean; cancel: boolean };
 
-export type IMarkDeployed = Record<string, unknown>;
+export type IMarkDeployed = Record<symbol, never>;
 
 export type IDeleteObject = { id: number };
 
@@ -335,7 +334,7 @@ export type ISetDeploymentMessage = { message: string };
 
 export type ISetDeploymentObjects = { objects: Array<IDeploymentObject> };
 
-export type IClearDeploymentLog = Record<string, unknown>;
+export type IClearDeploymentLog = Record<symbol, never>;
 
 export type IAddDeploymentLog = { bytes: string };
 
@@ -345,11 +344,11 @@ export type ISource = "server" | "webclient";
 
 export type IToggleDeploymentObject = { index: number | null; enabled: boolean; source: ISource };
 
-export type IStopDeployment = Record<string, unknown>;
+export type IStopDeployment = Record<symbol, never>;
 
-export type IStartDeployment = Record<string, unknown>;
+export type IStartDeployment = Record<symbol, never>;
 
-export type ICancelDeployment = Record<string, unknown>;
+export type ICancelDeployment = Record<symbol, never>;
 
 export type IAlert = { message: string; title: string };
 
@@ -368,7 +367,6 @@ export type IAuthStatus = {
     session: string | null;
     sslname: string | null;
     authDays: number | null;
-    /** Seconds the client must wait before the server will accept the next login attempt. */
     rateLimitDelay: number | null;
 };
 
@@ -376,7 +374,7 @@ export type ILogin = { user: string; pwd: string; otp: string | null };
 
 export type ILogout = { forgetPwd: boolean; forgetOtp: boolean };
 
-export type IRequestInitialState = Record<string, unknown>;
+export type IRequestInitialState = Record<symbol, never>;
 
 export type ISubscribeStatValues = { target: number; host: number; values: Array<string> | null };
 
@@ -434,7 +432,7 @@ export type DockerImageTag = {
     time: number;
     user: string;
     pin: boolean;
-    labels: { [key in string]?: string };
+    labels: { [key in string]: string };
     removed: number | null;
     pinnedImageTag: boolean;
 };
@@ -489,7 +487,7 @@ export type IDockerContainerForget = { host: number; container: string };
 
 export type IDockerListImageByHash = { hash: Array<string>; ref: Ref };
 
-export type IDockerListImageByHashRes = { ref: Ref; tags: { [key in string]?: DockerImageTag } };
+export type IDockerListImageByHashRes = { ref: Ref; tags: { [key in string]: DockerImageTag } };
 
 export type IDockerImageSetPin = { id: number; pin: boolean };
 
@@ -524,9 +522,9 @@ export type ModifiedFile = {
     path: string;
 };
 
-export type IModifiedFilesScan = Record<string, unknown>;
+export type IModifiedFilesScan = Record<symbol, never>;
 
-export type IModifiedFilesList = Record<string, unknown>;
+export type IModifiedFilesList = Record<symbol, never>;
 
 export type IModifiedFilesChanged = {
     lastScanTime: number | null;
@@ -544,7 +542,7 @@ export type IModifiedFilesResolve = {
     newCurrent: string | null;
 };
 
-export type IDebug = Record<string, unknown>;
+export type IDebug = Record<symbol, never>;
 
 export type IRunCommand = { id: number; host: string; command: string; args: Array<string> };
 
@@ -556,7 +554,7 @@ export type IRunCommandFinished = { id: number; status: number };
 
 export type IGetSecret = { name: string; host: string | null };
 
-export type IGetSecretRes = { ref: Ref; id: number | null };
+export type IGetObjectIdRes = { ref: Ref; id: number | null };
 
 export type IServerAction =
     | ({ type: "AddDeploymentLog" } & IAddDeploymentLog)
@@ -661,7 +659,7 @@ export type ICommandSpawn = {
     forward_stdin: boolean;
     forward_stdout: boolean;
     forward_stderr: boolean;
-    env: { [key in string]?: string } | null;
+    env: { [key in string]: string } | null;
     cwd: string | null;
 };
 
