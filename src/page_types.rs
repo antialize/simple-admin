@@ -71,6 +71,7 @@ pub enum IPage {
     Object(IObjectPage),
     ObjectList(IObjectListPage),
     Search,
+    DeveloperMachines,
 }
 impl ::ts_rs::TS for IPage {
     type WithoutGenerics = IPage;
@@ -98,7 +99,8 @@ impl ::ts_rs::TS for IPage {
         | { type: PAGE_TYPE.ModifiedFiles }\
         | ({ type: PAGE_TYPE.Object } & IObjectPage)\
         | ({ type: PAGE_TYPE.ObjectList } & IObjectListPage)\
-        | { type: PAGE_TYPE.Search };"
+        | { type: PAGE_TYPE.Search }\
+        | { type: PAGE_TYPE.DeveloperMachines };"
             .to_string()
     }
 
@@ -189,6 +191,9 @@ impl Serialize for IPage {
             IPage::Search => {
                 s.serialize_entry("type", &12)?;
             }
+            IPage::DeveloperMachines => {
+                s.serialize_entry("type", &13)?;
+            }
         }
         s.end()
     }
@@ -231,6 +236,7 @@ impl<'de> serde::Deserialize<'de> for IPage {
                 10 => IPage::Object(Deserialize::deserialize(value).map_err(D::Error::custom)?),
                 11 => IPage::ObjectList(Deserialize::deserialize(value).map_err(D::Error::custom)?),
                 12 => IPage::Search,
+                13 => IPage::DeveloperMachines,
                 type_ => return Err(D::Error::custom(format!("Unsupported type {type_}"))),
             },
         )
@@ -253,6 +259,7 @@ pub fn export_ts(config: &Config) -> Vec<String> {
     Object = 10, \
     ObjectList = 11, \
     Search = 12, \
+    DeveloperMachines = 13, \
 }"
         .to_string(),
         IObjectListPage::export_to_string(config).unwrap(),

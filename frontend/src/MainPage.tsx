@@ -1,5 +1,6 @@
 import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
+import { DeveloperMachines } from "./DeveloperMachines";
 import Deployment from "./Deployment";
 import { DockerImageHistory, DockerImages } from "./DockerImages";
 import { DockerServiceDetails, DockerServiceHistory, DockerServices } from "./DockerServices";
@@ -62,6 +63,8 @@ export const MainPage = observer(function MainPage() {
             return <DockerImageHistory />;
         case PAGE_TYPE.Search:
             return <Search />;
+        case PAGE_TYPE.DeveloperMachines:
+            return <DeveloperMachines />;
         default:
             never(p, "Unhandled page type");
     }

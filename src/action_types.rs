@@ -1571,7 +1571,7 @@ pub fn export_ts(config: &Config) -> Vec<String> {
         IRunCommandOutput::export_to_string(config).unwrap(),
         IRunCommandFinished::export_to_string(config).unwrap(),
         IGetSecret::export_to_string(config).unwrap(),
-        IGetObjectIdRes::export_to_string(config).unwrap(),
+        IGetSecretRes::export_to_string(config).unwrap(),
         IServerAction::export_to_string(config).unwrap(),
         IClientAction::export_to_string(config).unwrap(),
         IResponse::export_to_string(config).unwrap(),

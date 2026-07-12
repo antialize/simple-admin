@@ -55,6 +55,9 @@ class PageState {
             case PAGE_TYPE.DockerImageHistory:
                 nullCheck(state.dockerImages).loadImageHistory(p.project, p.tag);
                 break;
+            case PAGE_TYPE.DeveloperMachines:
+                nullCheck(state.developerMachines).load();
+                break;
             default:
                 never(p, "Unhandled page");
         }
@@ -144,6 +147,9 @@ class PageState {
             case PAGE_TYPE.Search:
                 o.page = "search";
                 break;
+            case PAGE_TYPE.DeveloperMachines:
+                o.page = "developerMachines";
+                break;
             default:
                 never(page, "Unhandled page");
         }
@@ -223,6 +229,9 @@ class PageState {
                 break;
             case "search":
                 this.current = { type: PAGE_TYPE.Search };
+                break;
+            case "developerMachines":
+                this.current = { type: PAGE_TYPE.DeveloperMachines };
                 break;
             default:
                 this.current = { type: PAGE_TYPE.Dashbord };

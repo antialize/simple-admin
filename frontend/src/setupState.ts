@@ -1,4 +1,5 @@
 import { ActionTargets } from "./ActionTargets";
+import DeveloperMachinesState from "./DeveloperMachinesState";
 import DockerImagesState from "./DockerImagesState";
 import DockerrvicesState from "./DockerServicesState";
 import DeploymentState from "./deployment/DeploymentState";
@@ -17,6 +18,7 @@ function setupState() {
     state.dockerContainers = new DockerrvicesState();
     state.modifiedFiles = new ModifiedFilesState();
     state.search = new SearchState();
+    state.developerMachines = new DeveloperMachinesState();
 }
 
 export default setupState;
