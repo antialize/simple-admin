@@ -170,6 +170,8 @@ pub struct Connection {
     pwd: bool,
     pub user: Option<String>,
     pub server_host: String,
+    pub server_port: u16,
+    pub server_insecure: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -224,6 +226,8 @@ impl Connection {
             pwd: false,
             user: None,
             server_host,
+            server_port: config.server_port,
+            server_insecure: config.server_insecure == Some(true),
         };
 
         con.send(&IClientAction::RequestAuthStatus(IRequestAuthStatus {

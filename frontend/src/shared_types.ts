@@ -596,7 +596,9 @@ export type IServerAction =
     | ({ type: "SocketRecv" } & ISocketRecv)
     | ({ type: "CommandStdout" } & ICommandStdout)
     | ({ type: "CommandStderr" } & ICommandStderr)
-    | ({ type: "CommandFinished" } & ICommandFinished);
+    | ({ type: "CommandFinished" } & ICommandFinished)
+    | ({ type: "VantaRegisterMachineRes" } & IVantaRegisterMachineRes)
+    | ({ type: "VantaListMachinesRes" } & IVantaListMachinesRes);
 
 export type IClientAction =
     | ({ type: "CancelDeployment" } & ICancelDeployment)
@@ -641,7 +643,10 @@ export type IClientAction =
     | ({ type: "SocketSend" } & ISocketSend)
     | ({ type: "CommandSpawn" } & ICommandSpawn)
     | ({ type: "CommandStdin" } & ICommandStdin)
-    | ({ type: "CommandSignal" } & ICommandSignal);
+    | ({ type: "CommandSignal" } & ICommandSignal)
+    | ({ type: "VantaRegisterMachine" } & IVantaRegisterMachine)
+    | ({ type: "VantaListMachines" } & IVantaListMachines)
+    | ({ type: "VantaRemoveMachine" } & IVantaRemoveMachine);
 
 export type IResponse = { msg_id: number; error: string | null };
 
@@ -675,3 +680,21 @@ export type ICommandStdout = { command_id: number; data: string | null };
 export type ICommandStderr = { command_id: number; data: string | null };
 
 export type ICommandFinished = { command_id: number; code: number; signal: number | null };
+
+export type IVantaRegisterMachine = { hostname: string };
+
+export type IVantaRegisterMachineRes = { host_uuid: string; secret: string };
+
+export type IVantaMachine = {
+    host_uuid: string;
+    username: string;
+    hostname: string;
+    last_contact: number | null;
+    last_status: JsonValue | null;
+};
+
+export type IVantaListMachines = Record<symbol, never>;
+
+export type IVantaListMachinesRes = { machines: Array<IVantaMachine> };
+
+export type IVantaRemoveMachine = { msg_id: number; host_uuid: string };

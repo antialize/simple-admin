@@ -37,6 +37,7 @@ mod setup;
 mod state;
 mod terminal;
 mod vanta;
+mod vanta_developer;
 mod variabels;
 mod web_util;
 mod webclient;

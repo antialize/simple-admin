@@ -28,6 +28,8 @@ pub struct Config {
     pub vanta_users_resource: Option<String>,
     #[serde(default)]
     pub vanta_hosts_resource: Option<String>,
+    #[serde(default)]
+    pub vanta_developer_resource: Option<String>,
 }
 
 pub fn read_config() -> Result<Config> {

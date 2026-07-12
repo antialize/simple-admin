@@ -60,6 +60,7 @@ use sadmin2::{
         IClientAction, ICommandFinished, ICommandSignal, ICommandSpawn, ICommandStderr,
         ICommandStdin, ICommandStdout, IGetSecretRes, IResponse, IRunCommand, IRunCommandFinished,
         IRunCommandOutput, IServerAction, ISocketClose, ISocketConnect, ISocketRecv, ISocketSend,
+        IVantaListMachinesRes, IVantaMachine, IVantaRegisterMachineRes,
     },
     client_message::{
         ClientHostMessage, CommandSpawnMessage, DataSource, HostClientMessage, RunScriptMessage,
@@ -2079,6 +2080,142 @@ os.execv(sys.argv[1], sys.argv[1:])
                 let r = self.handle_command_stdin(&rt, act).await;
                 self.send_response(&rt, msg_id, r).await?;
             }
+            IClientAction::VantaRegisterMachine(act) => {
+                let auth = self.get_auth();
+                if !auth.auth {
+                    self.close(403).await?;
+                    return Ok(());
+                }
+                let Some(username) = auth.user else {
+                    self.close(403).await?;
+                    return Ok(());
+                };
+                set_location!(rt);
+                let user_email: Option<String> = {
+                    use sadmin2::type_types::USER_ID;
+                    if let Ok(Some(row)) = query!(
+                        "SELECT `content` FROM `objects` WHERE `type`=? AND `name`=? AND `newest`=true",
+                        USER_ID, username
+                    )
+                    .fetch_optional(&state.db)
+                    .await
+                    {
+                        serde_json::from_str::<crate::db::UserContent>(&row.content)
+                            .ok()
+                            .and_then(|c| c.email)
+                    } else {
+                        None
+                    }
+                };
+                let host_uuid = uuid::Uuid::new_v4().to_string();
+                let raw_secret: String = {
+                    use rand::RngExt;
+                    hex::encode(rand::rng().random::<[u8; 32]>())
+                };
+                let secret_hash = {
+                    use sha2::{Digest, Sha256};
+                    let mut h = Sha256::new();
+                    h.update(raw_secret.as_bytes());
+                    hex::encode(h.finalize())
+                };
+                query!(
+                    "INSERT INTO `developer_machines` (`host_uuid`, `secret_hash`, `username`, `user_email`, `hostname`) VALUES (?, ?, ?, ?, ?)",
+                    host_uuid, secret_hash, username, user_email, act.hostname
+                )
+                .execute(&state.db)
+                .await
+                .context("Inserting developer machine")?;
+                set_location!(rt);
+                self.send_message(
+                    &rt,
+                    IServerAction::VantaRegisterMachineRes(IVantaRegisterMachineRes {
+                        host_uuid,
+                        secret: raw_secret,
+                    }),
+                )
+                .await?;
+            }
+            IClientAction::VantaListMachines(_act) => {
+                let auth = self.get_auth();
+                if !auth.auth {
+                    self.close(403).await?;
+                    return Ok(());
+                }
+                set_location!(rt);
+                let machines: Vec<IVantaMachine> = if auth.admin {
+                    query!(
+                        "SELECT `host_uuid`, `username`, `hostname`, `last_contact`, `last_status` FROM `developer_machines`"
+                    )
+                    .fetch_all(&state.db)
+                    .await
+                    .context("Listing all developer machines")?
+                    .into_iter()
+                    .map(|r| IVantaMachine {
+                        host_uuid: r.host_uuid,
+                        username: r.username,
+                        hostname: r.hostname,
+                        last_contact: r.last_contact,
+                        last_status: r.last_status.as_deref().and_then(|s| serde_json::from_str(s).ok()),
+                    })
+                    .collect()
+                } else {
+                    let username = auth.user.as_deref().unwrap_or("").to_string();
+                    query!(
+                        "SELECT `host_uuid`, `username`, `hostname`, `last_contact`, `last_status` FROM `developer_machines` WHERE `username` = ?",
+                        username
+                    )
+                    .fetch_all(&state.db)
+                    .await
+                    .context("Listing user developer machines")?
+                    .into_iter()
+                    .map(|r| IVantaMachine {
+                        host_uuid: r.host_uuid,
+                        username: r.username,
+                        hostname: r.hostname,
+                        last_contact: r.last_contact,
+                        last_status: r.last_status.as_deref().and_then(|s| serde_json::from_str(s).ok()),
+                    })
+                    .collect()
+                };
+                set_location!(rt);
+                self.send_message(
+                    &rt,
+                    IServerAction::VantaListMachinesRes(IVantaListMachinesRes { machines }),
+                )
+                .await?;
+            }
+            IClientAction::VantaRemoveMachine(act) => {
+                let auth = self.get_auth();
+                if !auth.auth {
+                    self.close(403).await?;
+                    return Ok(());
+                }
+                let msg_id = act.msg_id;
+                set_location!(rt);
+                let r: Result<()> = async {
+                    if auth.admin {
+                        query!(
+                            "DELETE FROM `developer_machines` WHERE `host_uuid` = ?",
+                            act.host_uuid
+                        )
+                        .execute(&state.db)
+                        .await
+                        .context("Deleting machine (admin)")?;
+                    } else {
+                        let username = auth.user.as_deref().unwrap_or("").to_string();
+                        query!(
+                            "DELETE FROM `developer_machines` WHERE `host_uuid` = ? AND `username` = ?",
+                            act.host_uuid, username
+                        )
+                        .execute(&state.db)
+                        .await
+                        .context("Deleting machine")?;
+                    }
+                    Ok(())
+                }
+                .await;
+                self.send_response(&rt, msg_id, r).await?;
+            }
         }
         Ok(())
     }
@@ -2341,6 +2478,7 @@ pub async fn run_web_clients(state: Arc<State>, run_token: RunToken) -> Result<(
         .route("/docker/images/{project}", get(docker_web::images_handler))
         .route("/usedImages", post(docker_web::used_images))
         .route("/setup.sh", get(setup::setup))
+        .route("/vanta/scan", post(crate::vanta_developer::scan_handler))
         .nest("/v2/", docker_web::docker_api_routes()?)
         .layer(cors)
         .layer(axum::middleware::from_fn(request_logger))

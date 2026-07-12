@@ -1191,6 +1191,40 @@ pub struct ICommandFinished {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IVantaRegisterMachine {
+    pub hostname: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IVantaRegisterMachineRes {
+    pub host_uuid: String,
+    pub secret: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IVantaMachine {
+    pub host_uuid: String,
+    pub username: String,
+    pub hostname: String,
+    pub last_contact: Option<i64>,
+    pub last_status: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IVantaListMachines {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IVantaListMachinesRes {
+    pub machines: Vec<IVantaMachine>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
+pub struct IVantaRemoveMachine {
+    pub msg_id: u64,
+    pub host_uuid: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[serde(tag = "type", rename_all = "PascalCase")]
 pub enum IServerAction {
     AddDeploymentLog(IAddDeploymentLog),
@@ -1232,6 +1266,8 @@ pub enum IServerAction {
     CommandStdout(ICommandStdout),
     CommandStderr(ICommandStderr),
     CommandFinished(ICommandFinished),
+    VantaRegisterMachineRes(IVantaRegisterMachineRes),
+    VantaListMachinesRes(IVantaListMachinesRes),
 }
 
 impl IServerAction {
@@ -1276,6 +1312,8 @@ impl IServerAction {
             IServerAction::CommandStdout(_) => "CommandStdout",
             IServerAction::CommandStderr(_) => "CommandStderr",
             IServerAction::CommandFinished(_) => "CommandFinished",
+            IServerAction::VantaRegisterMachineRes(_) => "VantaRegisterMachineRes",
+            IServerAction::VantaListMachinesRes(_) => "VantaListMachinesRes",
         }
     }
 }
@@ -1326,6 +1364,9 @@ pub enum IClientAction {
     CommandSpawn(ICommandSpawn),
     CommandStdin(ICommandStdin),
     CommandSignal(ICommandSignal),
+    VantaRegisterMachine(IVantaRegisterMachine),
+    VantaListMachines(IVantaListMachines),
+    VantaRemoveMachine(IVantaRemoveMachine),
 }
 
 impl IClientAction {
@@ -1374,6 +1415,9 @@ impl IClientAction {
             IClientAction::CommandSpawn(_) => "CommandSpawn",
             IClientAction::CommandStdin(_) => "CommandStdin",
             IClientAction::CommandSignal(_) => "CommandSignal",
+            IClientAction::VantaRegisterMachine(_) => "VantaRegisterMachine",
+            IClientAction::VantaListMachines(_) => "VantaListMachines",
+            IClientAction::VantaRemoveMachine(_) => "VantaRemoveMachine",
         }
     }
 
@@ -1422,6 +1466,9 @@ impl IClientAction {
             IClientAction::CommandStdin(act) => Some(act.msg_id),
             IClientAction::CommandSignal(act) => Some(act.msg_id),
             IClientAction::GetSecret(_) => None,
+            IClientAction::VantaRegisterMachine(_) => None,
+            IClientAction::VantaListMachines(_) => None,
+            IClientAction::VantaRemoveMachine(act) => Some(act.msg_id),
         }
     }
 }
@@ -1538,6 +1585,12 @@ pub fn export_ts(config: &Config) -> Vec<String> {
         ICommandStdout::export_to_string(config).unwrap(),
         ICommandStderr::export_to_string(config).unwrap(),
         ICommandFinished::export_to_string(config).unwrap(),
+        IVantaRegisterMachine::export_to_string(config).unwrap(),
+        IVantaRegisterMachineRes::export_to_string(config).unwrap(),
+        IVantaMachine::export_to_string(config).unwrap(),
+        IVantaListMachines::export_to_string(config).unwrap(),
+        IVantaListMachinesRes::export_to_string(config).unwrap(),
+        IVantaRemoveMachine::export_to_string(config).unwrap(),
     ]
 }
 

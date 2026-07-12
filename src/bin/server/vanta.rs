@@ -387,6 +387,12 @@ pub async fn run_vanta(state: Arc<State>, run_token: RunToken) -> Result<()> {
             error!("Failed sending vanta hosts: {e:?}");
         }
 
+        if let Err(e) =
+            crate::vanta_developer::push_developer_machines(&state.config, &state.db).await
+        {
+            error!("Failed sending vanta developer machines: {e:?}");
+        }
+
         if cancelable(
             &run_token,
             tokio::time::sleep(Duration::from_secs(60 * 60 * 6)),

@@ -184,6 +184,19 @@ pub async fn setup(db: &SqlitePool) -> Result<i64> {
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS `sessions_sid` ON `sessions` (`sid`)")
         .await?;
 
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS `developer_machines` (
+            `host_uuid` TEXT PRIMARY KEY,
+            `secret_hash` TEXT NOT NULL,
+            `username` TEXT NOT NULL,
+            `user_email` TEXT,
+            `hostname` TEXT NOT NULL,
+            `last_status` TEXT,
+            `last_contact` INTEGER
+        )",
+    )
+    .await?;
+
     // for ((name, value) in &[
     //     ("host", hostId),
     //     ("user", userId),
