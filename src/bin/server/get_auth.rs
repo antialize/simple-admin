@@ -4,7 +4,11 @@ use chrono::TimeDelta;
 use qusql_sqlx_type::query;
 
 /// How often the user must run 'sadmin auth' to retype their password.
-const USER_REAUTH_INTERVAL: TimeDelta = TimeDelta::hours(12);
+/// This timeout is used for three kinds of authentication expiry:
+/// - get_auth(), which checks the session age on every request to the sadmin server
+/// - handle_generate_key(), generating the user's SSL certificate (for talking to services)
+/// - handle_generate_key(), generating the user's SSH certificate (for connecting to servers)
+pub const USER_REAUTH_INTERVAL: TimeDelta = TimeDelta::hours(12);
 /// How often the user must run 'sadmin auth' and re-validate with 2nd factor (TOTP).
 const USER_REAUTH_OTP_INTERVAL: TimeDelta = TimeDelta::days(64);
 
