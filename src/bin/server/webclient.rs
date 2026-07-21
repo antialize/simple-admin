@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::Bytes;
+use chrono::TimeDelta;
 use futures::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
@@ -199,7 +200,7 @@ impl WebClient {
     }
 
     async fn handle_generate_key_inner(
-        auth_days: u32,
+        auth_duration: TimeDelta,
         auth_user: Option<&str>,
         sslname: String,
         state: &State,
@@ -212,7 +213,7 @@ impl WebClient {
         let ca_crt = &state.docker.ca_crt;
         let key = crt::generate_key().await?;
         let srs = crt::generate_srs(&key, &format!("{sslname}.user")).await?;
-        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth_days).await?;
+        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth_duration).await?;
         let mut res = IGenerateKeyRes {
             r#ref: act.r#ref,
             ca_pem: ca_crt.clone(),
@@ -235,7 +236,7 @@ impl WebClient {
                         user,
                         ssh_host_ca_key,
                         &ssh_public_key,
-                        1,
+                        TimeDelta::days(1),
                         crt::Type::User,
                     )
                     .await?,
@@ -262,7 +263,7 @@ impl WebClient {
             return Ok(());
         };
         let res = match Self::handle_generate_key_inner(
-            auth.auth_days.unwrap_or(1),
+            TimeDelta::days(auth.auth_days.unwrap_or(1)),
             auth.user.as_deref(),
             sslname,
             state,

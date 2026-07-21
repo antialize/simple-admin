@@ -10,6 +10,7 @@ use crate::{
     webclient::{self, WebClient},
 };
 
+use chrono::TimeDelta;
 use sadmin2::{
     action_types::IDockerDeployLog,
     client_message::{DataMessage, DeployServiceMessage, FailureMessage, SuccessMessage},
@@ -442,9 +443,10 @@ async fn deploy_server_inner2(
                 Some(Subcert::More(vec)) => vec,
                 None => Vec::new(),
             };
-            let my_crt = crt::generate_crt(ca_key, ca_crt, &my_srs, &ssl_subcerts, 999)
-                .await
-                .context("generate_crt")?;
+            let my_crt =
+                crt::generate_crt(ca_key, ca_crt, &my_srs, &ssl_subcerts, TimeDelta::days(999))
+                    .await
+                    .context("generate_crt")?;
             variables.insert("ca_pem".into(), crt::strip(ca_crt).to_string().into());
             variables.insert("ssl_key".into(), crt::strip(&my_key).to_string().into());
             variables.insert("ssl_pem".into(), crt::strip(&my_crt).to_string().into());
