@@ -1788,7 +1788,7 @@ It will be hard killed in {:?} if it does not stop before that. ",
         bind_keys: &mut Vec<String>,
         deploy_user: String,
     ) -> Result<(ServiceInstance, ServiceStatus)> {
-        info!("Start instance {}", &desc.name);
+        info!("Start instance {}", desc.name);
 
         // Find user
         let user = match &desc.user {
@@ -2579,7 +2579,7 @@ impl client_daemon::Client {
         for (name, state) in services? {
             let status: ServiceStatus = serde_json::from_str(&state)
                 .with_context(|| format!("Unable to load state for {name}"))?;
-            info!("Restore service {}, {:?}", name, &status.process_key,);
+            info!("Restore service {}, {:?}", name, status.process_key);
             let dead = if let Some(process_key) = &status.process_key {
                 let (dead_send, dead_recv) = tokio::sync::oneshot::channel();
                 self.dead_process_handlers
@@ -2596,7 +2596,7 @@ impl client_daemon::Client {
         let process_keys = self
             .persist_list_processes(Some("service.".to_string()))
             .await?;
-        info!("Process keys {:?}", &process_keys);
+        info!("Process keys {:?}", process_keys);
         for (name, status, dead) in service_info {
             let running = status
                 .process_key
