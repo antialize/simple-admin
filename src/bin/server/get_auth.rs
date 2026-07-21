@@ -1,6 +1,12 @@
 use crate::{action_types::IAuthStatus, db::get_user_content, state::State};
 use anyhow::{Context, Result};
+use chrono::TimeDelta;
 use qusql_sqlx_type::query;
+
+/// How often the user must run 'sadmin auth' to retype their password.
+const USER_REAUTH_INTERVAL: TimeDelta = TimeDelta::hours(12);
+/// How often the user must run 'sadmin auth' and re-validate with 2nd factor (TOTP).
+const USER_REAUTH_OTP_INTERVAL: TimeDelta = TimeDelta::days(64);
 
 pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> Result<IAuthStatus> {
     let Some(sid) = sid else {
@@ -94,19 +100,19 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
         };
 
         let auth_days = content.auth_days.and_then(|v| v.parse::<u32>().ok());
-        let pwd_expiration: i64 = if &user == "docker_client" {
-            60 * 60
+        let pwd_expiration = if &user == "docker_client" {
+            TimeDelta::hours(1)
         } else if let Some(auth_days) = auth_days {
-            auth_days as i64 * 60 * 60 * 24
+            TimeDelta::days(auth_days as i64)
         } else {
-            12 * 60 * 60 //Passwords time out after 12 hours
+            USER_REAUTH_INTERVAL
         };
 
-        let otp_expiration: i64 = if &user == "docker_client" {
-            60 * 60
+        let otp_expiration = if &user == "docker_client" {
+            TimeDelta::hours(1)
         } else {
-            64 * 24 * 60 * 60
-        }; //otp time out after 2 months
+            USER_REAUTH_OTP_INTERVAL
+        };
 
         let now = std::time::SystemTime::now();
         let now = now
@@ -115,11 +121,11 @@ pub async fn get_auth(state: &State, host: Option<&str>, sid: Option<&str>) -> R
             .as_secs() as i64;
         let pwd = row
             .pwd
-            .map(|v| v + pwd_expiration > now)
+            .map(|v| v + pwd_expiration.num_seconds() > now)
             .unwrap_or_default();
         let otp = row
             .otp
-            .map(|v| v + i64::max(otp_expiration, pwd_expiration) > now)
+            .map(|v| v + i64::max(otp_expiration.num_seconds(), pwd_expiration.num_seconds()) > now)
             .unwrap_or_default();
 
         Ok(IAuthStatus {
