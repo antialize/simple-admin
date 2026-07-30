@@ -1640,7 +1640,7 @@ async fn perform_deploy(rt: &RunToken, state: &State, mark_only: bool) -> Result
         }
         set_location!(rt);
         mut_deployment(state, |deployment| {
-            deployment.add_header(&format!("{} ({})", &object.title, &object.type_name), false);
+            deployment.add_header(&format!("{} ({})", object.title, object.type_name), false);
             deployment.set_object_status(index, DeploymentObjectStatus::Deplying);
             Ok(())
         })

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, bail};
 use bytes::{Buf, BytesMut};
+use chrono::TimeDelta;
 use log::{error, info, warn};
 use qusql_sqlx_type::query;
 use rand::RngExt;
@@ -546,7 +547,7 @@ impl HostClient {
         let r = db::get_root_variables(state).await?;
         set_location!(rt);
         if let Some(ssh_host_ca_key) = r.get("sshHostCaKey") {
-            const VALIDITY_DAYS: u32 = 7;
+            const SSH_CRT_VALIDITY: TimeDelta = TimeDelta::days(7);
             set_location!(rt);
             let ssh_crt: String = crt::generate_ssh_crt(
                 &format!("{} sadmin host", self.hostname),
@@ -556,7 +557,7 @@ impl HostClient {
                 ),
                 ssh_host_ca_key,
                 &host_key,
-                VALIDITY_DAYS,
+                SSH_CRT_VALIDITY,
                 crt::Type::Host,
             )
             .await?;
@@ -656,7 +657,7 @@ impl HostClient {
             Some(domain) if !domain.is_empty() => format!("{}.{}", nodename, domain),
             _ => nodename.clone(),
         };
-        const VALIDITY_DAYS: u32 = 9999;
+        const NFS_TLS_VALIDITY: TimeDelta = TimeDelta::days(9999);
         set_location!(rt);
         let (ca_key, ca_crt) = nfs_group_ca(state, &nfs_group).await?;
         let mut sans = vec![self.hostname.clone(), nodename.clone(), cn.clone()];
@@ -666,12 +667,14 @@ impl HostClient {
         let server_key = crt::generate_key().await?;
         let server_srs = crt::generate_srs(&server_key, &cn).await?;
         let server_crt =
-            crt::generate_crt_san(&ca_key, &ca_crt, &server_srs, &[], &sans, VALIDITY_DAYS).await?;
+            crt::generate_crt_san(&ca_key, &ca_crt, &server_srs, &[], &sans, NFS_TLS_VALIDITY)
+                .await?;
         set_location!(rt);
         let client_key = crt::generate_key().await?;
         let client_srs = crt::generate_srs(&client_key, &cn).await?;
         let client_crt =
-            crt::generate_crt_san(&ca_key, &ca_crt, &client_srs, &[], &sans, VALIDITY_DAYS).await?;
+            crt::generate_crt_san(&ca_key, &ca_crt, &client_srs, &[], &sans, NFS_TLS_VALIDITY)
+                .await?;
         set_location!(rt);
         self.run_shell("mkdir -p /etc/nfs-tls && chmod 700 /etc/nfs-tls".into())
             .await?;

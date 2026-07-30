@@ -115,7 +115,7 @@ async fn auth(config: Config) -> Result<()> {
     let mut con = Connection::open(config, false).await?;
     if con.authenticated() {
         con.get_key().await?;
-        println!("Already authenticated as {}.", &con.user.unwrap())
+        println!("Already authenticated as {}.", con.user.unwrap())
     } else {
         con.prompt_auth().await?;
         con.get_key().await?;
