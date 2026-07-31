@@ -39,8 +39,13 @@ function Variables(props: IProps) {
                             setVars();
                         }}
                         variant="standard"
-                        type={props.secret ? "password" : "text"}
-                        style={{ width: 500 }}
+                        type="text"
+                        style={
+                            {
+                                width: 500,
+                                WebkitTextSecurity: props.secret ? "disc" : undefined,
+                            } as any
+                        }
                     />
                 </td>
                 <td>
@@ -78,8 +83,10 @@ function Variables(props: IProps) {
                         setVars();
                     }}
                     variant="standard"
-                    type={props.secret ? "password" : "text"}
-                    style={{ width: 500 }}
+                    type="text"
+                    style={
+                        { width: 500, WebkitTextSecurity: props.secret ? "disc" : undefined } as any
+                    }
                 />
             </td>
             <td />
