@@ -3,6 +3,7 @@ use std::io;
 use std::process::Command;
 
 use anyhow::{Context, Result};
+use ini::Ini;
 
 use crate::command::try_run;
 use crate::report::ScreenLockResult;
@@ -120,38 +121,34 @@ fn check_kde() -> Result<Option<ScreenLockResult>> {
     }
     let home = env::var("HOME").context("HOME environment variable is not set")?;
     let path = format!("{home}/.config/kscreenlockerrc");
-    let content = match std::fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+    let conf = match Ini::load_from_file(&path) {
+        Ok(conf) => conf,
+        Err(ini::Error::Io(err)) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
     };
-    let enabled = content
-        .lines()
-        .skip_while(|l| l.trim() != "[Daemon]")
-        .skip(1)
-        .take_while(|l| !l.trim_start().starts_with('['))
-        .find_map(|l| {
-            l.split_once('=')
-                .filter(|(k, _)| k.trim() == "Autolock")
-                .map(|(_, v)| v.trim() == "true")
-        })
-        .unwrap_or(false);
+    let daemon = conf.section(Some("Daemon"));
+    // KDE defaults Autolock and RequirePassword to true when absent from the file
+    let autolock = daemon
+        .and_then(|s| s.get("Autolock"))
+        .map(|v| v.trim() == "true")
+        .unwrap_or(true);
+    let require_password = daemon
+        .and_then(|s| s.get("RequirePassword"))
+        .map(|v| v.trim() == "true")
+        .unwrap_or(true);
+    // Without a required password the lock provides no real security
+    let enabled = autolock && require_password;
     // KDE Timeout is in minutes
-    let timeout_ms = content
-        .lines()
-        .skip_while(|l| l.trim() != "[Daemon]")
-        .skip(1)
-        .take_while(|l| !l.trim_start().starts_with('['))
-        .find_map(|l| {
-            l.split_once('=')
-                .filter(|(k, _)| k.trim() == "Timeout")
-                .and_then(|(_, v)| v.trim().parse::<i64>().ok())
-                .map(|mins| mins * 60 * 1000)
-        });
+    let timeout_ms = daemon
+        .and_then(|s| s.get("Timeout"))
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .map(|mins| mins * 60 * 1000);
     Ok(Some(ScreenLockResult {
         enabled,
         method: Some("kscreenlocker".to_string()),
-        details: Some(format!("plasmashell running, Autolock={enabled}")),
+        details: Some(format!(
+            "plasmashell running, Autolock={autolock}, RequirePassword={require_password}"
+        )),
         timeout_ms,
     }))
 }
