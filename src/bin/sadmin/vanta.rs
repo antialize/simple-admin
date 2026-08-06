@@ -19,6 +19,9 @@ const SERVICE_UNIT: &str = "/etc/systemd/system/simpleadmin-vanta.service";
 
 /// Scan the system and print the compliance report to stdout.
 pub async fn scan() -> Result<()> {
+    if current_uid() != 0 {
+        bail!("vanta-scan must be run as root");
+    }
     let report = crate::report::collect().context("Collecting compliance report")?;
     let json = serde_json::to_string_pretty(&report)?;
     println!("{json}");
@@ -28,6 +31,13 @@ pub async fn scan() -> Result<()> {
 /// Register this machine with the server and, via a sudo'd re-invocation,
 /// install the systemd timer/service that runs periodic compliance scans.
 pub async fn setup(config: Config) -> Result<()> {
+    if current_uid() == 0 {
+        bail!(
+            "vanta-setup must not be run as root (e.g. via sudo); run it as your normal \
+             user. It will re-invoke sudo itself for the privileged install step."
+        );
+    }
+
     let hostname = crate::system_info::hostname().context("Failed to get hostname")?;
 
     let mut con = Connection::open(config, true).await?;
@@ -144,15 +154,7 @@ pub struct InstallServiceArgs {
 
 /// Install the systemd timer and service for Vanta compliance scans. Must be run as root.
 pub fn install_service(args: InstallServiceArgs) -> Result<()> {
-    // Check UID via /proc/self/status
-    let status = fs::read_to_string("/proc/self/status").unwrap_or_default();
-    let uid: u32 = status
-        .lines()
-        .find(|l| l.starts_with("Uid:"))
-        .and_then(|l| l.split_whitespace().nth(1))
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(1);
-    if uid != 0 {
+    if current_uid() != 0 {
         bail!("vanta-install-service must be run as root (via sudo)");
     }
 
@@ -315,6 +317,13 @@ pub async fn remove(config: Config, args: RemoveArgs) -> Result<()> {
 /// scan (or the last scan is over a week old), report it to the server.
 /// Invoked once per systemd timer tick, not a long-running process.
 pub async fn scan_and_report() -> Result<()> {
+    if current_uid() != 0 {
+        bail!(
+            "vanta-scan-and-report must be run as root (via systemd). \
+             Do not run it manually."
+        );
+    }
+
     let conf: VantaConf = read_conf(ETC_CONF)
         .with_context(|| format!("Failed to read {ETC_CONF}. Run `sadmin vanta-setup` first."))?;
 
@@ -414,6 +423,18 @@ struct VantaConf {
 fn read_conf(path: &str) -> Result<VantaConf> {
     let data = fs::read(path).with_context(|| format!("Reading {path}"))?;
     serde_json::from_slice(&data).with_context(|| format!("Parsing {path}"))
+}
+
+/// Returns the real UID of the current process via /proc/self/status,
+/// defaulting to a non-zero value if it can't be determined.
+fn current_uid() -> u32 {
+    let status = fs::read_to_string("/proc/self/status").unwrap_or_default();
+    status
+        .lines()
+        .find(|l| l.starts_with("Uid:"))
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1)
 }
 
 /// Write a file with mode 600 (owner read/write only).
