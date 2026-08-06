@@ -97,7 +97,7 @@ export default class DockerrvicesState {
             const h = this.containerHistory.get(tag.host);
             if (!h) continue;
             const hh = h.get(tag.name);
-            if (!hh || hh.state !== "data") continue;
+            if (hh?.state !== "data") continue;
             hh.data.set(tag.id, tag);
         }
     }

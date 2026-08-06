@@ -5,6 +5,7 @@ import {
     type IObject2,
     type IType,
     type JsonMap,
+    type JsonValue,
     PAGE_TYPE,
     TypePropType,
 } from "./shared_types";
@@ -40,7 +41,7 @@ class ObjectState {
         const a: IClientAction = {
             type: "SaveObject",
             id: this.id,
-            obj: this.current,
+            obj: this.current as IObject2<{ [key in string]: JsonValue }>,
         };
         state.sendMessage(a);
         this.touched = true;

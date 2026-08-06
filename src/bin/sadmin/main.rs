@@ -15,26 +15,36 @@ use service_control::Service;
 use service_deploy::{ServiceDeploy, ServiceRedeploy};
 use std::{borrow::Cow, path::PathBuf};
 use upgrade::{Setup, Upgrade};
+#[cfg(target_os = "linux")]
+use vanta::{InstallServiceArgs, RemoveArgs};
 #[cfg(feature = "daemon")]
 mod client_daemon;
 #[cfg(feature = "daemon")]
 mod client_daemon_service;
+mod command;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
+mod disk_encryption;
 mod dyn_format;
+mod firewall;
 mod list_deployments;
 mod list_images;
 #[cfg(feature = "daemon")]
 mod persist_daemon;
 mod port;
+mod report;
 mod run;
+mod screen_lock;
 #[cfg(feature = "daemon")]
 mod service_control;
 mod service_deploy;
+mod system_info;
 #[cfg(feature = "daemon")]
 mod tokio_passfd;
 mod upgrade;
+#[cfg(target_os = "linux")]
+mod vanta;
 
 use run::{Run, Shell};
 
@@ -109,6 +119,26 @@ enum Action {
     DebugServer,
     GetSecret(GetSecret),
     ProxySocket(ProxySocket),
+    /// Run Vanta compliance scans and print results (no auth needed)
+    #[cfg(target_os = "linux")]
+    VantaScan,
+    /// Register this machine with the server and install the compliance timer
+    #[cfg(target_os = "linux")]
+    VantaSetup,
+    /// Show registered machines and their last scan status
+    #[cfg(target_os = "linux")]
+    VantaStatus,
+    /// Remove a registered machine
+    #[cfg(target_os = "linux")]
+    VantaRemove(RemoveArgs),
+    /// Internal: write config and install systemd units (must run as root)
+    #[cfg(target_os = "linux")]
+    #[clap(hide = true)]
+    VantaInstallService(InstallServiceArgs),
+    /// Internal: entry point invoked by the systemd service
+    #[cfg(target_os = "linux")]
+    #[clap(hide = true)]
+    VantaScanAndReport,
 }
 
 async fn auth(config: Config) -> Result<()> {
@@ -240,5 +270,17 @@ async fn main() -> Result<()> {
         Action::DebugServer => debug_server(config).await,
         Action::GetSecret(args) => get_secret(config, args).await,
         Action::ProxySocket(act) => port::proxy(config, act).await,
+        #[cfg(target_os = "linux")]
+        Action::VantaScan => vanta::scan().await,
+        #[cfg(target_os = "linux")]
+        Action::VantaSetup => vanta::setup(config).await,
+        #[cfg(target_os = "linux")]
+        Action::VantaStatus => vanta::status(config).await,
+        #[cfg(target_os = "linux")]
+        Action::VantaRemove(args) => vanta::remove(config, args).await,
+        #[cfg(target_os = "linux")]
+        Action::VantaInstallService(args) => vanta::install_service(args),
+        #[cfg(target_os = "linux")]
+        Action::VantaScanAndReport => vanta::scan_and_report().await,
     }
 }

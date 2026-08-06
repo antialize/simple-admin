@@ -1,5 +1,6 @@
 import { computed, makeObservable, observable } from "mobx";
 import type { ActionTargets } from "./ActionTargets";
+import type DeveloperMachinesState from "./DeveloperMachinesState";
 import type DockerImagesState from "./DockerImagesState";
 import type DockerrvicesState from "./DockerServicesState";
 import type DeploymentState from "./deployment/DeploymentState";
@@ -37,6 +38,9 @@ class State {
 
     @observable
     authUser: string | null = null;
+
+    @observable
+    authAdmin = false;
 
     @observable
     authOtp = false;
@@ -97,6 +101,9 @@ class State {
 
     @observable.shallow
     search: SearchState | null = null;
+
+    @observable.shallow
+    developerMachines: DeveloperMachinesState | null = null;
 
     @observable
     hostsUp = new Set<number>();
