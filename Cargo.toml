@@ -26,14 +26,12 @@ daemon = [
     "chrono",
     "hyper",
     "log",
-    "nix",
     "passfd",
     "rusqlite",
     "sdnotify",
     "tempfile",
     "tokio-tasks",
 ]
-nix = ["dep:nix"]
 
 all = ["daemon", "server"]
 
@@ -41,6 +39,11 @@ all = ["daemon", "server"]
 name = "simpleadmin-server"
 required-features = ["server"]
 path = "src/bin/server/main.rs"
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.31", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio", "term"] }
+rust-ini = "0.21"
 
 [dependencies]
 anyhow = "1"
@@ -62,7 +65,6 @@ indicatif = "0.18"
 itertools = "0.15"
 libc = {version="0.2", optional = true}
 log = {version = "0.4", optional=true}
-nix = { version = "0.31", default-features = false, features = ["signal", "user", "fs", "event", "socket", "uio", "term"], optional = true }
 passfd = {version = "0.1", optional=true}
 rand = "0.10"
 reqwest = {version = "0.13",  default-features = false, features=['json', 'rustls']}
@@ -91,4 +93,3 @@ uuid = {version="1", features = ["v4", "serde"], optional = true}
 webpki = "0.22"
 webpki-roots = "1"
 zip = {version= "8",  default-features = false, features=['deflate']}
-rust-ini = "0.21.3"

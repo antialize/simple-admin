@@ -19,7 +19,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: echo "${{ github.ref_name }}" > src/version.txt
-      - run: cargo build --release --features=daemon,nix
+      - run: cargo build --release --features=daemon
       - run: strip target/release/sadmin
       - run: zip --junk-paths sadmin-client target/release/sadmin
       - name: Upload Release Asset
