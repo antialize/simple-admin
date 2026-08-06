@@ -55,6 +55,12 @@ pub fn check_screen_lock() -> Result<ScreenLockResult> {
 }
 
 fn check_gnome() -> Result<Option<ScreenLockResult>> {
+    // gsettings returns compiled-in schema defaults even when no GNOME
+    // session is running (e.g. on KDE with gnome schemas installed), so
+    // require an actual GNOME session process before trusting its output.
+    if !process_running("gnome-shell")? {
+        return Ok(None);
+    }
     let Some(output) = try_run(Command::new("gsettings").args([
         "get",
         "org.gnome.desktop.screensaver",
