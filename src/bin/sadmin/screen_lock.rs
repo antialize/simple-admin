@@ -173,14 +173,16 @@ fn active_graphical_sessions() -> Result<Vec<UserSession>> {
         if session_type != "x11" && session_type != "wayland" {
             continue;
         }
-        let Some((uid, gid, home)) = passwd_entry(&name)? else {
+        let Some(user) = nix::unistd::User::from_name(&name)
+            .with_context(|| format!("Looking up user {name}"))?
+        else {
             continue;
         };
         sessions.push(UserSession {
             user: name,
-            uid,
-            gid,
-            home,
+            uid: user.uid.as_raw(),
+            gid: user.gid.as_raw(),
+            home: user.dir.to_string_lossy().into_owned(),
             session_type,
         });
     }
@@ -188,21 +190,6 @@ fn active_graphical_sessions() -> Result<Vec<UserSession>> {
     sessions.sort_by(|a, b| a.user.cmp(&b.user));
     sessions.dedup_by(|a, b| a.user == b.user);
     Ok(sessions)
-}
-
-/// Looks up a user's uid, gid and home directory from `/etc/passwd`.
-fn passwd_entry(name: &str) -> Result<Option<(u32, u32, String)>> {
-    let content = std::fs::read_to_string("/etc/passwd").context("Reading /etc/passwd")?;
-    Ok(content.lines().find_map(|line| {
-        let mut fields = line.split(':');
-        if fields.next()? != name {
-            return None;
-        }
-        let uid: u32 = fields.nth(1)?.parse().ok()?;
-        let gid: u32 = fields.next()?.parse().ok()?;
-        let home = fields.nth(1)?.to_string();
-        Some((uid, gid, home))
-    }))
 }
 
 fn check_gnome(session: &UserSession) -> Result<Option<ScreenLockResult>> {

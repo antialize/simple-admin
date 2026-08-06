@@ -25,20 +25,25 @@ mod command;
 mod connection;
 #[cfg(feature = "daemon")]
 mod debug_persist;
+#[cfg(target_os = "linux")]
 mod disk_encryption;
 mod dyn_format;
+#[cfg(target_os = "linux")]
 mod firewall;
 mod list_deployments;
 mod list_images;
 #[cfg(feature = "daemon")]
 mod persist_daemon;
 mod port;
+#[cfg(target_os = "linux")]
 mod report;
 mod run;
+#[cfg(target_os = "linux")]
 mod screen_lock;
 #[cfg(feature = "daemon")]
 mod service_control;
 mod service_deploy;
+#[cfg(target_os = "linux")]
 mod system_info;
 #[cfg(feature = "daemon")]
 mod tokio_passfd;

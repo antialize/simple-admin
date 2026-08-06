@@ -8,7 +8,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --features=daemon,nix,server
+      - run: cargo test --features=daemon,server
 
   fmt:
     name: Rustfmt
@@ -29,7 +29,7 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --features=daemon,nix,server -- -D warnings
+      - run: cargo clippy --features=daemon,server -- -D warnings
 
   build:
     name: Build Linux
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --features=daemon,nix,server
+      - run: cargo build --release --features=daemon,server
       - run: strip target/release/sadmin
       - uses: actions/upload-artifact@v4
         with:

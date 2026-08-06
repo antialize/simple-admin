@@ -101,7 +101,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
     let mut lines = 60;
     let mut cols = 120;
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     unsafe {
         use nix::libc::{STDIN_FILENO, TIOCGWINSZ, ioctl, winsize};
         let mut res: winsize = std::mem::zeroed();
@@ -123,7 +123,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
     )))
     .await?;
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     let old = {
         use nix::sys::termios::LocalFlags;
         let old = nix::sys::termios::tcgetattr(unsafe { std::os::fd::BorrowedFd::borrow_raw(0) })?;
@@ -189,7 +189,7 @@ pub async fn shell(config: Config, args: Shell) -> Result<()> {
         _ = handle_stdout => {}
     };
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     nix::sys::termios::tcsetattr(
         unsafe { std::os::fd::BorrowedFd::borrow_raw(0) },
         nix::sys::termios::SetArg::TCSANOW,
@@ -279,9 +279,9 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
     };
     pin!(process_stdin);
 
-    #[cfg(not(feature = "nix"))]
+    #[cfg(not(target_os = "linux"))]
     struct Forever;
-    #[cfg(not(feature = "nix"))]
+    #[cfg(not(target_os = "linux"))]
     impl Future for Forever {
         type Output = Result<std::convert::Infallible, anyhow::Error>;
         fn poll(
@@ -291,16 +291,16 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
             std::task::Poll::Pending
         }
     }
-    #[cfg(not(feature = "nix"))]
+    #[cfg(not(target_os = "linux"))]
     let forward_sighub = Forever;
-    #[cfg(not(feature = "nix"))]
+    #[cfg(not(target_os = "linux"))]
     let forward_sigterm = Forever;
-    #[cfg(not(feature = "nix"))]
+    #[cfg(not(target_os = "linux"))]
     let forward_sigusr1 = Forever;
-    #[cfg(not(feature = "nix"))]
+    #[cfg(not(target_os = "linux"))]
     let forward_sigusr2 = Forever;
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     async fn forward_signal(
         signal: i32,
         send: std::sync::Arc<crate::connection::ConnectionSend2>,
@@ -322,16 +322,16 @@ pub async fn run(config: Config, args: Run) -> Result<()> {
         }
     }
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     let forward_sighub = forward_signal(nix::libc::SIGHUP, send.clone(), command_id, next_msg_id);
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     let forward_sigterm = forward_signal(nix::libc::SIGTERM, send.clone(), command_id, next_msg_id);
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     let forward_sigusr1 = forward_signal(nix::libc::SIGUSR1, send.clone(), command_id, next_msg_id);
 
-    #[cfg(feature = "nix")]
+    #[cfg(target_os = "linux")]
     let forward_sigusr2 = forward_signal(nix::libc::SIGUSR2, send.clone(), command_id, next_msg_id);
 
     let send2 = send.clone();
