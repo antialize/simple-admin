@@ -1,7 +1,6 @@
 use anyhow::{Context, Result, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::Bytes;
-use chrono::TimeDelta;
 use futures::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
@@ -36,7 +35,7 @@ use crate::{
     deployment,
     docker::{deploy_service, list_deployment_history, list_deployments, redploy_service},
     docker_web,
-    get_auth::{USER_REAUTH_INTERVAL, get_auth},
+    get_auth::{get_auth},
     hostclient::{HostClient, JobHandle},
     modified_files, msg, setup,
     state::{LoginAttempts, State},
@@ -201,7 +200,7 @@ impl WebClient {
     }
 
     async fn handle_generate_key_inner(
-        auth_duration: TimeDelta,
+        auth_days: u32,
         auth_user: Option<&str>,
         sslname: String,
         state: &State,
@@ -214,7 +213,7 @@ impl WebClient {
         let ca_crt = &state.docker.ca_crt;
         let key = crt::generate_key().await?;
         let srs = crt::generate_srs(&key, &format!("{sslname}.user")).await?;
-        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth_duration).await?;
+        let crt = crt::generate_crt(ca_key, ca_crt, &srs, &[], auth_days).await?;
         let mut res = IGenerateKeyRes {
             r#ref: act.r#ref,
             ca_pem: ca_crt.clone(),
@@ -237,8 +236,7 @@ impl WebClient {
                         user,
                         ssh_host_ca_key,
                         &ssh_public_key,
-                        // Use same validity for SSL certificate and SSH certificate
-                        auth_duration,
+                        1,
                         crt::Type::User,
                     )
                     .await?,
@@ -264,14 +262,8 @@ impl WebClient {
             self.close(403).await?;
             return Ok(());
         };
-        // "auth_days" can be used to extend the validity of SSL and SSH certificates
-        let auth_duration = if let Some(days) = auth.auth_days {
-            TimeDelta::days(days as i64)
-        } else {
-            USER_REAUTH_INTERVAL
-        };
         let res = match Self::handle_generate_key_inner(
-            auth_duration,
+            auth.auth_days.unwrap_or(1),
             auth.user.as_deref(),
             sslname,
             state,
