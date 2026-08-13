@@ -1449,6 +1449,7 @@ pub async fn setup_deployment(
 ) -> Result<()> {
     if mut_deployment(state, move |deployment| {
         if deployment.status != DeploymentStatus::Done
+            && deployment.status != DeploymentStatus::InvilidTree
             && (!cancel || deployment.status != DeploymentStatus::ReviewChanges)
         {
             return Ok(true);
