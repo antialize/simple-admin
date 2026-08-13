@@ -1,3 +1,4 @@
+import { Typography } from "@mui/material";
 import { observer } from "mobx-react";
 import DisplayError from "../Error";
 import state from "../state";
@@ -10,7 +11,9 @@ const Messages = observer(function Messages() {
             {deployment.message ? (
                 <ul>
                     {deployment.message.split("\n").map((v) => (
-                        <li key={v}>{v}</li>
+                        <Typography key={v} component="li" color="textPrimary">
+                            {v}
+                        </Typography>
                     ))}
                 </ul>
             ) : null}
