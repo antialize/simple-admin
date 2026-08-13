@@ -517,7 +517,7 @@ impl<'a, M> Visitor<'a, M> {
         vars: &mut Variables<'a>,
     ) {
         for child_id in contains.contains_iter() {
-            match self.visit(access, child_id, path, prefix, vars) {
+            match self.visit(access, child_id, path, prefix, vars, true) {
                 Ok((n, s)) => {
                     access.rw(n).base_mut().prev.push(node);
                     access.rw(node).base_mut().next.push(n);
@@ -552,6 +552,7 @@ impl<'a, M> Visitor<'a, M> {
         path: &mut Vec<i64>,
         prefix: &mut Vec<i64>,
         vars: &mut Variables<'a>,
+        in_contains: bool
     ) -> Result<NodePair<'a, M>> {
         let l = prefix.iter().map(|v| num_len(*v) + 1).sum::<usize>()
             + num_len(id)
@@ -587,6 +588,14 @@ impl<'a, M> Visitor<'a, M> {
             .types
             .get(&type_id)
             .with_context(|| format!("Missing type {type_id} for object {id}"))?;
+        if in_contains && type_content.disallow_in_contains.unwrap_or_default() {
+            bail!(
+                "Object {} of type {} is not allowed in contains of {}",
+                obj.name,
+                type_id,
+                parent_name
+            );
+        }
         let type_obj = self.objects.get(&type_id).context("Missing type")?;
         if path.contains(&id) {
             bail!(
@@ -746,7 +755,7 @@ impl<'a, M> Visitor<'a, M> {
         let mut path = Vec::new();
         let mut prefix = Vec::new();
         let mut vars = Default::default();
-        let c = match self.visit(access, id, &mut path, &mut prefix, &mut vars) {
+        let c = match self.visit(access, id, &mut path, &mut prefix, &mut vars, false) {
             Ok(v) => Some(v),
             Err(e) => {
                 self.errors.push(format!("Error visiting {id}: {e:?}"));
@@ -1084,6 +1093,47 @@ async fn setup_deployment_host<'a, M>(
             }
         }
         visitor.errors.push(String::from_utf8(error)?)
+    }
+
+    let mut unique = HashMap::new();
+    for o in &mut host_deployment_objects {
+        let Some(next_content) = o.next_content.as_ref() else {
+            continue;
+        };
+        let type_id = o.type_id;
+        let type_content = visitor.types.get(&type_id).context("Missing type")?;
+        if type_content.unique_name.unwrap_or_default() &&
+            let Some(Value::String(name)) = next_content.get("name") {
+
+            let key = (type_id, "name", name);
+            if let Some(prev) = unique.insert(key, &o.name) {
+                visitor.errors.push(format!(
+                    "Duplicate name {} for {} and {} type {} on host {}",
+                    name, prev, o.name, type_id, host_object.name
+                ));
+            }
+        }
+        let Some(type_content) = type_content.content.as_ref() else {
+            continue;
+        };
+        for prop in type_content {
+            let ITypeProp::Text(text) = prop else {
+                continue;
+            };
+            if !text.unique.unwrap_or_default() {
+                continue;
+            }
+            let Some(Value::String(name)) = next_content.get(&text.name) else {
+                continue;
+            };
+            let key = (type_id, text.name.as_str(), name);
+            if let Some(prev) = unique.insert(key, &o.name) {
+                visitor.errors.push(format!(
+                    "Duplicate {} {} for {} and {} type {} on host {}",
+                    text.name, name, prev, o.name, type_id, host_object.name
+                ));
+            }
+        }
     }
 
     if !host_object

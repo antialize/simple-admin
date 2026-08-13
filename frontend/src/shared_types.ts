@@ -106,6 +106,7 @@ export type ITextTypeProp = {
     variable?: string;
     deployTitle?: boolean;
     lines?: number;
+    unique?: boolean;
 };
 
 export type IPasswordTypeProp = { title: string; name: string; description: string };
@@ -171,6 +172,8 @@ export type IType = {
     containsName?: string;
     content?: Array<ITypeProp>;
     nameVariable?: string;
+    disallowInContains?: boolean;
+    uniqueName?: boolean;
 };
 
 export type IVariable = { key: string; value: string };
