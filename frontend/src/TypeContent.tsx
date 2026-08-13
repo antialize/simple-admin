@@ -183,6 +183,24 @@ function TypeContent(p: { content: ITypeProp[]; onChange: (v: ITypeProp[]) => vo
                             />
                         }
                     />
+                    <FormControlLabel
+                        label="Unique"
+                        labelPlacement="end"
+                        control={
+                            <Switch
+                                key="unique"
+                                checked={r.unique}
+                                onChange={(e) => {
+                                    change({ unique: e.target.checked });
+                                }}
+                                style={{
+                                    width: "100px",
+                                    display: "inline-block",
+                                    verticalAlign: "middle",
+                                }}
+                            />
+                        }
+                    />
                 </span>
             );
 

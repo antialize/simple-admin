@@ -38,6 +38,9 @@ pub struct ITextTypeProp {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub lines: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub unique: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
@@ -315,6 +318,12 @@ pub struct IType {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub name_variable: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub disallow_in_contains: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub unique_name: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
