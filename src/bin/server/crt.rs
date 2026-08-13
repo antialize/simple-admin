@@ -1,5 +1,4 @@
 use anyhow::{Result, bail};
-use chrono::{TimeDelta, Utc};
 use std::io::Write;
 use tempfile::{NamedTempFile, TempDir};
 
@@ -105,18 +104,14 @@ pub async fn generate_srs(key: &str, cn: &str) -> Result<String> {
     Ok(String::from_utf8(res.stdout)?)
 }
 
-/// For both SSL and SSH certificates, set the start time a few minutes into the past
-/// to avoid issues with clock drift.
-const CERT_VALIDITY_IN_THE_PAST: TimeDelta = TimeDelta::minutes(5);
-
 pub async fn generate_crt(
     ca_key: &str,
     ca_crt: &str,
     srs: &str,
     subcerts: &[String],
-    timeout_duration: TimeDelta,
+    timeout_days: u32,
 ) -> Result<String> {
-    generate_crt_san(ca_key, ca_crt, srs, subcerts, &[], timeout_duration).await
+    generate_crt_san(ca_key, ca_crt, srs, subcerts, &[], timeout_days).await
 }
 
 pub async fn generate_crt_san(
@@ -125,7 +120,7 @@ pub async fn generate_crt_san(
     srs: &str,
     subcerts: &[String],
     sans: &[String],
-    timeout_duration: TimeDelta,
+    timeout_days: u32,
 ) -> Result<String> {
     let mut t1 = NamedTempFile::new()?;
     let mut t2 = NamedTempFile::new()?;
@@ -138,13 +133,8 @@ pub async fn generate_crt_san(
     let mut cmd = tokio::process::Command::new("openssl");
     cmd.arg("x509");
     cmd.arg("-req");
-    // -not_before/-not_after YYYYMMDDHHMMSSZ sets the precise expiry time (in UTC).
-    let not_before = (Utc::now() - CERT_VALIDITY_IN_THE_PAST).format("%Y%m%d%H%M%SZ");
-    let not_after = (Utc::now() + timeout_duration).format("%Y%m%d%H%M%SZ");
-    cmd.arg("-not_before");
-    cmd.arg(not_before.to_string());
-    cmd.arg("-not_after");
-    cmd.arg(not_after.to_string());
+    cmd.arg("-days");
+    cmd.arg(timeout_days.to_string());
     cmd.arg("-in");
     cmd.arg(t1.path());
     cmd.arg("-CA");
@@ -210,7 +200,7 @@ pub async fn generate_ssh_crt(
     principal: &str,
     ca_private_key: &str,
     client_public_key: &str,
-    validity_duration: TimeDelta,
+    validity_days: u32,
     r#type: Type,
 ) -> Result<String> {
     let mut ssh_host_ca_key_file = NamedTempFile::with_suffix(".pem")?;
@@ -235,10 +225,7 @@ pub async fn generate_ssh_crt(
     cmd.arg("-n");
     cmd.arg(principal);
     cmd.arg("-V");
-    // -V YYYYMMDDHHMMSSZ:YYYYMMDDHHMMSSZ sets the precise expiry time (in UTC).
-    let not_before = (Utc::now() - CERT_VALIDITY_IN_THE_PAST).format("%Y%m%d%H%M%SZ");
-    let not_after = (Utc::now() + validity_duration).format("%Y%m%d%H%M%SZ");
-    cmd.arg(format!("{not_before}:{not_after}"));
+    cmd.arg(format!("-5m:+{validity_days}d"));
     cmd.arg("-z");
     cmd.arg("42");
     cmd.arg(&client_public_key_path);
