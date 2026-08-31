@@ -184,28 +184,44 @@ fn is_docker_hash(v: &str) -> bool {
         .unwrap_or_default()
 }
 
-#[allow(clippy::result_large_err)]
-async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
-    parts: &Parts,
-    state: &Arc<State>,
-    cb: F,
-) -> Result<T, Response> {
-    let Some(auth_header) = parts.headers.get("Authorization") else {
-        return Err((
-            StatusCode::UNAUTHORIZED,
+pub struct CheckDockerPathError {
+    status: StatusCode,
+    code: RegistryErrorCode,
+    message: &'static str,
+}
+
+impl IntoResponse for CheckDockerPathError {
+    fn into_response(self) -> Response {
+        let body = Json(RegistryErrors {
+            errors: vec![RegistryError {
+                code: self.code,
+                message: self.message.into(),
+                detail: None,
+            }],
+        });
+        (
+            self.status,
             [(
                 "WWW-Authenticate",
                 "Basic realm=\"User Visible Realm\", charset=\"UTF-8\"",
             )],
-            Json(RegistryErrors {
-                errors: vec![RegistryError {
-                    code: RegistryErrorCode::Unauthorized,
-                    message: "authentication required".into(),
-                    detail: None,
-                }],
-            }),
+            body,
         )
-            .into_response());
+            .into_response()
+    }
+}
+
+async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
+    parts: &Parts,
+    state: &Arc<State>,
+    cb: F,
+) -> Result<T, CheckDockerPathError> {
+    let Some(auth_header) = parts.headers.get("Authorization") else {
+        return Err(CheckDockerPathError {
+            status: StatusCode::UNAUTHORIZED,
+            code: RegistryErrorCode::Unauthorized,
+            message: "authentication required",
+        });
     };
     if let Some(auth) = auth_header
         .to_str()
@@ -224,29 +240,22 @@ async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
     {
         return Ok(v);
     }
-    Err((
-        StatusCode::FORBIDDEN,
-        [(
-            "WWW-Authenticate",
-            "Basic realm=\"User Visible Realm\", charset=\"UTF-8\"",
-        )],
-        Json(RegistryErrors {
-            errors: vec![RegistryError {
-                code: RegistryErrorCode::Denied,
-                message: "Invalid token".into(),
-                detail: None,
-            }],
-        }),
-    )
-        .into_response())
+    Err(CheckDockerPathError {
+        status: StatusCode::FORBIDDEN,
+        code: RegistryErrorCode::Denied,
+        message: "Invalid token",
+    })
 }
 
 pub struct DockerAuthPull;
 
 impl FromRequestParts<Arc<State>> for DockerAuthPull {
-    type Rejection = Response;
+    type Rejection = CheckDockerPathError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &Arc<State>) -> Result<Self, Response> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<State>,
+    ) -> Result<Self, CheckDockerPathError> {
         check_docker_path(
             parts,
             state,
@@ -261,9 +270,12 @@ pub struct DockerAuthPush {
     user: String,
 }
 impl FromRequestParts<Arc<State>> for DockerAuthPush {
-    type Rejection = Response;
+    type Rejection = CheckDockerPathError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &Arc<State>) -> Result<Self, Response> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<State>,
+    ) -> Result<Self, CheckDockerPathError> {
         let user = check_docker_path(parts, state, |a| {
             if a.docker_push {
                 if a.user.as_deref() == Some("docker_client") {
