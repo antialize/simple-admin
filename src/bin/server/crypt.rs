@@ -105,9 +105,8 @@ pub fn validate_password(provided: &str, hash: &str) -> Result<bool> {
 pub fn validate_otp(token: &str, base32_secret: &str) -> Result<bool> {
     let otp_secret = base32::decode(base32::Alphabet::Rfc4648 { padding: false }, base32_secret)
         .context("base32-error")?;
-    let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
-    let totp = totp_rs::TOTP::from_rfc6238(totp)?;
-    Ok(totp.check_current(token)?)
+    let totp = totp_rs::Builder::new().with_secret(otp_secret).build()?;
+    Ok(totp.check_current(token).is_some())
 }
 
 pub fn generate_otp_secret(name: String) -> Result<(String, String)> {
@@ -119,11 +118,13 @@ pub fn generate_otp_secret(name: String) -> Result<(String, String)> {
             Err(std::io::Error::last_os_error()).context("getrandom failed")?;
         }
     }
-    let mut totp = totp_rs::Rfc6238::with_defaults(secret).context("Creating Rfc6238")?;
-    totp.issuer("Simple Admin".to_string());
-    totp.account_name(name);
-    let totp = totp_rs::TOTP::from_rfc6238(totp).context("from_rfc6238")?;
-    Ok((totp.get_secret_base32(), totp.get_url()))
+    let totp = totp_rs::Builder::new()
+        .with_secret(secret)
+        .with_issuer(Some("Simple Admin".to_string()))
+        .with_account_name(name)
+        .build()
+        .context("Creating Rfc6238")?;
+    Ok((totp.secret().to_base32(), totp.to_url()?))
 }
 
 #[cfg(test)]
@@ -145,8 +146,8 @@ mod tests {
         let token = {
             let otp_secret = base32::decode(base32::Alphabet::Rfc4648 { padding: false }, &secret)
                 .context("base32-error")?;
-            let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
-            totp_rs::TOTP::from_rfc6238(totp)?.generate_current()?
+            let totp = totp_rs::Builder::new().with_secret(otp_secret).build()?;
+            totp.generate_current().to_string()
         };
         assert!(!validate_otp("0000009", &secret)?);
         assert!(validate_otp(&token, &secret)?);
@@ -156,11 +157,8 @@ mod tests {
             "ONKVAZKQIFBXIYZQKZKVUKLTI42SMNTSKQVCKM2SIVNUUL3XHE3A",
         )
         .context("base32-error")?;
-        let totp = totp_rs::Rfc6238::with_defaults(otp_secret)?;
-        assert_eq!(
-            totp_rs::TOTP::from_rfc6238(totp)?.generate(42 * 30),
-            "591527"
-        );
+        let totp = totp_rs::Builder::new().with_secret(otp_secret).build()?;
+        assert_eq!(totp.generate(42 * 30).to_string(), "591527");
         Ok(())
     }
 

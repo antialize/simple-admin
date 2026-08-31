@@ -184,6 +184,7 @@ fn is_docker_hash(v: &str) -> bool {
         .unwrap_or_default()
 }
 
+#[allow(clippy::result_large_err)]
 async fn check_docker_path<T: Sync, F: FnOnce(IAuthStatus) -> Option<T>>(
     parts: &Parts,
     state: &Arc<State>,
