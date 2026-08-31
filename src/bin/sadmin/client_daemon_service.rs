@@ -1368,7 +1368,7 @@ impl Service {
             if !res.success() {
                 bail!("Error running podman create: {:?}", res);
             }
-            let t = tempfile::TempDir::new()?;
+            let t = tempfile::Builder::new().tempdir_in("/var/tmp")?;
             if let Some(user) = &user {
                 nix::unistd::chown(t.path(), Some(user.uid), Some(user.gid))
                     .context("Failed chowing tempdir")?;

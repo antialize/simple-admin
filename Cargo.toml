@@ -1,6 +1,6 @@
 [package]
 name = "sadmin2"
-version = "0.1.4"
+version = "0.1.11"
 edition = "2024"
 
 [features]
@@ -86,7 +86,7 @@ tokio-rustls = "0.26"
 tokio-tasks = {version = "0.5", optional=true}
 tokio-tungstenite = { version = "0.30", features=['rustls-tls-webpki-roots']}
 tokio-util = {version = "0.7", features = ["io"], optional = true}
-totp-rs= {version="5", features = ["otpauth"], optional = true}
+totp-rs= {version="6", features = ["otpauth"], optional = true}
 tower-http = {version = "0.7", features = ["cors"], optional = true}
 ts-rs = {version="12", features = ["serde-compat", "chrono-impl", "serde-json-impl", "no-serde-warnings", "indexmap-impl"]}
 uuid = {version="1", features = ["v4", "serde"], optional = true}
