@@ -107,8 +107,8 @@ struct StoredReport {
 
 #[derive(serde::Deserialize, Debug, Default)]
 struct StoredOsRelease {
-    pretty_name: Option<String>,
-    version_id: Option<String>,
+    pretty_name: String,
+    version_id: String,
 }
 
 #[derive(serde::Deserialize, Debug, Default)]
@@ -147,15 +147,12 @@ struct VantaDeveloperProperties {
     lockscreen_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     lockscreen_timeout_ms: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    os_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    os_version: Option<String>,
+    os_name: String,
+    os_version: String,
     kernel_version: String,
     collected_timestamp: String,
     user_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    user_email: Option<String>,
+    user_email: String,
     host_name: String,
     host_uuid: String,
 }
@@ -227,7 +224,7 @@ pub async fn push_developer_machines(config: &Config, db: &sqlx::SqlitePool) -> 
                 kernel_version: report.kernel_version,
                 collected_timestamp,
                 user_name: row.username,
-                user_email: row.user_email,
+                user_email: row.user_email.unwrap_or_default(),
                 host_name: report.hostname,
                 host_uuid: row.host_uuid,
             },

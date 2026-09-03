@@ -371,12 +371,9 @@ pub async fn run_vanta(state: Arc<State>, run_token: RunToken) -> Result<()> {
             error!("Failed sending vanta developer machines: {e:?}");
         }
 
-        if cancelable(
-            &run_token,
-            tokio::time::sleep(Duration::from_secs(60 * 60 * 6)),
-        )
-        .await
-        .is_err()
+        if cancelable(&run_token, tokio::time::sleep(Duration::from_secs(60 * 20)))
+            .await
+            .is_err()
         {
             break;
         }
