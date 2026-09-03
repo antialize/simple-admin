@@ -809,6 +809,7 @@ async fn setup_deployment_host<'a, M>(
     new_deployment_objects: &mut Vec<IDeploymentObject>,
     outer_vars: &mut Variables<'a>,
 ) -> Result<()> {
+    let start_error_count = visitor.errors.len();
     let objects = visitor.objects;
     let host_object = objects
         .get(&host_id)
@@ -843,7 +844,7 @@ async fn setup_deployment_host<'a, M>(
     }
     std::mem::swap(&mut visitor.outer_vars, outer_vars);
 
-    if !visitor.errors.is_empty() {
+    if visitor.errors.len() > start_error_count {
         return Ok(());
     }
 
@@ -1225,7 +1226,6 @@ async fn setup_deployment_inner<'a, M>(
         visitor.nodes.clear();
         visitor.tops.clear();
         visitor.top_visiting.clear();
-        visitor.errors.clear();
         outer_vars.push();
         let res = setup_deployment_host(
             state,
