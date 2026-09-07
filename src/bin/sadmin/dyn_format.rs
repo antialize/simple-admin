@@ -154,7 +154,7 @@ impl GetFmtArgDict for DockerImageTag {
             "labels" => FormatArg::Dict(&self.labels),
             "rel_time" => FormatArg::RelTime(RelTime(self.time)),
             "pin_suffix" => FormatArg::String(if self.pinned_image_tag {
-                "pinned by tag"
+                " pinned by tag"
             } else {
                 ""
             }),
