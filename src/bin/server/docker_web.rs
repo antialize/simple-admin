@@ -523,7 +523,8 @@ async fn get_manifest(
     let prefixed_hash = format!("sha256:{bare_hash}");
     let row = query!(
         "SELECT `manifest`, `hash`, `content_type` FROM `docker_images`
-        WHERE `project`=? AND (`tag`=? OR `hash`=? OR `hash`=?) ORDER BY `time` DESC LIMIT 1",
+        WHERE `project`=? AND (`tag`=? OR `hash`=? OR `hash`=?) AND `removed` IS NULL
+        ORDER BY `time` DESC LIMIT 1",
         name,
         reference,
         prefixed_hash,
@@ -823,7 +824,7 @@ async fn validate_image_index(
                 .to_api_error("Failed to read sub-manifest blob")?
         } else {
             let row = query!(
-                "SELECT `manifest` FROM `docker_images` WHERE `project`=? AND `hash`=? LIMIT 1",
+                "SELECT `manifest` FROM `docker_images` WHERE `project`=? AND `hash`=? AND `removed` IS NULL LIMIT 1",
                 name,
                 sub.digest
             )
