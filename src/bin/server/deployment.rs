@@ -552,7 +552,7 @@ impl<'a, M> Visitor<'a, M> {
         path: &mut Vec<i64>,
         prefix: &mut Vec<i64>,
         vars: &mut Variables<'a>,
-        in_contains: bool
+        in_contains: bool,
     ) -> Result<NodePair<'a, M>> {
         let l = prefix.iter().map(|v| num_len(*v) + 1).sum::<usize>()
             + num_len(id)
@@ -1103,9 +1103,9 @@ async fn setup_deployment_host<'a, M>(
         };
         let type_id = o.type_id;
         let type_content = visitor.types.get(&type_id).context("Missing type")?;
-        if type_content.unique_name.unwrap_or_default() &&
-            let Some(Value::String(name)) = next_content.get("name") {
-
+        if type_content.unique_name.unwrap_or_default()
+            && let Some(Value::String(name)) = next_content.get("name")
+        {
             let key = (type_id, "name", name);
             if let Some(prev) = unique.insert(key, &o.name) {
                 visitor.errors.push(format!(
