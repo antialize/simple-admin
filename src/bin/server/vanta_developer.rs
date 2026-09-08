@@ -108,7 +108,7 @@ struct StoredReport {
 #[derive(serde::Deserialize, Debug, Default)]
 struct StoredOsRelease {
     pretty_name: String,
-    version_id: String,
+    version_id: Option<String>,
 }
 
 #[derive(serde::Deserialize, Debug, Default)]
@@ -220,7 +220,7 @@ pub async fn push_developer_machines(config: &Config, db: &sqlx::SqlitePool) -> 
                 lockscreen_type: report.screen_lock.method,
                 lockscreen_timeout_ms: report.screen_lock.timeout_ms,
                 os_name: report.os_release.pretty_name,
-                os_version: report.os_release.version_id,
+                os_version: report.os_release.version_id.unwrap_or_default(),
                 kernel_version: report.kernel_version,
                 collected_timestamp,
                 user_name: row.username,
