@@ -20,6 +20,7 @@ use serde::Deserialize;
 use crate::{
     get_auth::get_auth,
     hostclient::HostClient,
+    shell_auth::check_shell_run_auth,
     state::State,
     web_util::{ClientIp, WebError},
 };
@@ -182,7 +183,11 @@ pub async fn handler(
     }): Query<TerminalQuery>,
 ) -> Result<Response, WebError> {
     let auth = get_auth(&state, Some(&remote), Some(&session)).await?;
-    if !auth.admin {
+    let host_exists = state.host_clients.lock().unwrap().contains_key(&server);
+    if !host_exists {
+        return Err(WebError::not_found());
+    }
+    if !check_shell_run_auth(&state, &auth, server).await? {
         return Err(WebError::forbidden());
     }
     let Some(host_client) = state

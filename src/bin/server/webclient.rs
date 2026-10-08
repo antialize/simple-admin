@@ -38,6 +38,7 @@ use crate::{
     get_auth::get_auth,
     hostclient::{HostClient, JobHandle},
     modified_files, msg, setup,
+    shell_auth::check_shell_run_auth,
     state::{LoginAttempts, State},
     terminal,
     web_util::{ClientIp, WebError, request_logger},
@@ -794,6 +795,12 @@ impl WebClient {
         let Some(host) = host else {
             bail!("Unable to find host");
         };
+        if !check_shell_run_auth(state, &self.get_auth(), host.id()).await? {
+            bail!(
+                "Permission denied: not allowed to run commands on {}",
+                host.hostname()
+            );
+        }
         let command_id = host.next_command_id();
         match self.commands.lock().unwrap().entry(act.command_id) {
             Entry::Occupied(_) => bail!("command_id in use"),
@@ -852,6 +859,7 @@ impl WebClient {
     pub async fn handle_command_stdin(
         self: &Arc<Self>,
         rt: &RunToken,
+        state: &State,
         act: ICommandStdin,
     ) -> Result<()> {
         let (command_id, host) = match self.commands.lock().unwrap().entry(act.command_id) {
@@ -864,6 +872,12 @@ impl WebClient {
             },
             Entry::Vacant(_) => bail!("Unknown command_id {}", act.command_id),
         };
+        if !check_shell_run_auth(state, &self.get_auth(), host.id()).await? {
+            bail!(
+                "Permission denied: not allowed to run commands on {}",
+                host.hostname()
+            );
+        }
         cancelable(
             rt,
             host.send_message_with_response(&HostClientMessage::CommandStdin {
@@ -879,6 +893,7 @@ impl WebClient {
     pub async fn handle_command_signal(
         self: &Arc<Self>,
         rt: &RunToken,
+        state: &State,
         act: ICommandSignal,
     ) -> Result<()> {
         let (command_id, host) = match self.commands.lock().unwrap().entry(act.command_id) {
@@ -891,6 +906,12 @@ impl WebClient {
             },
             Entry::Vacant(_) => bail!("Unknown command_id {}", act.command_id),
         };
+        if !check_shell_run_auth(state, &self.get_auth(), host.id()).await? {
+            bail!(
+                "Permission denied: not allowed to run commands on {}",
+                host.hostname()
+            );
+        }
         cancelable(
             rt,
             host.send_message_with_response(&HostClientMessage::CommandSignal {
@@ -2042,10 +2063,6 @@ os.execv(sys.argv[1], sys.argv[1:])
                 self.send_response(&rt, msg_id, r).await?;
             }
             IClientAction::CommandSpawn(act) => {
-                if !self.get_auth().admin {
-                    self.close(403).await?;
-                    return Ok(());
-                };
                 if state.read_only {
                     self.close(503).await?;
                     return Ok(());
@@ -2055,29 +2072,21 @@ os.execv(sys.argv[1], sys.argv[1:])
                 self.send_response(&rt, msg_id, r).await?;
             }
             IClientAction::CommandSignal(act) => {
-                if !self.get_auth().admin {
-                    self.close(403).await?;
-                    return Ok(());
-                };
                 if state.read_only {
                     self.close(503).await?;
                     return Ok(());
                 }
                 let msg_id = act.msg_id;
-                let r = self.handle_command_signal(&rt, act).await;
+                let r = self.handle_command_signal(&rt, state, act).await;
                 self.send_response(&rt, msg_id, r).await?;
             }
             IClientAction::CommandStdin(act) => {
-                if !self.get_auth().admin {
-                    self.close(403).await?;
-                    return Ok(());
-                };
                 if state.read_only {
                     self.close(503).await?;
                     return Ok(());
                 }
                 let msg_id = act.msg_id;
-                let r = self.handle_command_stdin(&rt, act).await;
+                let r = self.handle_command_stdin(&rt, state, act).await;
                 self.send_response(&rt, msg_id, r).await?;
             }
             IClientAction::VantaRegisterMachine(act) => {
