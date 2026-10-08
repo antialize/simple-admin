@@ -85,45 +85,35 @@ impl Serialize for Duration {
 impl<'de> Deserialize<'de> for Duration {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let v = String::deserialize(deserializer)?;
-        for p in ["ms"] {
-            if let Some(v) = v.strip_suffix(p) {
-                let v = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
-                })?;
-                return Ok(Duration::MS(v));
-            }
+        if let Some(v) = v.strip_suffix("ms") {
+            let v = v.parse().map_err(|_| {
+                serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
+            })?;
+            return Ok(Duration::MS(v));
         }
-        for p in ["s"] {
-            if let Some(v) = v.strip_suffix(p) {
-                let v = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
-                })?;
-                return Ok(Duration::S(v));
-            }
+        if let Some(v) = v.strip_suffix("s") {
+            let v = v.parse().map_err(|_| {
+                serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
+            })?;
+            return Ok(Duration::S(v));
         }
-        for p in ["m"] {
-            if let Some(v) = v.strip_suffix(p) {
-                let v = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
-                })?;
-                return Ok(Duration::M(v));
-            }
+        if let Some(v) = v.strip_suffix("m") {
+            let v = v.parse().map_err(|_| {
+                serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
+            })?;
+            return Ok(Duration::M(v));
         }
-        for p in ["h"] {
-            if let Some(v) = v.strip_suffix(p) {
-                let v = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
-                })?;
-                return Ok(Duration::H(v));
-            }
+        if let Some(v) = v.strip_suffix("h") {
+            let v = v.parse().map_err(|_| {
+                serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
+            })?;
+            return Ok(Duration::H(v));
         }
-        for p in ["d"] {
-            if let Some(v) = v.strip_suffix(p) {
-                let v = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
-                })?;
-                return Ok(Duration::D(v));
-            }
+        if let Some(v) = v.strip_suffix("d") {
+            let v = v.parse().map_err(|_| {
+                serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"number")
+            })?;
+            return Ok(Duration::D(v));
         }
         Err(serde::de::Error::invalid_value(
             serde::de::Unexpected::Str(&v),
