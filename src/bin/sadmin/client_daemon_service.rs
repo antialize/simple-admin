@@ -959,8 +959,9 @@ impl Service {
             };
 
             let instance = ServiceInstance {
-                stdout: AsyncFd::new(stdout)?,
-                stderr: AsyncFd::new(stderr)?,
+                // SAFETY: OwnedFd keeps its fd open and unchanged while owned by the AsyncFd.
+                stdout: unsafe { AsyncFd::register(stdout)? },
+                stderr: unsafe { AsyncFd::register(stderr)? },
                 dead: dead.context("Expected dead")?,
                 notify_socket: UnixDatagram::from_std(notify.into())?,
                 instance_id: status.instance_id,
@@ -2132,10 +2133,20 @@ It will be hard killed in {:?} if it does not stop before that. ",
         self.client
             .persist_close_fd(&stderr_write_key, "close_stderr_write")
             .await?;
-        let stdout =
-            tokio::io::unix::AsyncFd::with_interest(stdout_read, tokio::io::Interest::READABLE)?;
-        let stderr =
-            tokio::io::unix::AsyncFd::with_interest(stderr_read, tokio::io::Interest::READABLE)?;
+        // SAFETY: OwnedFd keeps its fd open and unchanged while owned by the AsyncFd.
+        let stdout = unsafe {
+            tokio::io::unix::AsyncFd::register_with_interest(
+                stdout_read,
+                tokio::io::Interest::READABLE,
+            )?
+        };
+        // SAFETY: As above.
+        let stderr = unsafe {
+            tokio::io::unix::AsyncFd::register_with_interest(
+                stderr_read,
+                tokio::io::Interest::READABLE,
+            )?
+        };
 
         let mut status = std::sync::Mutex::new(ServiceStatus {
             status: "".to_string(),

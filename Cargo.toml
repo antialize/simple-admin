@@ -1,6 +1,6 @@
 [package]
 name = "sadmin2"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2024"
 
 [features]
@@ -92,4 +92,4 @@ ts-rs = {version="12", features = ["serde-compat", "chrono-impl", "serde-json-im
 uuid = {version="1", features = ["v4", "serde"], optional = true}
 webpki = "0.22"
 webpki-roots = "1"
-zip = {version= "8",  default-features = false, features=['deflate']}
+zip = {version= "9",  default-features = false, features=['deflate']}
