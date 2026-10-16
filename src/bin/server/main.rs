@@ -34,6 +34,7 @@ mod mustache;
 mod ocell;
 mod ordered_json;
 mod setup;
+mod shell_auth;
 mod state;
 mod terminal;
 mod vanta;
