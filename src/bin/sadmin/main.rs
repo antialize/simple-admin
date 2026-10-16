@@ -83,6 +83,13 @@ struct Args {
     server_insecure: bool,
 }
 
+#[derive(clap::Parser)]
+struct Auth {
+    /// Fail instead of prompting if the session is not authenticated
+    #[clap(long)]
+    no_prompt: bool,
+}
+
 /// Deauthenticate your user
 #[derive(clap::Parser)]
 struct Deauth {
@@ -101,7 +108,7 @@ struct GetSecret {
 #[derive(clap::Subcommand)]
 enum Action {
     /// Authenticate your user
-    Auth,
+    Auth(Auth),
     Deauth(Deauth),
     #[clap(alias("listImages"))]
     ListImages(ListImages),
@@ -146,8 +153,8 @@ enum Action {
     VantaScanAndReport,
 }
 
-async fn auth(config: Config) -> Result<()> {
-    let mut con = Connection::open(config, false).await?;
+async fn auth(config: Config, args: Auth) -> Result<()> {
+    let mut con = Connection::open(config, args.no_prompt).await?;
     if con.authenticated() {
         con.get_key().await?;
         println!("Already authenticated as {}.", con.user.unwrap())
@@ -254,7 +261,7 @@ async fn main() -> Result<()> {
     }
 
     match args.action {
-        Action::Auth => auth(config).await,
+        Action::Auth(args) => auth(config, args).await,
         Action::ListImages(args) => list_images::list_images(config, args).await,
         Action::Deauth(args) => deauth(config, args).await,
         Action::ListDeployments(args) => list_deployments::list_deployments(config, args).await,
