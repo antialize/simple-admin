@@ -3,11 +3,59 @@ use std::{borrow::Cow, collections::HashMap};
 
 pub type VarsMap<'b> = HashMap<Cow<'b, str>, Cow<'b, str>>;
 
+/// Substitutes the variables into `template`, replacing each value with
+/// itself as it is.
 pub fn render<'a, 'b, 'c>(
     template: &'a str,
     outer_variables: Option<&'c VarsMap<'b>>,
     inner_variables: &'c VarsMap<'b>,
     allow_unknown: bool,
+) -> Result<Cow<'a, str>> {
+    render_impl(
+        template,
+        outer_variables,
+        inner_variables,
+        allow_unknown,
+        false,
+    )
+}
+
+/// Like `render`, but each substituted value is JSON string escaped (what
+/// Python's `json.dumps(value)[1:-1]` produces). For templates that are JSON
+/// (or YAML) documents whose double quoted strings contain the placeholders,
+/// like service deploy descriptions: the escaping keeps the document valid,
+/// and parsing it yields the values exactly, including values with quotes,
+/// backslashes or newlines in them, or values that are themselves JSON.
+/// A bare `{{{name}}}` outside of a string does not work with this.
+pub fn render_json<'a, 'b, 'c>(
+    template: &'a str,
+    outer_variables: Option<&'c VarsMap<'b>>,
+    inner_variables: &'c VarsMap<'b>,
+    allow_unknown: bool,
+) -> Result<Cow<'a, str>> {
+    render_impl(
+        template,
+        outer_variables,
+        inner_variables,
+        allow_unknown,
+        true,
+    )
+}
+
+/// The value between the quotes of `json.dumps(value)`.
+fn json_escape(value: &str) -> String {
+    let mut escaped = serde_json::to_string(value).expect("serializing a str cannot fail");
+    escaped.remove(0);
+    escaped.pop();
+    escaped
+}
+
+fn render_impl<'a, 'b, 'c>(
+    template: &'a str,
+    outer_variables: Option<&'c VarsMap<'b>>,
+    inner_variables: &'c VarsMap<'b>,
+    allow_unknown: bool,
+    escape: bool,
 ) -> Result<Cow<'a, str>> {
     if !template.contains("{{") {
         return Ok(template.into());
@@ -43,7 +91,11 @@ pub fn render<'a, 'b, 'c>(
             .or_else(|| outer_variables.as_ref().and_then(|v| v.get(var)));
         match v {
             Some(v) => {
-                res.push_str(v);
+                if escape {
+                    res.push_str(&json_escape(v));
+                } else {
+                    res.push_str(v);
+                }
             }
             None => {
                 if !allow_unknown {
@@ -77,5 +129,34 @@ mod tests {
             .unwrap(),
             "Hello AA  BB {{kat}}  CC"
         );
+    }
+
+    #[test]
+    fn render_json_escapes() {
+        let mut vars = HashMap::new();
+        vars.insert("pw".into(), "a\"b\\c\nd".into());
+        vars.insert("fs".into(), "[{\"type\": \"fs\"}]".into());
+        assert_eq!(
+            render_json("\"{{{pw}}}\" \"{{{fs}}}\"", None, &vars, false).unwrap(),
+            "\"a\\\"b\\\\c\\nd\" \"[{\\\"type\\\": \\\"fs\\\"}]\""
+        );
+    }
+
+    #[test]
+    fn json_escape_roundtrips() {
+        for value in ["plain", "with \"quotes\"", "back\\slash", "line\nbreak"] {
+            let parsed =
+                serde_json::from_str::<String>(&format!("\"{}\"", json_escape(value))).unwrap();
+            assert_eq!(parsed, value);
+        }
+    }
+
+    #[test]
+    fn render_json_keeps_the_document_valid() {
+        let mut vars = HashMap::new();
+        vars.insert("pw".into(), "p\"w\nx".into());
+        let doc = render_json(r#"{"pod_env": {"PW": "{{{pw}}}  x"}}"#, None, &vars, false).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&doc).unwrap();
+        assert_eq!(parsed["pod_env"]["PW"], "p\"w\nx  x");
     }
 }

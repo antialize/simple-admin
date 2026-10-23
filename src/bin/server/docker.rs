@@ -423,7 +423,7 @@ async fn deploy_server_inner2(
         variables.insert("ssl_key".into(), "TEMP".into());
         variables.insert("ssl_pem".into(), "TEMP".into());
         let description_str =
-            crate::mustache::render(&description_template, None, &variables, true)
+            crate::mustache::render_json(&description_template, None, &variables, true)
                 .context("Unable to render description template 1")?;
         let description: ServiceDescription = serde_yaml::from_str(&description_str)
             .with_context(|| format!("Deserializing service description 1 '{description_str}'"))?;
@@ -459,7 +459,7 @@ async fn deploy_server_inner2(
         }
     }
     let description_str = if do_template {
-        crate::mustache::render(&description_template, None, &variables, true)
+        crate::mustache::render_json(&description_template, None, &variables, true)
             .context("Unable to render description template 2")?
     } else {
         description_template.into()
