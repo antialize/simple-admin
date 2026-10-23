@@ -23,8 +23,7 @@ export const HostDockerContainers = observer(function DockerContainers(p: {
     const hosts = r.data;
     const hostDigests = state.objectDigests.get(HOST_ID);
     const hostDigest = hostDigests?.get(p.host);
-    const hostName = hostDigest?.name;
-    if (!hostName) return <DisplayError>Missing hostName</DisplayError>;
+    const hostName = hostDigest?.name ?? `Unknown Host ${p.host}`;
     const originalContainers = hosts.get(p.host);
     if (!originalContainers) return <DisplayError>Missing originalContainers</DisplayError>;
     const containers = originalContainers.slice();
