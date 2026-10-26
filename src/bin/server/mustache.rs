@@ -27,6 +27,11 @@ pub fn render<'a, 'b, 'c>(
 /// and parsing it yields the values exactly, including values with quotes,
 /// backslashes or newlines in them, or values that are themselves JSON.
 /// A bare `{{{name}}}` outside of a string does not work with this.
+///
+/// Hack: when the value is the exact string `null` and the placeholder is the
+/// entire content of a double quoted string, like `"{{{name}}}"`, the whole
+/// string is replaced with a bare `null` instead of the quoted `"null"`, so
+/// the document parses it as a JSON null rather than the string "null".
 pub fn render_json<'a, 'b, 'c>(
     template: &'a str,
     outer_variables: Option<&'c VarsMap<'b>>,
@@ -48,6 +53,15 @@ fn json_escape(value: &str) -> String {
     escaped.remove(0);
     escaped.pop();
     escaped
+}
+
+/// True if `s` ends with a `"` that opens or closes a JSON string, i.e. is
+/// not backslash escaped.
+fn ends_with_plain_quote(s: &str) -> bool {
+    let Some(rest) = s.strip_suffix('"') else {
+        return false;
+    };
+    rest.bytes().rev().take_while(|&b| b == b'\\').count() % 2 == 0
 }
 
 fn render_impl<'a, 'b, 'c>(
@@ -91,6 +105,15 @@ fn render_impl<'a, 'b, 'c>(
             .or_else(|| outer_variables.as_ref().and_then(|v| v.get(var)));
         match v {
             Some(v) => {
+                // See the `render_json` docs: a value of "null" in a
+                // placeholder that is the whole JSON string renders the bare
+                // JSON null, dropping the surrounding quotes.
+                if escape && v == "null" && ends_with_plain_quote(&res) && after.starts_with('"') {
+                    res.pop();
+                    res.push_str("null");
+                    template = &after[1..];
+                    continue;
+                }
                 if escape {
                     res.push_str(&json_escape(v));
                 } else {
@@ -139,6 +162,41 @@ mod tests {
         assert_eq!(
             render_json("\"{{{pw}}}\" \"{{{fs}}}\"", None, &vars, false).unwrap(),
             "\"a\\\"b\\\\c\\nd\" \"[{\\\"type\\\": \\\"fs\\\"}]\""
+        );
+    }
+
+    #[test]
+    fn render_json_null_value_becomes_json_null() {
+        let mut vars = HashMap::new();
+        vars.insert("name".into(), "null".into());
+        let doc = render_json(
+            r#"{"a": "{{{name}}}", "b": "x {{{name}}}", "c": "{{{name}}}y"}"#,
+            None,
+            &vars,
+            false,
+        )
+        .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&doc).unwrap();
+        assert!(parsed["a"].is_null());
+        // Not the whole string, so the normal escaping applies.
+        assert_eq!(parsed["b"], "x null");
+        assert_eq!(parsed["c"], "nully");
+    }
+
+    #[test]
+    fn render_json_null_quote_detection() {
+        let mut vars = HashMap::new();
+        vars.insert("name".into(), "null".into());
+        // Escaped quote before the placeholder: not a string boundary.
+        assert_eq!(
+            render_json(r#""\"{{{name}}}\"""#, None, &vars, false).unwrap(),
+            r#""\"null\"""#
+        );
+        // The following quote always ends the string; a value of "null" on a
+        // bare placeholder outside of a string is unaffected.
+        assert_eq!(
+            render_json("{{{name}}}", None, &vars, false).unwrap(),
+            "null"
         );
     }
 
