@@ -86,7 +86,10 @@ fn check_session(session: &UserSession) -> ScreenLockResult {
             candidates.push(check_xscreensaver);
             candidates.push(check_light_locker);
         }
-        "wayland" => candidates.push(check_swaylock),
+        "wayland" => {
+            candidates.push(check_hypridle);
+            candidates.push(check_swaylock);
+        }
         _ => {}
     }
 
@@ -442,6 +445,87 @@ fn runs(cmd: &str, program: &str) -> bool {
     })
 }
 
+fn check_hypridle(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+    let procs = user_processes(session.uid, "hypridle")?;
+    let Some(proc) = procs.first() else {
+        return Ok(None);
+    };
+    let path = option_value(&proc.args, &["-c", "--config"])
+        .unwrap_or_else(|| format!("{}/hypr/hypridle.conf", config_home(session, proc)));
+    let content = match std::fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
+    };
+    let lock_timeout_secs = hypridle_lock_timeout(&content);
+    Ok(Some(ScreenLockResult {
+        enabled: lock_timeout_secs.is_some(),
+        method: Some("hyprlock/hypridle".to_string()),
+        details: Some(format!(
+            "hypridle running, locking timeout found={}",
+            lock_timeout_secs.is_some()
+        )),
+        timeout_ms: lock_timeout_secs.map(|s| s * 1000),
+    }))
+}
+
+/// Returns the shortest `timeout` of a hypridle `listener { }` block whose
+/// `on-timeout` runs hyprlock directly, or runs `loginctl lock-session` while
+/// `general { lock_cmd }` runs hyprlock. A mere `pidof hyprlock` check does
+/// not count as locking.
+fn hypridle_lock_timeout(content: &str) -> Option<i64> {
+    let mut block: Option<String> = None;
+    let mut lock_cmd_locks = false;
+    let mut listeners: Vec<(i64, String)> = Vec::new();
+    let (mut timeout, mut on_timeout) = (None, None);
+    for line in content.lines() {
+        let line = strip_hyprlang_comment(line);
+        let line = line.trim();
+        if let Some(name) = line.strip_suffix('{') {
+            block = Some(name.trim().to_string());
+            (timeout, on_timeout) = (None, None);
+        } else if line == "}" {
+            if block.as_deref() == Some("listener")
+                && let (Some(t), Some(cmd)) = (timeout, on_timeout.take())
+            {
+                listeners.push((t, cmd));
+            }
+            block = None;
+        } else if let Some((key, value)) = line.split_once('=') {
+            let value = value.trim();
+            match (block.as_deref(), key.trim()) {
+                (Some("listener"), "timeout") => timeout = value.parse::<i64>().ok(),
+                (Some("listener"), "on-timeout") => on_timeout = Some(value.to_string()),
+                (Some("general"), "lock_cmd") => lock_cmd_locks = runs(value, "hyprlock"),
+                _ => {}
+            }
+        }
+    }
+    listeners
+        .into_iter()
+        .filter(|(_, cmd)| {
+            runs(cmd, "hyprlock") || (cmd.contains("lock-session") && lock_cmd_locks)
+        })
+        .map(|(t, _)| t)
+        .min()
+}
+
+/// Removes a hyprlang `#` comment; `##` is an escaped literal `#`.
+fn strip_hyprlang_comment(line: &str) -> String {
+    let mut out = String::new();
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '#' {
+            if chars.peek() != Some(&'#') {
+                break;
+            }
+            chars.next();
+        }
+        out.push(c);
+    }
+    out
+}
+
 /// Splits one line into words like a POSIX shell (quotes, backslashes and
 /// `#` comments), which is how swayidle reads its config file.
 fn shell_words(line: &str) -> Vec<String> {
@@ -599,9 +683,22 @@ mod tests {
             Some(600)
         );
     }
+
+    #[test]
+    fn hypridle_timeouts() {
+        let conf = "general {\n  lock_cmd = pidof hyprlock || hyprlock # lock\n}\n\
+            listener {\n  timeout = 300 # 5 min\n  on-timeout = loginctl lock-session\n} # end\n\
+            listener {\n  timeout = 120\n  on-timeout = brightnessctl -s set 10\n}\n";
+        assert_eq!(hypridle_lock_timeout(conf), Some(300));
+        let no_lock_cmd = "listener {\n timeout = 300\n on-timeout = loginctl lock-session\n}";
+        assert_eq!(hypridle_lock_timeout(no_lock_cmd), None);
+        let direct = "listener {\n timeout = 200\n on-timeout = hyprlock\n}";
+        assert_eq!(hypridle_lock_timeout(direct), Some(200));
+    }
+
     #[test]
     fn options() {
-        let args: Vec<String> = ["foo", "--config=/x"].map(String::from).into();
+        let args: Vec<String> = ["hypridle", "--config=/x"].map(String::from).into();
         assert_eq!(
             option_value(&args, &["-c", "--config"]).as_deref(),
             Some("/x")
