@@ -382,6 +382,20 @@ fn resolve_path(cwd: &Path, path: &str) -> PathBuf {
     cwd.join(path)
 }
 
+/// Splits a NUL-terminated `/proc` list such as `cmdline` or `environ`,
+/// keeping empty entries such as an empty argument.
+fn split_nul(bytes: &[u8]) -> Vec<String> {
+    if bytes.is_empty() {
+        return Vec::new();
+    }
+    bytes
+        .strip_suffix(&[0])
+        .unwrap_or(bytes)
+        .split(|&b| b == 0)
+        .map(|s| String::from_utf8_lossy(s).into_owned())
+        .collect()
+}
+
 /// Lists `uid`'s processes named exactly `name`. Processes that exit or
 /// can't be read in the meantime are skipped.
 fn user_processes(uid: u32, name: &str) -> Result<Vec<UserProcess>> {
@@ -389,19 +403,12 @@ fn user_processes(uid: u32, name: &str) -> Result<Vec<UserProcess>> {
     else {
         return Ok(Vec::new());
     };
-    let split = |bytes: Vec<u8>| -> Vec<String> {
-        bytes
-            .split(|&b| b == 0)
-            .filter(|s| !s.is_empty())
-            .map(|s| String::from_utf8_lossy(s).into_owned())
-            .collect()
-    };
     Ok(String::from_utf8_lossy(&output.stdout)
         .split_whitespace()
         .filter_map(|pid| {
             let pid: u32 = pid.parse().ok()?;
-            let args = split(std::fs::read(format!("/proc/{pid}/cmdline")).ok()?);
-            let env = split(std::fs::read(format!("/proc/{pid}/environ")).ok()?)
+            let args = split_nul(&std::fs::read(format!("/proc/{pid}/cmdline")).ok()?);
+            let env = split_nul(&std::fs::read(format!("/proc/{pid}/environ")).ok()?)
                 .into_iter()
                 .filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.into(), v.into())))
                 .collect();
@@ -605,6 +612,24 @@ listener {
             Path::new("/proc/42/cwd/idle.conf")
         );
         assert_eq!(resolve_path(cwd, "/etc/idle"), Path::new("/etc/idle"));
+    }
+
+    #[test]
+    fn proc_lists() {
+        assert_eq!(
+            split_nul(b"swayidle\0timeout\x0060\0\0timeout\x00300\0swaylock -f\0"),
+            [
+                "swayidle",
+                "timeout",
+                "60",
+                "",
+                "timeout",
+                "300",
+                "swaylock -f"
+            ]
+        );
+        assert_eq!(split_nul(b"a\0b"), ["a", "b"]);
+        assert!(split_nul(b"").is_empty());
     }
 
     #[test]
