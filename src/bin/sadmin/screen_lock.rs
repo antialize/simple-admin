@@ -691,11 +691,13 @@ fn read_config(path: &Path) -> Result<Option<String>> {
     Ok(Some(String::from_utf8_lossy(&content).into_owned()))
 }
 
-/// Returns whether `uid` has a process named `name` running, using `pgrep
-/// -u`. Missing `pgrep` itself is treated as "not running" rather than an
-/// error; other spawn failures still propagate with context.
+/// Returns whether `uid` has a process named exactly `name` running, using
+/// `pgrep -u -x`, so e.g. `gnome-shell-calendar-server` doesn't count as
+/// `gnome-shell`. Missing `pgrep` itself is treated as "not running" rather
+/// than an error; other spawn failures still propagate with context.
 fn process_running(uid: u32, name: &str) -> Result<bool> {
-    let Some(output) = try_run(Command::new("pgrep").args(["-u", &uid.to_string(), name]))? else {
+    let Some(output) = try_run(Command::new("pgrep").args(["-u", &uid.to_string(), "-x", name]))?
+    else {
         return Ok(false);
     };
     Ok(output.status.success())
