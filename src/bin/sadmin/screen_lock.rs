@@ -1,9 +1,13 @@
-use std::io;
+use std::fs::File;
+use std::io::{self, Read};
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::process::CommandExt;
+use std::path::Path;
 use std::process::Command;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use ini::Ini;
+use nix::fcntl::OFlag;
 
 use crate::command::try_run;
 use crate::report::ScreenLockResult;
@@ -303,12 +307,12 @@ fn check_kde(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "plasmashell")? {
         return Ok(None);
     }
-    let path = format!("{}/.config/kscreenlockerrc", session.home);
-    let conf = match Ini::load_from_file(&path) {
-        Ok(conf) => conf,
-        Err(ini::Error::Io(err)) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
+    let path = Path::new(&session.home).join(".config/kscreenlockerrc");
+    let Some(content) = read_config(&path)? else {
+        return Ok(None);
     };
+    let conf = Ini::load_from_str(&content)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
     let daemon = conf.section(Some("Daemon"));
     // KDE defaults Autolock and RequirePassword to true when absent from the file
     let autolock = daemon
@@ -340,11 +344,9 @@ fn check_xscreensaver(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "xscreensaver")? {
         return Ok(None);
     }
-    let path = format!("{}/.xscreensaver", session.home);
-    let content = match std::fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
+    let path = Path::new(&session.home).join(".xscreensaver");
+    let Some(content) = read_config(&path)? else {
+        return Ok(None);
     };
     let enabled = content
         .lines()
@@ -410,7 +412,8 @@ fn check_swaylock(session: &UserSession) -> Result<Option<Finding>> {
     for proc in &procs {
         let config_path = option_value(&proc.args, &["-C"])
             .unwrap_or_else(|| format!("{}/swayidle/config", config_home(session, proc)));
-        let mut tokens: Vec<String> = read_optional(&config_path)?
+        let mut tokens: Vec<String> = read_config(Path::new(&config_path))?
+            .unwrap_or_default()
             .lines()
             .flat_map(shell_words)
             .collect();
@@ -494,7 +497,9 @@ fn check_hypridle(session: &UserSession) -> Result<Option<Finding>> {
     for proc in &procs {
         let path = option_value(&proc.args, &["-c", "--config"])
             .unwrap_or_else(|| format!("{}/hypr/hypridle.conf", config_home(session, proc)));
-        if let Some(secs) = hypridle_lock_timeout(&read_optional(&path)?) {
+        if let Some(secs) =
+            hypridle_lock_timeout(&read_config(Path::new(&path))?.unwrap_or_default())
+        {
             timeout_secs = Some(timeout_secs.map_or(secs, |b| b.min(secs)));
         }
     }
@@ -652,13 +657,38 @@ fn option_value(args: &[String], names: &[&str]) -> Option<String> {
     })
 }
 
-/// Reads `path`, treating a missing file as empty.
-fn read_optional(path: &str) -> Result<String> {
-    match std::fs::read_to_string(path) {
-        Ok(content) => Ok(content),
-        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(String::new()),
-        Err(err) => Err(err).with_context(|| format!("failed to read {path}")),
+/// Largest config file [`read_config`] will read.
+const MAX_CONFIG_BYTES: u64 = 1 << 20;
+
+/// Reads a user-controlled config file, returning `None` if it is missing.
+/// This runs as root, so only regular files of at most [`MAX_CONFIG_BYTES`]
+/// are read: a FIFO, device or huge file could otherwise hang the check or
+/// exhaust memory. The file is opened non-blocking so that opening a FIFO
+/// doesn't wait for a writer.
+fn read_config(path: &Path) -> Result<Option<String>> {
+    let file = match File::options()
+        .read(true)
+        .custom_flags(OFlag::O_NONBLOCK.bits())
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err).with_context(|| format!("failed to open {}", path.display())),
+    };
+    let metadata = file
+        .metadata()
+        .with_context(|| format!("failed to stat {}", path.display()))?;
+    if !metadata.is_file() {
+        bail!("{} is not a regular file", path.display());
     }
+    let mut content = Vec::new();
+    file.take(MAX_CONFIG_BYTES + 1)
+        .read_to_end(&mut content)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+    if content.len() as u64 > MAX_CONFIG_BYTES {
+        bail!("{} is larger than {MAX_CONFIG_BYTES} bytes", path.display());
+    }
+    Ok(Some(String::from_utf8_lossy(&content).into_owned()))
 }
 
 /// Returns whether `uid` has a process named `name` running, using `pgrep
@@ -779,6 +809,26 @@ mod tests {
         assert!(!r.enabled);
         assert_eq!(r.method, None);
         assert!(r.details.unwrap().contains("oops"));
+    }
+
+    #[test]
+    fn config_files() {
+        let dir = std::env::temp_dir().join(format!("sadmin-screen-lock-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("config");
+        std::fs::write(&file, "timeout 300 swaylock").unwrap();
+        assert_eq!(
+            read_config(&file).unwrap().as_deref(),
+            Some("timeout 300 swaylock")
+        );
+        assert_eq!(read_config(&dir.join("missing")).unwrap(), None);
+        assert!(read_config(&dir).is_err());
+        let fifo = dir.join("fifo");
+        nix::unistd::mkfifo(&fifo, nix::sys::stat::Mode::S_IRWXU).unwrap();
+        assert!(read_config(&fifo).is_err());
+        std::fs::write(&file, vec![b'x'; MAX_CONFIG_BYTES as usize + 1]).unwrap();
+        assert!(read_config(&file).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
