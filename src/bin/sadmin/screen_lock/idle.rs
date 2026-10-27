@@ -93,7 +93,7 @@ impl SwayidleEvents {
 /// first existing one of its default locations.
 fn swayidle_config(session: &UserSession, proc: &UserProcess) -> Result<Option<String>> {
     if let Some(path) = option_value(&proc.args, &["-C"]) {
-        return read_config(Path::new(&path));
+        return read_config(&proc.resolve(&path));
     }
     let candidates = [
         config_home(session, proc).join("swayidle/config"),
@@ -156,7 +156,7 @@ pub(super) fn check_hypridle(session: &UserSession) -> Result<Option<Finding>> {
     let mut timeout_secs: Option<i64> = None;
     for proc in &procs {
         let path = match option_value(&proc.args, &["-c", "--config"]) {
-            Some(path) => PathBuf::from(path),
+            Some(path) => proc.resolve(&path),
             None => config_home(session, proc).join("hypr/hypridle.conf"),
         };
         if let Some(secs) = hypridle_lock_timeout(&read_config(&path)?.unwrap_or_default()) {
@@ -362,10 +362,24 @@ fn basename(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
-/// A running process's argv and environment, read from `/proc`.
+/// A running process's pid, argv and environment, read from `/proc`.
 struct UserProcess {
+    pid: u32,
     args: Vec<String>,
     env: Vec<(String, String)>,
+}
+
+impl UserProcess {
+    /// Resolves `path` as the process would, i.e. relative paths against
+    /// its working directory.
+    fn resolve(&self, path: &str) -> PathBuf {
+        resolve_path(Path::new(&format!("/proc/{}/cwd", self.pid)), path)
+    }
+}
+
+/// `path`, made absolute relative to `cwd` if it isn't already.
+fn resolve_path(cwd: &Path, path: &str) -> PathBuf {
+    cwd.join(path)
 }
 
 /// Lists `uid`'s processes named exactly `name`. Processes that exit or
@@ -385,12 +399,13 @@ fn user_processes(uid: u32, name: &str) -> Result<Vec<UserProcess>> {
     Ok(String::from_utf8_lossy(&output.stdout)
         .split_whitespace()
         .filter_map(|pid| {
+            let pid: u32 = pid.parse().ok()?;
             let args = split(std::fs::read(format!("/proc/{pid}/cmdline")).ok()?);
             let env = split(std::fs::read(format!("/proc/{pid}/environ")).ok()?)
                 .into_iter()
                 .filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.into(), v.into())))
                 .collect();
-            Some(UserProcess { args, env })
+            Some(UserProcess { pid, args, env })
         })
         .collect())
 }
@@ -400,7 +415,7 @@ fn config_home(session: &UserSession, proc: &UserProcess) -> PathBuf {
     proc.env
         .iter()
         .find(|(k, v)| k == "XDG_CONFIG_HOME" && !v.is_empty())
-        .map(|(_, v)| PathBuf::from(v))
+        .map(|(_, v)| proc.resolve(v))
         .unwrap_or_else(|| Path::new(&session.home).join(".config"))
 }
 
@@ -580,6 +595,16 @@ listener {
         ] {
             assert_eq!(action(cmd), Action::Other, "{cmd}");
         }
+    }
+
+    #[test]
+    fn paths() {
+        let cwd = Path::new("/proc/42/cwd");
+        assert_eq!(
+            resolve_path(cwd, "idle.conf"),
+            Path::new("/proc/42/cwd/idle.conf")
+        );
+        assert_eq!(resolve_path(cwd, "/etc/idle"), Path::new("/etc/idle"));
     }
 
     #[test]
