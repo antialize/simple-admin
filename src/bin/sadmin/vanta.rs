@@ -187,8 +187,7 @@ pub fn install_service(args: InstallServiceArgs) -> Result<()> {
 Description=SimpleAdmin Vanta compliance scan
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=1d
+OnCalendar=daily
 RandomizedDelaySec=1h
 Persistent=true
 
