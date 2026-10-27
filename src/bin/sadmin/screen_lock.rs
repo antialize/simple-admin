@@ -76,9 +76,18 @@ pub fn check_screen_lock() -> Result<ScreenLockResult> {
     })
 }
 
-type ScreenLockProbe = fn(&UserSession) -> Result<Option<ScreenLockResult>>;
+/// What a probe learned about one lock mechanism it found running.
+struct Finding {
+    method: &'static str,
+    locks: bool,
+    timeout_ms: Option<i64>,
+    details: String,
+}
 
-/// Runs the desktop-specific probes applicable to a single user's session.
+type ScreenLockProbe = fn(&UserSession) -> Result<Option<Finding>>;
+
+/// Runs every desktop-specific probe applicable to a single user's session
+/// and combines what they found.
 fn check_session(session: &UserSession) -> ScreenLockResult {
     let mut candidates: Vec<ScreenLockProbe> = vec![check_gnome, check_kde];
     match session.session_type.as_str() {
@@ -93,27 +102,49 @@ fn check_session(session: &UserSession) -> ScreenLockResult {
         _ => {}
     }
 
+    let mut findings = Vec::new();
     let mut notes = Vec::new();
     for check in candidates {
         match check(session) {
-            Ok(Some(result)) => return result,
+            Ok(Some(finding)) => findings.push(finding),
             Ok(None) => {}
             Err(err) => notes.push(format!("{err:#}")),
         }
     }
+    combine(&session.session_type, findings, notes)
+}
 
-    notes.insert(
-        0,
-        format!(
-            "no supported screen lock mechanism detected (session type: {})",
-            session.session_type
-        ),
-    );
+/// The session locks if any mechanism found locks; the reported timeout is
+/// the shortest among those. Without a locking mechanism, method and
+/// timeout describe whatever was found instead.
+fn combine(session_type: &str, findings: Vec<Finding>, notes: Vec<String>) -> ScreenLockResult {
+    let enabled = findings.iter().any(|f| f.locks);
+    let relevant: Vec<&Finding> = findings.iter().filter(|f| f.locks || !enabled).collect();
+    let mut details: Vec<String> = findings
+        .iter()
+        .map(|f| format!("{}: {}", f.method, f.details))
+        .collect();
+    if findings.is_empty() {
+        details.push(format!(
+            "no supported screen lock mechanism detected (session type: {session_type})"
+        ));
+    }
+    details.extend(notes);
     ScreenLockResult {
-        enabled: false,
-        method: None,
-        details: Some(notes.join("; ")),
-        timeout_ms: None,
+        enabled,
+        method: if relevant.is_empty() {
+            None
+        } else {
+            Some(
+                relevant
+                    .iter()
+                    .map(|f| f.method)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+        },
+        details: Some(details.join("; ")),
+        timeout_ms: relevant.iter().filter_map(|f| f.timeout_ms).min(),
     }
 }
 
@@ -195,7 +226,7 @@ fn active_graphical_sessions() -> Result<Vec<UserSession>> {
     Ok(sessions)
 }
 
-fn check_gnome(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_gnome(session: &UserSession) -> Result<Option<Finding>> {
     // gsettings returns compiled-in schema defaults even when no GNOME
     // session is running (e.g. on KDE with gnome schemas installed), so
     // require an actual GNOME session process before trusting its output.
@@ -244,11 +275,11 @@ fn check_gnome(session: &UserSession) -> Result<Option<ScreenLockResult>> {
         _ => None,
     };
 
-    Ok(Some(ScreenLockResult {
-        enabled,
-        method: Some("gnome-screensaver".to_string()),
-        details: Some(format!("lock-enabled={}", text)),
+    Ok(Some(Finding {
+        method: "gnome-screensaver",
+        locks: enabled,
         timeout_ms,
+        details: format!("lock-enabled={text}"),
     }))
 }
 
@@ -268,7 +299,7 @@ fn gsettings_cmd<const N: usize>(session: &UserSession, args: [&str; N]) -> Comm
     cmd
 }
 
-fn check_kde(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_kde(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "plasmashell")? {
         return Ok(None);
     }
@@ -295,17 +326,17 @@ fn check_kde(session: &UserSession) -> Result<Option<ScreenLockResult>> {
         .and_then(|s| s.get("Timeout"))
         .and_then(|v| v.trim().parse::<i64>().ok())
         .map(|mins| mins * 60 * 1000);
-    Ok(Some(ScreenLockResult {
-        enabled,
-        method: Some("kscreenlocker".to_string()),
-        details: Some(format!(
-            "plasmashell running, Autolock={autolock}, RequirePassword={require_password}"
-        )),
+    Ok(Some(Finding {
+        method: "kscreenlocker",
+        locks: enabled,
         timeout_ms,
+        details: format!(
+            "plasmashell running, Autolock={autolock}, RequirePassword={require_password}"
+        ),
     }))
 }
 
-fn check_xscreensaver(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_xscreensaver(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "xscreensaver")? {
         return Ok(None);
     }
@@ -328,15 +359,15 @@ fn check_xscreensaver(session: &UserSession) -> Result<Option<ScreenLockResult>>
         let v = l.trim().strip_prefix("timeout:")?.trim();
         parse_hmmss(v)
     });
-    Ok(Some(ScreenLockResult {
-        enabled,
-        method: Some("xscreensaver".to_string()),
-        details: Some(format!("xscreensaver running, lock={enabled}")),
+    Ok(Some(Finding {
+        method: "xscreensaver",
+        locks: enabled,
         timeout_ms,
+        details: format!("xscreensaver running, lock={enabled}"),
     }))
 }
 
-fn check_light_locker(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_light_locker(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "light-locker")? {
         return Ok(None);
     }
@@ -360,15 +391,15 @@ fn check_light_locker(session: &UserSession) -> Result<Option<ScreenLockResult>>
                     .map(|s| s * 1000)
             })
         });
-    Ok(Some(ScreenLockResult {
-        enabled: true,
-        method: Some("light-locker".to_string()),
-        details: Some("light-locker process running".to_string()),
+    Ok(Some(Finding {
+        method: "light-locker",
+        locks: true,
         timeout_ms,
+        details: "light-locker process running".to_string(),
     }))
 }
 
-fn check_swaylock(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_swaylock(session: &UserSession) -> Result<Option<Finding>> {
     let procs = user_processes(session.uid, "swayidle")?;
     if procs.is_empty() {
         return Ok(None);
@@ -388,16 +419,25 @@ fn check_swaylock(session: &UserSession) -> Result<Option<ScreenLockResult>> {
             timeout_secs = Some(timeout_secs.map_or(secs, |b| b.min(secs)));
         }
     }
-    let timeout_ms = timeout_secs.map(|s| s * 1000);
-    Ok(Some(ScreenLockResult {
-        enabled: timeout_ms.is_some(),
-        method: Some("swaylock/swayidle".to_string()),
-        details: Some(format!(
-            "swayidle running, locking timeout found={}",
-            timeout_ms.is_some()
-        )),
-        timeout_ms,
-    }))
+    Ok(Some(lock_daemon_finding(
+        "swaylock/swayidle",
+        "swayidle",
+        timeout_secs,
+    )))
+}
+
+/// The finding for an idle daemon whose configuration locks after
+/// `timeout_secs`, if a locking command was recognized at all.
+fn lock_daemon_finding(method: &'static str, daemon: &str, timeout_secs: Option<i64>) -> Finding {
+    Finding {
+        method,
+        locks: timeout_secs.is_some(),
+        timeout_ms: timeout_secs.map(|s| s * 1000),
+        details: match timeout_secs {
+            Some(secs) => format!("{daemon} running, locks after {secs}s"),
+            None => format!("{daemon} running, no recognized locking command"),
+        },
+    }
 }
 
 /// Returns the shortest swayidle `timeout <secs> <cmd>` whose command runs
@@ -445,28 +485,24 @@ fn runs(cmd: &str, program: &str) -> bool {
     })
 }
 
-fn check_hypridle(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_hypridle(session: &UserSession) -> Result<Option<Finding>> {
     let procs = user_processes(session.uid, "hypridle")?;
-    let Some(proc) = procs.first() else {
+    if procs.is_empty() {
         return Ok(None);
-    };
-    let path = option_value(&proc.args, &["-c", "--config"])
-        .unwrap_or_else(|| format!("{}/hypr/hypridle.conf", config_home(session, proc)));
-    let content = match std::fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
-    };
-    let lock_timeout_secs = hypridle_lock_timeout(&content);
-    Ok(Some(ScreenLockResult {
-        enabled: lock_timeout_secs.is_some(),
-        method: Some("hyprlock/hypridle".to_string()),
-        details: Some(format!(
-            "hypridle running, locking timeout found={}",
-            lock_timeout_secs.is_some()
-        )),
-        timeout_ms: lock_timeout_secs.map(|s| s * 1000),
-    }))
+    }
+    let mut timeout_secs: Option<i64> = None;
+    for proc in &procs {
+        let path = option_value(&proc.args, &["-c", "--config"])
+            .unwrap_or_else(|| format!("{}/hypr/hypridle.conf", config_home(session, proc)));
+        if let Some(secs) = hypridle_lock_timeout(&read_optional(&path)?) {
+            timeout_secs = Some(timeout_secs.map_or(secs, |b| b.min(secs)));
+        }
+    }
+    Ok(Some(lock_daemon_finding(
+        "hyprlock/hypridle",
+        "hypridle",
+        timeout_secs,
+    )))
 }
 
 /// Returns the shortest `timeout` of a hypridle `listener { }` block whose
@@ -694,6 +730,55 @@ mod tests {
         assert_eq!(hypridle_lock_timeout(no_lock_cmd), None);
         let direct = "listener {\n timeout = 200\n on-timeout = hyprlock\n}";
         assert_eq!(hypridle_lock_timeout(direct), Some(200));
+    }
+
+    fn finding(method: &'static str, locks: bool, timeout_ms: Option<i64>) -> Finding {
+        Finding {
+            method,
+            locks,
+            timeout_ms,
+            details: String::new(),
+        }
+    }
+
+    #[test]
+    fn combined_findings() {
+        let r = combine(
+            "wayland",
+            vec![
+                finding("hyprlock/hypridle", false, None),
+                finding("swaylock/swayidle", true, Some(300_000)),
+            ],
+            vec![],
+        );
+        assert!(r.enabled);
+        assert_eq!(r.method.as_deref(), Some("swaylock/swayidle"));
+        assert_eq!(r.timeout_ms, Some(300_000));
+
+        let r = combine(
+            "wayland",
+            vec![
+                finding("a", true, Some(600_000)),
+                finding("b", true, Some(300_000)),
+                finding("c", false, Some(60_000)),
+            ],
+            vec![],
+        );
+        assert_eq!(r.timeout_ms, Some(300_000));
+        assert_eq!(r.method.as_deref(), Some("a, b"));
+
+        let r = combine(
+            "x11",
+            vec![finding("gnome-screensaver", false, Some(1))],
+            vec![],
+        );
+        assert!(!r.enabled);
+        assert_eq!(r.method.as_deref(), Some("gnome-screensaver"));
+
+        let r = combine("x11", vec![], vec!["oops".into()]);
+        assert!(!r.enabled);
+        assert_eq!(r.method, None);
+        assert!(r.details.unwrap().contains("oops"));
     }
 
     #[test]
