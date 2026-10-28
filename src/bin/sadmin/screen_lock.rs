@@ -1,12 +1,18 @@
-use std::io;
+use std::fs::File;
+use std::io::{self, Read};
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::process::CommandExt;
+use std::path::Path;
 use std::process::Command;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use ini::Ini;
+use nix::fcntl::OFlag;
 
 use crate::command::try_run;
 use crate::report::ScreenLockResult;
+
+mod idle;
 
 /// An active, local graphical login session for a real user, resolved via
 /// `loginctl`. This is invoked as root from a systemd timer, which has no
@@ -76,9 +82,18 @@ pub fn check_screen_lock() -> Result<ScreenLockResult> {
     })
 }
 
-type ScreenLockProbe = fn(&UserSession) -> Result<Option<ScreenLockResult>>;
+/// What a probe learned about one lock mechanism it found running.
+struct Finding {
+    method: &'static str,
+    locks: bool,
+    timeout_ms: Option<i64>,
+    details: String,
+}
 
-/// Runs the desktop-specific probes applicable to a single user's session.
+type ScreenLockProbe = fn(&UserSession) -> Result<Option<Finding>>;
+
+/// Runs every desktop-specific probe applicable to a single user's session
+/// and combines what they found.
 fn check_session(session: &UserSession) -> ScreenLockResult {
     let mut candidates: Vec<ScreenLockProbe> = vec![check_gnome, check_kde];
     match session.session_type.as_str() {
@@ -86,31 +101,56 @@ fn check_session(session: &UserSession) -> ScreenLockResult {
             candidates.push(check_xscreensaver);
             candidates.push(check_light_locker);
         }
-        "wayland" => candidates.push(check_swaylock),
+        "wayland" => {
+            candidates.push(idle::check_hypridle);
+            candidates.push(idle::check_swaylock);
+        }
         _ => {}
     }
 
+    let mut findings = Vec::new();
     let mut notes = Vec::new();
     for check in candidates {
         match check(session) {
-            Ok(Some(result)) => return result,
+            Ok(Some(finding)) => findings.push(finding),
             Ok(None) => {}
             Err(err) => notes.push(format!("{err:#}")),
         }
     }
+    combine(&session.session_type, findings, notes)
+}
 
-    notes.insert(
-        0,
-        format!(
-            "no supported screen lock mechanism detected (session type: {})",
-            session.session_type
-        ),
-    );
+/// The session locks if any mechanism found locks; the reported timeout is
+/// the shortest among those. Without a locking mechanism, method and
+/// timeout describe whatever was found instead.
+fn combine(session_type: &str, findings: Vec<Finding>, notes: Vec<String>) -> ScreenLockResult {
+    let enabled = findings.iter().any(|f| f.locks);
+    let relevant: Vec<&Finding> = findings.iter().filter(|f| f.locks || !enabled).collect();
+    let mut details: Vec<String> = findings
+        .iter()
+        .map(|f| format!("{}: {}", f.method, f.details))
+        .collect();
+    if findings.is_empty() {
+        details.push(format!(
+            "no supported screen lock mechanism detected (session type: {session_type})"
+        ));
+    }
+    details.extend(notes);
     ScreenLockResult {
-        enabled: false,
-        method: None,
-        details: Some(notes.join("; ")),
-        timeout_ms: None,
+        enabled,
+        method: if relevant.is_empty() {
+            None
+        } else {
+            Some(
+                relevant
+                    .iter()
+                    .map(|f| f.method)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+        },
+        details: Some(details.join("; ")),
+        timeout_ms: relevant.iter().filter_map(|f| f.timeout_ms).min(),
     }
 }
 
@@ -192,7 +232,7 @@ fn active_graphical_sessions() -> Result<Vec<UserSession>> {
     Ok(sessions)
 }
 
-fn check_gnome(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_gnome(session: &UserSession) -> Result<Option<Finding>> {
     // gsettings returns compiled-in schema defaults even when no GNOME
     // session is running (e.g. on KDE with gnome schemas installed), so
     // require an actual GNOME session process before trusting its output.
@@ -241,11 +281,11 @@ fn check_gnome(session: &UserSession) -> Result<Option<ScreenLockResult>> {
         _ => None,
     };
 
-    Ok(Some(ScreenLockResult {
-        enabled,
-        method: Some("gnome-screensaver".to_string()),
-        details: Some(format!("lock-enabled={}", text)),
+    Ok(Some(Finding {
+        method: "gnome-screensaver",
+        locks: enabled,
         timeout_ms,
+        details: format!("lock-enabled={text}"),
     }))
 }
 
@@ -265,16 +305,16 @@ fn gsettings_cmd<const N: usize>(session: &UserSession, args: [&str; N]) -> Comm
     cmd
 }
 
-fn check_kde(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_kde(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "plasmashell")? {
         return Ok(None);
     }
-    let path = format!("{}/.config/kscreenlockerrc", session.home);
-    let conf = match Ini::load_from_file(&path) {
-        Ok(conf) => conf,
-        Err(ini::Error::Io(err)) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
+    let path = Path::new(&session.home).join(".config/kscreenlockerrc");
+    let Some(content) = read_config(&path)? else {
+        return Ok(None);
     };
+    let conf = Ini::load_from_str(&content)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
     let daemon = conf.section(Some("Daemon"));
     // KDE defaults Autolock and RequirePassword to true when absent from the file
     let autolock = daemon
@@ -292,25 +332,23 @@ fn check_kde(session: &UserSession) -> Result<Option<ScreenLockResult>> {
         .and_then(|s| s.get("Timeout"))
         .and_then(|v| v.trim().parse::<i64>().ok())
         .map(|mins| mins * 60 * 1000);
-    Ok(Some(ScreenLockResult {
-        enabled,
-        method: Some("kscreenlocker".to_string()),
-        details: Some(format!(
-            "plasmashell running, Autolock={autolock}, RequirePassword={require_password}"
-        )),
+    Ok(Some(Finding {
+        method: "kscreenlocker",
+        locks: enabled,
         timeout_ms,
+        details: format!(
+            "plasmashell running, Autolock={autolock}, RequirePassword={require_password}"
+        ),
     }))
 }
 
-fn check_xscreensaver(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_xscreensaver(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "xscreensaver")? {
         return Ok(None);
     }
-    let path = format!("{}/.xscreensaver", session.home);
-    let content = match std::fs::read_to_string(&path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err).with_context(|| format!("failed to read {path}")),
+    let path = Path::new(&session.home).join(".xscreensaver");
+    let Some(content) = read_config(&path)? else {
+        return Ok(None);
     };
     let enabled = content
         .lines()
@@ -325,15 +363,15 @@ fn check_xscreensaver(session: &UserSession) -> Result<Option<ScreenLockResult>>
         let v = l.trim().strip_prefix("timeout:")?.trim();
         parse_hmmss(v)
     });
-    Ok(Some(ScreenLockResult {
-        enabled,
-        method: Some("xscreensaver".to_string()),
-        details: Some(format!("xscreensaver running, lock={enabled}")),
+    Ok(Some(Finding {
+        method: "xscreensaver",
+        locks: enabled,
         timeout_ms,
+        details: format!("xscreensaver running, lock={enabled}"),
     }))
 }
 
-fn check_light_locker(session: &UserSession) -> Result<Option<ScreenLockResult>> {
+fn check_light_locker(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "light-locker")? {
         return Ok(None);
     }
@@ -357,52 +395,55 @@ fn check_light_locker(session: &UserSession) -> Result<Option<ScreenLockResult>>
                     .map(|s| s * 1000)
             })
         });
-    Ok(Some(ScreenLockResult {
-        enabled: true,
-        method: Some("light-locker".to_string()),
-        details: Some("light-locker process running".to_string()),
+    Ok(Some(Finding {
+        method: "light-locker",
+        locks: true,
         timeout_ms,
+        details: "light-locker process running".to_string(),
     }))
 }
 
-fn check_swaylock(session: &UserSession) -> Result<Option<ScreenLockResult>> {
-    if !process_running(session.uid, "swayidle")? {
-        return Ok(None);
+/// Largest config file [`read_config`] will read.
+const MAX_CONFIG_BYTES: u64 = 1 << 20;
+
+/// Reads a user-controlled config file, returning `None` if it is missing.
+/// This runs as root, so only regular files of at most [`MAX_CONFIG_BYTES`]
+/// are read: a FIFO, device or huge file could otherwise hang the check or
+/// exhaust memory. The file is opened non-blocking so that opening a FIFO
+/// doesn't wait for a writer.
+fn read_config(path: &Path) -> Result<Option<String>> {
+    let file = match File::options()
+        .read(true)
+        .custom_flags(OFlag::O_NONBLOCK.bits())
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err).with_context(|| format!("failed to open {}", path.display())),
+    };
+    let metadata = file
+        .metadata()
+        .with_context(|| format!("failed to stat {}", path.display()))?;
+    if !metadata.is_file() {
+        bail!("{} is not a regular file", path.display());
     }
-    // Parse swayidle config for: timeout <secs> 'swaylock ...'
-    let config_path = format!("{}/.config/swayidle/config", session.home);
-    let timeout_ms = std::fs::read_to_string(&config_path).ok().and_then(|c| {
-        c.lines().find_map(|l| {
-            let l = l.trim();
-            if !l.starts_with("timeout ") {
-                return None;
-            }
-            // timeout <secs> '<cmd>'
-            let mut parts = l.splitn(3, ' ');
-            let _ = parts.next(); // "timeout"
-            let secs: i64 = parts.next()?.parse().ok()?;
-            let cmd = parts.next().unwrap_or("");
-            // Only count the timeout that fires swaylock
-            if cmd.contains("swaylock") {
-                Some(secs * 1000)
-            } else {
-                None
-            }
-        })
-    });
-    Ok(Some(ScreenLockResult {
-        enabled: true,
-        method: Some("swaylock/swayidle".to_string()),
-        details: Some("swayidle process running".to_string()),
-        timeout_ms,
-    }))
+    let mut content = Vec::new();
+    file.take(MAX_CONFIG_BYTES + 1)
+        .read_to_end(&mut content)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+    if content.len() as u64 > MAX_CONFIG_BYTES {
+        bail!("{} is larger than {MAX_CONFIG_BYTES} bytes", path.display());
+    }
+    Ok(Some(String::from_utf8_lossy(&content).into_owned()))
 }
 
-/// Returns whether `uid` has a process named `name` running, using `pgrep
-/// -u`. Missing `pgrep` itself is treated as "not running" rather than an
-/// error; other spawn failures still propagate with context.
+/// Returns whether `uid` has a process named exactly `name` running, using
+/// `pgrep -u -x`, so e.g. `gnome-shell-calendar-server` doesn't count as
+/// `gnome-shell`. Missing `pgrep` itself is treated as "not running" rather
+/// than an error; other spawn failures still propagate with context.
 fn process_running(uid: u32, name: &str) -> Result<bool> {
-    let Some(output) = try_run(Command::new("pgrep").args(["-u", &uid.to_string(), name]))? else {
+    let Some(output) = try_run(Command::new("pgrep").args(["-u", &uid.to_string(), "-x", name]))?
+    else {
         return Ok(false);
     };
     Ok(output.status.success())
@@ -419,5 +460,79 @@ fn parse_hmmss(s: &str) -> Option<i64> {
             Some((h * 3600 + m * 60 + s) * 1000)
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn finding(method: &'static str, locks: bool, timeout_ms: Option<i64>) -> Finding {
+        Finding {
+            method,
+            locks,
+            timeout_ms,
+            details: String::new(),
+        }
+    }
+
+    #[test]
+    fn combined_findings() {
+        let r = combine(
+            "wayland",
+            vec![
+                finding("hyprlock/hypridle", false, None),
+                finding("swaylock/swayidle", true, Some(300_000)),
+            ],
+            vec![],
+        );
+        assert!(r.enabled);
+        assert_eq!(r.method.as_deref(), Some("swaylock/swayidle"));
+        assert_eq!(r.timeout_ms, Some(300_000));
+
+        let r = combine(
+            "wayland",
+            vec![
+                finding("a", true, Some(600_000)),
+                finding("b", true, Some(300_000)),
+                finding("c", false, Some(60_000)),
+            ],
+            vec![],
+        );
+        assert_eq!(r.timeout_ms, Some(300_000));
+        assert_eq!(r.method.as_deref(), Some("a, b"));
+
+        let r = combine(
+            "x11",
+            vec![finding("gnome-screensaver", false, Some(1))],
+            vec![],
+        );
+        assert!(!r.enabled);
+        assert_eq!(r.method.as_deref(), Some("gnome-screensaver"));
+
+        let r = combine("x11", vec![], vec!["oops".into()]);
+        assert!(!r.enabled);
+        assert_eq!(r.method, None);
+        assert!(r.details.unwrap().contains("oops"));
+    }
+
+    #[test]
+    fn config_files() {
+        let dir = std::env::temp_dir().join(format!("sadmin-screen-lock-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("config");
+        std::fs::write(&file, "timeout 300 swaylock").unwrap();
+        assert_eq!(
+            read_config(&file).unwrap().as_deref(),
+            Some("timeout 300 swaylock")
+        );
+        assert_eq!(read_config(&dir.join("missing")).unwrap(), None);
+        assert!(read_config(&dir).is_err());
+        let fifo = dir.join("fifo");
+        nix::unistd::mkfifo(&fifo, nix::sys::stat::Mode::S_IRWXU).unwrap();
+        assert!(read_config(&fifo).is_err());
+        std::fs::write(&file, vec![b'x'; MAX_CONFIG_BYTES as usize + 1]).unwrap();
+        assert!(read_config(&file).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
