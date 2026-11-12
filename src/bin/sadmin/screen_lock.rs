@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::unix::fs::OpenOptionsExt;
@@ -100,6 +101,7 @@ fn check_session(session: &UserSession) -> ScreenLockResult {
         "x11" => {
             candidates.push(check_xscreensaver);
             candidates.push(check_light_locker);
+            candidates.push(check_xss_lock);
         }
         "wayland" => {
             candidates.push(idle::check_hypridle);
@@ -375,31 +377,42 @@ fn check_light_locker(session: &UserSession) -> Result<Option<Finding>> {
     if !process_running(session.uid, "light-locker")? {
         return Ok(None);
     }
-    // light-locker fires when X screensaver idles; read timeout from `xset
-    // q`, run as the user since it queries their X display.
-    let mut xset_cmd = Command::new("xset");
-    xset_cmd
-        .arg("q")
-        .uid(session.uid)
-        .gid(session.gid)
-        .env("HOME", &session.home);
-    let timeout_ms = try_run(&mut xset_cmd)?
-        .filter(|o| o.status.success())
-        .and_then(|o| {
-            let text = String::from_utf8_lossy(&o.stdout).into_owned();
-            text.lines().find(|l| l.contains("timeout:")).and_then(|l| {
-                l.split_whitespace()
-                    .skip_while(|w| *w != "timeout:")
-                    .nth(1)
-                    .and_then(|v| v.parse::<i64>().ok())
-                    .map(|s| s * 1000)
-            })
-        });
+    // light-locker fires when X screensaver idles
+    let timeout_ms = try_get_x_screensaver_timeout_ms(session);
     Ok(Some(Finding {
         method: "light-locker",
         locks: true,
         timeout_ms,
         details: "light-locker process running".to_string(),
+    }))
+}
+
+fn check_xss_lock(session: &UserSession) -> Result<Option<Finding>> {
+    if !process_running(session.uid, "xss-lock")? {
+        return Ok(None);
+    }
+    // xss-lock fires when X screensaver idles
+    let timeout_ms = try_get_x_screensaver_timeout_ms(session);
+
+    // Find the inner locker program
+    let mut xsslock_args_cmd = Command::new("pgrep");
+    xsslock_args_cmd.args(["-u", &session.uid.to_string(), "-a", "xss-lock"]);
+    let xsslock_args = try_run(&mut xsslock_args_cmd)?
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let text = String::from_utf8_lossy(&o.stdout).into_owned();
+            let line = text.lines().next()?;
+            let (_pid, xsslock_cmd) = line.split_once(' ')?;
+            let xsslock_args = xsslock_cmd.strip_prefix("xss-lock ").unwrap_or(xsslock_cmd);
+            Some(Cow::from(xsslock_args.to_string()))
+        })
+        .unwrap_or(Cow::Borrowed("<unknown>"));
+
+    Ok(Some(Finding {
+        method: "xss-lock",
+        locks: true,
+        timeout_ms,
+        details: format!("xss-lock process running with args: {xsslock_args}"),
     }))
 }
 
@@ -461,6 +474,30 @@ fn parse_hmmss(s: &str) -> Option<i64> {
         }
         _ => None,
     }
+}
+
+fn try_get_x_screensaver_timeout_ms(session: &UserSession) -> Option<i64> {
+    // read timeout from `xset q`, run as the user since it queries
+    // their X display.
+    let mut xset_cmd = Command::new("xset");
+    xset_cmd
+        .arg("q")
+        .uid(session.uid)
+        .gid(session.gid)
+        .env("HOME", &session.home);
+    try_run(&mut xset_cmd)
+        .ok()?
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let text = String::from_utf8_lossy(&o.stdout).into_owned();
+            text.lines().find(|l| l.contains("timeout:")).and_then(|l| {
+                l.split_whitespace()
+                    .skip_while(|w| *w != "timeout:")
+                    .nth(1)
+                    .and_then(|v| v.parse::<i64>().ok())
+                    .map(|s| s * 1000)
+            })
+        })
 }
 
 #[cfg(test)]
