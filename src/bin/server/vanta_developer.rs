@@ -207,8 +207,14 @@ pub async fn push_developer_machines(config: &Config, db: &sqlx::SqlitePool) -> 
 
         let collected_timestamp = truncate_to_day(row.last_contact);
 
+        let display_name = if row.username.is_empty() {
+            row.hostname.clone()
+        } else {
+            format!("{}-{}", row.username, row.hostname)
+        };
+
         resources.push(VantaDeveloperResource {
-            display_name: row.hostname.clone(),
+            display_name,
             unique_id: row.host_uuid.clone(),
             external_url: format!("https://{}/", config.hostname),
             custom_properties: VantaDeveloperProperties {
